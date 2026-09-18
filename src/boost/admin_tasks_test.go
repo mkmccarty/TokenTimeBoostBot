@@ -87,3 +87,43 @@ func TestThematicComplaintsGenerator(t *testing.T) {
 		t.Errorf("generator failed to execute, called=%v, len=%d", called, len(res))
 	}
 }
+
+func TestPeriodicalsRefresher(t *testing.T) {
+	orig := periodicalsRefresher
+	defer func() { periodicalsRefresher = orig }()
+
+	called := false
+	SetPeriodicalsRefresher(func(client dc.Client) bool {
+		called = true
+		return true
+	})
+
+	if periodicalsRefresher == nil {
+		t.Fatal("expected periodicalsRefresher to be set")
+	}
+	res := periodicalsRefresher(nil)
+	if !called || !res {
+		t.Errorf("refresher failed to execute, called=%v, res=%v", called, res)
+	}
+}
+
+func TestAdminTaskListContainsNewTasks(t *testing.T) {
+	expectedTasks := map[string]bool{
+		"cycle-encryption-key": false,
+		"reload-emojis":        false,
+		"refresh-periodicals":  false,
+		"check-colleggtible":   false,
+	}
+
+	for _, task := range adminTaskList {
+		if _, ok := expectedTasks[task.ID]; ok {
+			expectedTasks[task.ID] = true
+		}
+	}
+
+	for id, found := range expectedTasks {
+		if !found {
+			t.Errorf("expected adminTaskList to contain %q, but it was missing", id)
+		}
+	}
+}

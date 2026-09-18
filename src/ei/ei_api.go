@@ -181,8 +181,9 @@ func GetContractArchiveFromAPI(eggIncID string, discordID string, forceRefresh b
 	return archive, cachedData
 }
 
-// GetConfigFromAPI will download the config data from the Egg Inc API and write it to ei-config.json
-func GetConfigFromAPI(client dc.Client) bool {
+// RefreshConfigAndCheckNewHatchery will download the config data from the Egg Inc API,
+// write it to ttbb-data/ei-config.json, and check if any custom hatchery was added/changed.
+func RefreshConfigAndCheckNewHatchery(client dc.Client) (hasNewHatchery bool, diff string, err error) {
 	reqURL := "https://www.auxbrain.com/ei/get_config"
 
 	clientVersion := DefaultClientVersion
@@ -201,70 +202,65 @@ func GetConfigFromAPI(client dc.Client) bool {
 	}
 	response, _ := APICall(reqURL, &getConfigRequest, false, 0, "", true)
 	if response == nil {
-		log.Print("APICall returned nil response")
-		return false
+		return false, "", fmt.Errorf("APICall returned nil response")
 	}
 
 	configResponse := &ConfigResponse{}
 	opts := proto.UnmarshalOptions{
 		DiscardUnknown: true,
 	}
-	err := opts.Unmarshal(response, configResponse)
-	if err != nil {
-		log.Print(err)
-		return false
+	if unmarshalErr := opts.Unmarshal(response, configResponse); unmarshalErr != nil {
+		return false, "", fmt.Errorf("failed to unmarshal config response: %w", unmarshalErr)
 	}
 
-	// Write the config as a JSON file in ttbb-data/ei-config.json for debugging purposes
-	go func() {
-		jsonData, err := json.MarshalIndent(configResponse, "", "  ")
-		if err != nil {
-			log.Printf("Failed to marshal config response: %v", err)
-			return
-		}
-		// If the file exists, compare it to the new one to avoid unnecessary writes
-		existingData, err := os.ReadFile("ttbb-data/ei-config.json")
-		if err == nil {
-			if bytes.Equal(existingData, jsonData) {
-				// No changes, skip writing
-				return
-			}
-		}
-		// Files are different, if we have an existing file, I want a diff
-		if len(existingData) > 0 {
-			if patch, perr := jsondiff.Compare(existingData, jsonData); perr == nil {
-				if b, merr := json.MarshalIndent(patch, "", "    "); merr == nil {
-					if strings.Contains(string(b), "ei_hatchery_custom") {
-						// If the diff contains the string "ei_hatchery_custom"
+	jsonData, err := json.MarshalIndent(configResponse, "", "  ")
+	if err != nil {
+		return false, "", fmt.Errorf("failed to marshal config response: %w", err)
+	}
+
+	existingData, _ := os.ReadFile("ttbb-data/ei-config.json")
+	if len(existingData) > 0 && bytes.Equal(existingData, jsonData) {
+		return false, "", nil
+	}
+
+	if len(existingData) > 0 {
+		if patch, perr := jsondiff.Compare(existingData, jsonData); perr == nil {
+			if b, merr := json.MarshalIndent(patch, "", "    "); merr == nil {
+				diff = string(b)
+				if strings.Contains(diff, "ei_hatchery_custom") {
+					hasNewHatchery = true
+					if client != nil && config.AdminUserID != "" {
 						u, err := client.CreateUserChannel(config.AdminUserID)
-						if err != nil {
-							log.Printf("Failed to create user channel for admin: %v", err)
-							return
-						}
-						_, sendErr := client.SendMessage(u.ID, dc.Message{
-							Components: []dc.LayoutComponent{
-								dc.TextDisplay{Content: fmt.Sprintf("```diff\n%s\n```", string(b))},
-							},
-						})
-						if sendErr != nil {
-							log.Print(sendErr)
+						if err == nil {
+							_, _ = client.SendMessage(u.ID, dc.Message{
+								Components: []dc.LayoutComponent{
+									dc.TextDisplay{Content: fmt.Sprintf("```diff\n%s\n```", diff)},
+								},
+							})
 						}
 					}
-				} else {
-					log.Printf("Failed to marshal config diff; proceeding to write file: %v", merr)
 				}
 			} else {
-				log.Printf("Config diff failed; proceeding to write file: %v", perr)
+				log.Printf("Failed to marshal config diff; proceeding to write file: %v", merr)
 			}
+		} else {
+			log.Printf("Config diff failed; proceeding to write file: %v", perr)
 		}
+	}
 
-		_ = os.MkdirAll("ttbb-data", os.ModePerm)
-		err = os.WriteFile("ttbb-data/ei-config.json", jsonData, 0644)
-		if err != nil {
-			log.Printf("Failed to write config file: %v", err)
-		}
+	_ = os.MkdirAll("ttbb-data", os.ModePerm)
+	if writeErr := os.WriteFile("ttbb-data/ei-config.json", jsonData, 0644); writeErr != nil {
+		log.Printf("Failed to write config file: %v", writeErr)
+	}
+
+	return hasNewHatchery, diff, nil
+}
+
+// GetConfigFromAPI will download the config data from the Egg Inc API and write it to ei-config.json
+func GetConfigFromAPI(client dc.Client) bool {
+	go func() {
+		_, _, _ = RefreshConfigAndCheckNewHatchery(client)
 	}()
-
 	return true
 }
 

@@ -24,11 +24,20 @@ type adminTaskDef struct {
 // ThematicComplaintsGeneratorFunc generates contract-themed complaints.
 type ThematicComplaintsGeneratorFunc func(eggName string, contractName string, contractDescription string, quantity int) []string
 
+// PeriodicalsRefresherFunc triggers an update of periodicals / contracts / events from Egg Inc API.
+type PeriodicalsRefresherFunc func(client dc.Client) bool
+
 var thematicComplaintsGenerator ThematicComplaintsGeneratorFunc
+var periodicalsRefresher PeriodicalsRefresherFunc
 
 // SetThematicComplaintsGenerator configures the function used to generate complaints with LLM.
 func SetThematicComplaintsGenerator(gen ThematicComplaintsGeneratorFunc) {
 	thematicComplaintsGenerator = gen
+}
+
+// SetPeriodicalsRefresher configures the function used to refresh periodicals from API.
+func SetPeriodicalsRefresher(refresher PeriodicalsRefresherFunc) {
+	periodicalsRefresher = refresher
 }
 
 var adminTaskList = []adminTaskDef{
@@ -41,6 +50,16 @@ var adminTaskList = []adminTaskDef{
 		ID:          "reload-emojis",
 		Name:        "Reload Emojis",
 		Description: "Clear local emoji cache, re-fetch all application emojis from Discord",
+	},
+	{
+		ID:          "refresh-periodicals",
+		Name:        "Refresh Periodicals",
+		Description: "Download latest contracts and events from Egg Inc API",
+	},
+	{
+		ID:          "check-colleggtible",
+		Name:        "Check for Colleggtible",
+		Description: "Refresh ei-config.json and check periodicals if a new hatchery is found",
 	},
 }
 
@@ -199,6 +218,12 @@ func HandleAdminTasksCommand(client dc.Client, e *dc.CommandEvent) {
 		handleCycleEncryptionKeyTask(e)
 	case taskKey == "reload-emojis" || taskKey == "reload emojis" || taskKey == "reload emoji cache" || taskKey == "refresh-emojis" || taskKey == "refresh emojis":
 		handleReloadEmojisTask(client, e)
+	case taskKey == "refresh-periodicals" || taskKey == "refresh periodicals" || taskKey == "periodicals" || taskKey == "refresh-events" || taskKey == "refresh events":
+		handleRefreshPeriodicalsTask(client, e)
+	case taskKey == "check-colleggtible" || taskKey == "check for colleggtible" || taskKey == "check-for-colleggtible" ||
+		taskKey == "check-colleggtibles" || taskKey == "check for colleggtibles" || taskKey == "check-for-colleggtibles" ||
+		taskKey == "check colleggtible" || taskKey == "check colleggtibles":
+		handleCheckColleggtibleTask(client, e)
 	case isRegenComplaintsTask(taskKey):
 		handleRegenComplaintsTask(e, taskName)
 	default:
@@ -369,5 +394,64 @@ func handleReloadEmojisTask(client dc.Client, e *dc.CommandEvent) {
 		count,
 	)
 
+	_ = e.Followup(dc.Message{Content: responseMsg})
+}
+
+func handleRefreshPeriodicalsTask(client dc.Client, e *dc.CommandEvent) {
+	if periodicalsRefresher == nil {
+		_ = e.Followup(dc.Message{
+			Content: "❌ Periodicals refresher is not initialized.",
+		})
+		return
+	}
+
+	_ = periodicalsRefresher(client)
+
+	activeContracts := len(ei.GetEggIncContractsSlice())
+	responseMsg := fmt.Sprintf(
+		"## 🔄 Periodicals Refreshed Successfully\n"+
+			"- **Active Contracts in Memory**: %d\n"+
+			"- **Events & Contract Data**: Updated from Egg Inc API",
+		activeContracts,
+	)
+	_ = e.Followup(dc.Message{Content: responseMsg})
+}
+
+func handleCheckColleggtibleTask(client dc.Client, e *dc.CommandEvent) {
+	hasNewHatchery, diff, err := ei.RefreshConfigAndCheckNewHatchery(client)
+	if err != nil {
+		_ = e.Followup(dc.Message{
+			Content: fmt.Sprintf("❌ Failed to refresh Egg Inc config: %v", err),
+		})
+		return
+	}
+
+	if hasNewHatchery {
+		periodicalsMsg := "Periodicals refresher not initialized."
+		if periodicalsRefresher != nil {
+			_ = periodicalsRefresher(client)
+			periodicalsMsg = "Periodicals checked and updated with new contract data."
+		}
+
+		diffPreview := diff
+		if len(diffPreview) > 500 {
+			diffPreview = diffPreview[:500] + "\n..."
+		}
+
+		responseMsg := fmt.Sprintf(
+			"## 🥚 New Colleggtible Hatchery Found!\n"+
+				"- **Config**: `ttbb-data/ei-config.json` refreshed\n"+
+				"- **Periodicals**: %s\n\n"+
+				"**Diff:**\n```diff\n%s\n```",
+			periodicalsMsg,
+			diffPreview,
+		)
+		_ = e.Followup(dc.Message{Content: responseMsg})
+		return
+	}
+
+	responseMsg := "## 🥚 Checked for Colleggtibles\n" +
+		"- **Config**: `ttbb-data/ei-config.json` refreshed\n" +
+		"- **Status**: No new custom hatcheries found"
 	_ = e.Followup(dc.Message{Content: responseMsg})
 }

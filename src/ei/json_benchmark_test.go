@@ -36,9 +36,8 @@ func BenchmarkContracts_Unmarshal_V1(b *testing.B) {
 	data := loadFileData(b, "ttbb-data/ei-contracts.json")
 	b.SetBytes(int64(len(data)))
 	b.ReportAllocs()
-	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		var contracts []EggIncContract
 		if err := json.Unmarshal(data, &contracts); err != nil {
 			b.Fatalf("v1 unmarshal failed: %v", err)
@@ -50,9 +49,8 @@ func BenchmarkContracts_Unmarshal_V2(b *testing.B) {
 	data := loadFileData(b, "ttbb-data/ei-contracts.json")
 	b.SetBytes(int64(len(data)))
 	b.ReportAllocs()
-	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		var contracts []EggIncContract
 		if err := jsonv2.Unmarshal(data, &contracts); err != nil {
 			b.Fatalf("v2 unmarshal failed: %v", err)
@@ -67,10 +65,9 @@ func BenchmarkContracts_Marshal_V1(b *testing.B) {
 		b.Fatalf("setup failed: %v", err)
 	}
 	b.ReportAllocs()
-	b.ResetTimer()
 
 	var totalBytes int64
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		out, err := json.Marshal(contracts)
 		if err != nil {
 			b.Fatalf("v1 marshal failed: %v", err)
@@ -87,10 +84,9 @@ func BenchmarkContracts_Marshal_V2(b *testing.B) {
 		b.Fatalf("setup failed: %v", err)
 	}
 	b.ReportAllocs()
-	b.ResetTimer()
 
 	var totalBytes int64
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		out, err := jsonv2.Marshal(contracts, json.FormatDurationAsNano(true))
 		if err != nil {
 			b.Fatalf("v2 marshal failed: %v", err)
@@ -108,9 +104,8 @@ func BenchmarkEvents_Unmarshal_V1(b *testing.B) {
 	data := loadFileData(b, "ttbb-data/ei-events.json")
 	b.SetBytes(int64(len(data)))
 	b.ReportAllocs()
-	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		var events []EggEvent
 		if err := json.Unmarshal(data, &events); err != nil {
 			b.Fatalf("v1 unmarshal failed: %v", err)
@@ -122,9 +117,8 @@ func BenchmarkEvents_Unmarshal_V2(b *testing.B) {
 	data := loadFileData(b, "ttbb-data/ei-events.json")
 	b.SetBytes(int64(len(data)))
 	b.ReportAllocs()
-	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		var events []EggEvent
 		if err := jsonv2.Unmarshal(data, &events); err != nil {
 			b.Fatalf("v2 unmarshal failed: %v", err)
@@ -139,10 +133,9 @@ func BenchmarkEvents_Marshal_V1(b *testing.B) {
 		b.Fatalf("setup failed: %v", err)
 	}
 	b.ReportAllocs()
-	b.ResetTimer()
 
 	var totalBytes int64
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		out, err := json.Marshal(events)
 		if err != nil {
 			b.Fatalf("v1 marshal failed: %v", err)
@@ -159,10 +152,9 @@ func BenchmarkEvents_Marshal_V2(b *testing.B) {
 		b.Fatalf("setup failed: %v", err)
 	}
 	b.ReportAllocs()
-	b.ResetTimer()
 
 	var totalBytes int64
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		out, err := jsonv2.Marshal(events)
 		if err != nil {
 			b.Fatalf("v2 marshal failed: %v", err)
@@ -181,9 +173,8 @@ func BenchmarkArtifactsData_Unmarshal_V1(b *testing.B) {
 	data := []byte(strings.ReplaceAll(string(raw), "./data.schema.json", "./ttbb-data/data.schema.json"))
 	b.SetBytes(int64(len(data)))
 	b.ReportAllocs()
-	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		var s Store
 		if err := json.Unmarshal(data, &s); err != nil {
 			b.Fatalf("v1 unmarshal failed: %v", err)
@@ -196,9 +187,8 @@ func BenchmarkArtifactsData_Unmarshal_V2(b *testing.B) {
 	data := []byte(strings.ReplaceAll(string(raw), "./data.schema.json", "./ttbb-data/data.schema.json"))
 	b.SetBytes(int64(len(data)))
 	b.ReportAllocs()
-	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		var s Store
 		if err := jsonv2.Unmarshal(data, &s); err != nil {
 			b.Fatalf("v2 unmarshal failed: %v", err)
@@ -214,10 +204,9 @@ func BenchmarkArtifactsData_Marshal_V1(b *testing.B) {
 		b.Fatalf("setup failed: %v", err)
 	}
 	b.ReportAllocs()
-	b.ResetTimer()
 
 	var totalBytes int64
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		out, err := json.Marshal(s)
 		if err != nil {
 			b.Fatalf("v1 marshal failed: %v", err)
@@ -235,10 +224,9 @@ func BenchmarkArtifactsData_Marshal_V2(b *testing.B) {
 		b.Fatalf("setup failed: %v", err)
 	}
 	b.ReportAllocs()
-	b.ResetTimer()
 
 	var totalBytes int64
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		out, err := jsonv2.Marshal(s)
 		if err != nil {
 			b.Fatalf("v2 marshal failed: %v", err)
@@ -256,9 +244,8 @@ func BenchmarkContracts_StreamDecode_V1(b *testing.B) {
 	data := loadFileData(b, "ttbb-data/ei-contracts.json")
 	b.SetBytes(int64(len(data)))
 	b.ReportAllocs()
-	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		r := bytes.NewReader(data)
 		dec := json.NewDecoder(r)
 		var contracts []EggIncContract
@@ -272,9 +259,8 @@ func BenchmarkContracts_StreamDecode_V2(b *testing.B) {
 	data := loadFileData(b, "ttbb-data/ei-contracts.json")
 	b.SetBytes(int64(len(data)))
 	b.ReportAllocs()
-	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		r := bytes.NewReader(data)
 		var contracts []EggIncContract
 		if err := jsonv2.UnmarshalRead(r, &contracts); err != nil {
