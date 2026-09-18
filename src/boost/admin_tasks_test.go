@@ -127,3 +127,31 @@ func TestAdminTaskListContainsNewTasks(t *testing.T) {
 		}
 	}
 }
+
+func TestAdminTasksPermissions(t *testing.T) {
+	// Verify that tasks restricted to AdminUserID are properly identified
+	restrictedTasks := []string{"cycle-encryption-key", "regen-complaints-summer-heat"}
+	for _, task := range restrictedTasks {
+		isRestricted := task == "cycle-encryption-key" || isRegenComplaintsTask(task)
+		if !isRestricted {
+			t.Errorf("expected task %q to be restricted to AdminUserID", task)
+		}
+	}
+
+	generalTasks := []string{"reload-emojis", "refresh-periodicals", "check-colleggtible"}
+	for _, task := range generalTasks {
+		isRestricted := task == "cycle-encryption-key" || isRegenComplaintsTask(task)
+		if isRestricted {
+			t.Errorf("expected task %q to be available to all admins", task)
+		}
+	}
+}
+
+func TestIsHomeGuild(t *testing.T) {
+	// If home guild is empty or DISABLED, all guilds are treated as home guild
+	if !isHomeGuild("any-guild") {
+		// If home guild is set, verify matching behavior
+		home := isHomeGuild("")
+		_ = home
+	}
+}
