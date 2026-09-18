@@ -259,7 +259,9 @@ func HandleMenuReactions(client dc.Client, e *dc.ComponentEvent) {
 			if line.Boost {
 				boostStr = " 🚀"
 			}
-			logs = append(logs, fmt.Sprintf("`%v %s %d->%s %s`", line.Time.Sub(contract.StartTime).Round(time.Second), line.FromNick, line.Quantity, boostStr, line.ToNick))
+			fromNick := strings.ReplaceAll(ei.NormalizePlayerNameForDisplay(line.FromNick), "`", "'")
+			toNick := strings.ReplaceAll(ei.NormalizePlayerNameForDisplay(line.ToNick), "`", "'")
+			logs = append(logs, fmt.Sprintf("`%v %s %d->%s %s`", line.Time.Sub(contract.StartTime).Round(time.Second), fromNick, line.Quantity, boostStr, toNick))
 		}
 
 		// Trim logs to the last 30 lines
