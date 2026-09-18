@@ -103,6 +103,8 @@ func HandleEstimateTimeCommand(e *dc.CommandEvent) {
 	c := ei.EggIncContractsAll[contractID]
 	if c.ID == "" {
 		str = "No contract found in this channel, use the command parameters to pick one."
+	} else if len(c.TargetAmount) == 0 {
+		str = "Contract estimates are not available for predicted or incomplete contracts."
 	}
 
 	if str == "" {
@@ -129,6 +131,13 @@ func GetContractEstimateString(contractID string, includeLeggySet bool, teOverri
 
 	str := ""
 	c := ei.EggIncContractsAll[contractID]
+	if c.ID == "" {
+		return "No contract found in this channel, use the command parameters to pick one."
+	}
+	if len(c.TargetAmount) == 0 {
+		return "Contract estimates are not available for predicted or incomplete contracts."
+	}
+
 	teVal := DefaultLeggyTE
 	hasOverride := false
 	if len(teOverride) > 0 {
@@ -136,7 +145,7 @@ func GetContractEstimateString(contractID string, includeLeggySet bool, teOverri
 		hasOverride = true
 	}
 
-	if c.ID != "" && hasOverride {
+	if hasOverride {
 		cCopy := c
 		estAll := getContractDurationEstimate(cCopy, cCopy.TargetAmount[len(cCopy.TargetAmount)-1], float64(cCopy.MaxCoopSize), cCopy.LengthInSeconds,
 			cCopy.ModifierSR, cCopy.ModifierELR, cCopy.ModifierHabCap, false, teVal)
@@ -217,11 +226,6 @@ func GetContractEstimateString(contractID string, includeLeggySet bool, teOverri
 			100, 5))
 
 		c = cCopy
-	}
-
-	if c.ID == "" {
-		str = "No contract found  use the command parameters to pick one."
-		return str
 	}
 	eggStr := FindEggEmoji(c.EggName)
 	tokenStr, _, _ := ei.GetBotEmoji("token")
