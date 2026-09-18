@@ -15,6 +15,17 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
 )
 
+func isHomeGuild(guildID string) bool {
+	homeGuild := guildstate.GetGuildSettingString("DEFAULT", "home_guild")
+	if homeGuild == "" {
+		homeGuild = config.DiscordGuildID
+	}
+	if homeGuild == "" || homeGuild == "DISABLED" {
+		return true
+	}
+	return guildID == homeGuild
+}
+
 type adminTaskDef struct {
 	ID          string
 	Name        string
@@ -81,9 +92,14 @@ func SlashAdminTasksCommand(cmd string) *dc.Command {
 func HandleAdminTasksAutocomplete(e *dc.AutocompleteEvent) {
 	_, value := e.FocusedOption()
 	search := strings.ToLower(strings.TrimSpace(value))
+	isAdminUser := e.UserID() == config.AdminUserID
+	isHome := isHomeGuild(e.GuildID())
 
 	choices := make([]dc.Choice[string], 0)
 	for _, task := range adminTaskList {
+		if task.ID == "cycle-encryption-key" && (!isAdminUser || !isHome) {
+			continue
+		}
 		if search == "" ||
 			strings.Contains(strings.ToLower(task.ID), search) ||
 			strings.Contains(strings.ToLower(task.Name), search) ||
@@ -95,28 +111,30 @@ func HandleAdminTasksAutocomplete(e *dc.AutocompleteEvent) {
 		}
 	}
 
-	contracts := ei.GetEggIncContractsSlice()
-	for _, c := range contracts {
-		if c.Predicted || c.ID == "" {
-			continue
-		}
-		taskID := fmt.Sprintf("regen-complaints-%s", c.ID)
-		taskName := fmt.Sprintf("Regen Complaints %s", c.ID)
-		if c.Name != "" && !strings.EqualFold(c.Name, c.ID) {
-			taskName = fmt.Sprintf("Regen Complaints %s (%s)", c.ID, c.Name)
-		}
+	if isAdminUser {
+		contracts := ei.GetEggIncContractsSlice()
+		for _, c := range contracts {
+			if c.Predicted || c.ID == "" {
+				continue
+			}
+			taskID := fmt.Sprintf("regen-complaints-%s", c.ID)
+			taskName := fmt.Sprintf("Regen Complaints %s", c.ID)
+			if c.Name != "" && !strings.EqualFold(c.Name, c.ID) {
+				taskName = fmt.Sprintf("Regen Complaints %s (%s)", c.ID, c.Name)
+			}
 
-		if search == "" ||
-			strings.Contains(strings.ToLower(taskID), search) ||
-			strings.Contains(strings.ToLower(taskName), search) ||
-			strings.Contains(strings.ToLower(c.ID), search) ||
-			strings.Contains(strings.ToLower(c.Name), search) ||
-			strings.Contains("regen complaints", search) ||
-			strings.Contains("regen complaings", search) {
-			choices = append(choices, dc.Choice[string]{
-				Name:  taskName,
-				Value: taskID,
-			})
+			if search == "" ||
+				strings.Contains(strings.ToLower(taskID), search) ||
+				strings.Contains(strings.ToLower(taskName), search) ||
+				strings.Contains(strings.ToLower(c.ID), search) ||
+				strings.Contains(strings.ToLower(c.Name), search) ||
+				strings.Contains("regen complaints", search) ||
+				strings.Contains("regen complaings", search) {
+				choices = append(choices, dc.Choice[string]{
+					Name:  taskName,
+					Value: taskID,
+				})
+			}
 		}
 	}
 
@@ -180,21 +198,9 @@ func extractContractIDFromTask(taskName string) string {
 
 // HandleAdminTasksCommand executes the chosen administrative task.
 func HandleAdminTasksCommand(client dc.Client, e *dc.CommandEvent) {
-	if !isAdminCommandCaller(client, e) {
+	if !isAdminCommandCaller(client, e) && !isAdminBotController(client, e) {
 		_ = e.Respond(dc.Message{
 			Content:   "You are not authorized to use this command.",
-			Ephemeral: true,
-		})
-		return
-	}
-
-	homeGuild := guildstate.GetGuildSettingString("DEFAULT", "home_guild")
-	if homeGuild == "" {
-		homeGuild = config.DiscordGuildID
-	}
-	if homeGuild != "" && homeGuild != "DISABLED" && e.GuildID() != homeGuild && e.UserID() != config.AdminUserID {
-		_ = e.Respond(dc.Message{
-			Content:   "This admin command can only be executed on the bot's home server.",
 			Ephemeral: true,
 		})
 		return
@@ -215,6 +221,18 @@ func HandleAdminTasksCommand(client dc.Client, e *dc.CommandEvent) {
 
 	switch {
 	case taskKey == "cycle-encryption-key" || taskKey == "cycle encryption key":
+		if e.UserID() != config.AdminUserID {
+			_ = e.Followup(dc.Message{
+				Content: "❌ You are not authorized to execute this task. This task is restricted to the bot owner.",
+			})
+			return
+		}
+		if !isHomeGuild(e.GuildID()) {
+			_ = e.Followup(dc.Message{
+				Content: "❌ This task can only be executed on the bot's home server.",
+			})
+			return
+		}
 		handleCycleEncryptionKeyTask(e)
 	case taskKey == "reload-emojis" || taskKey == "reload emojis" || taskKey == "reload emoji cache" || taskKey == "refresh-emojis" || taskKey == "refresh emojis":
 		handleReloadEmojisTask(client, e)
@@ -225,6 +243,12 @@ func HandleAdminTasksCommand(client dc.Client, e *dc.CommandEvent) {
 		taskKey == "check colleggtible" || taskKey == "check colleggtibles":
 		handleCheckColleggtibleTask(client, e)
 	case isRegenComplaintsTask(taskKey):
+		if e.UserID() != config.AdminUserID {
+			_ = e.Followup(dc.Message{
+				Content: "❌ You are not authorized to execute this task. This task is restricted to the bot owner.",
+			})
+			return
+		}
 		handleRegenComplaintsTask(e, taskName)
 	default:
 		_ = e.Followup(dc.Message{
