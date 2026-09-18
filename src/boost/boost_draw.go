@@ -547,7 +547,10 @@ func DrawBoostList(contract *Contract) []dc.LayoutComponent {
 
 		for i, element := range orderSubset {
 
-			var prefix = fmt.Sprintf("%2d - ", i+offset)
+			var prefix = " - "
+			if contract.State != ContractStateSignup || contract.BoostOrder == ContractManualOrder {
+				prefix = fmt.Sprintf("%2d - ", i+offset)
+			}
 			var b, ok = contract.Boosters[element]
 			if ok {
 				var name = b.Mention
