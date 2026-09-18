@@ -1077,6 +1077,21 @@ func PopulateThematicComplaintsForContractID(contractID string, complaints []str
 	}
 }
 
+// ReplaceThematicComplaintsForContractID replaces thematic complaints on active contracts for a contract ID.
+func ReplaceThematicComplaintsForContractID(contractID string, complaints []string) {
+	mutex.Lock()
+	defer mutex.Unlock()
+	for _, contract := range Contracts {
+		if contract.ContractID == contractID && len(complaints) > 0 {
+			contract.ThematicComplaints = append([]string(nil), complaints...)
+			rand.Shuffle(len(contract.ThematicComplaints), func(i, j int) {
+				contract.ThematicComplaints[i], contract.ThematicComplaints[j] = contract.ThematicComplaints[j], contract.ThematicComplaints[i]
+			})
+			saveData(contract.ContractHash)
+		}
+	}
+}
+
 // SendThresholdModal displays a modal to configure threshold tokens
 func SendThresholdModal(e *dc.ComponentEvent, contractHash string) {
 	contract := FindContractByHash(contractHash)

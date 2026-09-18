@@ -25,3 +25,65 @@ func TestSlashAdminTasksCommand(t *testing.T) {
 		t.Errorf("Option mismatch: name=%q, required=%v, autocomplete=%v", opt.Name, opt.Required, opt.Autocomplete)
 	}
 }
+
+func TestExtractContractIDFromTask(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"regen-complaints-summer-heat-2024", "summer-heat-2024"},
+		{"regen complaints summer-heat-2024", "summer-heat-2024"},
+		{"regen-complaints:summer-heat-2024", "summer-heat-2024"},
+		{"Regen Complaints summer-heat-2024 (Summer Heat)", "summer-heat-2024"},
+		{"regen-complaings-test-contract", "test-contract"},
+		{"regen-complaint-test-contract", "test-contract"},
+		{"custom-task-id", "custom-task-id"},
+	}
+
+	for _, tt := range tests {
+		got := extractContractIDFromTask(tt.input)
+		if got != tt.expected {
+			t.Errorf("extractContractIDFromTask(%q) = %q, want %q", tt.input, got, tt.expected)
+		}
+	}
+}
+
+func TestIsRegenComplaintsTask(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected bool
+	}{
+		{"regen-complaints-summer-heat-2024", true},
+		{"regen complaints summer-heat-2024", true},
+		{"regen-complaings-test", true},
+		{"regen-complaint-test", true},
+		{"cycle-encryption-key", false},
+		{"reload-emojis", false},
+	}
+
+	for _, tt := range tests {
+		got := isRegenComplaintsTask(tt.input)
+		if got != tt.expected {
+			t.Errorf("isRegenComplaintsTask(%q) = %v, want %v", tt.input, got, tt.expected)
+		}
+	}
+}
+
+func TestThematicComplaintsGenerator(t *testing.T) {
+	orig := thematicComplaintsGenerator
+	defer func() { thematicComplaintsGenerator = orig }()
+
+	called := false
+	SetThematicComplaintsGenerator(func(eggName, contractName, contractDesc string, quantity int) []string {
+		called = true
+		return []string{"[player] is out of tokens"}
+	})
+
+	if thematicComplaintsGenerator == nil {
+		t.Fatal("expected thematicComplaintsGenerator to be set")
+	}
+	res := thematicComplaintsGenerator("Edible", "Test Contract", "Description", 1)
+	if !called || len(res) != 1 {
+		t.Errorf("generator failed to execute, called=%v, len=%d", called, len(res))
+	}
+}
