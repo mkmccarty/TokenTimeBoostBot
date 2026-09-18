@@ -27,6 +27,10 @@ const expectedActiveContracts = 6
 const expectedContractRoleNames = 30
 const expectedContractComplaints = 12
 
+func init() {
+	boost.SetPeriodicalsRefresher(GetPeriodicalsFromAPI)
+}
+
 const periodicalsLocationName = "America/Los_Angeles"
 
 func hasExpectedActiveContracts(contracts []ei.EggIncContract) bool {
