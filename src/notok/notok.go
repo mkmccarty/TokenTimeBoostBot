@@ -20,6 +20,10 @@ import (
 
 const googleModel = "gemini-2.5-flash-lite"
 
+func init() {
+	boost.SetThematicComplaintsGenerator(GetContractThematicComplaints)
+}
+
 func parseComplaintArrayFallback(raw string) []string {
 	cleaned := strings.TrimSpace(raw)
 	if cleaned == "" {

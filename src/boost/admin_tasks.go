@@ -10,6 +10,7 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
 )
@@ -18,6 +19,16 @@ type adminTaskDef struct {
 	ID          string
 	Name        string
 	Description string
+}
+
+// ThematicComplaintsGeneratorFunc generates contract-themed complaints.
+type ThematicComplaintsGeneratorFunc func(eggName string, contractName string, contractDescription string, quantity int) []string
+
+var thematicComplaintsGenerator ThematicComplaintsGeneratorFunc
+
+// SetThematicComplaintsGenerator configures the function used to generate complaints with LLM.
+func SetThematicComplaintsGenerator(gen ThematicComplaintsGeneratorFunc) {
+	thematicComplaintsGenerator = gen
 }
 
 var adminTaskList = []adminTaskDef{
@@ -52,7 +63,7 @@ func HandleAdminTasksAutocomplete(e *dc.AutocompleteEvent) {
 	_, value := e.FocusedOption()
 	search := strings.ToLower(strings.TrimSpace(value))
 
-	choices := make([]dc.Choice[string], 0, len(adminTaskList))
+	choices := make([]dc.Choice[string], 0)
 	for _, task := range adminTaskList {
 		if search == "" ||
 			strings.Contains(strings.ToLower(task.ID), search) ||
@@ -65,7 +76,87 @@ func HandleAdminTasksAutocomplete(e *dc.AutocompleteEvent) {
 		}
 	}
 
+	contracts := ei.GetEggIncContractsSlice()
+	for _, c := range contracts {
+		if c.Predicted || c.ID == "" {
+			continue
+		}
+		taskID := fmt.Sprintf("regen-complaints-%s", c.ID)
+		taskName := fmt.Sprintf("Regen Complaints %s", c.ID)
+		if c.Name != "" && !strings.EqualFold(c.Name, c.ID) {
+			taskName = fmt.Sprintf("Regen Complaints %s (%s)", c.ID, c.Name)
+		}
+
+		if search == "" ||
+			strings.Contains(strings.ToLower(taskID), search) ||
+			strings.Contains(strings.ToLower(taskName), search) ||
+			strings.Contains(strings.ToLower(c.ID), search) ||
+			strings.Contains(strings.ToLower(c.Name), search) ||
+			strings.Contains("regen complaints", search) ||
+			strings.Contains("regen complaings", search) {
+			choices = append(choices, dc.Choice[string]{
+				Name:  taskName,
+				Value: taskID,
+			})
+		}
+	}
+
+	if len(choices) > 25 {
+		choices = choices[:25]
+	}
+
 	_ = e.RespondChoices(choices)
+}
+
+func isRegenComplaintsTask(taskKey string) bool {
+	prefixes := []string{
+		"regen-complaints",
+		"regen complaints",
+		"regen-complaings",
+		"regen complaings",
+		"regen-complaint",
+		"regen complaint",
+	}
+	for _, p := range prefixes {
+		if strings.HasPrefix(taskKey, p) {
+			return true
+		}
+	}
+	return false
+}
+
+func extractContractIDFromTask(taskName string) string {
+	lower := strings.ToLower(strings.TrimSpace(taskName))
+	prefixes := []string{
+		"regen-complaints-",
+		"regen-complaints:",
+		"regen-complaints ",
+		"regen complaints:",
+		"regen complaints-",
+		"regen complaints ",
+		"regen-complaings-",
+		"regen-complaings:",
+		"regen-complaings ",
+		"regen complaings:",
+		"regen complaings-",
+		"regen complaings ",
+		"regen-complaint-",
+		"regen-complaint:",
+		"regen-complaint ",
+		"regen complaint:",
+		"regen complaint-",
+		"regen complaint ",
+	}
+	for _, p := range prefixes {
+		if strings.HasPrefix(lower, p) {
+			rawID := strings.TrimSpace(taskName[len(p):])
+			if idx := strings.Index(rawID, " ("); idx != -1 {
+				rawID = strings.TrimSpace(rawID[:idx])
+			}
+			return rawID
+		}
+	}
+	return strings.TrimSpace(taskName)
 }
 
 // HandleAdminTasksCommand executes the chosen administrative task.
@@ -103,16 +194,104 @@ func HandleAdminTasksCommand(client dc.Client, e *dc.CommandEvent) {
 
 	taskKey := strings.ToLower(strings.TrimSpace(taskName))
 
-	switch taskKey {
-	case "cycle-encryption-key", "cycle encryption key":
+	switch {
+	case taskKey == "cycle-encryption-key" || taskKey == "cycle encryption key":
 		handleCycleEncryptionKeyTask(e)
-	case "reload-emojis", "reload emojis", "reload emoji cache", "refresh-emojis", "refresh emojis":
+	case taskKey == "reload-emojis" || taskKey == "reload emojis" || taskKey == "reload emoji cache" || taskKey == "refresh-emojis" || taskKey == "refresh emojis":
 		handleReloadEmojisTask(client, e)
+	case isRegenComplaintsTask(taskKey):
+		handleRegenComplaintsTask(e, taskName)
 	default:
 		_ = e.Followup(dc.Message{
 			Content: fmt.Sprintf("Unknown administrative task: `%s`", taskName),
 		})
 	}
+}
+
+func handleRegenComplaintsTask(e *dc.CommandEvent, taskName string) {
+	contractID := extractContractIDFromTask(taskName)
+	if contractID == "" {
+		_ = e.Followup(dc.Message{
+			Content: "❌ Please specify a contract ID to regenerate complaints for (e.g. `Regen Complaints <contract-id>`).",
+		})
+		return
+	}
+
+	eiContract, found := ei.GetEggIncContract(contractID)
+	if !found {
+		// Try case-insensitive lookup in active contracts
+		for _, c := range ei.GetEggIncContractsSlice() {
+			if strings.EqualFold(c.ID, contractID) || strings.EqualFold(c.Name, contractID) {
+				eiContract = c
+				contractID = c.ID
+				found = true
+				break
+			}
+		}
+	}
+
+	if !found {
+		_ = e.Followup(dc.Message{
+			Content: fmt.Sprintf("❌ Contract `%s` not found.", contractID),
+		})
+		return
+	}
+
+	if thematicComplaintsGenerator == nil {
+		_ = e.Followup(dc.Message{
+			Content: "❌ Thematic complaints generator is not initialized.",
+		})
+		return
+	}
+
+	if config.GoogleAPIKey == "" {
+		_ = e.Followup(dc.Message{
+			Content: "❌ Google API key is not configured.",
+		})
+		return
+	}
+
+	const complaintQuantity = 12
+	complaints := thematicComplaintsGenerator(eiContract.EggName, eiContract.Name, eiContract.Description, complaintQuantity)
+	if len(complaints) == 0 {
+		_ = e.Followup(dc.Message{
+			Content: fmt.Sprintf("❌ Failed to generate complaints for `%s` (%s).", eiContract.Name, contractID),
+		})
+		return
+	}
+
+	if err := SaveThematicComplaints(map[string][]string{contractID: complaints}); err != nil {
+		_ = e.Followup(dc.Message{
+			Content: fmt.Sprintf("❌ Failed to save regenerated complaints to database: %v", err),
+		})
+		return
+	}
+
+	ReplaceThematicComplaintsForContractID(contractID, complaints)
+
+	var sb strings.Builder
+	for i, c := range complaints {
+		if i >= 5 {
+			fmt.Fprintf(&sb, "- ...and %d more\n", len(complaints)-5)
+			break
+		}
+		fmt.Fprintf(&sb, "- %s\n", c)
+	}
+
+	responseMsg := fmt.Sprintf(
+		"## 🔄 Regenerated Complaints for `%s`\n"+
+			"- **Contract ID**: `%s`\n"+
+			"- **Egg**: %s\n"+
+			"- **Complaints Generated**: %d\n\n"+
+			"**Sample Complaints:**\n%s",
+		eiContract.Name,
+		contractID,
+		eiContract.EggName,
+		len(complaints),
+		sb.String(),
+	)
+
+	_ = e.Followup(dc.Message{Content: responseMsg})
 }
 
 func handleCycleEncryptionKeyTask(e *dc.CommandEvent) {
