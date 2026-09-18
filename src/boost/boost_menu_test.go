@@ -310,3 +310,46 @@ func TestToggleReactionLogMenuComponents(t *testing.T) {
 		t.Errorf("expected togglerxlog select option not found in contract reaction components")
 	}
 }
+
+func TestBoostMenuTokenLogEscaping(t *testing.T) {
+	contract := &Contract{
+		ContractHash: "test-menu-hash",
+		ContractID:   "test-contract",
+		CoopID:       "test-coop",
+		StartTime:    time.Now().Add(-10 * time.Minute),
+		TokenLog: []ei.TokenUnitLog{
+			{
+				Time:     time.Now().Add(-5 * time.Minute),
+				Quantity: 2,
+				FromNick: "lil` lashes",
+				ToNick:   "bob`s burgers",
+				Boost:    false,
+			},
+			{
+				Time:     time.Now().Add(-2 * time.Minute),
+				Quantity: 5,
+				FromNick: "farmer `one`",
+				ToNick:   "lil' lashes",
+				Boost:    true,
+			},
+		},
+	}
+
+	var logs []string
+	for _, line := range contract.TokenLog {
+		boostStr := ""
+		if line.Boost {
+			boostStr = " 🚀"
+		}
+		fromNick := strings.ReplaceAll(ei.NormalizePlayerNameForDisplay(line.FromNick), "`", "'")
+		toNick := strings.ReplaceAll(ei.NormalizePlayerNameForDisplay(line.ToNick), "`", "'")
+		logs = append(logs, fmt.Sprintf("`%v %s %d->%s %s`", line.Time.Sub(contract.StartTime).Round(time.Second), fromNick, line.Quantity, boostStr, toNick))
+	}
+
+	for _, l := range logs {
+		// Inside the enclosing backticks (`...`), there should be no unescaped/inner backticks
+		if strings.Count(l, "`") != 2 {
+			t.Errorf("expected exactly 2 backticks enclosing the line, got %d in line: %s", strings.Count(l, "`"), l)
+		}
+	}
+}
