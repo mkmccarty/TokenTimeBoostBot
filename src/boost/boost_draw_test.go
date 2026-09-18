@@ -272,4 +272,3 @@ func TestDrawBoostListSignupPrefixNumbers(t *testing.T) {
 		t.Errorf("expected waiting/active contract to contain numbers, got %q", activeOutput)
 	}
 }
-
