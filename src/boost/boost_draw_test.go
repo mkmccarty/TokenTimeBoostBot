@@ -209,3 +209,67 @@ func TestDrawBoostListIHRMultiple(t *testing.T) {
 		t.Errorf("expected output to contain **IHR:4.52x**, got %q", output)
 	}
 }
+
+func TestDrawBoostListSignupPrefixNumbers(t *testing.T) {
+	createTestContract := func(state int, boostOrder int) *Contract {
+		return &Contract{
+			ContractHash: "test-hash",
+			ContractID:   "test-contract",
+			CoopID:       "test-coop",
+			State:        state,
+			Style:        ContractStyleFastrun,
+			BoostOrder:   boostOrder,
+			CreatorID:    []string{"u1"},
+			Order:        []string{"u1", "u2"},
+			Boosters: map[string]*Booster{
+				"u1": {
+					UserID:       "u1",
+					Mention:      "<@u1>",
+					Name:         "Player1",
+					TokensWanted: 6,
+					BoostState:   BoostStateUnboosted,
+				},
+				"u2": {
+					UserID:       "u2",
+					Mention:      "<@u2>",
+					Name:         "Player2",
+					TokensWanted: 6,
+					BoostState:   BoostStateUnboosted,
+				},
+			},
+			Location: []*LocationData{{GuildID: "guild1", ChannelID: "channel1"}},
+		}
+	}
+
+	render := func(c *Contract) string {
+		var outputBuilder strings.Builder
+		for _, comp := range DrawBoostList(c) {
+			if textDisplay, ok := comp.(dc.TextDisplay); ok {
+				outputBuilder.WriteString(textDisplay.Content)
+			}
+		}
+		return outputBuilder.String()
+	}
+
+	// 1. Signup with standard/default order (ContractOrderSignup) should NOT have numbered prefixes
+	signupDefaultOutput := render(createTestContract(ContractStateSignup, ContractOrderSignup))
+	if strings.Contains(signupDefaultOutput, " 1 - ") || strings.Contains(signupDefaultOutput, " 2 - ") {
+		t.Errorf("expected signup with default order not to contain numbers, got %q", signupDefaultOutput)
+	}
+	if !strings.Contains(signupDefaultOutput, " -  <@u1>") {
+		t.Errorf("expected signup with default order to use bullet/dash prefix, got %q", signupDefaultOutput)
+	}
+
+	// 2. Signup with manual order (ContractManualOrder) SHOULD have numbered prefixes
+	signupManualOutput := render(createTestContract(ContractStateSignup, ContractManualOrder))
+	if !strings.Contains(signupManualOutput, " 1 - ") || !strings.Contains(signupManualOutput, " 2 - ") {
+		t.Errorf("expected signup with manual order to contain numbers, got %q", signupManualOutput)
+	}
+
+	// 3. Active/Waiting contract with non-manual order SHOULD have numbered prefixes
+	activeOutput := render(createTestContract(ContractStateWaiting, ContractOrderSignup))
+	if !strings.Contains(activeOutput, " 1 - ") || !strings.Contains(activeOutput, " 2 - ") {
+		t.Errorf("expected waiting/active contract to contain numbers, got %q", activeOutput)
+	}
+}
+
