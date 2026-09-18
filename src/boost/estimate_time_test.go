@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"math"
 	"testing"
+
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
 
 // Helper function for floating-point comparisons
@@ -185,5 +187,35 @@ func TestGetBoostMultiplierForTokens(t *testing.T) {
 		if got != tc.expected {
 			t.Errorf("GetBoostMultiplierForTokens(%.1f) = %.1f; want %.1f", tc.tokens, got, tc.expected)
 		}
+	}
+}
+
+func TestGetContractEstimateString(t *testing.T) {
+	if ei.EggIncContractsAll == nil {
+		ei.EggIncContractsAll = make(map[string]ei.EggIncContract)
+	}
+
+	// 1. Non-existent contract
+	res := GetContractEstimateString("non-existent-contract-id", false)
+	if res != "No contract found in this channel, use the command parameters to pick one." {
+		t.Errorf("expected missing contract error message, got: %q", res)
+	}
+
+	// 2. Predicted contract or contract without TargetAmount
+	ei.EggIncContractsAll["predicted-placeholder"] = ei.EggIncContract{
+		ID:          "predicted-placeholder",
+		Name:        "Predicted Contract",
+		Predicted:   true,
+		MaxCoopSize: 10,
+	}
+
+	res = GetContractEstimateString("predicted-placeholder", false)
+	if res != "Contract estimates are not available for predicted or incomplete contracts." {
+		t.Errorf("expected predicted contract error message, got: %q", res)
+	}
+
+	resWithOverride := GetContractEstimateString("predicted-placeholder", false, 150.0)
+	if resWithOverride != "Contract estimates are not available for predicted or incomplete contracts." {
+		t.Errorf("expected predicted contract error message with override, got: %q", resWithOverride)
 	}
 }
