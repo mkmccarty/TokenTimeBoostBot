@@ -355,8 +355,6 @@ func DrawBoostList(contract *Contract) []dc.LayoutComponent {
 		}
 	}
 
-	var prefix = " - "
-
 	var earlyList strings.Builder
 	var lateList strings.Builder
 
@@ -549,9 +547,7 @@ func DrawBoostList(contract *Contract) []dc.LayoutComponent {
 
 		for i, element := range orderSubset {
 
-			if contract.State != ContractStateSignup {
-				prefix = fmt.Sprintf("%2d - ", i+offset)
-			}
+			var prefix = fmt.Sprintf("%2d - ", i+offset)
 			var b, ok = contract.Boosters[element]
 			if ok {
 				var name = b.Mention
