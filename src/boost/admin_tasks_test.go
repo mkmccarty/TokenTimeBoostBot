@@ -14,15 +14,23 @@ func TestSlashAdminTasksCommand(t *testing.T) {
 	if cmd.Name != "admin-tasks" {
 		t.Errorf("cmd.Name = %q, want %q", cmd.Name, "admin-tasks")
 	}
-	if len(cmd.Options) != 1 {
-		t.Fatalf("cmd.Options length = %d, want 1", len(cmd.Options))
+	if len(cmd.Options) != 2 {
+		t.Fatalf("cmd.Options length = %d, want 2", len(cmd.Options))
 	}
-	opt, ok := cmd.Options[0].(dc.StringOption)
+	opt0, ok := cmd.Options[0].(dc.StringOption)
 	if !ok {
-		t.Fatalf("expected StringOption, got %T", cmd.Options[0])
+		t.Fatalf("expected StringOption for options[0], got %T", cmd.Options[0])
 	}
-	if opt.Name != "task" || !opt.Required || !opt.Autocomplete {
-		t.Errorf("Option mismatch: name=%q, required=%v, autocomplete=%v", opt.Name, opt.Required, opt.Autocomplete)
+	if opt0.Name != "task" || !opt0.Required || !opt0.Autocomplete {
+		t.Errorf("Option mismatch on options[0]: name=%q, required=%v, autocomplete=%v", opt0.Name, opt0.Required, opt0.Autocomplete)
+	}
+
+	opt1, ok := cmd.Options[1].(dc.StringOption)
+	if !ok {
+		t.Fatalf("expected StringOption for options[1], got %T", cmd.Options[1])
+	}
+	if opt1.Name != "param" || opt1.Required || !opt1.Autocomplete {
+		t.Errorf("Option mismatch on options[1]: name=%q, required=%v, autocomplete=%v", opt1.Name, opt1.Required, opt1.Autocomplete)
 	}
 }
 
@@ -37,6 +45,8 @@ func TestExtractContractIDFromTask(t *testing.T) {
 		{"Regen Complaints summer-heat-2024 (Summer Heat)", "summer-heat-2024"},
 		{"regen-complaings-test-contract", "test-contract"},
 		{"regen-complaint-test-contract", "test-contract"},
+		{"regen-complaints", ""},
+		{"Regen Complaints", ""},
 		{"custom-task-id", "custom-task-id"},
 	}
 
@@ -113,6 +123,7 @@ func TestAdminTaskListContainsNewTasks(t *testing.T) {
 		"reload-emojis":        false,
 		"refresh-periodicals":  false,
 		"check-colleggtible":   false,
+		"regen-complaints":     false,
 	}
 
 	for _, task := range adminTaskList {
