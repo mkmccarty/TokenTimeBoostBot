@@ -770,8 +770,8 @@ func TestGenerateESCOrderReport(t *testing.T) {
 	if !strings.Contains(report, "FarmerOne") || !strings.Contains(report, "FarmerTwo") {
 		t.Fatalf("expected farmer names in ESC report, got %q", report)
 	}
-	if !strings.Contains(report, "SIAB") {
-		t.Fatalf("expected SIAB role in ESC report, got %q", report)
+	if !strings.Contains(report, "Main") {
+		t.Fatalf("expected Main role in ESC report, got %q", report)
 	}
 
 	// Test Image Rendering
@@ -792,7 +792,7 @@ func TestGenerateESCOrderReport(t *testing.T) {
 	}
 }
 
-func TestContractAltsDesignationAndDefaulting(t *testing.T) {
+func TestContractHelpersDesignationAndDefaulting(t *testing.T) {
 	contract := &Contract{
 		State:      ContractStateSignup,
 		BoostOrder: ContractOrderESC,
@@ -834,26 +834,26 @@ func TestContractAltsDesignationAndDefaulting(t *testing.T) {
 	}
 	contract.Boosters["guest1"].Nick = ""
 
-	// 2. Mark guest1 and u2 as alternates
+	// 2. Mark guest1 and u2 as helpers
 	contract.Boosters["guest1"].IsAlt = true
 	contract.Boosters["u2"].IsAlt = true
 
-	// ESC Order should place u1 (non-alt main) first, despite u2 and guest1 having higher IHR
+	// ESC Order should place u1 (non-helper main) first, despite u2 and guest1 having higher IHR
 	sorted := sortESCRemaining(contract, contract.Order, false)
 	if sorted[0] != "u1" {
-		t.Fatalf("expected non-alt u1 to be first, got %s", sorted[0])
+		t.Fatalf("expected non-helper u1 to be first, got %s", sorted[0])
 	}
 	if !contract.Boosters["guest1"].IsAlt || !contract.Boosters["u2"].IsAlt {
-		t.Fatalf("expected guest1 and u2 to be marked as alt")
+		t.Fatalf("expected guest1 and u2 to be marked as helper")
 	}
 
-	// 3. Clear alternate status
+	// 3. Clear helper status
 	contract.Boosters["guest1"].IsAlt = false
 	contract.Boosters["u2"].IsAlt = false
 
 	sortedAfterClear := sortESCRemaining(contract, contract.Order, false)
-	// Now with all non-alts, higher IHR (guest1: 3000, u2: 2000) should be ahead of u1: 1000
+	// Now with all non-helpers, higher IHR (guest1: 3000, u2: 2000) should be ahead of u1: 1000
 	if sortedAfterClear[len(sortedAfterClear)-1] != "u1" {
-		t.Fatalf("expected lowest IHR u1 to be last among equal non-alts, got %v", sortedAfterClear)
+		t.Fatalf("expected lowest IHR u1 to be last among equal non-helpers, got %v", sortedAfterClear)
 	}
 }

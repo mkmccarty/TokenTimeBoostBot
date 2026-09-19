@@ -18,7 +18,7 @@ const (
 	ESCRoleGusset  = 2
 	ESCRoleQuant   = 3
 	ESCRoleRegular = 4
-	ESCRoleAlt     = 5
+	ESCRoleHelper  = 5
 )
 
 // getESCRolePriority determines the booster's role priority bucket:
@@ -26,14 +26,14 @@ const (
 // 2: Gusset
 // 3: Quant
 // 4: Regular Main
-// 5: Alt
+// 5: Helper
 func getESCRolePriority(b *Booster) int {
 	if b == nil {
-		return ESCRoleAlt
+		return ESCRoleHelper
 	}
-	// Alts always go to the alt tier
+	// Helpers always go to the helper tier
 	if b.IsAlt || b.AltController != "" {
-		return ESCRoleAlt
+		return ESCRoleHelper
 	}
 
 	// 1. SIAB
@@ -292,7 +292,7 @@ func RenderESCOrderTableImage(contract *Contract) ([]byte, error) {
 		roleColor := ""
 		switch getESCRolePriority(b) {
 		case ESCRoleSIAB:
-			roleStr = "SIAB"
+			roleStr = "Main"
 			roleColor = "green"
 		case ESCRoleGusset:
 			roleStr = "Gusset"
@@ -300,8 +300,8 @@ func RenderESCOrderTableImage(contract *Contract) ([]byte, error) {
 		case ESCRoleQuant:
 			roleStr = "Quant"
 			roleColor = "blue"
-		case ESCRoleAlt:
-			roleStr = "Alt"
+		case ESCRoleHelper:
+			roleStr = "Helper"
 			roleColor = "red"
 		}
 
@@ -366,9 +366,9 @@ func BuildESCOrderMessage(contract *Contract) dc.Message {
 	var headerSb strings.Builder
 	fmt.Fprintf(&headerSb, "## 🪐 ESC Boost Order Calculations\n")
 	fmt.Fprintf(&headerSb, "**Contract:** `%s` | **Coop:** `%s` | **Mode:** %s\n", contract.ContractID, contract.CoopID, runTypeName)
-	fmt.Fprintf(&headerSb, "-# Hierarchy: (1) SIAB > Gusset > Quant > Main > Alts | (2) Deflector | (3) IHR / Token Plan")
+	fmt.Fprintf(&headerSb, "-# Hierarchy: (1) SIAB > Gusset > Quant > Main > Helpers | (2) Deflector | (3) IHR / Token Plan")
 
-	footer := "-# **Alternate Management:** Use `/boost-order-alts set <# or name>` to designate alts (e.g. `/boost-order-alts set 1 3 5`), `/boost-order-alts clear <# or name|all>` to clear, and `/boost-order-alts list` to view."
+	footer := "-# **Helper Management:** Use `/boost-order-helpers set <# or name>` to designate helpers (e.g. `/boost-order-helpers set 1 3 5`), `/boost-order-helpers clear <# or name|all>` to clear, and `/boost-order-helpers list` to view."
 
 	imgBytes, err := RenderESCOrderTableImage(contract)
 	if err == nil && len(imgBytes) > 0 {
@@ -401,7 +401,7 @@ func generateESCOrderReportTextLocked(contract *Contract) string {
 	var sb strings.Builder
 	fmt.Fprintf(&sb, "## 🪐 ESC Boost Order Calculations\n")
 	fmt.Fprintf(&sb, "**Contract:** `%s` | **Coop:** `%s` | **Mode:** %s\n", contract.ContractID, contract.CoopID, runTypeName)
-	fmt.Fprintf(&sb, "-# Hierarchy: (1) SIAB > Gusset > Quant > Main > Alts | (2) Deflector | (3) IHR / Token Plan\n\n")
+	fmt.Fprintf(&sb, "-# Hierarchy: (1) SIAB > Gusset > Quant > Main > Helpers | (2) Deflector | (3) IHR / Token Plan\n\n")
 
 	orderList := contract.Order
 	if len(contract.OriginalOrder) > 0 {
@@ -435,13 +435,13 @@ func generateESCOrderReportTextLocked(contract *Contract) string {
 		roleStr := "Main"
 		switch getESCRolePriority(b) {
 		case ESCRoleSIAB:
-			roleStr = "SIAB"
+			roleStr = "Main"
 		case ESCRoleGusset:
 			roleStr = "Gusset"
 		case ESCRoleQuant:
 			roleStr = "Quant"
-		case ESCRoleAlt:
-			roleStr = "Alt"
+		case ESCRoleHelper:
+			roleStr = "Helper"
 		}
 
 		deflQuality := ""
@@ -470,7 +470,7 @@ func generateESCOrderReportTextLocked(contract *Contract) string {
 		fmt.Fprintf(&sb, "%-3d %-16s %-8s %-10s %-7s %-8s %-4s %-4s\n", idx+1, name, roleStr, deflQuality, elrStr, ihrMult, askStr, teStr)
 	}
 	fmt.Fprintf(&sb, "```\n")
-	fmt.Fprintf(&sb, "-# **Alternate Management:** Use `/boost-order-alts set <# or name>` to designate alts (e.g. `/boost-order-alts set 1 3 5`), `/boost-order-alts clear <# or name|all>` to clear, and `/boost-order-alts list` to view.\n")
+	fmt.Fprintf(&sb, "-# **Helper Management:** Use `/boost-order-helpers set <# or name>` to designate helpers (e.g. `/boost-order-helpers set 1 3 5`), `/boost-order-helpers clear <# or name|all>` to clear, and `/boost-order-helpers list` to view.\n")
 
 	return sb.String()
 }

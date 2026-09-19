@@ -9,42 +9,42 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 )
 
-// GetSlashBoostOrderAltsCommand returns the definition of the /boost-order-alts command.
-func GetSlashBoostOrderAltsCommand(cmd string) *dc.Command {
-	command := guildOnlyCommand(cmd, "Organizer command to designate alternate status for boost ordering")
+// GetSlashBoostOrderHelpersCommand returns the definition of the /boost-order-helpers command.
+func GetSlashBoostOrderHelpersCommand(cmd string) *dc.Command {
+	command := guildOnlyCommand(cmd, "Organizer command to designate helper status for boost ordering")
 	command.Options = []dc.Option{
 		dc.SubCommand{
 			Name:        "set",
-			Description: "Designate one or more farmers as alternates in this contract",
+			Description: "Designate one or more farmers as helpers in this contract",
 			Options: []dc.Option{
 				dc.StringOption{
 					Name:        "farmers",
-					Description: "List, mentions, or boost numbers of farmers to mark as alternates (e.g. 1 3 5, @Player, Guest1)",
+					Description: "List, mentions, or boost numbers of farmers to mark as helpers (e.g. 1 3 5, @Player, Guest1)",
 					Required:    true,
 				},
 			},
 		},
 		dc.SubCommand{
 			Name:        "clear",
-			Description: "Remove alternate designation from one or more farmers, or 'all'",
+			Description: "Remove helper designation from one or more farmers, or 'all'",
 			Options: []dc.Option{
 				dc.StringOption{
 					Name:        "farmers",
-					Description: "List, mentions, or boost numbers of farmers to remove alternate status from, or 'all'",
+					Description: "List, mentions, or boost numbers of farmers to remove helper status from, or 'all'",
 					Required:    true,
 				},
 			},
 		},
 		dc.SubCommand{
 			Name:        "list",
-			Description: "List current alternate designations in this contract",
+			Description: "List current helper designations in this contract",
 		},
 	}
 	return &command
 }
 
-// HandleBoostOrderAltsCommand handles the /boost-order-alts command.
-func HandleBoostOrderAltsCommand(client dc.Client, e *dc.CommandEvent) {
+// HandleBoostOrderHelpersCommand handles the /boost-order-helpers command.
+func HandleBoostOrderHelpersCommand(client dc.Client, e *dc.CommandEvent) {
 	if e.GuildID() == "" {
 		_ = e.Respond(dc.Message{
 			Content:   "This command can only be run in a server.",
@@ -65,7 +65,7 @@ func HandleBoostOrderAltsCommand(client dc.Client, e *dc.CommandEvent) {
 	userID := e.UserID()
 	if !creatorOfContract(client, contract, userID) {
 		_ = e.Respond(dc.Message{
-			Content:   "Only contract coordinators or channel admins can manage contract alternates.",
+			Content:   "Only contract coordinators or channel admins can manage contract helpers.",
 			Ephemeral: true,
 		})
 		return
@@ -112,7 +112,7 @@ func HandleBoostOrderAltsCommand(client dc.Client, e *dc.CommandEvent) {
 		saveData(contract.ContractHash)
 		refreshBoostListMessage(client, contract, false)
 
-		msg := fmt.Sprintf("✅ Designated as alternates for boost ordering: **%s**", strings.Join(assignedNames, ", "))
+		msg := fmt.Sprintf("✅ Designated as helpers for boost ordering: **%s**", strings.Join(assignedNames, ", "))
 		if len(notFound) > 0 {
 			msg += fmt.Sprintf("\n-# Not found in contract: %s", strings.Join(notFound, ", "))
 		}
@@ -164,20 +164,20 @@ func HandleBoostOrderAltsCommand(client dc.Client, e *dc.CommandEvent) {
 
 		if len(clearedNames) == 0 {
 			_ = e.Respond(dc.Message{
-				Content:   "No matching alternates to clear.",
+				Content:   "No matching helpers to clear.",
 				Ephemeral: true,
 			})
 			return
 		}
 
 		_ = e.Respond(dc.Message{
-			Content:   fmt.Sprintf("Cleared alternate designation for: **%s**", strings.Join(clearedNames, ", ")),
+			Content:   fmt.Sprintf("Cleared helper designation for: **%s**", strings.Join(clearedNames, ", ")),
 			Ephemeral: true,
 		})
 
 	case "list":
 		contract.mutex.Lock()
-		var alts []string
+		var helpers []string
 		var mains []string
 		for _, uID := range contract.Order {
 			b := contract.Boosters[uID]
@@ -192,7 +192,7 @@ func HandleBoostOrderAltsCommand(client dc.Client, e *dc.CommandEvent) {
 				name = uID
 			}
 			if b.IsAlt || b.AltController != "" {
-				alts = append(alts, name)
+				helpers = append(helpers, name)
 			} else {
 				mains = append(mains, name)
 			}
@@ -200,11 +200,11 @@ func HandleBoostOrderAltsCommand(client dc.Client, e *dc.CommandEvent) {
 		contract.mutex.Unlock()
 
 		var sb strings.Builder
-		sb.WriteString("## 🧑‍🌾 Contract Alternate Statuses\n")
-		if len(alts) > 0 {
-			fmt.Fprintf(&sb, "**Alternates (%d):** %s\n", len(alts), strings.Join(alts, ", "))
+		sb.WriteString("## 🧑‍🌾 Contract Helper Statuses\n")
+		if len(helpers) > 0 {
+			fmt.Fprintf(&sb, "**Helpers (%d):** %s\n", len(helpers), strings.Join(helpers, ", "))
 		} else {
-			sb.WriteString("**Alternates (0):** None designated\n")
+			sb.WriteString("**Helpers (0):** None designated\n")
 		}
 		if len(mains) > 0 {
 			fmt.Fprintf(&sb, "**Standard Players (%d):** %s\n", len(mains), strings.Join(mains, ", "))
