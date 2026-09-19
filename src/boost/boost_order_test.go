@@ -773,5 +773,3 @@ func TestGenerateESCOrderReport(t *testing.T) {
 		t.Fatalf("expected SIAB role in ESC report, got %q", report)
 	}
 }
-
-
