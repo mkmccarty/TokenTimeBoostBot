@@ -13,12 +13,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ai"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/notok"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/watch"
 	"google.golang.org/protobuf/proto"
 )
@@ -533,10 +533,10 @@ func fetchThematicDataAsync(contractID string, eggName string, contractName stri
 	var complaints []string
 
 	if needTeamNames {
-		teamNames = notok.GetContractTeamNames(contractDescription, expectedContractRoleNames)
+		teamNames = ai.GetContractTeamNames(contractDescription, expectedContractRoleNames)
 	}
 	if needComplaints {
-		complaints = notok.GetContractThematicComplaints(eggName, contractName, contractDescription, expectedContractComplaints)
+		complaints = ai.GetContractThematicComplaints(eggName, contractName, contractDescription, expectedContractComplaints)
 	}
 
 	if len(teamNames) > 0 || len(complaints) > 0 {
