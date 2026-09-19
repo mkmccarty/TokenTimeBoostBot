@@ -908,4 +908,3 @@ func TestBuildESCOrderMessage_KeepAndDismissButtons(t *testing.T) {
 		t.Fatalf("expected Dismiss button with custom ID rc_#dismiss#abc12345")
 	}
 }
-
