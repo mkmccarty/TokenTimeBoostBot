@@ -412,7 +412,7 @@ func AddBoostTokens(client dc.Client, e dc.InteractionEvent, setCountWant int, c
 		farmerstate.SetTokens(b.UserID, b.TokensWanted)
 	}
 
-	if contract.BoostOrder == ContractOrderIHR || contract.BoostOrder == ContractOrderIHRFuzzy {
+	if contract.BoostOrder == ContractOrderIHR || contract.BoostOrder == ContractOrderIHRFuzzy || contract.BoostOrder == ContractOrderESC || contract.BoostOrder == ContractOrderESCGG {
 		for uID, booster := range contract.Boosters {
 			rate, logStr := CalculateIHRRateFromDB(uID)
 			if rate < DefaultLeggyIHR {
@@ -858,7 +858,7 @@ func AddFarmerToContract(client dc.Client, contract *Contract, guildID string, c
 			contract.UltraCount++
 		}
 
-		if contract.BoostOrder == ContractOrderTE || contract.BoostOrder == ContractOrderTEFuzzy || contract.BoostOrder == ContractOrderIHR || contract.BoostOrder == ContractOrderIHRFuzzy {
+		if contract.BoostOrder == ContractOrderTE || contract.BoostOrder == ContractOrderTEFuzzy || contract.BoostOrder == ContractOrderIHR || contract.BoostOrder == ContractOrderIHRFuzzy || contract.BoostOrder == ContractOrderESC || contract.BoostOrder == ContractOrderESCGG {
 			updateContractFarmerTE(client, userID, b, contract)
 		}
 
@@ -2368,6 +2368,9 @@ func reorderBoosters(contract *Contract) {
 		for i := range pairs {
 			contract.Order[i] = pairs[i].name
 		}
+
+	case ContractOrderESC, ContractOrderESCGG:
+		contract.Order = sortESCRemaining(contract, contract.Order, contract.BoostOrder == ContractOrderESCGG)
 	}
 
 	if contract.BoostOrder != ContractOrderTVal {

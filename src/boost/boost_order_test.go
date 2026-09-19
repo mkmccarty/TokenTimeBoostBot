@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
@@ -564,3 +565,213 @@ func TestBoostOrderSortRemainingFuzzyIHRCalcLog(t *testing.T) {
 		t.Fatalf("expected single Fuzzy entry in u1 IHRCalcLog, got %q", contract.Boosters["u1"].IHRCalcLog)
 	}
 }
+
+func TestESCOrderRolePriority(t *testing.T) {
+	contract := &Contract{
+		State:      ContractStateSignup,
+		BoostOrder: ContractOrderESC,
+		Order:      []string{"altUser", "regularUser", "quantUser", "gussetUser", "siabUser"},
+		Boosters: map[string]*Booster{
+			"altUser": {
+				UserID:        "altUser",
+				AltController: "mainUser",
+				IHRRate:       10000,
+			},
+			"regularUser": {
+				UserID:  "regularUser",
+				IHRRate: 1000,
+			},
+			"quantUser": {
+				UserID:  "quantUser",
+				IHRRate: 1000,
+			},
+			"gussetUser": {
+				UserID:  "gussetUser",
+				IHRRate: 1000,
+				ArtifactSet: ArtifactSet{
+					Artifacts: []ei.Artifact{{Type: "Gusset", Quality: "T4L"}},
+				},
+			},
+			"siabUser": {
+				UserID:  "siabUser",
+				IHRRate: 1000,
+				ArtifactSet: ArtifactSet{
+					Artifacts: []ei.Artifact{{Type: "SIAB", Quality: "T4L"}},
+				},
+			},
+		},
+	}
+	farmerstate.SetMiscSettingFlag("quantUser", "quant", true)
+
+	sorted := sortESCRemaining(contract, contract.Order, false)
+	expectedOrder := []string{"siabUser", "gussetUser", "quantUser", "regularUser", "altUser"}
+
+	if !reflect.DeepEqual(sorted, expectedOrder) {
+		t.Fatalf("unexpected ESC role priority order:\ngot  = %v\nwant = %v", sorted, expectedOrder)
+	}
+}
+
+func TestESCOrderGGDeflectorAndEquivELR(t *testing.T) {
+	// 1. GG deflector tiering: T4L > T4E > T4R > T3R
+	contract := &Contract{
+		State:      ContractStateSignup,
+		BoostOrder: ContractOrderESCGG,
+		Order:      []string{"uT3R", "uT4L", "uT4R", "uT4E"},
+		Boosters: map[string]*Booster{
+			"uT4L": {
+				UserID: "uT4L",
+				ArtifactSet: ArtifactSet{
+					Artifacts: []ei.Artifact{{Type: "Deflector", Quality: "T4L"}},
+					LayRate:   10.0,
+				},
+				IHRRate: 1000,
+			},
+			"uT4E": {
+				UserID: "uT4E",
+				ArtifactSet: ArtifactSet{
+					Artifacts: []ei.Artifact{{Type: "Deflector", Quality: "T4E"}},
+					LayRate:   9.0,
+				},
+				IHRRate: 1000,
+			},
+			"uT4R": {
+				UserID: "uT4R",
+				ArtifactSet: ArtifactSet{
+					Artifacts: []ei.Artifact{{Type: "Deflector", Quality: "T4R"}},
+					LayRate:   8.0,
+				},
+				IHRRate: 1000,
+			},
+			"uT3R": {
+				UserID: "uT3R",
+				ArtifactSet: ArtifactSet{
+					Artifacts: []ei.Artifact{{Type: "Deflector", Quality: "T3R"}},
+					LayRate:   7.0,
+				},
+				IHRRate: 1000,
+			},
+		},
+	}
+
+	sortedGG := sortESCRemaining(contract, contract.Order, true)
+	expectedGG := []string{"uT4L", "uT4E", "uT4R", "uT3R"}
+	if !reflect.DeepEqual(sortedGG, expectedGG) {
+		t.Fatalf("unexpected GG deflector order:\ngot  = %v\nwant = %v", sortedGG, expectedGG)
+	}
+
+	// 2. Equivalent ELR allows higher IHR to jump ahead of deflector
+	contractEquiv := &Contract{
+		State:      ContractStateSignup,
+		BoostOrder: ContractOrderESCGG,
+		Order:      []string{"uT4E_highIHR", "uT4L_lowIHR"},
+		Boosters: map[string]*Booster{
+			"uT4L_lowIHR": {
+				UserID: "uT4L_lowIHR",
+				ArtifactSet: ArtifactSet{
+					Artifacts: []ei.Artifact{{Type: "Deflector", Quality: "T4L"}},
+					LayRate:   12.5,
+				},
+				IHRRate: 1000,
+			},
+			"uT4E_highIHR": {
+				UserID: "uT4E_highIHR",
+				ArtifactSet: ArtifactSet{
+					Artifacts: []ei.Artifact{{Type: "Deflector", Quality: "T4E"}},
+					LayRate:   12.5, // Equivalent ELR
+				},
+				IHRRate: 5000, // Higher IHR
+			},
+		},
+	}
+
+	sortedEquiv := sortESCRemaining(contractEquiv, contractEquiv.Order, true)
+	expectedEquiv := []string{"uT4E_highIHR", "uT4L_lowIHR"}
+	if !reflect.DeepEqual(sortedEquiv, expectedEquiv) {
+		t.Fatalf("unexpected GG equivalent ELR order:\ngot  = %v\nwant = %v", sortedEquiv, expectedEquiv)
+	}
+}
+
+func TestESCOrderStandardSlots(t *testing.T) {
+	// Standard runs: 2-slot (T4L, T4E) > 1-slot (T4R) > T3R
+	contract := &Contract{
+		State:      ContractStateSignup,
+		BoostOrder: ContractOrderESC,
+		Order:      []string{"uT3R", "uT4E_2slot", "uT4R_1slot"},
+		Boosters: map[string]*Booster{
+			"uT4E_2slot": {
+				UserID: "uT4E_2slot",
+				ArtifactSet: ArtifactSet{
+					Artifacts: []ei.Artifact{{Type: "Deflector", Quality: "T4E"}},
+				},
+				IHRRate: 1000,
+			},
+			"uT4R_1slot": {
+				UserID: "uT4R_1slot",
+				ArtifactSet: ArtifactSet{
+					Artifacts: []ei.Artifact{{Type: "Deflector", Quality: "T4R"}},
+				},
+				IHRRate: 1000,
+			},
+			"uT3R": {
+				UserID: "uT3R",
+				ArtifactSet: ArtifactSet{
+					Artifacts: []ei.Artifact{{Type: "Deflector", Quality: "T3R"}},
+				},
+				IHRRate: 1000,
+			},
+		},
+	}
+
+	sortedStandard := sortESCRemaining(contract, contract.Order, false)
+	expectedStandard := []string{"uT4E_2slot", "uT4R_1slot", "uT3R"}
+	if !reflect.DeepEqual(sortedStandard, expectedStandard) {
+		t.Fatalf("unexpected standard deflector slots order:\ngot  = %v\nwant = %v", sortedStandard, expectedStandard)
+	}
+}
+
+func TestGenerateESCOrderReport(t *testing.T) {
+	contract := &Contract{
+		ContractID: "test-contract",
+		CoopID:     "test-coop",
+		State:      ContractStateSignup,
+		BoostOrder: ContractOrderESC,
+		Order:      []string{"u1", "u2"},
+		Boosters: map[string]*Booster{
+			"u1": {
+				UserID:  "u1",
+				Nick:    "FarmerOne",
+				IHRRate: 1500,
+				ArtifactSet: ArtifactSet{
+					Artifacts: []ei.Artifact{{Type: "SIAB", Quality: "T4L"}},
+					LayRate:   8.5,
+				},
+				TokensWanted: 5,
+				TECount:      50,
+			},
+			"u2": {
+				UserID:  "u2",
+				Nick:    "FarmerTwo",
+				IHRRate: 1200,
+				ArtifactSet: ArtifactSet{
+					Artifacts: []ei.Artifact{{Type: "Deflector", Quality: "T4L"}},
+					LayRate:   10.0,
+				},
+				TokensWanted: 6,
+				TECount:      40,
+			},
+		},
+	}
+
+	report := GenerateESCOrderReport(contract)
+	if !strings.Contains(report, "🪐 ESC Boost Order Calculations") {
+		t.Fatalf("expected header in ESC report, got %q", report)
+	}
+	if !strings.Contains(report, "FarmerOne") || !strings.Contains(report, "FarmerTwo") {
+		t.Fatalf("expected farmer names in ESC report, got %q", report)
+	}
+	if !strings.Contains(report, "SIAB") {
+		t.Fatalf("expected SIAB role in ESC report, got %q", report)
+	}
+}
+
+

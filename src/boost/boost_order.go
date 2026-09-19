@@ -465,8 +465,10 @@ func boostOrderNameButtons(contract *Contract, session *boostOrderSession, visib
 		}
 		sortRow2 := dc.ActionRow{
 			Components: []dc.InteractiveComponent{
+				dc.Button{Label: "Next ESC", Style: dc.ButtonSuccess, CustomID: fmt.Sprintf("%s#%s#%s#esc", boostOrderHandlerPrefix, session.uuidStr, sortAction)},
+				dc.Button{Label: "Next ESC-GG", Style: dc.ButtonSuccess, CustomID: fmt.Sprintf("%s#%s#%s#escgg", boostOrderHandlerPrefix, session.uuidStr, sortAction)},
 				dc.Button{Label: "Random", Style: dc.ButtonSuccess, CustomID: fmt.Sprintf("%s#%s#%s#random", boostOrderHandlerPrefix, session.uuidStr, sortAction)},
-				dc.Button{Label: modeLabel, Style: dc.ButtonSecondary, CustomID: fmt.Sprintf("%s#%s#mode", boostOrderHandlerPrefix, session.uuidStr)},
+				dc.Button{Label: modeLabel, Style: dc.ButtonSecondary, CustomID: fmt.Sprintf("%s#%s#%s", boostOrderHandlerPrefix, session.uuidStr, "mode")},
 			},
 		}
 		components = append(components, sortRow1, sortRow2)
@@ -693,7 +695,7 @@ func boostOrderButtonLabel(contract *Contract, userID string) string {
 
 		if contract.BoostOrder == ContractOrderELR {
 			metric = fmt.Sprintf("(ELR:%0.2f)", booster.ArtifactSet.LayRate)
-		} else if contract.BoostOrder == ContractOrderIHR || contract.BoostOrder == ContractOrderIHRFuzzy {
+		} else if contract.BoostOrder == ContractOrderIHR || contract.BoostOrder == ContractOrderIHRFuzzy || contract.BoostOrder == ContractOrderESC || contract.BoostOrder == ContractOrderESCGG {
 			metric = fmt.Sprintf("(IHR:%s)", ei.FormatEIValue(booster.IHRRate, map[string]any{"decimals": 2, "trim": true}))
 		} else if booster.TECount > 0 {
 			metric = fmt.Sprintf("(TE:%d)", booster.TECount)
@@ -1038,6 +1040,8 @@ func boostOrderSortRemaining(contract *Contract, unselected []string, sortType s
 		for i, p := range pairs {
 			sorted[i] = p.name
 		}
+	case "esc", "escgg":
+		return sortESCRemaining(contract, unselected, sortType == "escgg")
 	}
 	return sorted
 }

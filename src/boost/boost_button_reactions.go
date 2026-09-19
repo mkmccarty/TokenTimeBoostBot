@@ -1256,12 +1256,20 @@ func getContractReactionsComponents(contract *Contract) []dc.LayoutComponent {
 			Value: "grange",
 			Emoji: &dc.Emoji{Name: "🧑‍🧑‍🧒‍🧒"},
 		})
-		if contract.BoostOrder == ContractOrderIHR || contract.BoostOrder == ContractOrderIHRFuzzy {
+		if contract.BoostOrder == ContractOrderIHR || contract.BoostOrder == ContractOrderIHRFuzzy || contract.BoostOrder == ContractOrderESC || contract.BoostOrder == ContractOrderESCGG {
 			menuOptions = append(menuOptions, dc.SelectOption{
 				Label:       "IHR Calculation Details",
 				Description: "View IHR calculations for contract boosters",
 				Value:       "ihrlog",
 				Emoji:       ei.GetBotComponentEmoji("chalice_T4L"),
+			})
+		}
+		if contract.BoostOrder == ContractOrderESC || contract.BoostOrder == ContractOrderESCGG {
+			menuOptions = append(menuOptions, dc.SelectOption{
+				Label:       "ESC Calculation Details",
+				Description: "View ESC boost order calculation details",
+				Value:       "esclog",
+				Emoji:       &dc.Emoji{Name: "🪐"},
 			})
 		}
 		menuOptions = append(menuOptions, dc.SelectOption{
