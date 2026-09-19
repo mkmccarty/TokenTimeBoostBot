@@ -72,6 +72,11 @@ var adminTaskList = []adminTaskDef{
 		Name:        "Check for Colleggtible",
 		Description: "Refresh ei-config.json and check periodicals if a new hatchery is found",
 	},
+	{
+		ID:          "regen-complaints",
+		Name:        "Regen Complaints",
+		Description: "Regenerate AI contract complaints for a specific contract",
+	},
 }
 
 // SlashAdminTasksCommand returns the /admin-tasks command definition.
@@ -84,20 +89,46 @@ func SlashAdminTasksCommand(cmd string) *dc.Command {
 			Required:     true,
 			Autocomplete: true,
 		},
+		dc.StringOption{
+			Name:         "param",
+			Description:  "Optional parameter (e.g. contract ID for Regen Complaints)",
+			Required:     false,
+			Autocomplete: true,
+		},
 	}
 	return &command
 }
 
-// HandleAdminTasksAutocomplete provides autocomplete suggestions for administrative tasks.
+// HandleAdminTasksAutocomplete provides autocomplete suggestions for administrative tasks and parameters.
 func HandleAdminTasksAutocomplete(e *dc.AutocompleteEvent) {
-	_, value := e.FocusedOption()
-	search := strings.ToLower(strings.TrimSpace(value))
+	focusedName, focusedValue := e.FocusedOption()
+	search := strings.ToLower(strings.TrimSpace(focusedValue))
 	isAdminUser := e.UserID() == config.AdminUserID
 	isHome := isHomeGuild(e.GuildID())
+
+	if focusedName == "param" {
+		taskName, _ := e.OptString("task")
+		taskKey := strings.ToLower(strings.TrimSpace(taskName))
+		if isRegenComplaintsTask(taskKey) && isAdminUser {
+			handleAdminTasksParamContractAutoComplete(e, search)
+			return
+		}
+		choices := []dc.Choice[string]{
+			{
+				Name:  "No entry needed",
+				Value: "no entry needed",
+			},
+		}
+		_ = e.RespondChoices(choices)
+		return
+	}
 
 	choices := make([]dc.Choice[string], 0)
 	for _, task := range adminTaskList {
 		if task.ID == "cycle-encryption-key" && (!isAdminUser || !isHome) {
+			continue
+		}
+		if task.ID == "regen-complaints" && !isAdminUser {
 			continue
 		}
 		if search == "" ||
@@ -111,28 +142,89 @@ func HandleAdminTasksAutocomplete(e *dc.AutocompleteEvent) {
 		}
 	}
 
-	if isAdminUser {
-		contracts := ei.GetEggIncContractsSlice()
+	if len(choices) > 25 {
+		choices = choices[:25]
+	}
+
+	_ = e.RespondChoices(choices)
+}
+
+func handleAdminTasksParamContractAutoComplete(e *dc.AutocompleteEvent, search string) {
+	if search == "no entry needed" || search == "none" {
+		search = ""
+	}
+
+	choices := make([]dc.Choice[string], 0)
+	contracts := ei.GetEggIncContractsSlice()
+
+	if search == "" {
 		for _, c := range contracts {
 			if c.Predicted || c.ID == "" {
 				continue
 			}
-			taskID := fmt.Sprintf("regen-complaints-%s", c.ID)
-			taskName := fmt.Sprintf("Regen Complaints %s", c.ID)
+			name := c.ID
 			if c.Name != "" && !strings.EqualFold(c.Name, c.ID) {
-				taskName = fmt.Sprintf("Regen Complaints %s (%s)", c.ID, c.Name)
+				name = fmt.Sprintf("%s (%s)", c.Name, c.ID)
 			}
-
-			if search == "" ||
-				strings.Contains(strings.ToLower(taskID), search) ||
-				strings.Contains(strings.ToLower(taskName), search) ||
-				strings.Contains(strings.ToLower(c.ID), search) ||
-				strings.Contains(strings.ToLower(c.Name), search) ||
-				strings.Contains("regen complaints", search) ||
-				strings.Contains("regen complaings", search) {
+			choices = append(choices, dc.Choice[string]{
+				Name:  name,
+				Value: c.ID,
+			})
+		}
+	} else {
+		seen := make(map[string]bool)
+		for _, c := range contracts {
+			if c.Predicted || c.ID == "" {
+				continue
+			}
+			if strings.Contains(strings.ToLower(c.ID), search) || strings.Contains(strings.ToLower(c.Name), search) {
+				name := c.ID
+				if c.Name != "" && !strings.EqualFold(c.Name, c.ID) {
+					name = fmt.Sprintf("%s (%s)", c.Name, c.ID)
+				}
 				choices = append(choices, dc.Choice[string]{
-					Name:  taskName,
-					Value: taskID,
+					Name:  name,
+					Value: c.ID,
+				})
+				seen[c.ID] = true
+			}
+		}
+
+		ei.EggIncContractsMutex.RLock()
+		for id, c := range ei.EggIncContractsAll {
+			if seen[id] || c.Predicted || id == "" {
+				continue
+			}
+			if strings.Contains(strings.ToLower(c.ID), search) || strings.Contains(strings.ToLower(c.Name), search) {
+				name := c.ID
+				if c.Name != "" && !strings.EqualFold(c.Name, c.ID) {
+					name = fmt.Sprintf("%s (%s)", c.Name, c.ID)
+				}
+				choices = append(choices, dc.Choice[string]{
+					Name:  name,
+					Value: c.ID,
+				})
+				seen[id] = true
+				if len(choices) >= 25 {
+					break
+				}
+			}
+		}
+		ei.EggIncContractsMutex.RUnlock()
+
+		// Fall back to active contracts if search matched nothing (e.g. leftover text from another task)
+		if len(choices) == 0 {
+			for _, c := range contracts {
+				if c.Predicted || c.ID == "" {
+					continue
+				}
+				name := c.ID
+				if c.Name != "" && !strings.EqualFold(c.Name, c.ID) {
+					name = fmt.Sprintf("%s (%s)", c.Name, c.ID)
+				}
+				choices = append(choices, dc.Choice[string]{
+					Name:  name,
+					Value: c.ID,
 				})
 			}
 		}
@@ -193,6 +285,9 @@ func extractContractIDFromTask(taskName string) string {
 			return rawID
 		}
 	}
+	if lower == "regen-complaints" || lower == "regen complaints" || lower == "regen-complaings" || lower == "regen complaings" || lower == "regen-complaint" || lower == "regen complaint" {
+		return ""
+	}
 	return strings.TrimSpace(taskName)
 }
 
@@ -216,6 +311,7 @@ func HandleAdminTasksCommand(client dc.Client, e *dc.CommandEvent) {
 		_ = e.Followup(dc.Message{Content: "Please select a valid administrative task."})
 		return
 	}
+	param, _ := e.OptString("param")
 
 	taskKey := strings.ToLower(strings.TrimSpace(taskName))
 
@@ -249,7 +345,7 @@ func HandleAdminTasksCommand(client dc.Client, e *dc.CommandEvent) {
 			})
 			return
 		}
-		handleRegenComplaintsTask(e, taskName)
+		handleRegenComplaintsTask(e, taskName, param)
 	default:
 		_ = e.Followup(dc.Message{
 			Content: fmt.Sprintf("Unknown administrative task: `%s`", taskName),
@@ -257,11 +353,17 @@ func HandleAdminTasksCommand(client dc.Client, e *dc.CommandEvent) {
 	}
 }
 
-func handleRegenComplaintsTask(e *dc.CommandEvent, taskName string) {
-	contractID := extractContractIDFromTask(taskName)
+func handleRegenComplaintsTask(e *dc.CommandEvent, taskName string, param string) {
+	contractID := strings.TrimSpace(param)
+	if strings.EqualFold(contractID, "no entry needed") || strings.EqualFold(contractID, "none") {
+		contractID = ""
+	}
 	if contractID == "" {
+		contractID = extractContractIDFromTask(taskName)
+	}
+	if contractID == "" || isRegenComplaintsTask(strings.ToLower(contractID)) {
 		_ = e.Followup(dc.Message{
-			Content: "❌ Please specify a contract ID to regenerate complaints for (e.g. `Regen Complaints <contract-id>`).",
+			Content: "❌ Please specify a contract ID using the `param` option (e.g. `/admin-tasks task:Regen Complaints param:<contract-id>`).",
 		})
 		return
 	}
