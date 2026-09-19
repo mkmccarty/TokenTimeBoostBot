@@ -1,4 +1,4 @@
-package notok
+package ai
 
 import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"

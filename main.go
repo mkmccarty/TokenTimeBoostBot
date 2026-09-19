@@ -14,6 +14,7 @@ import (
 	"time"
 	_ "time/tzdata"
 
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ai"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
@@ -26,7 +27,6 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/leaderboard"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/menno"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/mint"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/notok"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/server"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/tasks"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/version"
@@ -729,9 +729,9 @@ func setupCommands() {
 
 	if !slices.Contains(config.FeatureFlags, "NO_FUN") {
 		commandRegistry = append(commandRegistry, CommandDef{
-			AppCmd:   notok.SlashFunCommand(slashFun),
+			AppCmd:   ai.SlashFunCommand(slashFun),
 			Category: CmdCategoryStandard,
-			Handler:  func(e *dc.CommandEvent) { notok.HandleFun(botClient(), e) },
+			Handler:  func(e *dc.CommandEvent) { ai.HandleFun(botClient(), e) },
 		})
 	}
 

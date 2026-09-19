@@ -1,4 +1,4 @@
-package notok
+package ai
 
 import (
 	"slices"
