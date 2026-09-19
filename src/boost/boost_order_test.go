@@ -2,6 +2,7 @@ package boost
 
 import (
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -771,5 +772,71 @@ func TestGenerateESCOrderReport(t *testing.T) {
 	}
 	if !strings.Contains(report, "SIAB") {
 		t.Fatalf("expected SIAB role in ESC report, got %q", report)
+	}
+}
+
+func TestContractAltsDesignationAndDefaulting(t *testing.T) {
+	contract := &Contract{
+		State:      ContractStateSignup,
+		BoostOrder: ContractOrderESC,
+		Order:      []string{"u1", "u2", "guest1"},
+		Boosters: map[string]*Booster{
+			"u1": {
+				UserID:  "u1",
+				Nick:    "MainPlayer",
+				IHRRate: 1000,
+			},
+			"u2": {
+				UserID:  "u2",
+				Nick:    "SecondPlayer",
+				IHRRate: 2000,
+			},
+			"guest1": {
+				UserID:  "guest1",
+				Name:    "GuestAlt",
+				IHRRate: 3000,
+			},
+		},
+	}
+
+	// 1. Check parsing of farmer list by mention, ID, nickname/name, and boost list numbers
+	matched, notFound := parseContractFarmerList(contract, "<@u1>, GuestAlt, unknownGuy, 2, 99")
+	if len(notFound) != 2 || !slices.Contains(notFound, "unknownGuy") || !slices.Contains(notFound, "99") {
+		t.Fatalf("expected notFound to have unknownGuy and 99, got %v", notFound)
+	}
+	// order is [u1, u2, guest1] -> position 2 corresponds to u2
+	if len(matched) != 3 || !slices.Contains(matched, "u1") || !slices.Contains(matched, "u2") || !slices.Contains(matched, "guest1") {
+		t.Fatalf("expected matched [u1, u2, guest1], got %v", matched)
+	}
+
+	// Test name priority if farmer is named a number
+	contract.Boosters["guest1"].Nick = "2"
+	matchedName, notFoundName := parseContractFarmerList(contract, "2")
+	if len(notFoundName) != 0 || len(matchedName) != 1 || matchedName[0] != "guest1" {
+		t.Fatalf("expected '2' to match farmer with nick '2' first (guest1), got %v", matchedName)
+	}
+	contract.Boosters["guest1"].Nick = ""
+
+	// 2. Mark guest1 and u2 as alternates
+	contract.Boosters["guest1"].IsAlt = true
+	contract.Boosters["u2"].IsAlt = true
+
+	// ESC Order should place u1 (non-alt main) first, despite u2 and guest1 having higher IHR
+	sorted := sortESCRemaining(contract, contract.Order, false)
+	if sorted[0] != "u1" {
+		t.Fatalf("expected non-alt u1 to be first, got %s", sorted[0])
+	}
+	if !contract.Boosters["guest1"].IsAlt || !contract.Boosters["u2"].IsAlt {
+		t.Fatalf("expected guest1 and u2 to be marked as alt")
+	}
+
+	// 3. Clear alternate status
+	contract.Boosters["guest1"].IsAlt = false
+	contract.Boosters["u2"].IsAlt = false
+
+	sortedAfterClear := sortESCRemaining(contract, contract.Order, false)
+	// Now with all non-alts, higher IHR (guest1: 3000, u2: 2000) should be ahead of u1: 1000
+	if sortedAfterClear[len(sortedAfterClear)-1] != "u1" {
+		t.Fatalf("expected lowest IHR u1 to be last among equal non-alts, got %v", sortedAfterClear)
 	}
 }

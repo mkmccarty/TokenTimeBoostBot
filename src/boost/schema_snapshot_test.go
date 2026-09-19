@@ -16,6 +16,7 @@ var commandDefinitions = map[string]func(string) *dc.Command{
 	"GetSlashAdminContractsListCommand":  GetSlashAdminContractsListCommand,
 	"GetSlashAvailabilityCommand":        GetSlashAvailabilityCommand,
 	"GetSlashBoostCommand":               GetSlashBoostCommand,
+	"GetSlashBoostOrderAltsCommand":      GetSlashBoostOrderAltsCommand,
 	"GetSlashBoostOrderCommand":          GetSlashBoostOrderCommand,
 	"GetSlashBumpCommand":                GetSlashBumpCommand,
 	"GetSlashBumpCRCommand":              GetSlashBumpCRCommand,

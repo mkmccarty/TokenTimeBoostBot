@@ -30,7 +30,7 @@ func getESCRolePriority(b *Booster) int {
 		return ESCRoleAlt
 	}
 	// Alts always go to the alt tier
-	if b.AltController != "" {
+	if b.IsAlt || b.AltController != "" {
 		return ESCRoleAlt
 	}
 
@@ -353,4 +353,3 @@ func sendESCOrderCalculationReport(client dc.Client, channelID string, contract 
 		_, _ = client.SendMessage(channelID, dc.Message{Content: report})
 	}
 }
-

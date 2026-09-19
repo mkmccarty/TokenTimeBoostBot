@@ -920,24 +920,6 @@ func AddFarmerToContract(client dc.Client, contract *Contract, guildID string, c
 		contract.RegisteredNum = len(contract.Boosters)
 		farmerstate.SetLastSeen(userID)
 
-		altController := farmerstate.GetMiscSettingString(userID, "AltController")
-		if altController != "" {
-			if contract.Boosters[altController] != nil {
-				contract.mutex.Lock()
-				// We have an alt we can auto link
-				contract.Boosters[altController].Alts = append(contract.Boosters[altController].Alts, userID)
-				contract.Boosters[userID].AltController = altController
-				/*
-					str := "Associated your `" + userID + "` alt with " + contract.Boosters[altController].Mention + "\n"
-					str += "> Use the Signup sink buttons to select your alt for sinks, these cycle through alts so you may need to press them multiple times.\n"
-					str += "> Use the " + boostIcon + " reaction to indicate when your main or alt(s) boost.\n"
-					str += "> Use the " + newAltIcon + " reaction to indicate when `" + userID + "` sends tokens."
-				*/
-				contract.buttonComponents = nil // reset button components
-				contract.mutex.Unlock()
-			}
-		}
-
 		// If the BoostBot is the creator, the first person joining becomes
 		// the coordinator
 		if contract.CreatorID[0] == config.DiscordAppID {

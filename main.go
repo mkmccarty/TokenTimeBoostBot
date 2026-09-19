@@ -97,6 +97,7 @@ const slashCoopTval string = "coop-tval"
 const slashVolunteerSink string = "volunteer-sink"
 const slashVoluntellSink string = "voluntell-sink"
 const slashLinkAlternate string = "link-alternate"
+const slashBoostOrderAlts string = "boost-order-alts"
 const slashTeamworkEval string = "teamwork"
 const slashEstimateTime string = "estimate-contract-time"
 const slashCsEstimate string = "cs-estimate"
@@ -724,6 +725,11 @@ func setupCommands() {
 			AppCmd:   boost.GetSlashContractSettingsCommand(slashContractSettings),
 			Category: CmdCategoryStandard,
 			Handler:  func(e *dc.CommandEvent) { boost.HandleContractSettingsCommand(botClient(), e) },
+		},
+		{
+			AppCmd:   boost.GetSlashBoostOrderAltsCommand(slashBoostOrderAlts),
+			Category: CmdCategoryStandard,
+			Handler:  func(e *dc.CommandEvent) { boost.HandleBoostOrderAltsCommand(botClient(), e) },
 		},
 	}
 

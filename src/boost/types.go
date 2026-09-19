@@ -54,21 +54,21 @@ var contractPlaystyleNames = []string{
 }
 
 var contractOrderNames = []string{
-	"Signup",         // ContractOrderSignup
-	"Reverse",        // ContractOrderReverse
-	"Random",         // ContractOrderRandom
-	"Fair",           // ContractOrderFair
-	"Time-Based",     // ContractOrderTimeBased
-	"ELR",            // ContractOrderELR
-	"TVal",           // ContractOrderTVal
-	"Token-Ask",      // ContractOrderTokenAsk
-	"TE",             // ContractOrderTE
-	"Fuzzy TE",       // ContractOrderTEFuzzy
-	"Manual",         // ContractManualOrder
-	"Boosting IHR",   // ContractOrderIHR
-	"Fuzzy IHR",      // ContractOrderIHRFuzzy
-	"ESC Order",      // ContractOrderESC
-	"ESC Order -GG",  // ContractOrderESCGG
+	"Signup",        // ContractOrderSignup
+	"Reverse",       // ContractOrderReverse
+	"Random",        // ContractOrderRandom
+	"Fair",          // ContractOrderFair
+	"Time-Based",    // ContractOrderTimeBased
+	"ELR",           // ContractOrderELR
+	"TVal",          // ContractOrderTVal
+	"Token-Ask",     // ContractOrderTokenAsk
+	"TE",            // ContractOrderTE
+	"Fuzzy TE",      // ContractOrderTEFuzzy
+	"Manual",        // ContractManualOrder
+	"Boosting IHR",  // ContractOrderIHR
+	"Fuzzy IHR",     // ContractOrderIHRFuzzy
+	"ESC Order",     // ContractOrderESC
+	"ESC Order -GG", // ContractOrderESCGG
 }
 
 var contractFlagNames = []struct {
@@ -205,6 +205,7 @@ type Booster struct {
 	Color         int
 	Alts          []string // Array of alternate ids for the user
 	AltController string   // User ID of the controller of this alternate
+	IsAlt         bool     // True if designated as an alternate account in this contract
 
 	BoostState             int                  // Indicates if current booster
 	TokensReceived         int                  // indicate number of boost tokens
