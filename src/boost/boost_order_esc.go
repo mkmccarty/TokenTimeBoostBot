@@ -1,12 +1,14 @@
 package boost
 
 import (
+	"bytes"
 	"fmt"
 	"math"
 	"math/rand/v2"
 	"sort"
 	"strings"
 
+	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
@@ -106,9 +108,7 @@ func getESCDeflectorScore(b *Booster, isGG bool) int {
 	}
 
 	quality = strings.ToUpper(strings.TrimSpace(quality))
-	if strings.HasSuffix(quality, "_L") {
-		quality = strings.TrimSuffix(quality, "_L")
-	}
+	quality = strings.TrimSuffix(quality, "_L")
 
 	if isGG {
 		switch quality {
@@ -247,14 +247,151 @@ func sortESCRemaining(contract *Contract, unselected []string, isGG bool) []stri
 	return sorted
 }
 
-// GenerateESCOrderReport builds a detailed breakdown of the ESC boost order calculations.
-func GenerateESCOrderReport(contract *Contract) string {
+// RenderESCOrderTableImage renders the ESC booster order table as a PNG image.
+func RenderESCOrderTableImage(contract *Contract) ([]byte, error) {
 	if contract == nil {
-		return "Contract not found."
+		return nil, fmt.Errorf("contract is nil")
+	}
+
+	isGG := contract.BoostOrder == ContractOrderESCGG
+	orderList := contract.Order
+	if len(contract.OriginalOrder) > 0 {
+		orderList = contract.OriginalOrder
+	}
+	sorted := sortESCRemaining(contract, orderList, isGG)
+
+	cols := []TableImageColumn{
+		{Label: "#", Align: bottools.StringAlignRight},
+		{Label: "Player", Align: bottools.StringAlignLeft},
+		{Label: "Role", Align: bottools.StringAlignLeft},
+		{Label: "Deflector", Align: bottools.StringAlignCenter},
+		{Label: "ELR", Align: bottools.StringAlignRight},
+		{Label: "IHR", Align: bottools.StringAlignRight},
+		{Label: "Ask", Align: bottools.StringAlignRight},
+		{Label: "TE", Align: bottools.StringAlignRight},
+	}
+
+	var tableRows []TableImageRow
+	for idx, userID := range sorted {
+		b := contract.Boosters[userID]
+		if b == nil {
+			continue
+		}
+		name := b.Nick
+		if name == "" {
+			name = b.UserName
+		}
+		if name == "" {
+			name = b.GlobalName
+		}
+		if name == "" {
+			name = userID
+		}
+
+		roleStr := "Main"
+		roleColor := ""
+		switch getESCRolePriority(b) {
+		case ESCRoleSIAB:
+			roleStr = "SIAB"
+			roleColor = "green"
+		case ESCRoleGusset:
+			roleStr = "Gusset"
+			roleColor = "blue"
+		case ESCRoleQuant:
+			roleStr = "Quant"
+			roleColor = "blue"
+		case ESCRoleAlt:
+			roleStr = "Alt"
+			roleColor = "red"
+		}
+
+		deflQuality := ""
+		for _, a := range b.ArtifactSet.Artifacts {
+			if a.Type == "Deflector" || a.Type == "IHR Deflector" {
+				deflQuality = a.Quality
+				break
+			}
+		}
+		if deflQuality == "" {
+			deflQuality = farmerstate.GetMiscSettingString(b.UserID, "defl")
+		}
+		if deflQuality == "" {
+			deflQuality = farmerstate.GetMiscSettingString(b.UserID, "defl-ihr")
+		}
+		deflQuality = strings.TrimSpace(deflQuality)
+		if deflQuality == "" || deflQuality == "NONE" {
+			deflQuality = "-"
+		}
+
+		deflColor := ""
+		if strings.HasPrefix(deflQuality, "T4") {
+			deflColor = "green"
+		}
+
+		ihrMult := fmt.Sprintf("%0.2fx", b.IHRRate/DefaultLeggyIHR)
+		elrStr := fmt.Sprintf("%0.2f", b.ArtifactSet.LayRate)
+		askStr := fmt.Sprintf("%d", b.TokensWanted)
+		teStr := fmt.Sprintf("%d", b.TECount)
+
+		cells := []TableImageCell{
+			{Text: fmt.Sprintf("%d", idx+1), Color: ""},
+			{Text: name, Color: ""},
+			{Text: roleStr, Color: roleColor},
+			{Text: deflQuality, Color: deflColor},
+			{Text: elrStr, Color: ""},
+			{Text: ihrMult, Color: ""},
+			{Text: askStr, Color: ""},
+			{Text: teStr, Color: ""},
+		}
+		tableRows = append(tableRows, TableImageRow{Cells: cells})
+	}
+
+	return RenderTableImage(cols, tableRows)
+}
+
+// BuildESCOrderMessage builds a discord Message containing header text, rendered table image, and instructions.
+func BuildESCOrderMessage(contract *Contract) dc.Message {
+	if contract == nil {
+		return dc.Message{Content: "Contract not found."}
 	}
 	contract.mutex.Lock()
 	defer contract.mutex.Unlock()
 
+	isGG := contract.BoostOrder == ContractOrderESCGG
+	runTypeName := "Standard / Leggacy / First Run"
+	if isGG {
+		runTypeName = "GG Run"
+	}
+
+	var headerSb strings.Builder
+	fmt.Fprintf(&headerSb, "## 🪐 ESC Boost Order Calculations\n")
+	fmt.Fprintf(&headerSb, "**Contract:** `%s` | **Coop:** `%s` | **Mode:** %s\n", contract.ContractID, contract.CoopID, runTypeName)
+	fmt.Fprintf(&headerSb, "-# Hierarchy: (1) SIAB > Gusset > Quant > Main > Alts | (2) Deflector | (3) IHR / Token Plan")
+
+	footer := "-# **Alternate Management:** Use `/boost-order-alts set <# or name>` to designate alts (e.g. `/boost-order-alts set 1 3 5`), `/boost-order-alts clear <# or name|all>` to clear, and `/boost-order-alts list` to view."
+
+	imgBytes, err := RenderESCOrderTableImage(contract)
+	if err == nil && len(imgBytes) > 0 {
+		return dc.Message{
+			Files: []dc.File{{
+				Name:        "esc_order_calculations.png",
+				ContentType: "image/png",
+				Reader:      bytes.NewReader(imgBytes),
+			}},
+			Components: []dc.LayoutComponent{
+				dc.TextDisplay{Content: headerSb.String()},
+				dc.MediaGallery{Items: []dc.MediaItem{{URL: "attachment://esc_order_calculations.png"}}},
+				dc.TextDisplay{Content: footer},
+			},
+		}
+	}
+
+	// Fallback to text table if image rendering fails
+	textReport := generateESCOrderReportTextLocked(contract)
+	return dc.Message{Content: textReport}
+}
+
+func generateESCOrderReportTextLocked(contract *Contract) string {
 	isGG := contract.BoostOrder == ContractOrderESCGG
 	runTypeName := "Standard / Leggacy / First Run"
 	if isGG {
@@ -333,23 +470,24 @@ func GenerateESCOrderReport(contract *Contract) string {
 		fmt.Fprintf(&sb, "%-3d %-16s %-8s %-10s %-7s %-8s %-4s %-4s\n", idx+1, name, roleStr, deflQuality, elrStr, ihrMult, askStr, teStr)
 	}
 	fmt.Fprintf(&sb, "```\n")
+	fmt.Fprintf(&sb, "-# **Alternate Management:** Use `/boost-order-alts set <# or name>` to designate alts (e.g. `/boost-order-alts set 1 3 5`), `/boost-order-alts clear <# or name|all>` to clear, and `/boost-order-alts list` to view.\n")
 
 	return sb.String()
 }
 
+// GenerateESCOrderReport builds a detailed breakdown of the ESC boost order calculations.
+func GenerateESCOrderReport(contract *Contract) string {
+	if contract == nil {
+		return "Contract not found."
+	}
+	contract.mutex.Lock()
+	defer contract.mutex.Unlock()
+
+	return generateESCOrderReportTextLocked(contract)
+}
+
 // sendESCOrderCalculationReport sends the ESC order calculations report to the channel.
 func sendESCOrderCalculationReport(client dc.Client, channelID string, contract *Contract) {
-	report := GenerateESCOrderReport(contract)
-	if len(report) > 1950 {
-		_, _ = client.SendMessage(channelID, dc.Message{
-			Content: "## 🪐 ESC Boost Order Calculations",
-			Files: []dc.File{{
-				Name:        "esc_order_calculations.txt",
-				ContentType: "text/plain",
-				Reader:      strings.NewReader(report),
-			}},
-		})
-	} else {
-		_, _ = client.SendMessage(channelID, dc.Message{Content: report})
-	}
+	msg := BuildESCOrderMessage(contract)
+	_, _ = client.SendMessage(channelID, msg)
 }

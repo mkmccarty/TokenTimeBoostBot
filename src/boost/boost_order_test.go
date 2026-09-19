@@ -773,6 +773,23 @@ func TestGenerateESCOrderReport(t *testing.T) {
 	if !strings.Contains(report, "SIAB") {
 		t.Fatalf("expected SIAB role in ESC report, got %q", report)
 	}
+
+	// Test Image Rendering
+	imgBytes, err := RenderESCOrderTableImage(contract)
+	if err != nil {
+		t.Fatalf("unexpected error rendering ESC table image: %v", err)
+	}
+	if len(imgBytes) == 0 {
+		t.Fatalf("expected non-empty image bytes")
+	}
+
+	msg := BuildESCOrderMessage(contract)
+	if len(msg.Files) == 0 {
+		t.Fatalf("expected attached image file in message")
+	}
+	if len(msg.Components) == 0 {
+		t.Fatalf("expected components in message")
+	}
 }
 
 func TestContractAltsDesignationAndDefaulting(t *testing.T) {

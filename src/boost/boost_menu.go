@@ -577,23 +577,9 @@ func HandleMenuReactions(client dc.Client, e *dc.ComponentEvent) {
 			Ephemeral: true,
 		})
 	case "esclog":
-		report := GenerateESCOrderReport(contract)
-		if len(report) > 1950 {
-			_ = e.Respond(dc.Message{
-				Content: "## 🪐 ESC Boost Order Calculations",
-				Files: []dc.File{{
-					Name:        "esc_order_calculations.txt",
-					ContentType: "text/plain",
-					Reader:      strings.NewReader(report),
-				}},
-				Ephemeral: true,
-			})
-		} else {
-			_ = e.Respond(dc.Message{
-				Content:   report,
-				Ephemeral: true,
-			})
-		}
+		msg := BuildESCOrderMessage(contract)
+		msg.Ephemeral = true
+		_ = e.Respond(msg)
 	case "help":
 		_ = e.Defer(true)
 		buttonReactionHelp(client, e, contract)
