@@ -370,6 +370,21 @@ func BuildESCOrderMessage(contract *Contract) dc.Message {
 
 	footer := "-# **Helper Management:** Use `/boost-order-helpers set <# or name>` to designate helpers (e.g. `/boost-order-helpers set 1 3 5`), `/boost-order-helpers clear <# or name|all>` to clear, and `/boost-order-helpers list` to view."
 
+	actionRow := dc.ActionRow{
+		Components: []dc.InteractiveComponent{
+			dc.Button{
+				Label:    "Keep",
+				Style:    dc.ButtonSuccess,
+				CustomID: "rc_#keep#" + contract.ContractHash,
+			},
+			dc.Button{
+				Label:    "Dismiss",
+				Style:    dc.ButtonSecondary,
+				CustomID: "rc_#dismiss#" + contract.ContractHash,
+			},
+		},
+	}
+
 	imgBytes, err := RenderESCOrderTableImage(contract)
 	if err == nil && len(imgBytes) > 0 {
 		return dc.Message{
@@ -382,13 +397,19 @@ func BuildESCOrderMessage(contract *Contract) dc.Message {
 				dc.TextDisplay{Content: headerSb.String()},
 				dc.MediaGallery{Items: []dc.MediaItem{{URL: "attachment://esc_order_calculations.png"}}},
 				dc.TextDisplay{Content: footer},
+				actionRow,
 			},
 		}
 	}
 
 	// Fallback to text table if image rendering fails
 	textReport := generateESCOrderReportTextLocked(contract)
-	return dc.Message{Content: textReport}
+	return dc.Message{
+		Content: textReport,
+		Components: []dc.LayoutComponent{
+			actionRow,
+		},
+	}
 }
 
 func generateESCOrderReportTextLocked(contract *Contract) string {

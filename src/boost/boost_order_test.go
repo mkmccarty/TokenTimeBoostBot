@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
@@ -857,3 +858,54 @@ func TestContractHelpersDesignationAndDefaulting(t *testing.T) {
 		t.Fatalf("expected lowest IHR u1 to be last among equal non-helpers, got %v", sortedAfterClear)
 	}
 }
+
+func TestBuildESCOrderMessage_KeepAndDismissButtons(t *testing.T) {
+	contract := &Contract{
+		ContractID:   "test-contract",
+		CoopID:       "test-coop",
+		ContractHash: "abc12345",
+		BoostOrder:   ContractOrderESC,
+		Order:        []string{"u1"},
+		Boosters: map[string]*Booster{
+			"u1": {
+				UserID:  "u1",
+				Nick:    "TestUser",
+				IHRRate: 1000,
+			},
+		},
+	}
+
+	msg := BuildESCOrderMessage(contract)
+	if len(msg.Components) == 0 {
+		t.Fatalf("expected message components, got none")
+	}
+
+	var foundActionRow bool
+	var foundKeep, foundDismiss bool
+	for _, comp := range msg.Components {
+		if row, ok := comp.(dc.ActionRow); ok {
+			foundActionRow = true
+			for _, btn := range row.Components {
+				if b, ok := btn.(dc.Button); ok {
+					if b.Label == "Keep" && b.CustomID == "rc_#keep#abc12345" {
+						foundKeep = true
+					}
+					if b.Label == "Dismiss" && b.CustomID == "rc_#dismiss#abc12345" {
+						foundDismiss = true
+					}
+				}
+			}
+		}
+	}
+
+	if !foundActionRow {
+		t.Fatalf("expected ActionRow component in message")
+	}
+	if !foundKeep {
+		t.Fatalf("expected Keep button with custom ID rc_#keep#abc12345")
+	}
+	if !foundDismiss {
+		t.Fatalf("expected Dismiss button with custom ID rc_#dismiss#abc12345")
+	}
+}
+

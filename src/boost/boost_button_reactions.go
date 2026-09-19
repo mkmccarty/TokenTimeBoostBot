@@ -38,6 +38,11 @@ func HandleContractReactions(client dc.Client, e *dc.ComponentEvent) {
 		return
 	}
 
+	if cmd == "keep" {
+		_ = e.EditResponse(dc.Message{Components: e.MessageComponentsWithoutActionRows()})
+		return
+	}
+
 	contract := FindContractByHash(contractHash)
 	if contract == nil {
 		_ = e.Followup(dc.Message{
