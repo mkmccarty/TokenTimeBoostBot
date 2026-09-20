@@ -843,6 +843,35 @@ func HandleContractSettingsReactions(client dc.Client, e *dc.ComponentEvent) {
 			for _, item := range usersToRefresh {
 				updateContractFarmerTE(client, item.userID, item.booster, contract)
 			}
+		case "esc", "escgg":
+			type userToRefresh struct {
+				userID  string
+				booster *Booster
+			}
+			if values[0] == "escgg" {
+				contract.BoostOrder = ContractOrderESCGG
+			} else {
+				contract.BoostOrder = ContractOrderESC
+			}
+			for _, b := range contract.Boosters {
+				b.ArtifactSet = getUserArtifacts(b.UserID, nil)
+			}
+			usersToRefresh := make([]userToRefresh, 0, len(contract.Boosters))
+			for userID, b := range contract.Boosters {
+				rate, logStr := CalculateIHRRateFromDB(userID)
+				if rate < DefaultLeggyIHR {
+					rate = DefaultLeggyIHR
+				}
+				b.IHRRate = rate
+				b.IHRCalcLog = logStr
+
+				if b.IHRRate <= DefaultLeggyIHR {
+					usersToRefresh = append(usersToRefresh, userToRefresh{userID: userID, booster: b})
+				}
+			}
+			for _, item := range usersToRefresh {
+				updateContractFarmerTE(client, item.userID, item.booster, contract)
+			}
 		}
 	}
 

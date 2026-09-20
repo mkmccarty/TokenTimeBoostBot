@@ -412,7 +412,7 @@ func AddBoostTokens(client dc.Client, e dc.InteractionEvent, setCountWant int, c
 		farmerstate.SetTokens(b.UserID, b.TokensWanted)
 	}
 
-	if contract.BoostOrder == ContractOrderIHR || contract.BoostOrder == ContractOrderIHRFuzzy {
+	if contract.BoostOrder == ContractOrderIHR || contract.BoostOrder == ContractOrderIHRFuzzy || contract.BoostOrder == ContractOrderESC || contract.BoostOrder == ContractOrderESCGG {
 		for uID, booster := range contract.Boosters {
 			rate, logStr := CalculateIHRRateFromDB(uID)
 			if rate < DefaultLeggyIHR {
@@ -858,7 +858,7 @@ func AddFarmerToContract(client dc.Client, contract *Contract, guildID string, c
 			contract.UltraCount++
 		}
 
-		if contract.BoostOrder == ContractOrderTE || contract.BoostOrder == ContractOrderTEFuzzy || contract.BoostOrder == ContractOrderIHR || contract.BoostOrder == ContractOrderIHRFuzzy {
+		if contract.BoostOrder == ContractOrderTE || contract.BoostOrder == ContractOrderTEFuzzy || contract.BoostOrder == ContractOrderIHR || contract.BoostOrder == ContractOrderIHRFuzzy || contract.BoostOrder == ContractOrderESC || contract.BoostOrder == ContractOrderESCGG {
 			updateContractFarmerTE(client, userID, b, contract)
 		}
 
@@ -919,24 +919,6 @@ func AddFarmerToContract(client dc.Client, contract *Contract, guildID string, c
 		}
 		contract.RegisteredNum = len(contract.Boosters)
 		farmerstate.SetLastSeen(userID)
-
-		altController := farmerstate.GetMiscSettingString(userID, "AltController")
-		if altController != "" {
-			if contract.Boosters[altController] != nil {
-				contract.mutex.Lock()
-				// We have an alt we can auto link
-				contract.Boosters[altController].Alts = append(contract.Boosters[altController].Alts, userID)
-				contract.Boosters[userID].AltController = altController
-				/*
-					str := "Associated your `" + userID + "` alt with " + contract.Boosters[altController].Mention + "\n"
-					str += "> Use the Signup sink buttons to select your alt for sinks, these cycle through alts so you may need to press them multiple times.\n"
-					str += "> Use the " + boostIcon + " reaction to indicate when your main or alt(s) boost.\n"
-					str += "> Use the " + newAltIcon + " reaction to indicate when `" + userID + "` sends tokens."
-				*/
-				contract.buttonComponents = nil // reset button components
-				contract.mutex.Unlock()
-			}
-		}
 
 		// If the BoostBot is the creator, the first person joining becomes
 		// the coordinator
@@ -2368,6 +2350,9 @@ func reorderBoosters(contract *Contract) {
 		for i := range pairs {
 			contract.Order[i] = pairs[i].name
 		}
+
+	case ContractOrderESC, ContractOrderESCGG:
+		contract.Order = sortESCRemaining(contract, contract.Order, contract.BoostOrder == ContractOrderESCGG)
 	}
 
 	if contract.BoostOrder != ContractOrderTVal {

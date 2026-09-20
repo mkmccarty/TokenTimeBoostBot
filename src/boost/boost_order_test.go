@@ -2,11 +2,14 @@ package boost
 
 import (
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
@@ -562,5 +565,360 @@ func TestBoostOrderSortRemainingFuzzyIHRCalcLog(t *testing.T) {
 	boostOrderSortRemaining(contract, []string{"u1", "u2"}, "fuzzyihr")
 	if strings.Count(contract.Boosters["u1"].IHRCalcLog, "Fuzzy (") != 1 {
 		t.Fatalf("expected single Fuzzy entry in u1 IHRCalcLog, got %q", contract.Boosters["u1"].IHRCalcLog)
+	}
+}
+
+func TestESCOrderRolePriority(t *testing.T) {
+	contract := &Contract{
+		State:      ContractStateSignup,
+		BoostOrder: ContractOrderESC,
+		Order:      []string{"altUser", "regularUser", "quantUser", "gussetUser", "siabUser"},
+		Boosters: map[string]*Booster{
+			"altUser": {
+				UserID:        "altUser",
+				AltController: "mainUser",
+				IHRRate:       10000,
+			},
+			"regularUser": {
+				UserID:  "regularUser",
+				IHRRate: 1000,
+			},
+			"quantUser": {
+				UserID:  "quantUser",
+				IHRRate: 1000,
+			},
+			"gussetUser": {
+				UserID:  "gussetUser",
+				IHRRate: 1000,
+				ArtifactSet: ArtifactSet{
+					Artifacts: []ei.Artifact{{Type: "Gusset", Quality: "T4L"}},
+				},
+			},
+			"siabUser": {
+				UserID:  "siabUser",
+				IHRRate: 1000,
+				ArtifactSet: ArtifactSet{
+					Artifacts: []ei.Artifact{{Type: "SIAB", Quality: "T4L"}},
+				},
+			},
+		},
+	}
+	farmerstate.SetMiscSettingFlag("quantUser", "quant", true)
+
+	sorted := sortESCRemaining(contract, contract.Order, false)
+	expectedOrder := []string{"siabUser", "gussetUser", "quantUser", "regularUser", "altUser"}
+
+	if !reflect.DeepEqual(sorted, expectedOrder) {
+		t.Fatalf("unexpected ESC role priority order:\ngot  = %v\nwant = %v", sorted, expectedOrder)
+	}
+}
+
+func TestESCOrderGGDeflectorAndEquivELR(t *testing.T) {
+	// 1. GG deflector tiering: T4L > T4E > T4R > T3R
+	contract := &Contract{
+		State:      ContractStateSignup,
+		BoostOrder: ContractOrderESCGG,
+		Order:      []string{"uT3R", "uT4L", "uT4R", "uT4E"},
+		Boosters: map[string]*Booster{
+			"uT4L": {
+				UserID: "uT4L",
+				ArtifactSet: ArtifactSet{
+					Artifacts: []ei.Artifact{{Type: "Deflector", Quality: "T4L"}},
+					LayRate:   10.0,
+				},
+				IHRRate: 1000,
+			},
+			"uT4E": {
+				UserID: "uT4E",
+				ArtifactSet: ArtifactSet{
+					Artifacts: []ei.Artifact{{Type: "Deflector", Quality: "T4E"}},
+					LayRate:   9.0,
+				},
+				IHRRate: 1000,
+			},
+			"uT4R": {
+				UserID: "uT4R",
+				ArtifactSet: ArtifactSet{
+					Artifacts: []ei.Artifact{{Type: "Deflector", Quality: "T4R"}},
+					LayRate:   8.0,
+				},
+				IHRRate: 1000,
+			},
+			"uT3R": {
+				UserID: "uT3R",
+				ArtifactSet: ArtifactSet{
+					Artifacts: []ei.Artifact{{Type: "Deflector", Quality: "T3R"}},
+					LayRate:   7.0,
+				},
+				IHRRate: 1000,
+			},
+		},
+	}
+
+	sortedGG := sortESCRemaining(contract, contract.Order, true)
+	expectedGG := []string{"uT4L", "uT4E", "uT4R", "uT3R"}
+	if !reflect.DeepEqual(sortedGG, expectedGG) {
+		t.Fatalf("unexpected GG deflector order:\ngot  = %v\nwant = %v", sortedGG, expectedGG)
+	}
+
+	// 2. Equivalent ELR allows higher IHR to jump ahead of deflector
+	contractEquiv := &Contract{
+		State:      ContractStateSignup,
+		BoostOrder: ContractOrderESCGG,
+		Order:      []string{"uT4E_highIHR", "uT4L_lowIHR"},
+		Boosters: map[string]*Booster{
+			"uT4L_lowIHR": {
+				UserID: "uT4L_lowIHR",
+				ArtifactSet: ArtifactSet{
+					Artifacts: []ei.Artifact{{Type: "Deflector", Quality: "T4L"}},
+					LayRate:   12.5,
+				},
+				IHRRate: 1000,
+			},
+			"uT4E_highIHR": {
+				UserID: "uT4E_highIHR",
+				ArtifactSet: ArtifactSet{
+					Artifacts: []ei.Artifact{{Type: "Deflector", Quality: "T4E"}},
+					LayRate:   12.5, // Equivalent ELR
+				},
+				IHRRate: 5000, // Higher IHR
+			},
+		},
+	}
+
+	sortedEquiv := sortESCRemaining(contractEquiv, contractEquiv.Order, true)
+	expectedEquiv := []string{"uT4E_highIHR", "uT4L_lowIHR"}
+	if !reflect.DeepEqual(sortedEquiv, expectedEquiv) {
+		t.Fatalf("unexpected GG equivalent ELR order:\ngot  = %v\nwant = %v", sortedEquiv, expectedEquiv)
+	}
+}
+
+func TestESCOrderStandardSlots(t *testing.T) {
+	// Standard runs: 2-slot (T4L, T4E) > 1-slot (T4R) > T3R
+	contract := &Contract{
+		State:      ContractStateSignup,
+		BoostOrder: ContractOrderESC,
+		Order:      []string{"uT3R", "uT4E_2slot", "uT4R_1slot"},
+		Boosters: map[string]*Booster{
+			"uT4E_2slot": {
+				UserID: "uT4E_2slot",
+				ArtifactSet: ArtifactSet{
+					Artifacts: []ei.Artifact{{Type: "Deflector", Quality: "T4E"}},
+				},
+				IHRRate: 1000,
+			},
+			"uT4R_1slot": {
+				UserID: "uT4R_1slot",
+				ArtifactSet: ArtifactSet{
+					Artifacts: []ei.Artifact{{Type: "Deflector", Quality: "T4R"}},
+				},
+				IHRRate: 1000,
+			},
+			"uT3R": {
+				UserID: "uT3R",
+				ArtifactSet: ArtifactSet{
+					Artifacts: []ei.Artifact{{Type: "Deflector", Quality: "T3R"}},
+				},
+				IHRRate: 1000,
+			},
+		},
+	}
+
+	sortedStandard := sortESCRemaining(contract, contract.Order, false)
+	expectedStandard := []string{"uT4E_2slot", "uT4R_1slot", "uT3R"}
+	if !reflect.DeepEqual(sortedStandard, expectedStandard) {
+		t.Fatalf("unexpected standard deflector slots order:\ngot  = %v\nwant = %v", sortedStandard, expectedStandard)
+	}
+}
+
+func TestGenerateESCOrderReport(t *testing.T) {
+	contract := &Contract{
+		ContractID: "test-contract",
+		CoopID:     "test-coop",
+		State:      ContractStateSignup,
+		BoostOrder: ContractOrderESC,
+		Order:      []string{"u1", "u2"},
+		Boosters: map[string]*Booster{
+			"u1": {
+				UserID:  "u1",
+				Nick:    "FarmerOne",
+				IHRRate: 1500,
+				ArtifactSet: ArtifactSet{
+					Artifacts: []ei.Artifact{{Type: "SIAB", Quality: "T4L"}},
+					LayRate:   8.5,
+				},
+				TokensWanted: 5,
+				TECount:      50,
+			},
+			"u2": {
+				UserID:  "u2",
+				Nick:    "FarmerTwo",
+				IHRRate: 1200,
+				ArtifactSet: ArtifactSet{
+					Artifacts: []ei.Artifact{{Type: "Deflector", Quality: "T4L"}},
+					LayRate:   10.0,
+				},
+				TokensWanted: 6,
+				TECount:      40,
+			},
+		},
+	}
+
+	report := GenerateESCOrderReport(contract)
+	if !strings.Contains(report, "🪐 ESC Boost Order Calculations") {
+		t.Fatalf("expected header in ESC report, got %q", report)
+	}
+	if !strings.Contains(report, "FarmerOne") || !strings.Contains(report, "FarmerTwo") {
+		t.Fatalf("expected farmer names in ESC report, got %q", report)
+	}
+	if !strings.Contains(report, "Main") {
+		t.Fatalf("expected Main role in ESC report, got %q", report)
+	}
+
+	// Test Image Rendering
+	imgBytes, err := RenderESCOrderTableImage(contract)
+	if err != nil {
+		t.Fatalf("unexpected error rendering ESC table image: %v", err)
+	}
+	if len(imgBytes) == 0 {
+		t.Fatalf("expected non-empty image bytes")
+	}
+
+	msg := BuildESCOrderMessage(contract)
+	if len(msg.Files) == 0 {
+		t.Fatalf("expected attached image file in message")
+	}
+	if len(msg.Components) == 0 {
+		t.Fatalf("expected components in message")
+	}
+}
+
+func TestContractHelpersDesignationAndDefaulting(t *testing.T) {
+	contract := &Contract{
+		State:      ContractStateSignup,
+		BoostOrder: ContractOrderESC,
+		Order:      []string{"u1", "u2", "guest1"},
+		Boosters: map[string]*Booster{
+			"u1": {
+				UserID:  "u1",
+				Nick:    "MainPlayer",
+				IHRRate: 1000,
+			},
+			"u2": {
+				UserID:  "u2",
+				Nick:    "SecondPlayer",
+				IHRRate: 2000,
+			},
+			"guest1": {
+				UserID:  "guest1",
+				Name:    "GuestAlt",
+				IHRRate: 3000,
+			},
+		},
+	}
+
+	// 1. Check parsing of farmer list by mention, ID, nickname/name, and boost list numbers
+	matched, notFound := parseContractFarmerList(contract, "<@u1>, GuestAlt, unknownGuy, 2, 99")
+	if len(notFound) != 2 || !slices.Contains(notFound, "unknownGuy") || !slices.Contains(notFound, "99") {
+		t.Fatalf("expected notFound to have unknownGuy and 99, got %v", notFound)
+	}
+	// order is [u1, u2, guest1] -> position 2 corresponds to u2
+	if len(matched) != 3 || !slices.Contains(matched, "u1") || !slices.Contains(matched, "u2") || !slices.Contains(matched, "guest1") {
+		t.Fatalf("expected matched [u1, u2, guest1], got %v", matched)
+	}
+
+	// Test name priority if farmer is named a number
+	contract.Boosters["guest1"].Nick = "2"
+	matchedName, notFoundName := parseContractFarmerList(contract, "2")
+	if len(notFoundName) != 0 || len(matchedName) != 1 || matchedName[0] != "guest1" {
+		t.Fatalf("expected '2' to match farmer with nick '2' first (guest1), got %v", matchedName)
+	}
+	contract.Boosters["guest1"].Nick = ""
+
+	// 2. Mark guest1 and u2 as helpers
+	contract.Boosters["guest1"].IsAlt = true
+	contract.Boosters["u2"].IsAlt = true
+
+	// ESC Order should place u1 (non-helper main) first, despite u2 and guest1 having higher IHR
+	sorted := sortESCRemaining(contract, contract.Order, false)
+	if sorted[0] != "u1" {
+		t.Fatalf("expected non-helper u1 to be first, got %s", sorted[0])
+	}
+	if !contract.Boosters["guest1"].IsAlt || !contract.Boosters["u2"].IsAlt {
+		t.Fatalf("expected guest1 and u2 to be marked as helper")
+	}
+
+	// 3. Clear helper status
+	contract.Boosters["guest1"].IsAlt = false
+	contract.Boosters["u2"].IsAlt = false
+
+	sortedAfterClear := sortESCRemaining(contract, contract.Order, false)
+	// Now with all non-helpers, higher IHR (guest1: 3000, u2: 2000) should be ahead of u1: 1000
+	if sortedAfterClear[len(sortedAfterClear)-1] != "u1" {
+		t.Fatalf("expected lowest IHR u1 to be last among equal non-helpers, got %v", sortedAfterClear)
+	}
+}
+
+func TestBuildESCOrderMessage_KeepAndDismissButtons(t *testing.T) {
+	contract := &Contract{
+		ContractID:   "test-contract",
+		CoopID:       "test-coop",
+		ContractHash: "abc12345",
+		BoostOrder:   ContractOrderESC,
+		Order:        []string{"u1"},
+		Boosters: map[string]*Booster{
+			"u1": {
+				UserID:  "u1",
+				Nick:    "TestUser",
+				IHRRate: 1000,
+			},
+		},
+	}
+
+	msg := BuildESCOrderMessage(contract)
+	if len(msg.Components) == 0 {
+		t.Fatalf("expected message components, got none")
+	}
+
+	var foundActionRow bool
+	var foundKeep, foundDismiss bool
+	for _, comp := range msg.Components {
+		if row, ok := comp.(dc.ActionRow); ok {
+			foundActionRow = true
+			for _, btn := range row.Components {
+				if b, ok := btn.(dc.Button); ok {
+					if b.Label == "Keep" && b.CustomID == "rc_#keep#abc12345" {
+						foundKeep = true
+					}
+					if b.Label == "Dismiss" && b.CustomID == "rc_#dismiss#abc12345" {
+						foundDismiss = true
+					}
+				}
+			}
+		}
+	}
+
+	if !foundActionRow {
+		t.Fatalf("expected ActionRow component in message")
+	}
+	if !foundKeep {
+		t.Fatalf("expected Keep button with custom ID rc_#keep#abc12345")
+	}
+	if !foundDismiss {
+		t.Fatalf("expected Dismiss button with custom ID rc_#dismiss#abc12345")
+	}
+	if msg.Ephemeral {
+		t.Fatalf("expected non-ephemeral message, got Ephemeral=true")
+	}
+
+	// Ephemeral message should omit buttons and set Ephemeral = true
+	ephemeralMsg := BuildESCOrderMessage(contract, true)
+	if !ephemeralMsg.Ephemeral {
+		t.Fatalf("expected ephemeral message, got Ephemeral=false")
+	}
+	for _, comp := range ephemeralMsg.Components {
+		if _, ok := comp.(dc.ActionRow); ok {
+			t.Fatalf("did not expect ActionRow in ephemeral message")
+		}
 	}
 }
