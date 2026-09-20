@@ -350,9 +350,11 @@ func RenderESCOrderTableImage(contract *Contract) ([]byte, error) {
 }
 
 // BuildESCOrderMessage builds a discord Message containing header text, rendered table image, and instructions.
-func BuildESCOrderMessage(contract *Contract) dc.Message {
+// If ephemeral is true, buttons (Keep/Dismiss) are omitted and Message.Ephemeral is set to true.
+func BuildESCOrderMessage(contract *Contract, ephemeral ...bool) dc.Message {
+	isEphemeral := len(ephemeral) > 0 && ephemeral[0]
 	if contract == nil {
-		return dc.Message{Content: "Contract not found."}
+		return dc.Message{Content: "Contract not found.", Ephemeral: isEphemeral}
 	}
 	contract.mutex.Lock()
 	defer contract.mutex.Unlock()
@@ -387,28 +389,35 @@ func BuildESCOrderMessage(contract *Contract) dc.Message {
 
 	imgBytes, err := RenderESCOrderTableImage(contract)
 	if err == nil && len(imgBytes) > 0 {
+		components := []dc.LayoutComponent{
+			dc.TextDisplay{Content: headerSb.String()},
+			dc.MediaGallery{Items: []dc.MediaItem{{URL: "attachment://esc_order_calculations.png"}}},
+			dc.TextDisplay{Content: footer},
+		}
+		if !isEphemeral {
+			components = append(components, actionRow)
+		}
 		return dc.Message{
 			Files: []dc.File{{
 				Name:        "esc_order_calculations.png",
 				ContentType: "image/png",
 				Reader:      bytes.NewReader(imgBytes),
 			}},
-			Components: []dc.LayoutComponent{
-				dc.TextDisplay{Content: headerSb.String()},
-				dc.MediaGallery{Items: []dc.MediaItem{{URL: "attachment://esc_order_calculations.png"}}},
-				dc.TextDisplay{Content: footer},
-				actionRow,
-			},
+			Components: components,
+			Ephemeral:  isEphemeral,
 		}
 	}
 
 	// Fallback to text table if image rendering fails
 	textReport := generateESCOrderReportTextLocked(contract)
+	var fallbackComponents []dc.LayoutComponent
+	if !isEphemeral {
+		fallbackComponents = []dc.LayoutComponent{actionRow}
+	}
 	return dc.Message{
-		Content: textReport,
-		Components: []dc.LayoutComponent{
-			actionRow,
-		},
+		Content:    textReport,
+		Components: fallbackComponents,
+		Ephemeral:  isEphemeral,
 	}
 }
 

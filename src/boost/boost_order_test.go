@@ -907,4 +907,18 @@ func TestBuildESCOrderMessage_KeepAndDismissButtons(t *testing.T) {
 	if !foundDismiss {
 		t.Fatalf("expected Dismiss button with custom ID rc_#dismiss#abc12345")
 	}
+	if msg.Ephemeral {
+		t.Fatalf("expected non-ephemeral message, got Ephemeral=true")
+	}
+
+	// Ephemeral message should omit buttons and set Ephemeral = true
+	ephemeralMsg := BuildESCOrderMessage(contract, true)
+	if !ephemeralMsg.Ephemeral {
+		t.Fatalf("expected ephemeral message, got Ephemeral=false")
+	}
+	for _, comp := range ephemeralMsg.Components {
+		if _, ok := comp.(dc.ActionRow); ok {
+			t.Fatalf("did not expect ActionRow in ephemeral message")
+		}
+	}
 }
