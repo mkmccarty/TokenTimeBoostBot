@@ -149,10 +149,13 @@ type escSortItem struct {
 }
 
 // sortESCRemaining sorts the provided booster userIDs according to ESC rules.
-func sortESCRemaining(contract *Contract, unselected []string, isGG bool) []string {
+// If applyFuzzy is true (applied at contract start for Standard runs), random ±6% fuzzy offset is applied to IHR.
+func sortESCRemaining(contract *Contract, unselected []string, isGG bool, applyFuzzy ...bool) []string {
 	if len(unselected) <= 1 {
 		return append([]string(nil), unselected...)
 	}
+
+	doFuzzy := len(applyFuzzy) > 0 && applyFuzzy[0]
 
 	items := make([]escSortItem, len(unselected))
 	for i, userID := range unselected {
@@ -170,8 +173,8 @@ func sortESCRemaining(contract *Contract, unselected []string, isGG bool) []stri
 			tokensW = b.TokensWanted
 			teVal = b.TECount
 
-			if !isGG {
-				// Standard runs: Fuzzy IHR (6% random bonus)
+			if !isGG && doFuzzy {
+				// Standard runs: Fuzzy IHR (6% random bonus) applied at contract start
 				randomBonusMax := ihrVal * 0.06
 				randomOffset := (rand.Float64()*2 - 1) * randomBonusMax
 				sortIHR := ihrVal + randomOffset
@@ -258,7 +261,13 @@ func RenderESCOrderTableImage(contract *Contract) ([]byte, error) {
 	if len(contract.OriginalOrder) > 0 {
 		orderList = contract.OriginalOrder
 	}
-	sorted := sortESCRemaining(contract, orderList, isGG)
+	// Display table with non-fuzzy ordering in place (applyFuzzy = false)
+	sorted := sortESCRemaining(contract, orderList, isGG, false)
+
+	ihrColLabel := "IHR"
+	if !isGG {
+		ihrColLabel = "IHR (±6%)"
+	}
 
 	cols := []TableImageColumn{
 		{Label: "#", Align: bottools.StringAlignRight},
@@ -266,8 +275,7 @@ func RenderESCOrderTableImage(contract *Contract) ([]byte, error) {
 		{Label: "Role", Align: bottools.StringAlignLeft},
 		{Label: "Deflector", Align: bottools.StringAlignCenter},
 		{Label: "ELR", Align: bottools.StringAlignRight},
-		{Label: "IHR", Align: bottools.StringAlignRight},
-		{Label: "Ask", Align: bottools.StringAlignRight},
+		{Label: ihrColLabel, Align: bottools.StringAlignRight},
 		{Label: "TE", Align: bottools.StringAlignRight},
 	}
 
@@ -330,7 +338,6 @@ func RenderESCOrderTableImage(contract *Contract) ([]byte, error) {
 
 		ihrMult := fmt.Sprintf("%0.2fx", b.IHRRate/DefaultLeggyIHR)
 		elrStr := fmt.Sprintf("%0.2f", b.ArtifactSet.LayRate)
-		askStr := fmt.Sprintf("%d", b.TokensWanted)
 		teStr := fmt.Sprintf("%d", b.TECount)
 
 		cells := []TableImageCell{
@@ -340,7 +347,6 @@ func RenderESCOrderTableImage(contract *Contract) ([]byte, error) {
 			{Text: deflQuality, Color: deflColor},
 			{Text: elrStr, Color: ""},
 			{Text: ihrMult, Color: ""},
-			{Text: askStr, Color: ""},
 			{Text: teStr, Color: ""},
 		}
 		tableRows = append(tableRows, TableImageRow{Cells: cells})
@@ -437,11 +443,17 @@ func generateESCOrderReportTextLocked(contract *Contract) string {
 	if len(contract.OriginalOrder) > 0 {
 		orderList = contract.OriginalOrder
 	}
-	sorted := sortESCRemaining(contract, orderList, isGG)
+	// Display table with non-fuzzy ordering in place (applyFuzzy = false)
+	sorted := sortESCRemaining(contract, orderList, isGG, false)
+
+	ihrColLabel := "IHR"
+	if !isGG {
+		ihrColLabel = "IHR (±6%)"
+	}
 
 	fmt.Fprintf(&sb, "```\n")
-	fmt.Fprintf(&sb, "%-3s %-16s %-8s %-10s %-7s %-8s %-4s %-4s\n", "#", "Player", "Role", "Deflector", "ELR", "IHR", "Ask", "TE")
-	fmt.Fprintf(&sb, "%-3s %-16s %-8s %-10s %-7s %-8s %-4s %-4s\n", "---", "----------------", "--------", "----------", "-------", "--------", "----", "----")
+	fmt.Fprintf(&sb, "%-3s %-16s %-8s %-10s %-7s %-10s %-4s\n", "#", "Player", "Role", "Deflector", "ELR", ihrColLabel, "TE")
+	fmt.Fprintf(&sb, "%-3s %-16s %-8s %-10s %-7s %-10s %-4s\n", "---", "----------------", "--------", "----------", "-------", "----------", "----")
 
 	for idx, userID := range sorted {
 		b := contract.Boosters[userID]
@@ -494,10 +506,9 @@ func generateESCOrderReportTextLocked(contract *Contract) string {
 
 		ihrMult := fmt.Sprintf("%0.2fx", b.IHRRate/DefaultLeggyIHR)
 		elrStr := fmt.Sprintf("%0.2f", b.ArtifactSet.LayRate)
-		askStr := fmt.Sprintf("%d", b.TokensWanted)
 		teStr := fmt.Sprintf("%d", b.TECount)
 
-		fmt.Fprintf(&sb, "%-3d %-16s %-8s %-10s %-7s %-8s %-4s %-4s\n", idx+1, name, roleStr, deflQuality, elrStr, ihrMult, askStr, teStr)
+		fmt.Fprintf(&sb, "%-3d %-16s %-8s %-10s %-7s %-10s %-4s\n", idx+1, name, roleStr, deflQuality, elrStr, ihrMult, teStr)
 	}
 	fmt.Fprintf(&sb, "```\n")
 	fmt.Fprintf(&sb, "-# **Helper Management:** Use `/boost-order-helpers set <# or name>` to designate helpers (e.g. `/boost-order-helpers set 1 3 5`), `/boost-order-helpers clear <# or name|all>` to clear, and `/boost-order-helpers list` to view.\n")

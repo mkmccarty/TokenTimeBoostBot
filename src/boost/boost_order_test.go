@@ -774,6 +774,35 @@ func TestGenerateESCOrderReport(t *testing.T) {
 	if !strings.Contains(report, "Main") {
 		t.Fatalf("expected Main role in ESC report, got %q", report)
 	}
+	if strings.Contains(report, "Ask") {
+		t.Fatalf("did not expect Ask column in ESC report, got %q", report)
+	}
+	if !strings.Contains(report, "IHR (±6%)") {
+		t.Fatalf("expected 'IHR (±6%%)' fuzzy criteria header in standard ESC report, got %q", report)
+	}
+
+	// For GG run, verify GG mode and standard IHR label without ±6%
+	contractGG := &Contract{
+		ContractID: "test-contract-gg",
+		CoopID:     "test-coop-gg",
+		State:      ContractStateSignup,
+		BoostOrder: ContractOrderESCGG,
+		Order:      []string{"u1"},
+		Boosters: map[string]*Booster{
+			"u1": {
+				UserID:  "u1",
+				Nick:    "FarmerOne",
+				IHRRate: 1500,
+			},
+		},
+	}
+	reportGG := GenerateESCOrderReport(contractGG)
+	if !strings.Contains(reportGG, "GG Run") {
+		t.Fatalf("expected GG Run in mode header, got %q", reportGG)
+	}
+	if strings.Contains(reportGG, "IHR (±6%)") {
+		t.Fatalf("did not expect fuzzy ±6%% in GG run IHR header, got %q", reportGG)
+	}
 
 	// Test Image Rendering
 	imgBytes, err := RenderESCOrderTableImage(contract)
@@ -790,6 +819,32 @@ func TestGenerateESCOrderReport(t *testing.T) {
 	}
 	if len(msg.Components) == 0 {
 		t.Fatalf("expected components in message")
+	}
+}
+
+func TestESCOrderNonFuzzyTablePreview(t *testing.T) {
+	contract := &Contract{
+		State:      ContractStateSignup,
+		BoostOrder: ContractOrderESC,
+		Order:      []string{"u1", "u2"},
+		Boosters: map[string]*Booster{
+			"u1": {
+				UserID:  "u1",
+				IHRRate: 1000.0,
+			},
+			"u2": {
+				UserID:  "u2",
+				IHRRate: 1005.0, // Only 0.5% higher, within ±6% fuzzy range
+			},
+		},
+	}
+
+	// Preview / non-fuzzy sort should ALWAYS order u2 ahead of u1 deterministically
+	for i := 0; i < 20; i++ {
+		sorted := sortESCRemaining(contract, contract.Order, false, false)
+		if sorted[0] != "u2" || sorted[1] != "u1" {
+			t.Fatalf("expected deterministic non-fuzzy sort [u2 u1], got %v", sorted)
+		}
 	}
 }
 
