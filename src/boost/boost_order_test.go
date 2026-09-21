@@ -774,6 +774,15 @@ func TestGenerateESCOrderReport(t *testing.T) {
 	if !strings.Contains(report, "Main") {
 		t.Fatalf("expected Main role in ESC report, got %q", report)
 	}
+	if strings.Contains(report, "Ask") {
+		t.Fatalf("did not expect Ask column in ESC report, got %q", report)
+	}
+	if !strings.Contains(report, "Fuzzy TE") {
+		t.Fatalf("expected Fuzzy TE column in ESC report, got %q", report)
+	}
+	if !strings.Contains(report, "Final boost order is determined when contract boosting starts") {
+		t.Fatalf("expected start-time final order notice in ESC report, got %q", report)
+	}
 
 	// Test Image Rendering
 	imgBytes, err := RenderESCOrderTableImage(contract)

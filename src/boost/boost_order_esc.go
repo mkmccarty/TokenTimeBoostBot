@@ -267,8 +267,8 @@ func RenderESCOrderTableImage(contract *Contract) ([]byte, error) {
 		{Label: "Deflector", Align: bottools.StringAlignCenter},
 		{Label: "ELR", Align: bottools.StringAlignRight},
 		{Label: "IHR", Align: bottools.StringAlignRight},
-		{Label: "Ask", Align: bottools.StringAlignRight},
 		{Label: "TE", Align: bottools.StringAlignRight},
+		{Label: "Fuzzy TE", Align: bottools.StringAlignCenter},
 	}
 
 	var tableRows []TableImageRow
@@ -330,8 +330,15 @@ func RenderESCOrderTableImage(contract *Contract) ([]byte, error) {
 
 		ihrMult := fmt.Sprintf("%0.2fx", b.IHRRate/DefaultLeggyIHR)
 		elrStr := fmt.Sprintf("%0.2f", b.ArtifactSet.LayRate)
-		askStr := fmt.Sprintf("%d", b.TokensWanted)
 		teStr := fmt.Sprintf("%d", b.TECount)
+		fuzzyTEStr := "-"
+		if b.TECount > 0 {
+			baseTE := float64(b.TECount)
+			randomBonusMax := math.Max(baseTE*0.06, math.Sqrt(baseTE))
+			minTE := int(math.Round(math.Max(0, baseTE-randomBonusMax)))
+			maxTE := int(math.Round(baseTE + randomBonusMax))
+			fuzzyTEStr = fmt.Sprintf("%d - %d", minTE, maxTE)
+		}
 
 		cells := []TableImageCell{
 			{Text: fmt.Sprintf("%d", idx+1), Color: ""},
@@ -340,8 +347,8 @@ func RenderESCOrderTableImage(contract *Contract) ([]byte, error) {
 			{Text: deflQuality, Color: deflColor},
 			{Text: elrStr, Color: ""},
 			{Text: ihrMult, Color: ""},
-			{Text: askStr, Color: ""},
 			{Text: teStr, Color: ""},
+			{Text: fuzzyTEStr, Color: ""},
 		}
 		tableRows = append(tableRows, TableImageRow{Cells: cells})
 	}
@@ -368,7 +375,8 @@ func BuildESCOrderMessage(contract *Contract, ephemeral ...bool) dc.Message {
 	var headerSb strings.Builder
 	fmt.Fprintf(&headerSb, "## 🪐 ESC Boost Order Calculations\n")
 	fmt.Fprintf(&headerSb, "**Contract:** `%s` | **Coop:** `%s` | **Mode:** %s\n", contract.ContractID, contract.CoopID, runTypeName)
-	fmt.Fprintf(&headerSb, "-# Hierarchy: (1) SIAB > Gusset > Quant > Main > Helpers | (2) Deflector | (3) IHR / Token Plan")
+	fmt.Fprintf(&headerSb, "-# **Hierarchy:** (1) SIAB > Gusset > Quant > Main > Helpers | (2) Deflector | (3) IHR / Fuzzy TE\n")
+	fmt.Fprintf(&headerSb, "-# 🎲 **Fuzzy TE:** TE ranges are fuzzy (±6%% or √TE). Final boost order is determined when contract boosting starts.")
 
 	footer := "-# **Helper Management:** Use `/boost-order-helpers set <# or name>` to designate helpers (e.g. `/boost-order-helpers set 1 3 5`), `/boost-order-helpers clear <# or name|all>` to clear, and `/boost-order-helpers list` to view."
 
@@ -431,7 +439,8 @@ func generateESCOrderReportTextLocked(contract *Contract) string {
 	var sb strings.Builder
 	fmt.Fprintf(&sb, "## 🪐 ESC Boost Order Calculations\n")
 	fmt.Fprintf(&sb, "**Contract:** `%s` | **Coop:** `%s` | **Mode:** %s\n", contract.ContractID, contract.CoopID, runTypeName)
-	fmt.Fprintf(&sb, "-# Hierarchy: (1) SIAB > Gusset > Quant > Main > Helpers | (2) Deflector | (3) IHR / Token Plan\n\n")
+	fmt.Fprintf(&sb, "-# **Hierarchy:** (1) SIAB > Gusset > Quant > Main > Helpers | (2) Deflector | (3) IHR / Fuzzy TE\n")
+	fmt.Fprintf(&sb, "-# 🎲 **Fuzzy TE:** TE ranges are fuzzy (±6%% or √TE). Final boost order is determined when contract boosting starts.\n\n")
 
 	orderList := contract.Order
 	if len(contract.OriginalOrder) > 0 {
@@ -440,8 +449,8 @@ func generateESCOrderReportTextLocked(contract *Contract) string {
 	sorted := sortESCRemaining(contract, orderList, isGG)
 
 	fmt.Fprintf(&sb, "```\n")
-	fmt.Fprintf(&sb, "%-3s %-16s %-8s %-10s %-7s %-8s %-4s %-4s\n", "#", "Player", "Role", "Deflector", "ELR", "IHR", "Ask", "TE")
-	fmt.Fprintf(&sb, "%-3s %-16s %-8s %-10s %-7s %-8s %-4s %-4s\n", "---", "----------------", "--------", "----------", "-------", "--------", "----", "----")
+	fmt.Fprintf(&sb, "%-3s %-16s %-8s %-10s %-7s %-8s %-4s %-11s\n", "#", "Player", "Role", "Deflector", "ELR", "IHR", "TE", "Fuzzy TE")
+	fmt.Fprintf(&sb, "%-3s %-16s %-8s %-10s %-7s %-8s %-4s %-11s\n", "---", "----------------", "--------", "----------", "-------", "--------", "----", "-----------")
 
 	for idx, userID := range sorted {
 		b := contract.Boosters[userID]
@@ -494,10 +503,17 @@ func generateESCOrderReportTextLocked(contract *Contract) string {
 
 		ihrMult := fmt.Sprintf("%0.2fx", b.IHRRate/DefaultLeggyIHR)
 		elrStr := fmt.Sprintf("%0.2f", b.ArtifactSet.LayRate)
-		askStr := fmt.Sprintf("%d", b.TokensWanted)
 		teStr := fmt.Sprintf("%d", b.TECount)
+		fuzzyTEStr := "-"
+		if b.TECount > 0 {
+			baseTE := float64(b.TECount)
+			randomBonusMax := math.Max(baseTE*0.06, math.Sqrt(baseTE))
+			minTE := int(math.Round(math.Max(0, baseTE-randomBonusMax)))
+			maxTE := int(math.Round(baseTE + randomBonusMax))
+			fuzzyTEStr = fmt.Sprintf("%d - %d", minTE, maxTE)
+		}
 
-		fmt.Fprintf(&sb, "%-3d %-16s %-8s %-10s %-7s %-8s %-4s %-4s\n", idx+1, name, roleStr, deflQuality, elrStr, ihrMult, askStr, teStr)
+		fmt.Fprintf(&sb, "%-3d %-16s %-8s %-10s %-7s %-8s %-4s %-11s\n", idx+1, name, roleStr, deflQuality, elrStr, ihrMult, teStr, fuzzyTEStr)
 	}
 	fmt.Fprintf(&sb, "```\n")
 	fmt.Fprintf(&sb, "-# **Helper Management:** Use `/boost-order-helpers set <# or name>` to designate helpers (e.g. `/boost-order-helpers set 1 3 5`), `/boost-order-helpers clear <# or name|all>` to clear, and `/boost-order-helpers list` to view.\n")
