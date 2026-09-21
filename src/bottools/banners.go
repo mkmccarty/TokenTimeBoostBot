@@ -49,23 +49,164 @@ func LoadFontFile(name string, size, dpi float64) (font.Face, error) {
 	return face, nil
 }
 
-// getCelestialSeason returns the current season using late-month cutovers.
-// This keeps early June in spring, matching expected seasonal timing.
-func getCelestialSeason(t time.Time) string {
-	year, _, _ := t.Date()
-	loc := t.Location()
+type seasonBoundary struct {
+	spring time.Time
+	summer time.Time
+	fall   time.Time
+	winter time.Time
+}
 
-	springStart := time.Date(year, time.March, 20, 0, 0, 0, 0, loc)
-	summerStart := time.Date(year, time.June, 21, 0, 0, 0, 0, loc)
-	fallStart := time.Date(year, time.September, 22, 0, 0, 0, 0, loc)
-	winterStart := time.Date(year, time.December, 21, 0, 0, 0, 0, loc)
+var celestialSeasonBoundaries = map[int]seasonBoundary{
+	2020: {
+		spring: time.Date(2020, time.March, 20, 3, 50, 0, 0, time.UTC),
+		summer: time.Date(2020, time.June, 20, 21, 43, 0, 0, time.UTC),
+		fall:   time.Date(2020, time.September, 22, 13, 30, 0, 0, time.UTC),
+		winter: time.Date(2020, time.December, 21, 10, 2, 0, 0, time.UTC),
+	},
+	2021: {
+		spring: time.Date(2021, time.March, 20, 9, 37, 0, 0, time.UTC),
+		summer: time.Date(2021, time.June, 21, 3, 32, 0, 0, time.UTC),
+		fall:   time.Date(2021, time.September, 22, 19, 20, 0, 0, time.UTC),
+		winter: time.Date(2021, time.December, 21, 15, 59, 0, 0, time.UTC),
+	},
+	2022: {
+		spring: time.Date(2022, time.March, 20, 15, 33, 0, 0, time.UTC),
+		summer: time.Date(2022, time.June, 21, 9, 13, 0, 0, time.UTC),
+		fall:   time.Date(2022, time.September, 23, 1, 4, 0, 0, time.UTC),
+		winter: time.Date(2022, time.December, 21, 21, 48, 0, 0, time.UTC),
+	},
+	2023: {
+		spring: time.Date(2023, time.March, 20, 21, 24, 0, 0, time.UTC),
+		summer: time.Date(2023, time.June, 21, 14, 57, 0, 0, time.UTC),
+		fall:   time.Date(2023, time.September, 23, 6, 50, 0, 0, time.UTC),
+		winter: time.Date(2023, time.December, 22, 3, 27, 0, 0, time.UTC),
+	},
+	2024: {
+		spring: time.Date(2024, time.March, 20, 3, 6, 0, 0, time.UTC),
+		summer: time.Date(2024, time.June, 20, 20, 50, 0, 0, time.UTC),
+		fall:   time.Date(2024, time.September, 22, 12, 43, 0, 0, time.UTC),
+		winter: time.Date(2024, time.December, 21, 9, 20, 0, 0, time.UTC),
+	},
+	2025: {
+		spring: time.Date(2025, time.March, 20, 9, 1, 0, 0, time.UTC),
+		summer: time.Date(2025, time.June, 21, 2, 42, 0, 0, time.UTC),
+		fall:   time.Date(2025, time.September, 22, 18, 19, 0, 0, time.UTC),
+		winter: time.Date(2025, time.December, 21, 15, 3, 0, 0, time.UTC),
+	},
+	2026: {
+		spring: time.Date(2026, time.March, 20, 14, 45, 0, 0, time.UTC),
+		summer: time.Date(2026, time.June, 21, 8, 24, 0, 0, time.UTC),
+		fall:   time.Date(2026, time.September, 23, 0, 5, 0, 0, time.UTC),
+		winter: time.Date(2026, time.December, 21, 20, 50, 0, 0, time.UTC),
+	},
+	2027: {
+		spring: time.Date(2027, time.March, 20, 20, 24, 0, 0, time.UTC),
+		summer: time.Date(2027, time.June, 21, 14, 10, 0, 0, time.UTC),
+		fall:   time.Date(2027, time.September, 23, 6, 1, 0, 0, time.UTC),
+		winter: time.Date(2027, time.December, 22, 2, 42, 0, 0, time.UTC),
+	},
+	2028: {
+		spring: time.Date(2028, time.March, 20, 2, 17, 0, 0, time.UTC),
+		summer: time.Date(2028, time.June, 20, 20, 1, 0, 0, time.UTC),
+		fall:   time.Date(2028, time.September, 22, 11, 45, 0, 0, time.UTC),
+		winter: time.Date(2028, time.December, 21, 8, 20, 0, 0, time.UTC),
+	},
+	2029: {
+		spring: time.Date(2029, time.March, 20, 8, 1, 0, 0, time.UTC),
+		summer: time.Date(2029, time.June, 21, 1, 48, 0, 0, time.UTC),
+		fall:   time.Date(2029, time.September, 22, 17, 37, 0, 0, time.UTC),
+		winter: time.Date(2029, time.December, 21, 14, 14, 0, 0, time.UTC),
+	},
+	2030: {
+		spring: time.Date(2030, time.March, 20, 13, 51, 0, 0, time.UTC),
+		summer: time.Date(2030, time.June, 21, 7, 31, 0, 0, time.UTC),
+		fall:   time.Date(2030, time.September, 22, 23, 27, 0, 0, time.UTC),
+		winter: time.Date(2030, time.December, 21, 20, 9, 0, 0, time.UTC),
+	},
+	2031: {
+		spring: time.Date(2031, time.March, 20, 19, 41, 0, 0, time.UTC),
+		summer: time.Date(2031, time.June, 21, 13, 17, 0, 0, time.UTC),
+		fall:   time.Date(2031, time.September, 23, 5, 15, 0, 0, time.UTC),
+		winter: time.Date(2031, time.December, 22, 1, 56, 0, 0, time.UTC),
+	},
+	2032: {
+		spring: time.Date(2032, time.March, 20, 1, 22, 0, 0, time.UTC),
+		summer: time.Date(2032, time.June, 20, 19, 8, 0, 0, time.UTC),
+		fall:   time.Date(2032, time.September, 22, 11, 10, 0, 0, time.UTC),
+		winter: time.Date(2032, time.December, 21, 7, 56, 0, 0, time.UTC),
+	},
+	2033: {
+		spring: time.Date(2033, time.March, 20, 7, 23, 0, 0, time.UTC),
+		summer: time.Date(2033, time.June, 21, 1, 1, 0, 0, time.UTC),
+		fall:   time.Date(2033, time.September, 22, 16, 51, 0, 0, time.UTC),
+		winter: time.Date(2033, time.December, 21, 13, 45, 0, 0, time.UTC),
+	},
+	2034: {
+		spring: time.Date(2034, time.March, 20, 13, 17, 0, 0, time.UTC),
+		summer: time.Date(2034, time.June, 21, 6, 44, 0, 0, time.UTC),
+		fall:   time.Date(2034, time.September, 22, 22, 39, 0, 0, time.UTC),
+		winter: time.Date(2034, time.December, 21, 19, 34, 0, 0, time.UTC),
+	},
+	2035: {
+		spring: time.Date(2035, time.March, 20, 19, 3, 0, 0, time.UTC),
+		summer: time.Date(2035, time.June, 21, 12, 32, 0, 0, time.UTC),
+		fall:   time.Date(2035, time.September, 23, 4, 38, 0, 0, time.UTC),
+		winter: time.Date(2035, time.December, 22, 1, 31, 0, 0, time.UTC),
+	},
+	2036: {
+		spring: time.Date(2036, time.March, 20, 1, 2, 0, 0, time.UTC),
+		summer: time.Date(2036, time.June, 20, 18, 31, 0, 0, time.UTC),
+		fall:   time.Date(2036, time.September, 22, 10, 23, 0, 0, time.UTC),
+		winter: time.Date(2036, time.December, 21, 7, 12, 0, 0, time.UTC),
+	},
+	2037: {
+		spring: time.Date(2037, time.March, 20, 6, 49, 0, 0, time.UTC),
+		summer: time.Date(2037, time.June, 21, 0, 22, 0, 0, time.UTC),
+		fall:   time.Date(2037, time.September, 22, 16, 12, 0, 0, time.UTC),
+		winter: time.Date(2037, time.December, 21, 13, 7, 0, 0, time.UTC),
+	},
+	2038: {
+		spring: time.Date(2038, time.March, 20, 12, 40, 0, 0, time.UTC),
+		summer: time.Date(2038, time.June, 21, 6, 9, 0, 0, time.UTC),
+		fall:   time.Date(2038, time.September, 22, 22, 2, 0, 0, time.UTC),
+		winter: time.Date(2038, time.December, 21, 19, 2, 0, 0, time.UTC),
+	},
+	2039: {
+		spring: time.Date(2039, time.March, 20, 18, 32, 0, 0, time.UTC),
+		summer: time.Date(2039, time.June, 21, 11, 57, 0, 0, time.UTC),
+		fall:   time.Date(2039, time.September, 23, 3, 49, 0, 0, time.UTC),
+		winter: time.Date(2039, time.December, 22, 0, 40, 0, 0, time.UTC),
+	},
+	2040: {
+		spring: time.Date(2040, time.March, 20, 0, 11, 0, 0, time.UTC),
+		summer: time.Date(2040, time.June, 20, 17, 46, 0, 0, time.UTC),
+		fall:   time.Date(2040, time.September, 22, 9, 44, 0, 0, time.UTC),
+		winter: time.Date(2040, time.December, 21, 6, 33, 0, 0, time.UTC),
+	},
+}
+
+// getCelestialSeason returns the current season using exact astronomical equinox and solstice times (in UTC).
+func getCelestialSeason(t time.Time) string {
+	utc := t.UTC()
+	year := utc.Year()
+
+	bounds, ok := celestialSeasonBoundaries[year]
+	if !ok {
+		// Fallback for years outside the lookup table
+		bounds = seasonBoundary{
+			spring: time.Date(year, time.March, 20, 0, 0, 0, 0, time.UTC),
+			summer: time.Date(year, time.June, 21, 0, 0, 0, 0, time.UTC),
+			fall:   time.Date(year, time.September, 22, 0, 0, 0, 0, time.UTC),
+			winter: time.Date(year, time.December, 21, 0, 0, 0, 0, time.UTC),
+		}
+	}
 
 	switch {
-	case !t.Before(springStart) && t.Before(summerStart):
+	case !utc.Before(bounds.spring) && utc.Before(bounds.summer):
 		return "spring"
-	case !t.Before(summerStart) && t.Before(fallStart):
+	case !utc.Before(bounds.summer) && utc.Before(bounds.fall):
 		return "summer"
-	case !t.Before(fallStart) && t.Before(winterStart):
+	case !utc.Before(bounds.fall) && utc.Before(bounds.winter):
 		return "fall"
 	default:
 		return "winter"
