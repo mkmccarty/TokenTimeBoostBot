@@ -129,9 +129,17 @@ Because the T4L owner and the 70-craft & 50-craft players all tie at 50 effort, 
 
 ## 6. Roles & Conditional Rules (`IF ROLE ... ELSE ...`)
 
-Custom Boost Orders support the role designations:
-* **Main**: Primary accounts (including SIAB, Gusset, and Quant roles).
-* **Helper**: Alternate/helper accounts (designated alts or controlled alt accounts).
+In Boost Bot, players in a contract have one of two roles:
+* **Main**: Primary player accounts (the default for all participants).
+* **Helper**: Alternate/helper accounts (designated alts or accounts marked via `/boost-order-helpers`).
+
+Coordinators manage helper designations using:
+* `/boost-order-helpers set farmers:...`
+* `/boost-order-helpers clear farmers:...`
+* `/boost-order-helpers list`
+
+> [!NOTE]
+> Items like Ship in a Bottle (`SIAB`), Gusset (`GUSSET`), or Compass (`COMPASS`) are **not roles**—they are artifact items. To prioritize players who have or equip these items, use artifact criteria directly (e.g. `<SIAB`, `<GUSSET`, or `<COMPASS`).
 
 ### Standalone Role Sorting
 You can use `ROLE` as a standalone criterion row:
@@ -139,23 +147,12 @@ You can use `ROLE` as a standalone criterion row:
 * `>ROLE` (or `HELPER`): **Helpers first**, Mains second.
 
 ### Conditional Sorting (`IF ROLE ... ELSE ...`)
-You can branch your sorting strategy based on the player's role:
+You can branch your sorting strategy based on whether a player is a Main or Helper:
 
 ```text
 IF [ROLE ==] MAIN <THEN_CRITERIA> [ELSE <ELSE_CRITERIA>]
 IF [ROLE ==] HELPER <THEN_CRITERIA> [ELSE <ELSE_CRITERIA>]
-IF [ROLE ==] SIAB <THEN_CRITERIA> [ELSE <ELSE_CRITERIA>]
-IF [ROLE ==] GUSSET <THEN_CRITERIA> [ELSE <ELSE_CRITERIA>]
-IF [ROLE ==] QUANT <THEN_CRITERIA> [ELSE <ELSE_CRITERIA>]
 ```
-
-#### Role Hierarchy:
-When sorting by `<ROLE` or `ROLE`, boosters are tiered in the following priority order:
-1. **SIAB**: Boosters with equipped Ship in a Bottle or `siab` profile setting.
-2. **Gusset**: Boosters with equipped Gusset or `guss` profile setting.
-3. **Quant**: Boosters designated as Quantum / Compass runners (`quant` flag or equipped Compass/quantum stone).
-4. **Main**: Standard main boosters.
-5. **Helper**: Alternate/alt accounts or boosters designated as helpers via `/boost-order-helpers`.
 
 #### Syntax Examples:
 * `IF MAIN <DEFL_EFFORT[50] ELSE >TOKENS`
@@ -164,9 +161,6 @@ When sorting by `<ROLE` or `ROLE`, boosters are tiered in the following priority
 * `IF HELPER >TOKENS ELSE <DEFL_EFFORT[50]`
   * Helpers are placed first and sorted by Tokens Wanted.
   * Mains are placed second and sorted by Deflector Effort.
-* `IF SIAB <IHR ELSE <TE`
-  * SIAB runners are placed first and sorted by IHR.
-  * Other boosters are sorted by Truth Eggs.
 
 ### When `ELSE` is Missing (Sort Does Not Apply)
 If `ELSE` is omitted, **the sort rule does not apply to non-matching boosters**:
@@ -189,8 +183,8 @@ If `ELSE` is omitted, **the sort rule does not apply to non-matching boosters**:
 
 | Symbol | Meaning | Default Direction | Description & Usage |
 | :--- | :--- | :---: | :--- |
-| `IF MAIN ... ELSE ...` | Role Conditional | — | Branches sorting rule based on player's role (`MAIN`, `HELPER`, `SIAB`, `GUSSET`, `QUANT`). |
-| `ROLE` / `<ROLE` | Role Priority | `<` (Hierarchy) | Sorts by role hierarchy: `SIAB > Gusset > Quant > Main > Helper`. `>ROLE` reverses this (Helpers first). |
+| `IF MAIN ... ELSE ...` | Role Conditional | — | Branches sorting rule based on player's role (`MAIN` or `HELPER`). |
+| `ROLE` / `<ROLE` | Role Priority | `<` (Mains first) | Sorts Mains first, Helpers second. `>ROLE` (or `HELPER`) reverses this (Helpers first). |
 | `DEFL_EFFORT[N]` | Balanced Deflector Effort | `<` (Highest) | Balances T4L owners with non-T4L players having $\ge N$ crafts. Defaults to $N=50$. |
 | `CRAFT_DEFL` | Deflector Craft Attempts | `<` (Highest) | Raw count of T4 Deflector craft attempts. |
 | `IHR` | Boosting IHR | `<` (Highest) | Effective Internal Hatchery Rate including artifact set bonuses. |
