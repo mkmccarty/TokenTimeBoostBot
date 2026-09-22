@@ -155,6 +155,16 @@ func LoadStatusMessages(filename string) {
 	}
 }
 
+// ForceLoadStatusMessages forces loading status messages from a JSON file, bypassing cache checks, and returns the count.
+func ForceLoadStatusMessages(filename string) (int, error) {
+	if err := loadStatusMessages(filename, true); err != nil {
+		return 0, err
+	}
+	statusMessagesMutex.RLock()
+	defer statusMessagesMutex.RUnlock()
+	return len(statusMessagesSource), nil
+}
+
 // GetRandomStatusMessage returns the next status message from a shuffled queue.
 //
 // Messages are shuffled on load, then rotated in order so each message is used
