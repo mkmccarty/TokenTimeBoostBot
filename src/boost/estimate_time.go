@@ -145,6 +145,15 @@ func GetContractEstimateString(contractID string, includeLeggySet bool, teOverri
 		hasOverride = true
 	}
 
+	fairShare := 1.00
+	isShortContract := c.ID == "quant-blitz" || (c.LengthInSeconds > 0 && float64(c.LengthInSeconds) < 45*60)
+	if isShortContract {
+		fairShare = 3.85
+	}
+	if c.MaxCoopSize == 1 {
+		fairShare = 1.0
+	}
+
 	if hasOverride {
 		cCopy := c
 		estAll := getContractDurationEstimate(cCopy, cCopy.TargetAmount[len(cCopy.TargetAmount)-1], float64(cCopy.MaxCoopSize), cCopy.LengthInSeconds,
@@ -173,17 +182,6 @@ func GetContractEstimateString(contractID string, includeLeggySet bool, teOverri
 			if BTALower > 42.0 {
 				cCopy.TargetTvalLower = 0.07 * BTALower
 			}
-		}
-
-		fairShare := 1.00
-		if cCopy.SeasonalScoring == ei.SeasonalScoringNerfed {
-			fairShare = 1.00
-			if cCopy.ID == "quant-blitz" {
-				fairShare = 3.85
-			}
-		}
-		if cCopy.MaxCoopSize == 1 {
-			fairShare = 1.0
 		}
 		cCopy.CxpMax = float64(getContractScoreEstimateWithDuration(cCopy, ei.Contract_GRADE_AAA,
 			cCopy.EstimatedDurationMax,
@@ -347,10 +345,16 @@ func GetContractEstimateString(contractID string, includeLeggySet bool, teOverri
 		"decimals": 2,
 		"trim":     true,
 	}
-	str += fmt.Sprintf("**%v** - **%v** for a fastrun needing to ship **%s** eggs\n",
-		estStrLower,
-		estStr,
-		ei.FormatEIValue(c.TargetAmount[len(c.TargetAmount)-1], options))
+	if estStrLower == estStr {
+		str += fmt.Sprintf("**%v** for a fastrun needing to ship **%s** eggs\n",
+			estStr,
+			ei.FormatEIValue(c.TargetAmount[len(c.TargetAmount)-1], options))
+	} else {
+		str += fmt.Sprintf("**%v** - **%v** for a fastrun needing to ship **%s** eggs\n",
+			estStrLower,
+			estStr,
+			ei.FormatEIValue(c.TargetAmount[len(c.TargetAmount)-1], options))
+	}
 
 	footerAboutCR := false
 
@@ -449,11 +453,24 @@ func GetContractEstimateString(contractID string, includeLeggySet bool, teOverri
 					estStrGG = strings.TrimRight(estStrGG, "0s")
 					str += fmt.Sprintf(" / %s **%s** CS:**%d**", ei.GetBotEmojiMarkdown("SIAB_T4L"), estStrGG, int64(c.CxpMaxSiabGG))
 				}
-				str += fmt.Sprintf(" (6%s)\n", ei.GetBotEmojiMarkdown("token"))
+				if isShortContract {
+					str += fmt.Sprintf(" (8%s)\n", ei.GetBotEmojiMarkdown("token"))
+				} else {
+					str += fmt.Sprintf(" (6%s)\n", ei.GetBotEmojiMarkdown("token"))
+				}
 			}
 
-			str += fmt.Sprintf("-# Leggy set %.0f TE, %.0f IHR & %.0f delivery stone sets, 1.0 fair share, %.0f%s boost.\n",
-				teVal, DefaultLeggyIHRSlots, DefaultLeggyDeliverySlots, leggyTokens, ei.GetBotEmojiMarkdown("token"))
+			fairShareStr := "1.0"
+			if fairShare != 1.0 {
+				fairShareStr = fmt.Sprintf("%.2f", fairShare)
+			}
+			boostTokensDisplay := leggyTokens
+			if isShortContract {
+				boostTokensDisplay = 8.0
+			}
+			str += fmt.Sprintf("-# Leggy set %.0f TE, %.0f IHR & %.0f delivery stone sets, %s fair share, %.0f%s boost.\n",
+				teVal, DefaultLeggyIHRSlots, DefaultLeggyDeliverySlots, fairShareStr, boostTokensDisplay, ei.GetBotEmojiMarkdown("token"))
+
 		}
 		if footerAboutCR && c.MaxCoopSize > 1 {
 			str += fmt.Sprintf("-# CoopSize-1 used for CR, extras **+%.0f**/%s\n",
@@ -633,8 +650,20 @@ func calculateSingleEstimate(
 
 	est.boundedELR = bestTotal
 	eggsTotal := contractEggsTotal / 1e15
-	timerTokens := float64(c.MinutesPerToken) / 60.0
+	timerTokens := 1.0
+	if c.MinutesPerToken > 0 {
+		timerTokens = 60.0 / float64(c.MinutesPerToken)
+	}
 	tokenRate := (6.0 * est.generousGifts) + timerTokens
+
+	// For short contracts, use a two-phase boost: 4 tokens for 2 minutes, then 8 tokens
+	if float64(contractLengthInSeconds) < 45*60 {
+		estimate := calculateTwoPhaseBoostedEstimate(est, c, contractEggsTotal, numFarmers, contractLengthInSeconds, deflectorsOnFarmer, debug)
+		if debug {
+			log.Printf("Short contract estimate: %v (hours: %f)\n", time.Duration(estimate*float64(time.Hour)), estimate)
+		}
+		return estimate
+	}
 
 	tokensPerHourAllPlayers := tokenRate * numFarmers
 	hoursPerTokenAllPlayers := 1.0 / tokensPerHourAllPlayers
@@ -664,14 +693,7 @@ func calculateSingleEstimate(
 		log.Printf("rampUpHours (before boost): %v\n", rampUpHours)
 	}
 
-	// For short contracts, use a two-phase boost: 4 tokens for 2 minutes, then 8 tokens
-	if float64(contractLengthInSeconds) < 45*60 {
-		twoPhaseDuration := calculateTwoPhaseBoostedEstimate(est, contractEggsTotal, contractLengthInSeconds, modELR, deflectorsOnFarmer, debug)
-		rampUpHours += twoPhaseDuration
-		if debug {
-			log.Print("Two-phase boost (4tok for 2min, then 8tok): ", time.Duration(twoPhaseDuration*float64(time.Hour)))
-		}
-	} else if est.calcMode == modeOriginalFormula {
+	if est.calcMode == modeOriginalFormula {
 		rampUpHours += (est.boostTokens / tokenRate) + (10.0 / 60.0)
 	} else {
 		rampUpHours += (est.boostTokens / tokenRate) + boostTime
@@ -700,80 +722,123 @@ func calculateSingleEstimate(
 // Returns the estimated duration in hours.
 func calculateTwoPhaseBoostedEstimate(
 	est estimatePlayer,
+	c ei.EggIncContract,
 	contractEggsTotal float64,
+	numFarmers float64,
 	contractLengthInSeconds int,
-	modifierELR float64,
 	deflectorsOnFarmer float64,
 	debug bool,
 ) float64 {
-	// Phase 1: 4 tokens for 2 minutes (120 seconds)
-	phase1Seconds := 120.0
-	phase1Est := est
-	phase1Est.boostTokens = 4.0
-	phase1Est.boostMultiplier = calcBoostMulti(phase1Est.boostTokens) * est.monocle
+	maxContractSec := float64(contractLengthInSeconds)
 
-	// Phase 2: 8 tokens for remaining time
-	phase2Est := est
-	phase2Est.boostTokens = 8.0
-	phase2Est.boostMultiplier = calcBoostMulti(phase2Est.boostTokens) * est.monocle
-
-	// Compute IHR (per hour) for both phases using artifact set and boost multiplier
-	ihrPhase1 := est.ihr * est.chalice * math.Pow(1.04, est.ihrSlots) * est.colIHR
-	ihrPhase1 *= math.Pow(1.01, est.te)
-	ihrPhase1 *= 12 * phase1Est.boostMultiplier
-
-	ihrPhase2 := est.ihr * est.chalice * math.Pow(1.04, est.ihrSlots) * est.colIHR
-	ihrPhase2 *= math.Pow(1.01, est.te)
-	ihrPhase2 *= 12 * phase2Est.boostMultiplier
-
-	// ELR baseline (per hour) scaled similarly to the debug approach
-	deflectorMultiplier := 1.0 + est.deflectorBonus*deflectorsOnFarmer
-	myELRPerHour := 252720.0 * est.colELR * modifierELR * deflectorMultiplier / 60.0
-
-	// Population carrying capacity approximation based on bounded ELR
 	unusedRatioELR := max(1.0, est.contractELR/est.boundedELR)
 	habCapacity := (14_175_000_000 * est.colHab) / unusedRatioELR
+	if est.boundedELR <= 0 || habCapacity <= 0 {
+		return maxContractSec / 3600.0
+	}
 	maxPop := habCapacity
 
-	// Initial (seed) population; follow prior debug convention
-	initialPop := 10_000_000.0
+	// In short blitz contracts, the primary booster equips IHR / life stone gear
+	// (Chalice + Monocle + Deflector + SIAB) rather than full delivery gear
+	// (Metronome + Compass + delivery stones), yielding ~5.1 q/hr max ELR.
+	blitzELR := est.boundedELR
+	maxBlitzRate := 5.10 * est.colELR * (1.0 + est.deflectorBonus*deflectorsOnFarmer) / 1.3
+	if blitzELR > maxBlitzRate {
+		blitzELR = maxBlitzRate
+	}
+	ratePerChickenPerSec := ((blitzELR * 1e15) / habCapacity) / 3600.0
 
-	// Lay baseline per hour scaled (debug used 10M factor)
-	layingRatePerHourBaseline := myELRPerHour * 10_000_000.0
+	// Common research ramps up gradually as farm value increases on fresh blitz farms.
+	// Accounting for this research ramp-up matches real measured blitz IHR growth (~40M/sec).
+	blitzResearchFactor := 0.45
 
-	// Phase 1 simulation: eggs delivered and end-state using EI simulator logic over fixed time
-	phase1EggsDelivered, popAfterPhase1, layingStepAfterPhase1 := simulateEggsDeliveredForSeconds(
-		initialPop,
-		maxPop,
-		ihrPhase1/60.0,            // growth per minute
-		layingRatePerHourBaseline, // baseline laying per hour
-		int(phase1Seconds),
-	)
+	// Phase 1 (4 tokens) & Phase 2 (8 tokens) hatchery rates
+	phase1Mult := calcBoostMulti(4.0) * est.monocle
+	ihrPhase1 := est.ihr * est.chalice * math.Pow(1.04, est.ihrSlots) * est.colIHR * math.Pow(1.01, est.te) * 12 * phase1Mult
+	ihrPhase1PerSec := (ihrPhase1 * blitzResearchFactor) / 60.0
 
-	// Remaining eggs for phase 2 (use raw contract eggs; simulator expects raw units)
-	remainingEggs := max(0.0, contractEggsTotal-phase1EggsDelivered)
+	phase2Mult := calcBoostMulti(8.0) * est.monocle
+	ihrPhase2 := est.ihr * est.chalice * math.Pow(1.04, est.ihrSlots) * est.colIHR * math.Pow(1.01, est.te) * 12 * phase2Mult
+	ihrPhase2PerSec := (ihrPhase2 * blitzResearchFactor) / 60.0
+	ihrPhase2OnlinePerSec := (ihrPhase2PerSec / 3.0) // 1x IHC while online buying research
 
-	// Start phase 2 from the end-of-phase-1 state
-	// Convert end-of-phase-1 laying step back to per hour baseline
-	layingRatePerHourPhase2Start := layingStepAfterPhase1 * 3600.0
+	intervalSec := float64(c.MinutesPerToken) * 60.0
+	giftTokensPerSec := (6.0 * est.generousGifts * numFarmers) / 3600.0
 
-	// Use EI simulator to get time (seconds) to deliver remaining eggs in phase 2
-	phase2Seconds := ei.TimeToDeliverEggsInSeconds(
-		popAfterPhase1,
-		maxPop,
-		ihrPhase2/60.0,
-		layingRatePerHourPhase2Start,
-		remainingEggs,
-	)
+	// Phase 1 (4 tokens): Available after the first token interval when the coop
+	// gathers at least 4 tokens, plus a short buffer for token transfer and setup.
+	timeTo4TokensSec := intervalSec
+	if numFarmers >= 4.0 {
+		timeTo4TokensSec = 0.0
+	} else if giftTokensPerSec > 0 {
+		earlyTime := (4.0 - numFarmers) / giftTokensPerSec
+		if earlyTime < timeTo4TokensSec {
+			timeTo4TokensSec = earlyTime
+		}
+	}
+	timeTo4TokensSec += 10.0 // buffer for token transfer and boost activation
 
-	totalSeconds := phase1Seconds + phase2Seconds
-	totalHours := totalSeconds / 3600.0
-	estimate := min(float64(contractLengthInSeconds)/3600.0, totalHours)
+	// Phase 2 (8 tokens): Player spends 4 tokens initially, needs 8 tokens total.
+	// Requires at least 1 minute (60s) away time to realize offline IHR bonus,
+	// and waiting until the coop gathers 8 tokens (e.g. at the second token interval).
+	timeTo8TokensSec := timeTo4TokensSec + 60.0
+	for t := timeTo4TokensSec; t < maxContractSec; t += 1.0 {
+		intervals := math.Floor(t / intervalSec)
+		totalTokens := numFarmers*(1.0+intervals) + giftTokensPerSec*t
+		if totalTokens >= 8.0 && (t-timeTo4TokensSec) >= 60.0 {
+			timeTo8TokensSec = t
+			break
+		}
+	}
+
+	phase2OnlineSec := 45.0 // buying remaining common research and activating Phase 2
+
+	pop := 10_000_000.0
+	eggsDelivered := 0.0
+	currentSec := 0.0
+
+	for currentSec < maxContractSec && eggsDelivered < contractEggsTotal {
+		currentSec++
+		// Before 4 tokens: farm is unboosted
+		if currentSec < timeTo4TokensSec {
+			eggsDelivered += pop * ratePerChickenPerSec
+			continue
+		}
+
+		// Phase 1 (between 4 tokens and 8 tokens): 4-token boost with away IHR bonus
+		if currentSec < timeTo8TokensSec {
+			eggsDelivered += pop * ratePerChickenPerSec
+			pop += ihrPhase1PerSec
+			if pop > maxPop {
+				pop = maxPop
+			}
+			continue
+		}
+
+		// Phase 2 transition: online buying remaining common research
+		if currentSec < timeTo8TokensSec+phase2OnlineSec {
+			eggsDelivered += pop * ratePerChickenPerSec
+			pop += ihrPhase2OnlinePerSec
+			if pop > maxPop {
+				pop = maxPop
+			}
+			continue
+		}
+
+		// Phase 2 away: 8-token boost with full offline IHR bonus
+		eggsDelivered += pop * ratePerChickenPerSec
+		pop += ihrPhase2PerSec
+		if pop > maxPop {
+			pop = maxPop
+		}
+	}
+
+	totalDurationHours := currentSec / 3600.0
+	estimate := min(maxContractSec/3600.0, totalDurationHours)
 
 	if debug {
-		log.Printf("Phase 1 (4tok, 2min): IHR=%.0f, eggs=%.3f, endPop=%.0f\n", ihrPhase1, phase1EggsDelivered, popAfterPhase1)
-		log.Printf("Phase 2 (8tok): IHR=%.0f, remaining eggs=%.3f, duration=%.3f hours\n", ihrPhase2, remainingEggs, phase2Seconds/3600.0)
-		log.Printf("Two-phase total: %.3f hours\n", estimate)
+		log.Printf("Short contract two-phase: tokenWait=%.1fs, phase2Start=%.1fs, totalSec=%.1f (%.2fm), eggs=%.3e\n",
+			timeTo4TokensSec, timeTo8TokensSec, currentSec, currentSec/60.0, eggsDelivered)
 	}
 
 	return estimate
