@@ -31,6 +31,7 @@ var commandDefinitions = map[string]func(string) *dc.Command{
 	"GetSlashCoopETACommand":             GetSlashCoopETACommand,
 	"GetSlashCoopTval":                   GetSlashCoopTval,
 	"GetSlashCsEstimates":                GetSlashCsEstimates,
+	"GetSlashDefineCustomOrderCommand":   GetSlashDefineCustomOrderCommand,
 	"GetSlashEstimateTime":               GetSlashEstimateTime,
 	"GetSlashHelpCommand":                GetSlashHelpCommand,
 	"GetSlashJoinContractCommand":        GetSlashJoinContractCommand,

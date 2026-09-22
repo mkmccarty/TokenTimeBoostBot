@@ -98,6 +98,7 @@ const slashVolunteerSink string = "volunteer-sink"
 const slashVoluntellSink string = "voluntell-sink"
 const slashLinkAlternate string = "link-alternate"
 const slashBoostOrderHelpers string = "boost-order-helpers"
+const slashDefineCustomOrder string = "define-custom-order"
 const slashTeamworkEval string = "teamwork"
 const slashEstimateTime string = "estimate-contract-time"
 const slashCsEstimate string = "cs-estimate"
@@ -252,8 +253,12 @@ var (
 
 	// Define the handlers for modal submissions
 	modalHandlers = map[string]func(*dc.ModalEvent){
-		"m_eggid":     boost.HandleEggIDModalSubmit,
-		"m_threshold": func(e *dc.ModalEvent) { boost.HandleThresholdModalSubmit(botClient(), e) },
+		"m_eggid":         boost.HandleEggIDModalSubmit,
+		"m_threshold":     func(e *dc.ModalEvent) { boost.HandleThresholdModalSubmit(botClient(), e) },
+		"m_custom_order":  func(e *dc.ModalEvent) { boost.HandleCustomOrderModalSubmit(botClient(), e) },
+		"m_define_order":  func(e *dc.ModalEvent) { boost.HandleDefineCustomOrderModalSubmit(botClient(), e) },
+		"m_save_order":    func(e *dc.ModalEvent) { boost.HandleSaveCustomOrderModalSubmit(botClient(), e) },
+		"m_publish_order": func(e *dc.ModalEvent) { boost.HandlePublishCustomOrderModalSubmit(botClient(), e) },
 	}
 
 	// Define the handlers for component interactions
@@ -286,6 +291,8 @@ var (
 		"fd_teamwork":             boost.HandleTeamworkPage,
 		"fd_playground":           boost.HandleScoreExplorerPage,
 		"bo_order":                func(e *dc.ComponentEvent) { boost.HandleBoostOrderReactions(botClient(), e) },
+		"bo_custom":               func(e *dc.ComponentEvent) { boost.HandleCustomOrderReactions(botClient(), e) },
+		"bo_define":               func(e *dc.ComponentEvent) { boost.HandleDefineCustomOrderReactions(botClient(), e) },
 		"predictions":             boost.HandlePredictionsPage,
 		"pred":                    func(e *dc.ComponentEvent) { boost.HandlePredPage(botClient(), e) },
 		"leaderboard":             boost.HandleLeaderboardPage,
@@ -730,6 +737,12 @@ func setupCommands() {
 			AppCmd:   boost.GetSlashBoostOrderHelpersCommand(slashBoostOrderHelpers),
 			Category: CmdCategoryStandard,
 			Handler:  func(e *dc.CommandEvent) { boost.HandleBoostOrderHelpersCommand(botClient(), e) },
+		},
+		{
+			AppCmd:       boost.GetSlashDefineCustomOrderCommand(slashDefineCustomOrder),
+			Category:     CmdCategoryStandard,
+			Handler:      func(e *dc.CommandEvent) { boost.HandleDefineCustomOrderCommand(botClient(), e) },
+			Autocomplete: boost.HandleDefineCustomOrderAutoComplete,
 		},
 	}
 

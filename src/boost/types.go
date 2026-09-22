@@ -69,6 +69,7 @@ var contractOrderNames = []string{
 	"Fuzzy IHR",     // ContractOrderIHRFuzzy
 	"ESC Order",     // ContractOrderESC
 	"ESC Order -GG", // ContractOrderESCGG
+	"Custom",        // ContractOrderCustom
 }
 
 var contractFlagNames = []struct {
@@ -100,6 +101,7 @@ const (
 	ContractOrderIHRFuzzy  = 12 // Fuzzy IHR based order
 	ContractOrderESC       = 13 // ESC order for standard/first runs
 	ContractOrderESCGG     = 14 // ESC order for GG runs
+	ContractOrderCustom    = 15 // Custom boost order using comparison language
 
 	ContractStateSignup    = 0 // Contract is in signup phase
 	ContractStateFastrun   = 1 // Contract in Boosting as fastrun
@@ -361,6 +363,7 @@ type Contract struct {
 	buttonComponents           map[string]CompMap // Cached components for this contract
 	HelpGuidanceUntil          time.Time          // Show bottom guidance while now is before this timestamp
 	NewFeature                 int                // Used to slide in new features
+	CustomOrderLines           []string           // Custom boost order rules (up to 4 rows)
 	DynamicData                *DynamicTokenData
 	LastSaveTime               time.Time // The last time the contract was saved
 	ThematicComplaints         []string  `json:"thematic_complaints,omitempty"`
