@@ -111,10 +111,59 @@ Because the T4L owner and the 70-craft & 50-craft players all tie at 50 effort, 
 
 ---
 
-## 6. Complete Criteria Reference
+## 6. ESC Roles & Conditional Rules (`IF ROLE ... ELSE ...`)
+
+Custom Boost Orders support the ESC role designations:
+* **Main**: Primary accounts (including SIAB, Gusset, and Quant roles).
+* **Helper**: Alternate/helper accounts (designated alts or controlled alt accounts).
+
+### Standalone Role Sorting
+You can use `ROLE` as a standalone criterion row:
+* `<ROLE` (or `ROLE`, `MAIN`): **Mains first**, Helpers second.
+* `>ROLE` (or `HELPER`): **Helpers first**, Mains second.
+
+### Conditional Sorting (`IF ROLE ... ELSE ...`)
+You can branch your sorting strategy based on the player's role:
+
+```text
+IF [ROLE ==] MAIN <THEN_CRITERIA> [ELSE <ELSE_CRITERIA>]
+IF [ROLE ==] HELPER <THEN_CRITERIA> [ELSE <ELSE_CRITERIA>]
+```
+
+#### Syntax Examples:
+* `IF MAIN <DEFL_EFFORT[50] ELSE >TOKENS`
+  * Mains are placed first and sorted by Deflector Effort.
+  * Helpers are placed second and sorted by Tokens Wanted (fewer tokens boost earlier).
+* `IF HELPER >TOKENS ELSE <DEFL_EFFORT[50]`
+  * Helpers are placed first and sorted by Tokens Wanted.
+  * Mains are placed second and sorted by Deflector Effort.
+* `IF ROLE == MAIN <IHR[6%] ELSE <TE`
+  * Mains are placed first and sorted by fuzzy IHR.
+  * Helpers are placed second and sorted by Truth Eggs.
+
+### When `ELSE` is Missing (Sort Does Not Apply)
+If `ELSE` is omitted, **the sort rule does not apply to non-matching boosters**:
+* Matching boosters are sorted among themselves by the `THEN` rule and placed ahead of non-matching boosters.
+* Non-matching boosters **tie on this level** and fall through to the subsequent tiebreaker rows (Level 2, Level 3, etc.).
+
+#### Example:
+* **Level 1**: `IF MAIN <DEFL_EFFORT[50]` *(no ELSE)*
+* **Level 2**: `>TOKENS`
+
+**How boosters are evaluated:**
+1. All **Mains** are ranked by Deflector Effort on Level 1.
+2. All **Helpers** do not match `MAIN` and have no `ELSE` rule, so Level 1 **does not apply** to them. All Helpers tie on Level 1.
+3. Level 2 (`>TOKENS`) breaks the tie among the Helpers, sorting them by lowest tokens wanted.
+4. Final Order: Mains (sorted by Defl Effort), followed by Helpers (sorted by Tokens Wanted).
+
+---
+
+## 7. Complete Criteria Reference
 
 | Symbol | Meaning | Default Direction | Description & Usage |
 | :--- | :--- | :---: | :--- |
+| `IF MAIN ... ELSE ...` | Role Conditional | — | Branches sorting rule based on player's ESC role (Main vs Helper). |
+| `ROLE` / `<ROLE` | Role Priority | `<` (Mains first) | Places Mains first (`<ROLE` or `MAIN`) or Helpers first (`>ROLE` or `HELPER`). |
 | `DEFL_EFFORT[N]` | Balanced Deflector Effort | `<` (Highest) | Balances T4L owners with non-T4L players having $\ge N$ crafts. Defaults to $N=50$. |
 | `CRAFT_DEFL` | Deflector Craft Attempts | `<` (Highest) | Raw count of T4 Deflector craft attempts. |
 | `IHR` | Boosting IHR | `<` (Highest) | Effective Internal Hatchery Rate including artifact set bonuses. |
@@ -133,12 +182,13 @@ Because the T4L owner and the 70-craft & 50-craft players all tie at 50 effort, 
 
 ---
 
-## 7. ⚙️ Preview & Evaluation Report
+## 8. ⚙️ Preview & Evaluation Report
 
 Submitting the criteria modal or loading a preset generates an interactive preview report containing:
 1. **Tiebreaker Hierarchy**: Shows the exact condition configured for Levels 1–4.
-2. **Table Image Preview**: Renders a PNG table displaying each booster's data (`#`, `Player`, `Deflector`, `T4 Crafts`, `Effort [N]`, `ELR`, `IHR`, `Tokens`, `TE`).
-   * Outside a contract channel: Evaluates a 6-player benchmark cohort.
+2. **Table Image Preview**: Renders a PNG table displaying each booster's data (`#`, `Player`, `Role`, `Deflector`, `T4 Crafts`, `Effort [N]`, `ELR`, `IHR`, `Tokens`, `TE`).
+   * **Role Column**: Shows whether a player is a `Main` (green) or `Helper` (red).
+   * Outside a contract channel: Evaluates a 6-player benchmark cohort (including both Main and Helper accounts).
    * Inside a contract channel: Evaluates the active contract's actual players.
 
 ### Action Buttons:
@@ -150,7 +200,7 @@ Submitting the criteria modal or loading a preset generates an interactive previ
 
 ---
 
-## 8. Applying Custom Orders in Contracts
+## 9. Applying Custom Orders in Contracts
 
 1. **Via Dropdown (`cs_#order`)**:
    * In contract signup or `/contract-settings`, open the **Boosting Order** select menu.
@@ -159,3 +209,65 @@ Submitting the criteria modal or loading a preset generates an interactive previ
    * Run `/define-custom-order` inside a contract channel.
    * Inspect the rendered image preview on the contract's real roster.
    * Click **APPLY** to apply the order and update the boost list.
+
+---
+
+## 10. Existing BoostBot Boost Orders in Custom Order Syntax
+
+Every built-in boost order in BoostBot can be reproduced using the Custom Boost Order syntax. The table below maps each built-in order to its 4-line configuration:
+
+| Built-in Order | Level 1 (Primary) | Level 2 (Tiebreaker 1) | Level 3 (Tiebreaker 2) | Level 4 (Tiebreaker 3) | Description |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Sign-up** (`Signup`) | `SIGNUP` | — | — | — | Players boost in the order they joined the contract thread. |
+| **Reverse** (`Reverse`) | `REVERSE` | — | — | — | Boosts in reverse order of joining (last to join boosts first). |
+| **Random** (`Random`) | `RANDOM` | `SIGNUP` | — | — | Deterministic randomized order with sign-up order fallback. |
+| **Boosting IHR** | `<IHR` | `<DEFL` | `<DELIV` | `<TE` | Highest IHR first, resolved by deflector rarity, delivery capacity, and TE. |
+| **Fuzzy IHR** | `<IHR[6%]` | `<DEFL` | `<DELIV` | `<TE` | Highest IHR with a 6% tolerance band, allowing deflector quality to break close ties. |
+| **Egg Laying Rate** (`ELR`) | `<ELR` | `SIGNUP` | — | — | Highest egg laying rate from equipped artifacts boosts first. |
+| **Token-Ask** (`Token-Ask`) | `>TOKENS` | `SIGNUP` | — | — | Players requesting the fewest tokens boost earliest. |
+| **Truth Eggs** (`TE`) | `<TE` | `SIGNUP` | — | — | Highest Prophecy / Truth Egg count boosts first. |
+| **Fuzzy TE** | `<TE[sqrt]` | `SIGNUP` | — | — | TE count with square-root fuzzy banding to compress large PE gaps. |
+| **Token Value** (`TVal`) | `<TVAL` | `>TOKENS` | `SIGNUP` | — | Highest historical Token Value boosts first, broken by fewest tokens wanted. |
+| **ESC Order** *(Standard)* | `<ROLE` | `<DEFL_SLOT` | `<IHR[6%]` | `>TOKENS` | Mains before Helpers, 2-slot before 1-slot deflectors, 6% fuzzy IHR, fewest tokens wanted. |
+| **ESC Order -GG** *(Speedrun)* | `<ROLE` | `<DEFL` | `<IHR` | `>TOKENS` | Mains before Helpers, deflector rarity tier (T4L > T4E > T4R > T3R), strict IHR, fewest tokens wanted. |
+
+### Recipes & Adaptations
+
+#### 1. ESC Order (Standard)
+* **Built-in Behavior**: Tiers Main roles ahead of Helper/Alt accounts, prioritizes 2-slot deflectors (T4L, T4E) over 1-slot deflectors (T4R), applies 6% fuzzy banding to IHR, and uses tokens requested as the final tiebreaker.
+* **Custom Syntax**:
+  ```text
+  Level 1: <ROLE
+  Level 2: <DEFL_SLOT
+  Level 3: <IHR[6%]
+  Level 4: >TOKENS
+  ```
+* **Effort-Balanced Variant**:
+  Replace Level 2 with balanced deflector crafting effort:
+  ```text
+  Level 1: <ROLE
+  Level 2: <DEFL_EFFORT[50]
+  Level 3: <IHR[6%]
+  Level 4: >TOKENS
+  ```
+
+#### 2. ESC Order -GG (Fastrun / Speedrun)
+* **Built-in Behavior**: Mains before Helpers, strict deflector rarity tiering (`T4L > T4E > T4R > T3R`), strict IHR (no fuzzy banding), and fewest tokens requested.
+* **Custom Syntax**:
+  ```text
+  Level 1: <ROLE
+  Level 2: <DEFL
+  Level 3: <IHR
+  Level 4: >TOKENS
+  ```
+
+#### 3. Conditional ESC (Custom Roles)
+* **Behavior**: Mains sort by balanced deflector effort, while helpers sort directly by fewest tokens wanted:
+* **Custom Syntax**:
+  ```text
+  Level 1: IF MAIN <DEFL_EFFORT[50] ELSE >TOKENS
+  Level 2: <IHR[6%]
+  Level 3: >TOKENS
+  Level 4: <TE
+  ```
+

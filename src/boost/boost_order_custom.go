@@ -100,29 +100,109 @@ const (
 	CritSignup
 	CritReverse
 	CritRandom
+	CritRole
 	CritUnknown
 )
 
+type customRoleCondition int
+
+const (
+	roleConditionNone customRoleCondition = iota
+	roleConditionMain
+	roleConditionHelper
+)
+
 type customCriterion struct {
-	raw       string
-	critType  CustomCriterionType
-	ascending bool // true = ascending (>), false = descending (<)
-	effortN   int  // equivalence craft count for DEFL_EFFORT (default 50)
-	fuzzyPct  float64
-	fuzzySqrt bool
+	raw           string
+	critType      CustomCriterionType
+	ascending     bool // true = ascending (>), false = descending (<)
+	effortN       int  // equivalence craft count for DEFL_EFFORT (default 50)
+	fuzzyPct      float64
+	fuzzySqrt     bool
+	isConditional bool
+	targetRole    customRoleCondition
+	thenCrit      *customCriterion
+	hasElse       bool
+	elseCrit      *customCriterion
 }
 
 var (
-	reDeflEffort = regexp.MustCompile(`(?i)DEFL_EFFORT(?:\[(\d+)\])?`)
-	reCraftDefl  = regexp.MustCompile(`(?i)(?:CRAFT_DEFL|CRAFT\(T4_DEFL\))`)
-	reFuzzyPct   = regexp.MustCompile(`\[(\d+(?:\.\d+)?)%\]`)
-	reFuzzySqrt  = regexp.MustCompile(`(?i)\[(?:sqrt|~)\]`)
+	reDeflEffort  = regexp.MustCompile(`(?i)DEFL_EFFORT(?:\[(\d+)\])?`)
+	reCraftDefl   = regexp.MustCompile(`(?i)(?:CRAFT_DEFL|CRAFT\(T4_DEFL\))`)
+	reFuzzyPct    = regexp.MustCompile(`\[(\d+(?:\.\d+)?)%\]`)
+	reFuzzySqrt   = regexp.MustCompile(`(?i)\[(?:sqrt|~)\]`)
+	reConditional = regexp.MustCompile(`(?i)^\s*IF\s+(?:\(?\s*ROLE\s*(==|=|!=|<>)?\s*)?([A-Za-z]+)\)?(?:\s+THEN)?\s+(.+?)(?:\s+ELSE\s+(.+))?$`)
 )
+
+func isBoosterHelper(b *Booster) bool {
+	if b == nil {
+		return false
+	}
+	return b.IsAlt || b.AltController != ""
+}
+
+func isBoosterMain(b *Booster) bool {
+	return !isBoosterHelper(b)
+}
+
+func (c customCriterion) matchesRole(b *Booster) bool {
+	switch c.targetRole {
+	case roleConditionMain:
+		return isBoosterMain(b)
+	case roleConditionHelper:
+		return isBoosterHelper(b)
+	default:
+		return true
+	}
+}
 
 func parseCustomCriterion(s string) customCriterion {
 	trimmed := strings.TrimSpace(s)
 	if trimmed == "" {
 		return customCriterion{critType: CritUnknown}
+	}
+
+	// Check if this is a conditional IF ... [ELSE ...] rule
+	if m := reConditional.FindStringSubmatch(trimmed); len(m) > 3 {
+		op := strings.TrimSpace(m[1])
+		roleStr := strings.ToUpper(strings.Trim(strings.TrimSpace(m[2]), `"'`))
+		isNot := (op == "!=" || op == "<>")
+
+		var targetRole customRoleCondition
+		switch roleStr {
+		case "MAIN", "MAINS":
+			if isNot {
+				targetRole = roleConditionHelper
+			} else {
+				targetRole = roleConditionMain
+			}
+		case "HELPER", "HELPERS", "ALT", "ALTS":
+			if isNot {
+				targetRole = roleConditionMain
+			} else {
+				targetRole = roleConditionHelper
+			}
+		default:
+			targetRole = roleConditionNone
+		}
+
+		if targetRole != roleConditionNone {
+			thenStr := strings.TrimSpace(m[3])
+			thenCrit := parseCustomCriterion(thenStr)
+			crit := customCriterion{
+				raw:           trimmed,
+				isConditional: true,
+				targetRole:    targetRole,
+				thenCrit:      &thenCrit,
+			}
+			if len(m) > 4 && strings.TrimSpace(m[4]) != "" {
+				elseStr := strings.TrimSpace(m[4])
+				elseCrit := parseCustomCriterion(elseStr)
+				crit.hasElse = true
+				crit.elseCrit = &elseCrit
+			}
+			return crit
+		}
 	}
 
 	crit := customCriterion{
@@ -199,6 +279,17 @@ func parseCustomCriterion(s string) customCriterion {
 		crit.critType = CritReverse
 	case strings.HasPrefix(upper, "RANDOM"):
 		crit.critType = CritRandom
+	case strings.HasPrefix(upper, "ROLE"):
+		crit.critType = CritRole
+		if strings.Contains(upper, "HELP") || strings.Contains(upper, "ALT") {
+			crit.ascending = true
+		}
+	case upper == "MAIN" || upper == "MAINS":
+		crit.critType = CritRole
+		crit.ascending = false
+	case upper == "HELPER" || upper == "HELPERS" || upper == "ALT" || upper == "ALTS":
+		crit.critType = CritRole
+		crit.ascending = true
 	default:
 		crit.critType = CritUnknown
 	}
@@ -292,6 +383,8 @@ func calculateBoosterDeflectorEffort(b *Booster, n int) (score int, craftCount i
 type boosterEvalData struct {
 	userID        string
 	signupIndex   int
+	isMain        bool
+	isHelper      bool
 	hasT4L        bool
 	t4Crafts      int
 	deflQuality   string
@@ -304,8 +397,43 @@ type boosterEvalData struct {
 	deflScore     int
 	deflSlotScore int
 	delivScore    int
+	roleScore     float64
+	randomScore   float64
 	rowScores     [4]float64
-	effortScores  [4]int
+}
+
+func applyFuzzyModifiers(b *Booster, data *boosterEvalData, crit customCriterion, applyFuzzy bool) {
+	if !applyFuzzy || b == nil {
+		return
+	}
+	if crit.isConditional {
+		if crit.thenCrit != nil {
+			applyFuzzyModifiers(b, data, *crit.thenCrit, applyFuzzy)
+		}
+		if crit.elseCrit != nil {
+			applyFuzzyModifiers(b, data, *crit.elseCrit, applyFuzzy)
+		}
+		return
+	}
+	if crit.critType == CritIHR && crit.fuzzyPct > 0 {
+		bonusMax := data.ihrBase * crit.fuzzyPct
+		offset := (rand.Float64()*2 - 1) * bonusMax
+		data.ihrSort = data.ihrBase + offset
+		b.FuzzyOffset = offset
+	} else if crit.critType == CritTE {
+		if crit.fuzzySqrt {
+			baseTE := float64(max(data.teBase, 0))
+			bonusMax := math.Max(baseTE*0.06, math.Sqrt(baseTE+25))
+			offset := (rand.Float64()*2 - 1) * bonusMax
+			data.teSort = baseTE + offset
+			b.FuzzyOffset = offset
+		} else if crit.fuzzyPct > 0 {
+			bonusMax := float64(data.teBase) * crit.fuzzyPct
+			offset := (rand.Float64()*2 - 1) * bonusMax
+			data.teSort = float64(data.teBase) + offset
+			b.FuzzyOffset = offset
+		}
+	}
 }
 
 func evaluateBoosterForCustom(contract *Contract, userID string, signupIdx int, criteria [4]customCriterion, applyFuzzy bool) boosterEvalData {
@@ -313,9 +441,17 @@ func evaluateBoosterForCustom(contract *Contract, userID string, signupIdx int, 
 	data := boosterEvalData{
 		userID:      userID,
 		signupIndex: signupIdx,
+		randomScore: rand.Float64(),
 	}
 
 	if b != nil {
+		data.isHelper = isBoosterHelper(b)
+		data.isMain = !data.isHelper
+		if data.isMain {
+			data.roleScore = 2.0
+		} else {
+			data.roleScore = 1.0
+		}
 		data.hasT4L = hasBoosterT4LDeflector(b)
 		data.t4Crafts = getBoosterT4DeflectorCraftCount(b.UserID)
 		data.deflQuality = getBoosterDeflectorQualityString(b)
@@ -331,75 +467,98 @@ func evaluateBoosterForCustom(contract *Contract, userID string, signupIdx int, 
 	}
 
 	for rowIdx, crit := range criteria {
-		score := 0.0
-		switch crit.critType {
-		case CritDeflEffort:
-			effScore, _, _ := calculateBoosterDeflectorEffort(b, crit.effortN)
-			data.effortScores[rowIdx] = effScore
-			score = float64(effScore)
-		case CritCraftDefl:
-			score = float64(data.t4Crafts)
-		case CritIHR:
-			val := data.ihrBase
-			if applyFuzzy && crit.fuzzyPct > 0 {
-				bonusMax := val * crit.fuzzyPct
-				offset := (rand.Float64()*2 - 1) * bonusMax
-				val += offset
-				data.ihrSort = val
-				if b != nil {
-					b.FuzzyOffset = offset
-				}
-			}
-			score = val
-		case CritELR:
-			score = data.elr
-		case CritTE:
-			val := float64(data.teBase)
-			if applyFuzzy {
-				if crit.fuzzySqrt {
-					baseTE := float64(max(data.teBase, 0))
-					bonusMax := math.Max(baseTE*0.06, math.Sqrt(baseTE+25))
-					offset := (rand.Float64()*2 - 1) * bonusMax
-					val = baseTE + offset
-					data.teSort = val
-					if b != nil {
-						b.FuzzyOffset = offset
-					}
-				} else if crit.fuzzyPct > 0 {
-					bonusMax := val * crit.fuzzyPct
-					offset := (rand.Float64()*2 - 1) * bonusMax
-					val += offset
-					data.teSort = val
-					if b != nil {
-						b.FuzzyOffset = offset
-					}
-				}
-			}
-			score = val
-		case CritTokens:
-			score = float64(data.tokensWanted)
-		case CritTVal:
-			_, _, tvalByUser, _ := buildTokenTotalsFromLog(contract)
-			score = tvalByUser[data.userID]
-		case CritDefl:
-			score = float64(data.deflScore)
-		case CritDeflSlot:
-			score = float64(data.deflSlotScore)
-		case CritDeliv:
-			score = float64(data.delivScore)
-		case CritSignup:
-			score = float64(data.signupIndex)
-		case CritReverse:
-			score = -float64(data.signupIndex)
-		case CritRandom:
-			score = rand.Float64()
-		default:
-			score = 0.0
-		}
-		data.rowScores[rowIdx] = score
+		applyFuzzyModifiers(b, &data, crit, applyFuzzy)
+		data.rowScores[rowIdx] = getBoosterCriterionValue(contract, &data, crit)
 	}
 
 	return data
+}
+
+func getBoosterCriterionValue(contract *Contract, item *boosterEvalData, crit customCriterion) float64 {
+	switch crit.critType {
+	case CritDeflEffort:
+		b := contract.Boosters[item.userID]
+		effScore, _, _ := calculateBoosterDeflectorEffort(b, crit.effortN)
+		return float64(effScore)
+	case CritCraftDefl:
+		return float64(item.t4Crafts)
+	case CritIHR:
+		return item.ihrSort
+	case CritELR:
+		return item.elr
+	case CritTE:
+		return item.teSort
+	case CritTokens:
+		return float64(item.tokensWanted)
+	case CritTVal:
+		_, _, tvalByUser, _ := buildTokenTotalsFromLog(contract)
+		return tvalByUser[item.userID]
+	case CritDefl:
+		return float64(item.deflScore)
+	case CritDeflSlot:
+		return float64(item.deflSlotScore)
+	case CritDeliv:
+		return float64(item.delivScore)
+	case CritSignup:
+		return float64(item.signupIndex)
+	case CritReverse:
+		return -float64(item.signupIndex)
+	case CritRandom:
+		return item.randomScore
+	case CritRole:
+		return item.roleScore
+	default:
+		return 0.0
+	}
+}
+
+func compareBoosterCriterion(contract *Contract, itemI, itemJ *boosterEvalData, crit customCriterion) int {
+	if crit.isConditional {
+		bI := contract.Boosters[itemI.userID]
+		bJ := contract.Boosters[itemJ.userID]
+
+		matchI := crit.matchesRole(bI)
+		matchJ := crit.matchesRole(bJ)
+
+		if matchI && matchJ {
+			if crit.thenCrit != nil {
+				return compareBoosterCriterion(contract, itemI, itemJ, *crit.thenCrit)
+			}
+			return 0
+		}
+		if !matchI && !matchJ {
+			if crit.hasElse && crit.elseCrit != nil {
+				return compareBoosterCriterion(contract, itemI, itemJ, *crit.elseCrit)
+			}
+			// If ELSE is missing then that sort doesn't apply: both tie on this level
+			return 0
+		}
+		if matchI && !matchJ {
+			return -1
+		}
+		return 1
+	}
+
+	if crit.critType == CritUnknown {
+		return 0
+	}
+
+	valI := getBoosterCriterionValue(contract, itemI, crit)
+	valJ := getBoosterCriterionValue(contract, itemJ, crit)
+
+	if math.Abs(valI-valJ) > 1e-6 {
+		if crit.ascending {
+			if valI < valJ {
+				return -1
+			}
+			return 1
+		}
+		if valI > valJ {
+			return -1
+		}
+		return 1
+	}
+	return 0
 }
 
 // sortCustomRemaining sorts boosters using the custom condition strings.
@@ -435,16 +594,14 @@ func sortCustomRemaining(contract *Contract, unselected []string, lines []string
 
 	sort.SliceStable(items, func(i, j int) bool {
 		for r := 0; r < 4; r++ {
-			if criteria[r].critType == CritUnknown {
+			if !criteria[r].isConditional && criteria[r].critType == CritUnknown {
 				continue
 			}
-			valI := items[i].rowScores[r]
-			valJ := items[j].rowScores[r]
-			if math.Abs(valI-valJ) > 1e-6 {
-				if criteria[r].ascending {
-					return valI < valJ
-				}
-				return valI > valJ
+			cmp := compareBoosterCriterion(contract, &items[i], &items[j], criteria[r])
+			if cmp < 0 {
+				return true
+			} else if cmp > 0 {
+				return false
 			}
 		}
 		// Fallback tiebreaker: signup order then userID
@@ -485,11 +642,22 @@ func RenderCustomOrderTableImage(contract *Contract, lines []string) ([]byte, er
 			effortN = c.effortN
 			break
 		}
+		if c.isConditional {
+			if c.thenCrit != nil && c.thenCrit.critType == CritDeflEffort {
+				effortN = c.thenCrit.effortN
+				break
+			}
+			if c.elseCrit != nil && c.elseCrit.critType == CritDeflEffort {
+				effortN = c.elseCrit.effortN
+				break
+			}
+		}
 	}
 
 	cols := []TableImageColumn{
 		{Label: "#", Align: bottools.StringAlignRight},
 		{Label: "Player", Align: bottools.StringAlignLeft},
+		{Label: "Role", Align: bottools.StringAlignCenter},
 		{Label: "Deflector", Align: bottools.StringAlignCenter},
 		{Label: "T4 Crafts", Align: bottools.StringAlignRight},
 		{Label: fmt.Sprintf("Effort [N=%d]", effortN), Align: bottools.StringAlignCenter},
@@ -514,6 +682,13 @@ func RenderCustomOrderTableImage(contract *Contract, lines []string) ([]byte, er
 		}
 		if name == "" {
 			name = userID
+		}
+
+		roleStr := "Main"
+		roleColor := "green"
+		if isBoosterHelper(b) {
+			roleStr = "Helper"
+			roleColor = "red"
 		}
 
 		effScore, craftCount, hasT4L := calculateBoosterDeflectorEffort(b, effortN)
@@ -552,6 +727,7 @@ func RenderCustomOrderTableImage(contract *Contract, lines []string) ([]byte, er
 		cells := []TableImageCell{
 			{Text: fmt.Sprintf("%d", idx+1), Color: ""},
 			{Text: name, Color: ""},
+			{Text: roleStr, Color: roleColor},
 			{Text: deflQuality, Color: deflColor},
 			{Text: craftsDisplay, Color: craftsColor},
 			{Text: effortDisplay, Color: effortColor},

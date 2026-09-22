@@ -607,7 +607,8 @@ func buildBenchmarkSampleContract() *Contract {
 	}
 	c.Boosters["eve"] = &Booster{
 		UserID:       "eve",
-		Nick:         "Eve (20 Crafts)",
+		Nick:         "Eve (20 Crafts, Alt)",
+		IsAlt:        true,
 		IHRRate:      12.0e9,
 		TokensWanted: 4,
 		TECount:      75,
@@ -618,7 +619,8 @@ func buildBenchmarkSampleContract() *Contract {
 	}
 	c.Boosters["frank"] = &Booster{
 		UserID:       "frank",
-		Nick:         "Frank (5 Crafts)",
+		Nick:         "Frank (5 Crafts, Alt)",
+		IsAlt:        true,
 		IHRRate:      7.5e9,
 		TokensWanted: 8,
 		TECount:      50,

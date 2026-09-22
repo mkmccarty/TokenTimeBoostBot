@@ -379,3 +379,282 @@ func TestBuildCustomOrderMessage(t *testing.T) {
 		t.Fatal("expected preview image file attachment, got none")
 	}
 }
+
+func TestParseCustomCriterion_RoleAndConditional(t *testing.T) {
+	tests := []struct {
+		input         string
+		isConditional bool
+		targetRole    customRoleCondition
+		hasElse       bool
+		thenType      CustomCriterionType
+		thenAscending bool
+		elseType      CustomCriterionType
+		elseAscending bool
+		critType      CustomCriterionType
+		ascending     bool
+	}{
+		{
+			input:         "IF ROLE == MAIN <DEFL_EFFORT[50] ELSE >TOKENS",
+			isConditional: true,
+			targetRole:    roleConditionMain,
+			hasElse:       true,
+			thenType:      CritDeflEffort,
+			thenAscending: false,
+			elseType:      CritTokens,
+			elseAscending: true,
+		},
+		{
+			input:         "IF MAIN <DEFL_EFFORT[50] ELSE >TOKENS",
+			isConditional: true,
+			targetRole:    roleConditionMain,
+			hasElse:       true,
+			thenType:      CritDeflEffort,
+			thenAscending: false,
+			elseType:      CritTokens,
+			elseAscending: true,
+		},
+		{
+			input:         "IF HELPER >TOKENS ELSE <DEFL_EFFORT[50]",
+			isConditional: true,
+			targetRole:    roleConditionHelper,
+			hasElse:       true,
+			thenType:      CritTokens,
+			thenAscending: true,
+			elseType:      CritDeflEffort,
+			elseAscending: false,
+		},
+		{
+			input:         "IF ROLE == HELPER >TOKENS",
+			isConditional: true,
+			targetRole:    roleConditionHelper,
+			hasElse:       false,
+			thenType:      CritTokens,
+			thenAscending: true,
+		},
+		{
+			input:         "IF MAIN <DEFL_EFFORT[50]",
+			isConditional: true,
+			targetRole:    roleConditionMain,
+			hasElse:       false,
+			thenType:      CritDeflEffort,
+			thenAscending: false,
+		},
+		{
+			input:         "ROLE",
+			isConditional: false,
+			critType:      CritRole,
+			ascending:     false, // Mains first
+		},
+		{
+			input:         "<ROLE",
+			isConditional: false,
+			critType:      CritRole,
+			ascending:     false, // Mains first
+		},
+		{
+			input:         ">ROLE",
+			isConditional: false,
+			critType:      CritRole,
+			ascending:     true, // Helpers first
+		},
+		{
+			input:         "MAIN",
+			isConditional: false,
+			critType:      CritRole,
+			ascending:     false,
+		},
+		{
+			input:         "HELPER",
+			isConditional: false,
+			critType:      CritRole,
+			ascending:     true,
+		},
+	}
+
+	for _, tt := range tests {
+		crit := parseCustomCriterion(tt.input)
+		if crit.isConditional != tt.isConditional {
+			t.Errorf("parseCustomCriterion(%q) isConditional = %v, want %v", tt.input, crit.isConditional, tt.isConditional)
+		}
+		if tt.isConditional {
+			if crit.targetRole != tt.targetRole {
+				t.Errorf("parseCustomCriterion(%q) targetRole = %v, want %v", tt.input, crit.targetRole, tt.targetRole)
+			}
+			if crit.hasElse != tt.hasElse {
+				t.Errorf("parseCustomCriterion(%q) hasElse = %v, want %v", tt.input, crit.hasElse, tt.hasElse)
+			}
+			if crit.thenCrit == nil || crit.thenCrit.critType != tt.thenType {
+				t.Errorf("parseCustomCriterion(%q) thenType = %v, want %v", tt.input, crit.thenCrit, tt.thenType)
+			}
+			if crit.thenCrit != nil && crit.thenCrit.ascending != tt.thenAscending {
+				t.Errorf("parseCustomCriterion(%q) thenAscending = %v, want %v", tt.input, crit.thenCrit.ascending, tt.thenAscending)
+			}
+			if tt.hasElse {
+				if crit.elseCrit == nil || crit.elseCrit.critType != tt.elseType {
+					t.Errorf("parseCustomCriterion(%q) elseType = %v, want %v", tt.input, crit.elseCrit, tt.elseType)
+				}
+				if crit.elseCrit != nil && crit.elseCrit.ascending != tt.elseAscending {
+					t.Errorf("parseCustomCriterion(%q) elseAscending = %v, want %v", tt.input, crit.elseCrit.ascending, tt.elseAscending)
+				}
+			}
+		} else {
+			if crit.critType != tt.critType {
+				t.Errorf("parseCustomCriterion(%q) critType = %v, want %v", tt.input, crit.critType, tt.critType)
+			}
+			if crit.ascending != tt.ascending {
+				t.Errorf("parseCustomCriterion(%q) ascending = %v, want %v", tt.input, crit.ascending, tt.ascending)
+			}
+		}
+	}
+}
+
+func TestSortCustomRemaining_ConditionalWithElse(t *testing.T) {
+	// 2 Mains and 2 Helpers:
+	// m1: Main, 50 crafts, 8 tokens
+	// m2: Main, 10 crafts, 4 tokens
+	// h1: Helper (alt), 0 crafts, 4 tokens
+	// h2: Helper (alt), 0 crafts, 8 tokens
+	contract := &Contract{
+		ContractID:   "test-cond-else",
+		CoopID:       "coop",
+		ContractHash: "cond-else-hash",
+		Boosters:     make(map[string]*Booster),
+		Order:        []string{"m1", "m2", "h1", "h2"},
+	}
+	contract.Boosters["m1"] = &Booster{
+		UserID:       "m1",
+		Nick:         "Main 1",
+		IsAlt:        false,
+		TokensWanted: 8,
+		ArtifactSet:  ArtifactSet{Artifacts: []ei.Artifact{{Type: "Deflector", Quality: "T4L"}}},
+	}
+	contract.Boosters["m2"] = &Booster{
+		UserID:       "m2",
+		Nick:         "Main 2",
+		IsAlt:        false,
+		TokensWanted: 4,
+		ArtifactSet:  ArtifactSet{Artifacts: []ei.Artifact{{Type: "Deflector", Quality: "T4R"}}},
+	}
+	contract.Boosters["h1"] = &Booster{
+		UserID:       "h1",
+		Nick:         "Helper 1",
+		IsAlt:        true,
+		TokensWanted: 4,
+	}
+	contract.Boosters["h2"] = &Booster{
+		UserID:       "h2",
+		Nick:         "Helper 2",
+		IsAlt:        true,
+		TokensWanted: 8,
+	}
+
+	lines := []string{
+		"IF MAIN <DEFL_EFFORT[50] ELSE >TOKENS",
+	}
+
+	sorted := sortCustomRemaining(contract, []string{"h2", "m2", "h1", "m1"}, lines, false)
+
+	// Mains come first, sorted by DEFL_EFFORT: m1 (T4L = 50) > m2 (0 crafts = 0)
+	// Helpers come second, sorted by >TOKENS: h1 (4 tokens) > h2 (8 tokens)
+	expected := []string{"m1", "m2", "h1", "h2"}
+	if len(sorted) != len(expected) {
+		t.Fatalf("got len %d, want %d", len(sorted), len(expected))
+	}
+	for i, id := range sorted {
+		if id != expected[i] {
+			t.Errorf("at index %d: got %s, want %s", i, id, expected[i])
+		}
+	}
+}
+
+func TestSortCustomRemaining_ConditionalWithoutElse(t *testing.T) {
+	// Rule 1: IF MAIN <DEFL_EFFORT[50] (No ELSE)
+	// Rule 2: >TOKENS
+	// m1: Main, T4L (50 effort), 8 tokens
+	// m2: Main, 0 effort, 4 tokens
+	// h1: Helper, 4 tokens
+	// h2: Helper, 8 tokens
+	contract := &Contract{
+		ContractID:   "test-cond-no-else",
+		CoopID:       "coop",
+		ContractHash: "cond-no-else-hash",
+		Boosters:     make(map[string]*Booster),
+		Order:        []string{"m1", "m2", "h1", "h2"},
+	}
+	contract.Boosters["m1"] = &Booster{
+		UserID:       "m1",
+		Nick:         "Main 1",
+		IsAlt:        false,
+		TokensWanted: 8,
+		ArtifactSet:  ArtifactSet{Artifacts: []ei.Artifact{{Type: "Deflector", Quality: "T4L"}}},
+	}
+	contract.Boosters["m2"] = &Booster{
+		UserID:       "m2",
+		Nick:         "Main 2",
+		IsAlt:        false,
+		TokensWanted: 4,
+	}
+	contract.Boosters["h1"] = &Booster{
+		UserID:       "h1",
+		Nick:         "Helper 1",
+		IsAlt:        true,
+		TokensWanted: 4,
+	}
+	contract.Boosters["h2"] = &Booster{
+		UserID:       "h2",
+		Nick:         "Helper 2",
+		IsAlt:        true,
+		TokensWanted: 8,
+	}
+
+	lines := []string{
+		"IF MAIN <DEFL_EFFORT[50]", // Level 1: Mains first and sorted by Defl; Helpers tie on Level 1
+		">TOKENS",                  // Level 2: Breaks tie among Helpers (h1 wants 4, h2 wants 8)
+	}
+
+	sorted := sortCustomRemaining(contract, []string{"h2", "m2", "h1", "m1"}, lines, false)
+
+	// m1 and m2 are Mains: on Level 1, m1 (50) beats m2 (0)
+	// h1 and h2 are Helpers: on Level 1, rule doesn't apply so they tie
+	// On Level 2, h1 (4 tokens) beats h2 (8 tokens)
+	expected := []string{"m1", "m2", "h1", "h2"}
+	if len(sorted) != len(expected) {
+		t.Fatalf("got len %d, want %d", len(sorted), len(expected))
+	}
+	for i, id := range sorted {
+		if id != expected[i] {
+			t.Errorf("at index %d: got %s, want %s", i, id, expected[i])
+		}
+	}
+}
+
+func TestSortCustomRemaining_RoleStandalone(t *testing.T) {
+	contract := &Contract{
+		ContractID:   "test-role-standalone",
+		CoopID:       "coop",
+		ContractHash: "role-standalone-hash",
+		Boosters:     make(map[string]*Booster),
+		Order:        []string{"m1", "h1"},
+	}
+	contract.Boosters["m1"] = &Booster{
+		UserID: "m1",
+		IsAlt:  false,
+	}
+	contract.Boosters["h1"] = &Booster{
+		UserID: "h1",
+		IsAlt:  true,
+	}
+
+	// Test <ROLE (Mains first)
+	sortedMainsFirst := sortCustomRemaining(contract, []string{"h1", "m1"}, []string{"<ROLE"}, false)
+	if sortedMainsFirst[0] != "m1" || sortedMainsFirst[1] != "h1" {
+		t.Errorf("<ROLE expected [m1, h1], got %v", sortedMainsFirst)
+	}
+
+	// Test >ROLE (Helpers first)
+	sortedHelpersFirst := sortCustomRemaining(contract, []string{"m1", "h1"}, []string{">ROLE"}, false)
+	if sortedHelpersFirst[0] != "h1" || sortedHelpersFirst[1] != "m1" {
+		t.Errorf(">ROLE expected [h1, m1], got %v", sortedHelpersFirst)
+	}
+}
+
