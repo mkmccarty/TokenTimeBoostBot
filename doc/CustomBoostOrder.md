@@ -4,19 +4,32 @@ Boost Bot supports **Custom Boost Orders**, allowing contract coordinators to cr
 
 ---
 
-## 1. Defining a Custom Boost Order (`/define-custom-order`)
+## 1. Defining a Custom Boost Order (`/custom-boost-order`)
 
-Run the `/define-custom-order` command:
+Run the `/custom-boost-order` command:
 
+* **Modify / Preview / Create**:
 ```text
-/define-custom-order [order]
+/custom-boost-order modify [order]
 ```
+* **Delete a Saved Order**:
+```text
+/custom-boost-order delete <order>
+```
+Displays the custom order rules (without image) with buttons to **DISMISS** (removes buttons) or **DELETE** (deletes the preset and confirms).
+* **Help & Documentation**:
+```text
+/custom-boost-order help
+```
+Displays an ephemeral response with this guide (`CustomBoostOrder.md`) attached directly in Discord.
 
 ### Autocomplete Options
-The `order` parameter autocomplete provides:
+When running `/custom-boost-order modify`, the `order` parameter autocomplete provides:
 * `<NEW>`: Create a new custom boost order from scratch.
 * `[User] <name>`: Load a personal preset previously saved to your profile.
 * `[Global] <name>`: Load a globally published preset accessible across all servers.
+
+When running `/custom-boost-order delete`, autocomplete provides all saved presets (`[User] <name>` and `[Global] <name>`).
 
 ---
 
@@ -251,15 +264,12 @@ Submitting the criteria modal or loading a preset generates an interactive previ
 1. **Tiebreaker Hierarchy**: Shows the exact condition configured for Levels 1–4.
 2. **Table Image Preview**: Renders a PNG table displaying each booster's metrics.
    * **Focused Dynamic Columns**: The table always shows the position rank (`#`) and player name (`Player`), followed strictly by columns for the criteria actually included in the boost order (e.g. `T4L Actuator`, `T4 Actuator Crafts`, `Role`, `IHR`, `Tokens`, etc.). Unused metrics are omitted to keep the table clean and concise.
-   * Outside a contract channel: Evaluates a 6-player benchmark cohort (including mock Actuator counts and crafts).
-   * Inside a contract channel: Evaluates the active contract's actual players.
+   * Must be run in an active contract channel to evaluate and display the contract's actual players.
 
 ### Action Buttons:
 * **MODIFY**: Re-opens the 4-row criteria modal to tweak rules.
 * **SAVE**: Opens a modal to enter a Name and saves the preset to your personal profile.
-* **PUBLISH**: Opens a modal to enter a Name and publishes the preset globally across all servers.
-* **APPLY**: *(Only in active contracts)* Immediately applies the custom order to the contract boost list.
-* **DISMISS**: Closes the preview report.
+* **SELECT**: *(Only in active contracts when saved/loaded)* Immediately applies the custom order to the contract boost list and updates contract boost order.
 
 ---
 
@@ -268,10 +278,12 @@ Submitting the criteria modal or loading a preset generates an interactive previ
 1. **Via Dropdown (`cs_#order`)**:
    * In contract signup or `/contract-settings`, open the **Boosting Order** select menu.
    * All published global orders (`⚙️ [Global] <name>`) and personal presets (`👤 [User] <name>`) appear in the list.
-2. **Via `/define-custom-order`**:
-   * Run `/define-custom-order` inside a contract channel.
+2. **Via `/custom-boost-order modify`**:
+   * Run `/custom-boost-order modify` inside a contract channel.
    * Inspect the rendered image preview on the contract's real roster.
-   * Click **APPLY** to apply the order and update the boost list.
+   * For newly created orders, **SELECT** defaults to unselectable until you press **SAVE** and name the preset.
+   * If an existing preset was loaded to view/edit, **SELECT** is immediately active.
+   * Pressing **SELECT** changes the contract boost order to `ContractOrderCustom`, stores the custom order rules with the contract, and recalculates the boost order for when the contract starts.
 
 ---
 
@@ -313,13 +325,11 @@ Every built-in boost order in BoostBot can be reproduced using the Custom Boost 
   ```
 
 #### 2. Actuator-Focused Boost Order (Primary T4L, Tiebreaker Crafts)
-* **Behavior**: Prioritizes players with a T4L Actuator. If players tie (both have or both lack a T4L Actuator), ties are broken by their total T4 Actuator craft attempts, followed by fuzzy IHR and tokens:
+* **Behavior**: Prioritizes players with a T4L Actuator. If players tie (both have or both lack a T4L Actuator), ties are broken by their total T4 Actuator craft attempts:
 * **Custom Syntax**:
   ```text
-  Level 1: T4L_ACTUATOR
+  Level 1: COUNT(T4L_ACTUATOR)
   Level 2: CRAFT(T4_ACTUATOR)
-  Level 3: <IHR[6%]
-  Level 4: >TOKENS
+  Level 3: 
+  Level 4: 
   ```
-
-

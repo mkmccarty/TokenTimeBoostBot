@@ -97,8 +97,12 @@ const slashCoopTval string = "coop-tval"
 const slashVolunteerSink string = "volunteer-sink"
 const slashVoluntellSink string = "voluntell-sink"
 const slashLinkAlternate string = "link-alternate"
+
+//go:embed doc/CustomBoostOrder.md
+var customBoostOrderDoc []byte
+
 const slashBoostOrderHelpers string = "boost-order-helpers"
-const slashDefineCustomOrder string = "define-custom-order"
+const slashCustomBoostOrder string = "custom-boost-order"
 const slashTeamworkEval string = "teamwork"
 const slashEstimateTime string = "estimate-contract-time"
 const slashCsEstimate string = "cs-estimate"
@@ -230,6 +234,8 @@ func init() {
 }
 
 func init() {
+	boost.SetCustomBoostOrderDoc(customBoostOrderDoc)
+
 	// if ttbb-data directory doesn't exist, create it
 	if _, err := os.Stat("ttbb-data"); os.IsNotExist(err) {
 		err := os.Mkdir("ttbb-data", 0755)
@@ -739,10 +745,10 @@ func setupCommands() {
 			Handler:  func(e *dc.CommandEvent) { boost.HandleBoostOrderHelpersCommand(botClient(), e) },
 		},
 		{
-			AppCmd:       boost.GetSlashDefineCustomOrderCommand(slashDefineCustomOrder),
+			AppCmd:       boost.GetSlashCustomBoostOrderCommand(slashCustomBoostOrder),
 			Category:     CmdCategoryStandard,
-			Handler:      func(e *dc.CommandEvent) { boost.HandleDefineCustomOrderCommand(botClient(), e) },
-			Autocomplete: boost.HandleDefineCustomOrderAutoComplete,
+			Handler:      func(e *dc.CommandEvent) { boost.HandleCustomBoostOrderCommand(botClient(), e) },
+			Autocomplete: boost.HandleCustomBoostOrderAutoComplete,
 		},
 	}
 

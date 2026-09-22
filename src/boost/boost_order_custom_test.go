@@ -2,8 +2,10 @@ package boost
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
@@ -981,5 +983,89 @@ func TestCustomOrderRolePriorityHierarchy(t *testing.T) {
 	}
 	if mainCrit.matchesRole(contract.Boosters["altUser"]) {
 		t.Errorf("did not expect altUser to match IF MAIN")
+	}
+}
+
+func TestGetContractBoostOrderLines(t *testing.T) {
+	if lines := GetContractBoostOrderLines(nil); len(lines) == 0 || lines[0] != "SIGNUP" {
+		t.Errorf("expected SIGNUP for nil contract, got %v", lines)
+	}
+
+	c1 := &Contract{BoostOrder: ContractOrderIHR}
+	if lines := GetContractBoostOrderLines(c1); len(lines) != 4 || lines[0] != "<IHR" {
+		t.Errorf("expected IHR lines, got %v", lines)
+	}
+
+	c2 := &Contract{BoostOrder: ContractOrderIHRFuzzy}
+	if lines := GetContractBoostOrderLines(c2); len(lines) != 4 || lines[0] != "<IHR[6%]" {
+		t.Errorf("expected Fuzzy IHR lines, got %v", lines)
+	}
+
+	cCustom := &Contract{
+		BoostOrder:       ContractOrderCustom,
+		CustomOrderLines: []string{"<ROLE", "<DEFL_SLOT", "<IHR[6%]", ">TOKENS"},
+	}
+	if lines := GetContractBoostOrderLines(cCustom); len(lines) != 4 || lines[0] != "<ROLE" {
+		t.Errorf("expected custom lines, got %v", lines)
+	}
+}
+
+func TestBuildBoostOrderPreviewMessage(t *testing.T) {
+	contract := &Contract{
+		ContractID:   "preview-test-contract",
+		CoopID:       "preview-coop",
+		ContractHash: "preview-hash-456",
+		BoostOrder:   ContractOrderIHRFuzzy,
+		Boosters:     make(map[string]*Booster),
+		Order:        []string{"u1", "u2"},
+	}
+	contract.Boosters["u1"] = &Booster{
+		UserID:  "u1",
+		Nick:    "Farmer 1",
+		IHRRate: 5e9,
+	}
+	contract.Boosters["u2"] = &Booster{
+		UserID:  "u2",
+		Nick:    "Farmer 2",
+		IHRRate: 10e9,
+	}
+
+	msg, err := BuildBoostOrderPreviewMessage(contract)
+	if err != nil {
+		t.Fatalf("BuildBoostOrderPreviewMessage failed: %v", err)
+	}
+	if len(msg.Components) == 0 {
+		t.Fatalf("expected components in preview message")
+	}
+	if len(msg.Files) == 0 {
+		t.Fatalf("expected image file in preview message")
+	}
+
+	// Verify Keep and Dismiss buttons in action row
+	var keepBtn, dismissBtn *dc.Button
+	for _, comp := range msg.Components {
+		if ar, ok := comp.(dc.ActionRow); ok {
+			for _, ic := range ar.Components {
+				if btn, ok := ic.(dc.Button); ok {
+					if strings.Contains(btn.CustomID, "#keep#") {
+						keepBtn = &btn
+					} else if strings.Contains(btn.CustomID, "#dismiss#") {
+						dismissBtn = &btn
+					}
+				}
+			}
+		}
+	}
+
+	if keepBtn == nil {
+		t.Errorf("expected Keep button in action row")
+	} else if keepBtn.CustomID != "rc_#keep#preview-hash-456" {
+		t.Errorf("unexpected Keep button CustomID: %s", keepBtn.CustomID)
+	}
+
+	if dismissBtn == nil {
+		t.Errorf("expected Dismiss button in action row")
+	} else if dismissBtn.CustomID != "rc_#dismiss#preview-hash-456" {
+		t.Errorf("unexpected Dismiss button CustomID: %s", dismissBtn.CustomID)
 	}
 }

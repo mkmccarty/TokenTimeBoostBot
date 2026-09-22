@@ -34,6 +34,7 @@ type defineOrderSession struct {
 	channelID    string
 	contractHash string
 	template     CustomBoostOrderTemplate
+	isSaved      bool
 	expiresAt    time.Time
 }
 
@@ -42,7 +43,7 @@ var (
 	defineOrderSessionsMutex sync.Mutex
 )
 
-func getOrCreateDefineSession(userID string, contract *Contract, tmpl CustomBoostOrderTemplate) *defineOrderSession {
+func getOrCreateDefineSession(userID string, contract *Contract, tmpl CustomBoostOrderTemplate, isSaved bool) *defineOrderSession {
 	defineOrderSessionsMutex.Lock()
 	defer defineOrderSessionsMutex.Unlock()
 
@@ -68,6 +69,7 @@ func getOrCreateDefineSession(userID string, contract *Contract, tmpl CustomBoos
 		channelID:    channelID,
 		contractHash: contractHash,
 		template:     tmpl,
+		isSaved:      isSaved,
 		expiresAt:    now.Add(defineOrderSessionTTL),
 	}
 	defineOrderSessions[session.uuidStr] = session
@@ -120,6 +122,30 @@ func SaveUserCustomOrder(userID string, tmpl CustomBoostOrderTemplate) {
 	}
 }
 
+// DeleteUserCustomOrder deletes a custom boost order template for a user by name. Returns true if found and removed.
+func DeleteUserCustomOrder(userID string, name string) bool {
+	clean := strings.TrimSpace(name)
+	clean = strings.TrimPrefix(clean, "user:")
+	orders := GetUserCustomOrders(userID)
+	newOrders := make([]CustomBoostOrderTemplate, 0, len(orders))
+	found := false
+	for _, o := range orders {
+		if strings.EqualFold(o.Name, clean) {
+			found = true
+			continue
+		}
+		newOrders = append(newOrders, o)
+	}
+	if found {
+		if len(newOrders) == 0 {
+			farmerstate.SetMiscSettingString(userID, "saved_custom_orders", "")
+		} else if data, err := json.Marshal(newOrders); err == nil {
+			farmerstate.SetMiscSettingString(userID, "saved_custom_orders", string(data))
+		}
+	}
+	return found
+}
+
 // GetGlobalCustomOrders returns all globally published custom boost order templates.
 func GetGlobalCustomOrders() []CustomBoostOrderTemplate {
 	raw := farmerstate.GetMiscSettingString("GLOBAL", "global_custom_orders")
@@ -153,6 +179,30 @@ func PublishGlobalCustomOrder(tmpl CustomBoostOrderTemplate) {
 	}
 }
 
+// DeleteGlobalCustomOrder deletes a globally published custom boost order template by name. Returns true if found and removed.
+func DeleteGlobalCustomOrder(name string) bool {
+	clean := strings.TrimSpace(name)
+	clean = strings.TrimPrefix(clean, "global:")
+	orders := GetGlobalCustomOrders()
+	newOrders := make([]CustomBoostOrderTemplate, 0, len(orders))
+	found := false
+	for _, o := range orders {
+		if strings.EqualFold(o.Name, clean) {
+			found = true
+			continue
+		}
+		newOrders = append(newOrders, o)
+	}
+	if found {
+		if len(newOrders) == 0 {
+			farmerstate.SetMiscSettingString("GLOBAL", "global_custom_orders", "")
+		} else if data, err := json.Marshal(newOrders); err == nil {
+			farmerstate.SetMiscSettingString("GLOBAL", "global_custom_orders", string(data))
+		}
+	}
+	return found
+}
+
 // FindCustomOrderTemplate searches for a template by name across user and global orders.
 func FindCustomOrderTemplate(userID string, name string) *CustomBoostOrderTemplate {
 	clean := strings.TrimSpace(name)
@@ -177,34 +227,88 @@ func FindCustomOrderTemplate(userID string, name string) *CustomBoostOrderTempla
 	return nil
 }
 
+var customBoostOrderDocBytes []byte
+
+// SetCustomBoostOrderDoc stores the documentation content bytes for CustomBoostOrder.md.
+func SetCustomBoostOrderDoc(data []byte) {
+	customBoostOrderDocBytes = data
+}
+
+// GetCustomBoostOrderDoc retrieves the markdown documentation bytes for CustomBoostOrder.md.
+func GetCustomBoostOrderDoc() []byte {
+	return customBoostOrderDocBytes
+}
+
 // Slash Command Definition
 
-// GetSlashDefineCustomOrderCommand defines the /define-custom-order slash command.
-func GetSlashDefineCustomOrderCommand(cmd string) *dc.Command {
-	command := guildOnlyCommand(cmd, "Define, preview, or publish a custom boost order")
+// GetSlashCustomBoostOrderCommand defines the /custom-boost-order slash command with modify, delete, and help subcommands.
+func GetSlashCustomBoostOrderCommand(cmd string) *dc.Command {
+	command := guildOnlyCommand(cmd, "Create, modify, preview, delete, or view documentation for custom boost orders")
 	command.Options = []dc.Option{
-		dc.StringOption{
-			Name:         "order",
-			Description:  "Select an existing custom order to view/modify, or <NEW> to create one",
-			Required:     false,
-			Autocomplete: true,
+		dc.SubCommand{
+			Name:        "modify",
+			Description: "Define, modify, or preview a custom boost order",
+			Options: []dc.Option{
+				dc.StringOption{
+					Name:         "order",
+					Description:  "Select an existing custom order to view/modify, or <NEW> to create one",
+					Required:     false,
+					Autocomplete: true,
+				},
+			},
+		},
+		dc.SubCommand{
+			Name:        "delete",
+			Description: "Delete a saved custom boost order",
+			Options: []dc.Option{
+				dc.StringOption{
+					Name:         "order",
+					Description:  "Select a saved custom order to delete",
+					Required:     true,
+					Autocomplete: true,
+				},
+			},
+		},
+		dc.SubCommand{
+			Name:        "help",
+			Description: "Show documentation and guide for custom boost orders",
 		},
 	}
 	return &command
 }
 
-// HandleDefineCustomOrderAutoComplete provides autocomplete options for /define-custom-order.
-func HandleDefineCustomOrderAutoComplete(e *dc.AutocompleteEvent) {
+// GetSlashDefineCustomOrderCommand is a backwards-compatible alias for GetSlashCustomBoostOrderCommand.
+func GetSlashDefineCustomOrderCommand(cmd string) *dc.Command {
+	return GetSlashCustomBoostOrderCommand(cmd)
+}
+
+// HandleCustomBoostOrderAutoComplete provides autocomplete options for /custom-boost-order.
+func HandleCustomBoostOrderAutoComplete(e *dc.AutocompleteEvent) {
+	sub, _ := e.Subcommand()
+	if sub != "modify" && sub != "delete" {
+		_ = e.RespondChoices(nil)
+		return
+	}
+
+	if sub == "modify" {
+		if contract := FindContract(e.ChannelID()); contract == nil {
+			_ = e.RespondChoices(nil)
+			return
+		}
+	}
+
 	_, focusedVal := e.FocusedOption()
 	focused := strings.ToLower(strings.TrimSpace(focusedVal))
 	var choices []dc.Choice[string]
 
-	// Always offer <NEW> as the first choice
-	if focused == "" || strings.Contains("<new>", focused) || strings.Contains("new", focused) {
-		choices = append(choices, dc.Choice[string]{
-			Name:  "<NEW> (Create a new custom boost order)",
-			Value: "<NEW>",
-		})
+	// Only offer <NEW> for modify
+	if sub == "modify" {
+		if focused == "" || strings.Contains("<new>", focused) || strings.Contains("new", focused) {
+			choices = append(choices, dc.Choice[string]{
+				Name:  "<NEW> (Create a new custom boost order)",
+				Value: "<NEW>",
+			})
+		}
 	}
 
 	// User-saved orders
@@ -238,34 +342,141 @@ func HandleDefineCustomOrderAutoComplete(e *dc.AutocompleteEvent) {
 	_ = e.RespondChoices(choices)
 }
 
-// HandleDefineCustomOrderCommand handles invocation of /define-custom-order.
-func HandleDefineCustomOrderCommand(_ dc.Client, e *dc.CommandEvent) {
+// HandleDefineCustomOrderAutoComplete provides backwards-compatible autocomplete.
+func HandleDefineCustomOrderAutoComplete(e *dc.AutocompleteEvent) {
+	HandleCustomBoostOrderAutoComplete(e)
+}
+
+// HandleCustomBoostOrderCommand handles invocation of /custom-boost-order.
+func HandleCustomBoostOrderCommand(client dc.Client, e *dc.CommandEvent) {
+	subcmd, _ := e.Subcommand()
+	switch subcmd {
+	case "help":
+		data := GetCustomBoostOrderDoc()
+		if len(data) == 0 {
+			_ = e.Respond(dc.Message{
+				Content:   "Custom Boost Order documentation is currently unavailable.",
+				Ephemeral: true,
+			})
+			return
+		}
+		_ = e.Respond(dc.Message{
+			Content:   "📖 **Custom Boost Order Documentation**\nSee the attached `CustomBoostOrder.md` for complete syntax, formulas, artifact criteria, and examples.",
+			Ephemeral: true,
+			Files: []dc.File{
+				{
+					Name:        "CustomBoostOrder.md",
+					ContentType: "text/markdown",
+					Reader:      bytes.NewReader(data),
+				},
+			},
+		})
+	case "delete":
+		handleCustomBoostOrderDelete(client, e)
+	case "modify", "":
+		contract := FindContract(e.ChannelID())
+		if contract == nil {
+			_ = e.Respond(dc.Message{
+				Content:   "This command must be run in a contract channel.",
+				Ephemeral: true,
+			})
+			return
+		}
+		handleCustomBoostOrderModify(client, e, contract)
+	default:
+		_ = e.Respond(dc.Message{Content: fmt.Sprintf("Unknown subcommand %q.", subcmd), Ephemeral: true})
+	}
+}
+
+// HandleDefineCustomOrderCommand provides backwards-compatible invocation.
+func HandleDefineCustomOrderCommand(client dc.Client, e *dc.CommandEvent) {
+	HandleCustomBoostOrderCommand(client, e)
+}
+
+func handleCustomBoostOrderDelete(_ dc.Client, e *dc.CommandEvent) {
+	orderArg, _ := e.OptString("order")
+	orderArg = strings.TrimSpace(orderArg)
+
+	if orderArg == "" {
+		_ = e.Respond(dc.Message{
+			Content:   "Please select a saved custom boost order to delete.",
+			Ephemeral: true,
+		})
+		return
+	}
+
+	tmpl := FindCustomOrderTemplate(e.UserID(), orderArg)
+	if tmpl == nil {
+		_ = e.Respond(dc.Message{
+			Content:   fmt.Sprintf("Custom boost order %q not found.", orderArg),
+			Ephemeral: true,
+		})
+		return
+	}
+
+	contract := FindContract(e.ChannelID())
+	session := getOrCreateDefineSession(e.UserID(), contract, *tmpl, true)
+
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "## 🗑️ Delete Custom Boost Order: **%s**\n", tmpl.Name)
+	sb.WriteString("Are you sure you want to delete this custom boost order?\n\n")
+	sb.WriteString("**Tiebreaker Hierarchy:**\n")
+	for i := 0; i < 4; i++ {
+		line := "-"
+		if i < len(tmpl.Lines) && strings.TrimSpace(tmpl.Lines[i]) != "" {
+			line = tmpl.Lines[i]
+		}
+		fmt.Fprintf(&sb, "-# **(%d)** `%s`\n", i+1, line)
+	}
+
+	buttons := []dc.InteractiveComponent{
+		dc.Button{
+			Label:    "DISMISS",
+			Style:    dc.ButtonSecondary,
+			CustomID: fmt.Sprintf("%s#%s#del_dismiss", defineOrderHandlerPrefix, session.uuidStr),
+		},
+		dc.Button{
+			Label:    "DELETE",
+			Style:    dc.ButtonDanger,
+			CustomID: fmt.Sprintf("%s#%s#del_confirm", defineOrderHandlerPrefix, session.uuidStr),
+		},
+	}
+
+	_ = e.Respond(dc.Message{
+		Components: []dc.LayoutComponent{
+			dc.TextDisplay{Content: sb.String()},
+			dc.ActionRow{Components: buttons},
+		},
+		Ephemeral: true,
+	})
+}
+
+func handleCustomBoostOrderModify(_ dc.Client, e *dc.CommandEvent, contract *Contract) {
 	orderArg, _ := e.OptString("order")
 	orderArg = strings.TrimSpace(orderArg)
 
 	if orderArg == "" || orderArg == "<NEW>" {
-		SendDefineCustomOrderModalFromCommand(e, nil)
+		SendDefineCustomOrderModalFromCommand(e, contract, nil)
 		return
 	}
 
 	tmpl := FindCustomOrderTemplate(e.UserID(), orderArg)
 	if tmpl == nil {
 		// If not found by exact match, open modal prefilling the name typed by user
-		SendDefineCustomOrderModalFromCommand(e, &CustomBoostOrderTemplate{Name: orderArg})
+		SendDefineCustomOrderModalFromCommand(e, contract, &CustomBoostOrderTemplate{Name: orderArg})
 		return
 	}
 
-	contract := FindContract(e.ChannelID())
-	session := getOrCreateDefineSession(e.UserID(), contract, *tmpl)
-	msg := BuildDefineCustomOrderMessage(contract, *tmpl, session.uuidStr, "")
+	session := getOrCreateDefineSession(e.UserID(), contract, *tmpl, true)
+	msg := BuildDefineCustomOrderMessage(contract, *tmpl, session.uuidStr, "", true)
 	_ = e.Respond(msg)
 }
 
 // Modal Presentation & Submission
 
 // SendDefineCustomOrderModalFromCommand presents the 4-line criteria modal in response to a CommandEvent.
-func SendDefineCustomOrderModalFromCommand(e *dc.CommandEvent, initial *CustomBoostOrderTemplate) {
-	nameVal := "Custom Order"
+func SendDefineCustomOrderModalFromCommand(e *dc.CommandEvent, contract *Contract, initial *CustomBoostOrderTemplate) {
+	nameVal := ""
 	lvl1Val := "<DEFL_EFFORT[50]"
 	lvl2Val := "<IHR[6%]"
 	lvl3Val := ">TOKENS"
@@ -295,10 +506,10 @@ func SendDefineCustomOrderModalFromCommand(e *dc.CommandEvent, initial *CustomBo
 		}
 	}
 
-	session := getOrCreateDefineSession(e.UserID(), FindContract(e.ChannelID()), CustomBoostOrderTemplate{
+	session := getOrCreateDefineSession(e.UserID(), contract, CustomBoostOrderTemplate{
 		Name:  nameVal,
 		Lines: []string{lvl1Val, lvl2Val, lvl3Val, lvl4Val},
-	})
+	}, false)
 
 	_ = e.ShowModal(dc.Modal{
 		CustomID: fmt.Sprintf("m_define_order#%s", session.uuidStr),
@@ -429,7 +640,17 @@ func HandleDefineCustomOrderModalSubmit(_ dc.Client, e *dc.ModalEvent) {
 
 	session := getDefineSession(sessionUUID)
 	contract := FindContract(e.ChannelID())
-	name := "Custom Order"
+	if contract == nil && session != nil && session.contractHash != "" {
+		contract = FindContractByHash(session.contractHash)
+	}
+	if contract == nil {
+		_ = e.EditResponse(dc.Message{
+			Content:   "This command must be run in a contract channel.",
+			Ephemeral: true,
+		})
+		return
+	}
+	name := ""
 	if session != nil && session.template.Name != "" {
 		name = session.template.Name
 	}
@@ -441,21 +662,19 @@ func HandleDefineCustomOrderModalSubmit(_ dc.Client, e *dc.ModalEvent) {
 	}
 
 	if session == nil {
-		session = getOrCreateDefineSession(e.UserID(), contract, tmpl)
+		session = getOrCreateDefineSession(e.UserID(), contract, tmpl, false)
 	} else {
 		session.template = tmpl
+		session.isSaved = false
 	}
 
-	msg := BuildDefineCustomOrderMessage(contract, tmpl, session.uuidStr, "✓ Criteria updated! Click **SAVE** or **PUBLISH** to name and save, or **APPLY** to use now.")
+	msg := BuildDefineCustomOrderMessage(contract, tmpl, session.uuidStr, "✓ Criteria updated! Click **SAVE** to name and save, then **SELECT** to use.", false)
 	_ = e.EditResponse(msg)
 }
 
 // SendSaveCustomOrderModal presents a modal dialog to name and save the custom order to user presets.
 func SendSaveCustomOrderModal(e *dc.ComponentEvent, tmpl CustomBoostOrderTemplate, sessionUUID string) {
 	nameVal := tmpl.Name
-	if nameVal == "Custom Order" {
-		nameVal = ""
-	}
 	_ = e.ShowModal(dc.Modal{
 		CustomID: fmt.Sprintf("m_save_order#%s", sessionUUID),
 		Title:    "Save Custom Boost Order",
@@ -489,7 +708,7 @@ func HandleSaveCustomOrderModalSubmit(_ dc.Client, e *dc.ModalEvent) {
 
 	session := getDefineSession(sessionUUID)
 	if session == nil {
-		_ = e.EditResponse(dc.Message{Content: "This session has expired. Please run `/define-custom-order` again.", Ephemeral: true})
+		_ = e.EditResponse(dc.Message{Content: "This session has expired. Please run `/custom-boost-order modify` again.", Ephemeral: true})
 		return
 	}
 
@@ -498,13 +717,14 @@ func HandleSaveCustomOrderModalSubmit(_ dc.Client, e *dc.ModalEvent) {
 		name = "Custom Order"
 	}
 	session.template.Name = name
+	session.isSaved = true
 	SaveUserCustomOrder(session.userID, session.template)
 
 	contract := FindContract(e.ChannelID())
 	if contract == nil && session.contractHash != "" {
 		contract = FindContractByHash(session.contractHash)
 	}
-	msg := BuildDefineCustomOrderMessage(contract, session.template, sessionUUID, fmt.Sprintf("✅ Saved **%s** to your personal custom boost orders!", name))
+	msg := BuildDefineCustomOrderMessage(contract, session.template, sessionUUID, fmt.Sprintf("✅ Saved **%s** to your personal custom boost orders!", name), true)
 	_ = e.EditResponse(msg)
 }
 
@@ -547,7 +767,7 @@ func HandlePublishCustomOrderModalSubmit(_ dc.Client, e *dc.ModalEvent) {
 
 	session := getDefineSession(sessionUUID)
 	if session == nil {
-		_ = e.EditResponse(dc.Message{Content: "This session has expired. Please run `/define-custom-order` again.", Ephemeral: true})
+		_ = e.EditResponse(dc.Message{Content: "This session has expired. Please run `/custom-boost-order modify` again.", Ephemeral: true})
 		return
 	}
 
@@ -663,7 +883,7 @@ func buildBenchmarkSampleContract() *Contract {
 // ⚙️ Preview Message Builder
 
 // BuildDefineCustomOrderMessage creates the ⚙️ report message with table image and action buttons.
-func BuildDefineCustomOrderMessage(contract *Contract, tmpl CustomBoostOrderTemplate, sessionUUID string, status string) dc.Message {
+func BuildDefineCustomOrderMessage(contract *Contract, tmpl CustomBoostOrderTemplate, sessionUUID string, status string, isSaved ...bool) dc.Message {
 	evalContract := contract
 	isSample := false
 	if evalContract == nil || len(evalContract.Boosters) == 0 {
@@ -671,8 +891,22 @@ func BuildDefineCustomOrderMessage(contract *Contract, tmpl CustomBoostOrderTemp
 		isSample = true
 	}
 
+	saved := false
+	if len(isSaved) > 0 {
+		saved = isSaved[0]
+	} else if session := getDefineSession(sessionUUID); session != nil {
+		saved = session.isSaved
+	}
+
+	selectDisabled := !saved || isSample || evalContract == nil
+
+	titleName := tmpl.Name
+	if titleName == "" {
+		titleName = "Custom Order"
+	}
+
 	var headerSb strings.Builder
-	fmt.Fprintf(&headerSb, "## ⚙️ Custom Boost Order: **%s**\n", tmpl.Name)
+	fmt.Fprintf(&headerSb, "## ⚙️ Custom Boost Order: **%s**\n", titleName)
 	if isSample {
 		headerSb.WriteString("-# *Showing preview using sample booster cohort.*\n")
 	} else {
@@ -700,23 +934,12 @@ func BuildDefineCustomOrderMessage(contract *Contract, tmpl CustomBoostOrderTemp
 			CustomID: fmt.Sprintf("%s#%s#save", defineOrderHandlerPrefix, sessionUUID),
 		},
 		dc.Button{
-			Label:    "PUBLISH",
+			Label:    "SELECT",
 			Style:    dc.ButtonSuccess,
-			CustomID: fmt.Sprintf("%s#%s#publish", defineOrderHandlerPrefix, sessionUUID),
+			CustomID: fmt.Sprintf("%s#%s#select", defineOrderHandlerPrefix, sessionUUID),
+			Disabled: selectDisabled,
 		},
 	}
-	if !isSample && evalContract != nil {
-		buttons = append(buttons, dc.Button{
-			Label:    "APPLY",
-			Style:    dc.ButtonSuccess,
-			CustomID: fmt.Sprintf("%s#%s#apply", defineOrderHandlerPrefix, sessionUUID),
-		})
-	}
-	buttons = append(buttons, dc.Button{
-		Label:    "DISMISS",
-		Style:    dc.ButtonDanger,
-		CustomID: fmt.Sprintf("%s#%s#dismiss", defineOrderHandlerPrefix, sessionUUID),
-	})
 
 	actionRow := dc.ActionRow{
 		Components: buttons,
@@ -752,7 +975,7 @@ func BuildDefineCustomOrderMessage(contract *Contract, tmpl CustomBoostOrderTemp
 	}
 }
 
-// HandleDefineCustomOrderReactions handles MODIFY, SAVE, PUBLISH, DISMISS button clicks.
+// HandleDefineCustomOrderReactions handles MODIFY, SAVE, PUBLISH, SELECT, DELETE button clicks.
 func HandleDefineCustomOrderReactions(client dc.Client, e *dc.ComponentEvent) {
 	parts := strings.Split(e.CustomID(), "#")
 	if len(parts) < 3 {
@@ -763,13 +986,45 @@ func HandleDefineCustomOrderReactions(client dc.Client, e *dc.ComponentEvent) {
 	sessionUUID := parts[1]
 	action := parts[2]
 
+	if action == "dismiss" || action == "exit" || action == "del_dismiss" {
+		clearDefineSession(sessionUUID)
+		_ = e.Update(dc.Message{
+			Components:      e.MessageComponentsWithoutActionRows(),
+			ClearComponents: true,
+		})
+		return
+	}
+
 	session := getDefineSession(sessionUUID)
 	if session == nil {
-		_ = e.Update(dc.Message{Content: "This session has expired. Please run `/define-custom-order` again.", Ephemeral: true})
+		_ = e.Update(dc.Message{Content: "This session has expired. Please run `/custom-boost-order modify` again.", Ephemeral: true})
 		return
 	}
 
 	switch action {
+	case "del_confirm":
+		deletedName := session.template.Name
+		if deletedName == "" {
+			deletedName = "Custom Order"
+		}
+		if session.template.Name != "" {
+			DeleteUserCustomOrder(session.userID, session.template.Name)
+			if session.template.IsGlobal {
+				DeleteGlobalCustomOrder(session.template.Name)
+			}
+		}
+		clearDefineSession(sessionUUID)
+
+		components := e.MessageComponentsWithoutActionRows()
+		components = append(components, dc.TextDisplay{
+			Content: fmt.Sprintf("✅ Custom boost order **%s** has been deleted.", deletedName),
+		})
+		_ = e.Update(dc.Message{
+			Components:      components,
+			ClearComponents: true,
+		})
+		return
+
 	case "modify":
 		SendDefineCustomOrderModalFromComponent(e, session.template, sessionUUID)
 
@@ -779,7 +1034,7 @@ func HandleDefineCustomOrderReactions(client dc.Client, e *dc.ComponentEvent) {
 	case "publish":
 		SendPublishCustomOrderModal(e, session.template, sessionUUID)
 
-	case "apply":
+	case "select", "apply":
 		_ = e.DeferUpdate()
 		contract := FindContract(e.ChannelID())
 		if contract == nil && session.contractHash != "" {
@@ -795,18 +1050,34 @@ func HandleDefineCustomOrderReactions(client dc.Client, e *dc.ComponentEvent) {
 
 			saveData(contract.ContractHash)
 			refreshBoostListMessage(client, contract, false)
-			msg := BuildDefineCustomOrderMessage(contract, session.template, sessionUUID, fmt.Sprintf("✅ Applied **%s** to contract `%s`!", session.template.Name, contract.ContractID))
-			_ = e.Update(msg)
+			msg := BuildDefineCustomOrderMessage(contract, session.template, sessionUUID, fmt.Sprintf("✅ Selected **%s** as the custom boost order for this contract!", session.template.Name), true)
+			_ = e.EditResponse(msg)
 			return
 		}
-		_ = e.Update(dc.Message{Content: "Unable to find active contract to apply to.", Ephemeral: true})
+		_ = e.EditResponse(dc.Message{Content: "Unable to find active contract to select for.", Ephemeral: true})
 
-	case "dismiss":
-		clearDefineSession(sessionUUID)
-		_ = e.Update(dc.Message{
-			Content:   "Custom Boost Order preview dismissed.",
-			Ephemeral: true,
-		})
+	case "delete":
+		_ = e.DeferUpdate()
+		deletedName := session.template.Name
+		if deletedName == "" {
+			deletedName = "Custom Order"
+		}
+		if session.template.Name != "" {
+			DeleteUserCustomOrder(session.userID, session.template.Name)
+			if session.template.IsGlobal {
+				DeleteGlobalCustomOrder(session.template.Name)
+			}
+		}
+		session.template.Name = ""
+		session.isSaved = false
+
+		contract := FindContract(e.ChannelID())
+		if contract == nil && session.contractHash != "" {
+			contract = FindContractByHash(session.contractHash)
+		}
+		msg := BuildDefineCustomOrderMessage(contract, session.template, sessionUUID, fmt.Sprintf("🗑️ Deleted saved custom boost order **%s**.", deletedName), false)
+		_ = e.EditResponse(msg)
+		return
 
 	default:
 		_ = e.Update(dc.Message{Content: "Unknown button action.", Ephemeral: true})

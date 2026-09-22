@@ -1688,3 +1688,122 @@ func HandleCustomOrderReactions(client dc.Client, e *dc.ComponentEvent) {
 		_ = e.Update(dc.Message{Content: "Unknown action.", Ephemeral: true})
 	}
 }
+
+// GetContractBoostOrderLines returns the condition lines representing a contract's current boost order.
+func GetContractBoostOrderLines(contract *Contract) []string {
+	if contract == nil {
+		return []string{"SIGNUP"}
+	}
+	if contract.BoostOrder == ContractOrderCustom && len(contract.CustomOrderLines) > 0 {
+		return contract.CustomOrderLines
+	}
+	switch contract.BoostOrder {
+	case ContractOrderSignup:
+		return []string{"SIGNUP"}
+	case ContractOrderReverse:
+		return []string{"REVERSE"}
+	case ContractOrderRandom:
+		return []string{"RANDOM", "SIGNUP"}
+	case ContractOrderIHR:
+		return []string{"<IHR", "<DEFL", "<DELIV", "<TE"}
+	case ContractOrderIHRFuzzy:
+		return []string{"<IHR[6%]", "<DEFL", "<DELIV", "<TE"}
+	case ContractOrderELR:
+		return []string{"<ELR", "SIGNUP"}
+	case ContractOrderTokenAsk:
+		return []string{">TOKENS", "SIGNUP"}
+	case ContractOrderTE:
+		return []string{"<TE", "SIGNUP"}
+	case ContractOrderTEFuzzy:
+		return []string{"<TE[sqrt]", "SIGNUP"}
+	case ContractOrderTVal:
+		return []string{"<TVAL", ">TOKENS", "SIGNUP"}
+	default:
+		return []string{"SIGNUP"}
+	}
+}
+
+// BuildBoostOrderPreviewMessage creates the boost order image preview message with Keep and Dismiss buttons.
+func BuildBoostOrderPreviewMessage(contract *Contract) (dc.Message, error) {
+	if contract == nil {
+		return dc.Message{}, fmt.Errorf("contract is nil")
+	}
+
+	lines := GetContractBoostOrderLines(contract)
+	orderName := "Custom Boost Order"
+	if contract.BoostOrder != ContractOrderCustom {
+		if int(contract.BoostOrder) < len(contractOrderNames) {
+			orderName = contractOrderNames[contract.BoostOrder]
+		}
+	} else {
+		sig := strings.Join(contract.CustomOrderLines, "\n")
+		for _, g := range GetGlobalCustomOrders() {
+			if strings.Join(g.Lines, "\n") == sig {
+				orderName = g.Name
+				break
+			}
+		}
+		if orderName == "Custom Boost Order" && len(contract.CreatorID) > 0 {
+			for _, u := range GetUserCustomOrders(contract.CreatorID[0]) {
+				if strings.Join(u.Lines, "\n") == sig {
+					orderName = u.Name
+					break
+				}
+			}
+		}
+	}
+
+	var headerSb strings.Builder
+	fmt.Fprintf(&headerSb, "## ⚙️ Boost Order: **%s**\n", orderName)
+	fmt.Fprintf(&headerSb, "**Contract:** `%s` | **Coop:** `%s`\n", contract.ContractID, contract.CoopID)
+
+	if len(lines) > 0 {
+		headerSb.WriteString("**Hierarchy:**\n")
+		for i, l := range lines {
+			if strings.TrimSpace(l) != "" {
+				fmt.Fprintf(&headerSb, "-# **(%d)** `%s`\n", i+1, l)
+			}
+		}
+	}
+
+	imgBytes, err := RenderCustomOrderTableImage(contract, lines)
+	if err != nil {
+		return dc.Message{}, err
+	}
+
+	components := []dc.LayoutComponent{
+		dc.TextDisplay{Content: headerSb.String()},
+	}
+
+	var files []dc.File
+	if len(imgBytes) > 0 {
+		components = append(components, dc.MediaGallery{
+			Items: []dc.MediaItem{{URL: "attachment://boost_order.png"}},
+		})
+		files = []dc.File{{
+			Name:        "boost_order.png",
+			ContentType: "image/png",
+			Reader:      bytes.NewReader(imgBytes),
+		}}
+	}
+
+	components = append(components, dc.ActionRow{
+		Components: []dc.InteractiveComponent{
+			dc.Button{
+				Label:    "Keep",
+				Style:    dc.ButtonSecondary,
+				CustomID: "rc_#keep#" + contract.ContractHash,
+			},
+			dc.Button{
+				Label:    "Dismiss",
+				Style:    dc.ButtonDanger,
+				CustomID: "rc_#dismiss#" + contract.ContractHash,
+			},
+		},
+	})
+
+	return dc.Message{
+		Components: components,
+		Files:      files,
+	}, nil
+}
