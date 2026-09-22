@@ -154,7 +154,6 @@ func GetContractEstimateString(contractID string, includeLeggySet bool, teOverri
 		fairShare = 1.0
 	}
 
-
 	if hasOverride {
 		cCopy := c
 		estAll := getContractDurationEstimate(cCopy, cCopy.TargetAmount[len(cCopy.TargetAmount)-1], float64(cCopy.MaxCoopSize), cCopy.LengthInSeconds,
@@ -356,7 +355,6 @@ func GetContractEstimateString(contractID string, includeLeggySet bool, teOverri
 			estStr,
 			ei.FormatEIValue(c.TargetAmount[len(c.TargetAmount)-1], options))
 	}
-
 
 	footerAboutCR := false
 
@@ -764,7 +762,6 @@ func calculateTwoPhaseBoostedEstimate(
 	ihrPhase2PerSec := (ihrPhase2 * blitzResearchFactor) / 60.0
 	ihrPhase2OnlinePerSec := (ihrPhase2PerSec / 3.0) // 1x IHC while online buying research
 
-
 	intervalSec := float64(c.MinutesPerToken) * 60.0
 	giftTokensPerSec := (6.0 * est.generousGifts * numFarmers) / 3600.0
 
@@ -836,7 +833,6 @@ func calculateTwoPhaseBoostedEstimate(
 		}
 	}
 
-
 	totalDurationHours := currentSec / 3600.0
 	estimate := min(maxContractSec/3600.0, totalDurationHours)
 
@@ -847,7 +843,6 @@ func calculateTwoPhaseBoostedEstimate(
 
 	return estimate
 }
-
 
 // simulateEggsDeliveredForSeconds mirrors the EI simulator step logic to compute eggs delivered
 // over a fixed number of seconds, returning eggs delivered, final population, and final laying
