@@ -695,7 +695,7 @@ func boostOrderButtonLabel(contract *Contract, userID string) string {
 
 		if contract.BoostOrder == ContractOrderELR {
 			metric = fmt.Sprintf("(ELR:%0.2f)", booster.ArtifactSet.LayRate)
-		} else if contract.BoostOrder == ContractOrderIHR || contract.BoostOrder == ContractOrderIHRFuzzy || contract.BoostOrder == ContractOrderESC || contract.BoostOrder == ContractOrderESCGG {
+		} else if contract.BoostOrder == ContractOrderIHR || contract.BoostOrder == ContractOrderIHRFuzzy {
 			metric = fmt.Sprintf("(IHR:%s)", ei.FormatEIValue(booster.IHRRate, map[string]any{"decimals": 2, "trim": true}))
 		} else if booster.TECount > 0 {
 			metric = fmt.Sprintf("(TE:%d)", booster.TECount)
@@ -1040,8 +1040,6 @@ func boostOrderSortRemaining(contract *Contract, unselected []string, sortType s
 		for i, p := range pairs {
 			sorted[i] = p.name
 		}
-	case "esc", "escgg":
-		return sortESCRemaining(contract, unselected, sortType == "escgg")
 	}
 	return sorted
 }

@@ -113,6 +113,17 @@ const (
 	roleConditionNone customRoleCondition = iota
 	roleConditionMain
 	roleConditionHelper
+	roleConditionSIAB
+	roleConditionGusset
+	roleConditionQuant
+)
+
+const (
+	RolePrioritySIAB    = 1
+	RolePriorityGusset  = 2
+	RolePriorityQuant   = 3
+	RolePriorityRegular = 4
+	RolePriorityHelper  = 5
 )
 
 type customCriterion struct {
@@ -361,6 +372,105 @@ func parseArtifactSpecTokens(s string, isCraft bool) (artName ei.ArtifactSpec_Na
 	return 0, -1, -1, "", false
 }
 
+func getBoosterDeflectorSlotScore(b *Booster) int {
+	if b == nil {
+		return 0
+	}
+	quality := ""
+	for _, a := range b.ArtifactSet.Artifacts {
+		if a.Type == "Deflector" || a.Type == "IHR Deflector" {
+			quality = a.Quality
+			break
+		}
+	}
+	if quality == "" {
+		quality = farmerstate.GetMiscSettingString(b.UserID, "defl")
+	}
+	if quality == "" {
+		quality = farmerstate.GetMiscSettingString(b.UserID, "defl-ihr")
+	}
+
+	quality = strings.ToUpper(strings.TrimSpace(quality))
+	quality = strings.TrimSuffix(quality, "_L")
+
+	// 2-slot (T4L, T4E) > 1-slot (T4R) > T3R > 0-slot / Other
+	switch quality {
+	case "T4L", "T4E":
+		return 3
+	case "T4R":
+		return 2
+	case "T3R":
+		return 1
+	default:
+		return 0
+	}
+}
+
+func getBoosterRolePriority(b *Booster) int {
+	if b == nil {
+		return RolePriorityHelper
+	}
+	if b.IsAlt || b.AltController != "" {
+		return RolePriorityHelper
+	}
+	if hasBoosterArtifactType(b, "SIAB") || (farmerstate.GetMiscSettingString(b.UserID, "siab") != "" && farmerstate.GetMiscSettingString(b.UserID, "siab") != "NONE") {
+		return RolePrioritySIAB
+	}
+	if hasBoosterArtifactType(b, "Gusset") || (farmerstate.GetMiscSettingString(b.UserID, "guss") != "" && farmerstate.GetMiscSettingString(b.UserID, "guss") != "NONE") {
+		return RolePriorityGusset
+	}
+	if isBoosterQuant(b) {
+		return RolePriorityQuant
+	}
+	return RolePriorityRegular
+}
+
+func hasBoosterArtifactType(b *Booster, artType string) bool {
+	if b == nil {
+		return false
+	}
+	for _, a := range b.ArtifactSet.Artifacts {
+		if a.Type == artType && a.Quality != "NONE" && a.Quality != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func isBoosterQuant(b *Booster) bool {
+	if b == nil {
+		return false
+	}
+	if farmerstate.GetMiscSettingFlag(b.UserID, "quant") || farmerstate.GetMiscSettingString(b.UserID, "quant") != "" {
+		return true
+	}
+	stoneSetting := strings.ToLower(farmerstate.GetMiscSettingString(b.UserID, "stone"))
+	if strings.Contains(stoneSetting, "quant") {
+		return true
+	}
+	for _, a := range b.ArtifactSet.Artifacts {
+		if a.Type == "Compass" || strings.Contains(strings.ToLower(a.Type), "quant") {
+			return true
+		}
+	}
+	return false
+}
+
+func getBoosterRoleString(b *Booster) (string, string) {
+	switch getBoosterRolePriority(b) {
+	case RolePrioritySIAB:
+		return "SIAB", "green"
+	case RolePriorityGusset:
+		return "Gusset", "blue"
+	case RolePriorityQuant:
+		return "Quant", "blue"
+	case RolePriorityHelper:
+		return "Helper", "red"
+	default:
+		return "Main", "green"
+	}
+}
+
 func isBoosterHelper(b *Booster) bool {
 	if b == nil {
 		return false
@@ -378,6 +488,12 @@ func (c customCriterion) matchesRole(b *Booster) bool {
 		return isBoosterMain(b)
 	case roleConditionHelper:
 		return isBoosterHelper(b)
+	case roleConditionSIAB:
+		return getBoosterRolePriority(b) == RolePrioritySIAB
+	case roleConditionGusset:
+		return getBoosterRolePriority(b) == RolePriorityGusset
+	case roleConditionQuant:
+		return getBoosterRolePriority(b) == RolePriorityQuant
 	default:
 		return true
 	}
@@ -409,6 +525,12 @@ func parseCustomCriterion(s string) customCriterion {
 			} else {
 				targetRole = roleConditionHelper
 			}
+		case "SIAB":
+			targetRole = roleConditionSIAB
+		case "GUSSET", "GUSS":
+			targetRole = roleConditionGusset
+		case "QUANT":
+			targetRole = roleConditionQuant
 		default:
 			targetRole = roleConditionNone
 		}
@@ -515,6 +637,12 @@ func parseCustomCriterion(s string) customCriterion {
 	case upper == "HELPER" || upper == "HELPERS" || upper == "ALT" || upper == "ALTS":
 		crit.critType = CritRole
 		crit.ascending = true
+	case upper == "SIAB":
+		crit.critType = CritRole
+	case upper == "GUSSET":
+		crit.critType = CritRole
+	case upper == "QUANT":
+		crit.critType = CritRole
 	case upper == "CRAFT_DEFL" || upper == "DEFL_CRAFT" || upper == "CRAFTS":
 		crit.critType = CritCraftDefl
 	case reCraftExpr.MatchString(cur):
@@ -821,13 +949,10 @@ func evaluateBoosterForCustom(contract *Contract, userID string, signupIdx int, 
 	}
 
 	if b != nil {
-		data.isHelper = isBoosterHelper(b)
+		prio := getBoosterRolePriority(b)
+		data.isHelper = prio == RolePriorityHelper
 		data.isMain = !data.isHelper
-		if data.isMain {
-			data.roleScore = 2.0
-		} else {
-			data.roleScore = 1.0
-		}
+		data.roleScore = float64(6 - prio)
 		data.hasT4L = hasBoosterT4LDeflector(b)
 		data.t4Crafts = getBoosterT4DeflectorCraftCount(b.UserID)
 		data.deflQuality = getBoosterDeflectorQualityString(b)
@@ -838,7 +963,7 @@ func evaluateBoosterForCustom(contract *Contract, userID string, signupIdx int, 
 		data.teSort = float64(max(b.TECount, 0))
 		data.tokensWanted = b.TokensWanted
 		data.deflScore = getArtifactQualityScore(b, "Deflector")
-		data.deflSlotScore = getESCDeflectorScore(b, false)
+		data.deflSlotScore = getBoosterDeflectorSlotScore(b)
 		data.delivScore = getArtifactQualityScore(b, "Metronome") + getArtifactQualityScore(b, "Compass") + getArtifactQualityScore(b, "Gusset")
 	}
 
@@ -1026,10 +1151,8 @@ func buildCustomOrderTableColDefs(contract *Contract, criteria [4]customCriterio
 					id:  "role",
 					col: TableImageColumn{Label: "Role", Align: bottools.StringAlignCenter},
 					evalCell: func(b *Booster, _ int) TableImageCell {
-						if isBoosterHelper(b) {
-							return TableImageCell{Text: "Helper", Color: "red"}
-						}
-						return TableImageCell{Text: "Main", Color: "green"}
+						roleStr, roleColor := getBoosterRoleString(b)
+						return TableImageCell{Text: roleStr, Color: roleColor}
 					},
 				})
 			}
@@ -1050,10 +1173,8 @@ func buildCustomOrderTableColDefs(contract *Contract, criteria [4]customCriterio
 					id:  "role",
 					col: TableImageColumn{Label: "Role", Align: bottools.StringAlignCenter},
 					evalCell: func(b *Booster, _ int) TableImageCell {
-						if isBoosterHelper(b) {
-							return TableImageCell{Text: "Helper", Color: "red"}
-						}
-						return TableImageCell{Text: "Main", Color: "green"}
+						roleStr, roleColor := getBoosterRoleString(b)
+						return TableImageCell{Text: roleStr, Color: roleColor}
 					},
 				})
 			}
@@ -1125,7 +1246,7 @@ func buildCustomOrderTableColDefs(contract *Contract, criteria [4]customCriterio
 					col: TableImageColumn{Label: "Defl Slot", Align: bottools.StringAlignCenter},
 					evalCell: func(b *Booster, _ int) TableImageCell {
 						quality := getBoosterDeflectorQualityString(b)
-						slots := getESCDeflectorScore(b, false)
+						slots := getBoosterDeflectorSlotScore(b)
 						text := fmt.Sprintf("%s (%d)", quality, slots)
 						if quality == "-" {
 							text = "-"

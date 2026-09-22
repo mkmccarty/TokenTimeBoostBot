@@ -849,35 +849,6 @@ func HandleContractSettingsReactions(client dc.Client, e *dc.ComponentEvent) {
 			for _, item := range usersToRefresh {
 				updateContractFarmerTE(client, item.userID, item.booster, contract)
 			}
-		case "esc", "escgg":
-			type userToRefresh struct {
-				userID  string
-				booster *Booster
-			}
-			if values[0] == "escgg" {
-				contract.BoostOrder = ContractOrderESCGG
-			} else {
-				contract.BoostOrder = ContractOrderESC
-			}
-			for _, b := range contract.Boosters {
-				b.ArtifactSet = getUserArtifacts(b.UserID, nil)
-			}
-			usersToRefresh := make([]userToRefresh, 0, len(contract.Boosters))
-			for userID, b := range contract.Boosters {
-				rate, logStr := CalculateIHRRateFromDB(userID)
-				if rate < DefaultLeggyIHR {
-					rate = DefaultLeggyIHR
-				}
-				b.IHRRate = rate
-				b.IHRCalcLog = logStr
-
-				if b.IHRRate <= DefaultLeggyIHR {
-					usersToRefresh = append(usersToRefresh, userToRefresh{userID: userID, booster: b})
-				}
-			}
-			for _, item := range usersToRefresh {
-				updateContractFarmerTE(client, item.userID, item.booster, contract)
-			}
 		default:
 			if strings.HasPrefix(values[0], "custom_g:") {
 				name := strings.TrimPrefix(values[0], "custom_g:")
@@ -1402,11 +1373,16 @@ func HandleCustomOrderModalSubmit(client dc.Client, e *dc.ModalEvent) {
 		})
 		return
 	}
+	if e.FromComponent() {
+		_ = e.DeferUpdate()
+	} else {
+		_ = e.Defer(true)
+	}
 	contractHash := parts[1]
 
 	contract := FindContractByHash(contractHash)
 	if contract == nil {
-		_ = e.Respond(dc.Message{
+		_ = e.EditResponse(dc.Message{
 			Content:   "Contract not found.",
 			Ephemeral: true,
 		})
@@ -1425,7 +1401,7 @@ func HandleCustomOrderModalSubmit(client dc.Client, e *dc.ModalEvent) {
 	session.lines = lines
 
 	msg := BuildCustomOrderMessage(contract, session, "Review your custom boost order preview below. Use **EVAL** to refresh, or **SAVE & EXIT** to apply to the contract.")
-	_ = e.Respond(msg)
+	_ = e.EditResponse(msg)
 }
 
 func refreshCustomBoosters(client dc.Client, contract *Contract) {

@@ -197,8 +197,6 @@ func ReactionAdd(client dc.Client, e *dc.ReactionEvent) string {
 				}
 				redraw = true
 			}
-		case "🪐":
-			sendESCOrderCalculationReport(client, e.ChannelID(), contract)
 		}
 
 		// Token reaction handling

@@ -1,6 +1,7 @@
 package boost
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
@@ -894,5 +895,91 @@ func TestCustomOrderTableColumns_OnlyActiveCriteria(t *testing.T) {
 	}
 }
 
+func TestCustomOrderRolePriorityHierarchy(t *testing.T) {
+	contract := &Contract{
+		State: ContractStateSignup,
+		Order: []string{"altUser", "regularUser", "quantUser", "gussetUser", "siabUser"},
+		Boosters: map[string]*Booster{
+			"altUser": {
+				UserID:        "altUser",
+				AltController: "mainUser",
+				IHRRate:       10000,
+			},
+			"regularUser": {
+				UserID:  "regularUser",
+				IHRRate: 1000,
+			},
+			"quantUser": {
+				UserID:  "quantUser",
+				IHRRate: 1000,
+			},
+			"gussetUser": {
+				UserID:  "gussetUser",
+				IHRRate: 1000,
+				ArtifactSet: ArtifactSet{
+					Artifacts: []ei.Artifact{{Type: "Gusset", Quality: "T4L"}},
+				},
+			},
+			"siabUser": {
+				UserID:  "siabUser",
+				IHRRate: 1000,
+				ArtifactSet: ArtifactSet{
+					Artifacts: []ei.Artifact{{Type: "SIAB", Quality: "T4L"}},
+				},
+			},
+		},
+	}
+	farmerstate.SetMiscSettingFlag("quantUser", "quant", true)
 
+	// 1. Verify Role strings
+	siabStr, siabColor := getBoosterRoleString(contract.Boosters["siabUser"])
+	if siabStr != "SIAB" || siabColor != "green" {
+		t.Errorf("expected SIAB role, got %s / %s", siabStr, siabColor)
+	}
+	gussStr, gussColor := getBoosterRoleString(contract.Boosters["gussetUser"])
+	if gussStr != "Gusset" || gussColor != "blue" {
+		t.Errorf("expected Gusset role, got %s / %s", gussStr, gussColor)
+	}
+	quantStr, quantColor := getBoosterRoleString(contract.Boosters["quantUser"])
+	if quantStr != "Quant" || quantColor != "blue" {
+		t.Errorf("expected Quant role, got %s / %s", quantStr, quantColor)
+	}
+	regStr, regColor := getBoosterRoleString(contract.Boosters["regularUser"])
+	if regStr != "Main" || regColor != "green" {
+		t.Errorf("expected Main role, got %s / %s", regStr, regColor)
+	}
+	altStr, altColor := getBoosterRoleString(contract.Boosters["altUser"])
+	if altStr != "Helper" || altColor != "red" {
+		t.Errorf("expected Helper role, got %s / %s", altStr, altColor)
+	}
 
+	// 2. Verify sort order: SIAB > Gusset > Quant > Main > Helper
+	lines := []string{"<ROLE"}
+	sorted := sortCustomRemaining(contract, contract.Order, lines, false)
+	expectedOrder := []string{"siabUser", "gussetUser", "quantUser", "regularUser", "altUser"}
+
+	if !reflect.DeepEqual(sorted, expectedOrder) {
+		t.Fatalf("unexpected Custom <ROLE order:\ngot  = %v\nwant = %v", sorted, expectedOrder)
+	}
+
+	// 3. Verify sub-role condition: IF SIAB ...
+	siabCrit := parseCustomCriterion("IF SIAB <IHR ELSE >TOKENS")
+	if !siabCrit.matchesRole(contract.Boosters["siabUser"]) {
+		t.Errorf("expected siabUser to match IF SIAB")
+	}
+	if siabCrit.matchesRole(contract.Boosters["gussetUser"]) {
+		t.Errorf("did not expect gussetUser to match IF SIAB")
+	}
+
+	// 4. Verify IF MAIN matches all non-helpers
+	mainCrit := parseCustomCriterion("IF MAIN <IHR ELSE >TOKENS")
+	if !mainCrit.matchesRole(contract.Boosters["siabUser"]) {
+		t.Errorf("expected siabUser to match IF MAIN")
+	}
+	if !mainCrit.matchesRole(contract.Boosters["regularUser"]) {
+		t.Errorf("expected regularUser to match IF MAIN")
+	}
+	if mainCrit.matchesRole(contract.Boosters["altUser"]) {
+		t.Errorf("did not expect altUser to match IF MAIN")
+	}
+}

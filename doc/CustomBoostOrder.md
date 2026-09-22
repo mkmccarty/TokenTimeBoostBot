@@ -111,9 +111,9 @@ Because the T4L owner and the 70-craft & 50-craft players all tie at 50 effort, 
 
 ---
 
-## 6. ESC Roles & Conditional Rules (`IF ROLE ... ELSE ...`)
+## 6. Roles & Conditional Rules (`IF ROLE ... ELSE ...`)
 
-Custom Boost Orders support the ESC role designations:
+Custom Boost Orders support the role designations:
 * **Main**: Primary accounts (including SIAB, Gusset, and Quant roles).
 * **Helper**: Alternate/helper accounts (designated alts or controlled alt accounts).
 
@@ -128,7 +128,18 @@ You can branch your sorting strategy based on the player's role:
 ```text
 IF [ROLE ==] MAIN <THEN_CRITERIA> [ELSE <ELSE_CRITERIA>]
 IF [ROLE ==] HELPER <THEN_CRITERIA> [ELSE <ELSE_CRITERIA>]
+IF [ROLE ==] SIAB <THEN_CRITERIA> [ELSE <ELSE_CRITERIA>]
+IF [ROLE ==] GUSSET <THEN_CRITERIA> [ELSE <ELSE_CRITERIA>]
+IF [ROLE ==] QUANT <THEN_CRITERIA> [ELSE <ELSE_CRITERIA>]
 ```
+
+#### Role Hierarchy:
+When sorting by `<ROLE` or `ROLE`, boosters are tiered in the following priority order:
+1. **SIAB**: Boosters with equipped Ship in a Bottle or `siab` profile setting.
+2. **Gusset**: Boosters with equipped Gusset or `guss` profile setting.
+3. **Quant**: Boosters designated as Quantum / Compass runners (`quant` flag or equipped Compass/quantum stone).
+4. **Main**: Standard main boosters.
+5. **Helper**: Alternate/alt accounts or boosters designated as helpers via `/boost-order-helpers`.
 
 #### Syntax Examples:
 * `IF MAIN <DEFL_EFFORT[50] ELSE >TOKENS`
@@ -137,9 +148,9 @@ IF [ROLE ==] HELPER <THEN_CRITERIA> [ELSE <ELSE_CRITERIA>]
 * `IF HELPER >TOKENS ELSE <DEFL_EFFORT[50]`
   * Helpers are placed first and sorted by Tokens Wanted.
   * Mains are placed second and sorted by Deflector Effort.
-* `IF ROLE == MAIN <IHR[6%] ELSE <TE`
-  * Mains are placed first and sorted by fuzzy IHR.
-  * Helpers are placed second and sorted by Truth Eggs.
+* `IF SIAB <IHR ELSE <TE`
+  * SIAB runners are placed first and sorted by IHR.
+  * Other boosters are sorted by Truth Eggs.
 
 ### When `ELSE` is Missing (Sort Does Not Apply)
 If `ELSE` is omitted, **the sort rule does not apply to non-matching boosters**:
@@ -162,8 +173,8 @@ If `ELSE` is omitted, **the sort rule does not apply to non-matching boosters**:
 
 | Symbol | Meaning | Default Direction | Description & Usage |
 | :--- | :--- | :---: | :--- |
-| `IF MAIN ... ELSE ...` | Role Conditional | — | Branches sorting rule based on player's ESC role (Main vs Helper). |
-| `ROLE` / `<ROLE` | Role Priority | `<` (Mains first) | Places Mains first (`<ROLE` or `MAIN`) or Helpers first (`>ROLE` or `HELPER`). |
+| `IF MAIN ... ELSE ...` | Role Conditional | — | Branches sorting rule based on player's role (`MAIN`, `HELPER`, `SIAB`, `GUSSET`, `QUANT`). |
+| `ROLE` / `<ROLE` | Role Priority | `<` (Hierarchy) | Sorts by role hierarchy: `SIAB > Gusset > Quant > Main > Helper`. `>ROLE` reverses this (Helpers first). |
 | `DEFL_EFFORT[N]` | Balanced Deflector Effort | `<` (Highest) | Balances T4L owners with non-T4L players having $\ge N$ crafts. Defaults to $N=50$. |
 | `CRAFT_DEFL` | Deflector Craft Attempts | `<` (Highest) | Raw count of T4 Deflector craft attempts. |
 | `IHR` | Boosting IHR | `<` (Highest) | Effective Internal Hatchery Rate including artifact set bonuses. |
@@ -280,13 +291,11 @@ Every built-in boost order in BoostBot can be reproduced using the Custom Boost 
 | **Truth Eggs** (`TE`) | `<TE` | `SIGNUP` | — | — | Highest Prophecy / Truth Egg count boosts first. |
 | **Fuzzy TE** | `<TE[sqrt]` | `SIGNUP` | — | — | TE count with square-root fuzzy banding to compress large PE gaps. |
 | **Token Value** (`TVal`) | `<TVAL` | `>TOKENS` | `SIGNUP` | — | Highest historical Token Value boosts first, broken by fewest tokens wanted. |
-| **ESC Order** *(Standard)* | `<ROLE` | `<DEFL_SLOT` | `<IHR[6%]` | `>TOKENS` | Mains before Helpers, 2-slot before 1-slot deflectors, 6% fuzzy IHR, fewest tokens wanted. |
-| **ESC Order -GG** *(Speedrun)* | `<ROLE` | `<DEFL` | `<IHR` | `>TOKENS` | Mains before Helpers, deflector rarity tier (T4L > T4E > T4R > T3R), strict IHR, fewest tokens wanted. |
 
 ### Recipes & Adaptations
 
-#### 1. ESC Order (Standard)
-* **Built-in Behavior**: Tiers Main roles ahead of Helper/Alt accounts, prioritizes 2-slot deflectors (T4L, T4E) over 1-slot deflectors (T4R), applies 6% fuzzy banding to IHR, and uses tokens requested as the final tiebreaker.
+#### 1. Role Tiered Order (Standard)
+* **Custom Configuration**: Tiers roles (`SIAB > Gusset > Quant > Main > Helper`), prioritizes 2-slot deflectors (`T4L`, `T4E`) over 1-slot deflectors (`T4R`), applies 6% fuzzy banding to IHR, and uses tokens requested as the final tiebreaker.
 * **Custom Syntax**:
   ```text
   Level 1: <ROLE
@@ -303,27 +312,7 @@ Every built-in boost order in BoostBot can be reproduced using the Custom Boost 
   Level 4: >TOKENS
   ```
 
-#### 2. ESC Order -GG (Fastrun / Speedrun)
-* **Built-in Behavior**: Mains before Helpers, strict deflector rarity tiering (`T4L > T4E > T4R > T3R`), strict IHR (no fuzzy banding), and fewest tokens requested.
-* **Custom Syntax**:
-  ```text
-  Level 1: <ROLE
-  Level 2: <DEFL
-  Level 3: <IHR
-  Level 4: >TOKENS
-  ```
-
-#### 3. Conditional ESC (Custom Roles)
-* **Behavior**: Mains sort by balanced deflector effort, while helpers sort directly by fewest tokens wanted:
-* **Custom Syntax**:
-  ```text
-  Level 1: IF MAIN <DEFL_EFFORT[50] ELSE >TOKENS
-  Level 2: <IHR[6%]
-  Level 3: >TOKENS
-  Level 4: <TE
-  ```
-
-#### 4. Actuator-Focused Boost Order (Primary T4L, Tiebreaker Crafts)
+#### 2. Actuator-Focused Boost Order (Primary T4L, Tiebreaker Crafts)
 * **Behavior**: Prioritizes players with a T4L Actuator. If players tie (both have or both lack a T4L Actuator), ties are broken by their total T4 Actuator craft attempts, followed by fuzzy IHR and tokens:
 * **Custom Syntax**:
   ```text

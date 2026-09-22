@@ -241,20 +241,6 @@ func getSignupContractSettings(channelID string, hashID string, thread bool) (st
 					Default:     contract.BoostOrder == ContractOrderIHRFuzzy,
 				},
 				{
-					Label:       "ESC Order",
-					Description: "Standard runs: SIAB, Gusset, Quant, alts, Deflector slots & IHR",
-					Value:       "esc",
-					Emoji:       ei.GetBotComponentEmoji("defl_T4L"),
-					Default:     contract.BoostOrder == ContractOrderESC,
-				},
-				{
-					Label:       "ESC Order -GG",
-					Description: "GG runs: SIAB, Gusset, Quant, alts, Deflector tiers & IHR multi",
-					Value:       "escgg",
-					Emoji:       ei.GetBotComponentEmoji("defl_T4L"),
-					Default:     contract.BoostOrder == ContractOrderESCGG,
-				},
-				{
 					Label:       "Custom Boost Order",
 					Description: "Custom comparison rules with preview & evaluation",
 					Value:       "custom",

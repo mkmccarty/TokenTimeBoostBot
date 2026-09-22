@@ -380,7 +380,7 @@ func DrawBoostList(contract *Contract) []dc.LayoutComponent {
 				sortRate = fmt.Sprintf(" **TE:%d** ", b.TECount)
 			}
 		}
-		if contract.State == ContractStateSignup && (contract.BoostOrder == ContractOrderIHR || contract.BoostOrder == ContractOrderIHRFuzzy || contract.BoostOrder == ContractOrderESC || contract.BoostOrder == ContractOrderESCGG) {
+		if contract.State == ContractStateSignup && (contract.BoostOrder == ContractOrderIHR || contract.BoostOrder == ContractOrderIHRFuzzy) {
 			if b.IHRRate == 0 {
 				if bottools.IsValidDiscordID(b.UserID) {
 					sortRate = " **IHR:🛜** "

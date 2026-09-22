@@ -54,22 +54,20 @@ var contractPlaystyleNames = []string{
 }
 
 var contractOrderNames = []string{
-	"Signup",        // ContractOrderSignup
-	"Reverse",       // ContractOrderReverse
-	"Random",        // ContractOrderRandom
-	"Fair",          // ContractOrderFair
-	"Time-Based",    // ContractOrderTimeBased
-	"ELR",           // ContractOrderELR
-	"TVal",          // ContractOrderTVal
-	"Token-Ask",     // ContractOrderTokenAsk
-	"TE",            // ContractOrderTE
-	"Fuzzy TE",      // ContractOrderTEFuzzy
-	"Manual",        // ContractManualOrder
-	"Boosting IHR",  // ContractOrderIHR
-	"Fuzzy IHR",     // ContractOrderIHRFuzzy
-	"ESC Order",     // ContractOrderESC
-	"ESC Order -GG", // ContractOrderESCGG
-	"Custom",        // ContractOrderCustom
+	"Signup",       // ContractOrderSignup
+	"Reverse",      // ContractOrderReverse
+	"Random",       // ContractOrderRandom
+	"Fair",         // ContractOrderFair
+	"Time-Based",   // ContractOrderTimeBased
+	"ELR",          // ContractOrderELR
+	"TVal",         // ContractOrderTVal
+	"Token-Ask",    // ContractOrderTokenAsk
+	"TE",           // ContractOrderTE
+	"Fuzzy TE",     // ContractOrderTEFuzzy
+	"Manual",       // ContractManualOrder
+	"Boosting IHR", // ContractOrderIHR
+	"Fuzzy IHR",    // ContractOrderIHRFuzzy
+	"Custom",       // ContractOrderCustom
 }
 
 var contractFlagNames = []struct {
@@ -99,9 +97,7 @@ const (
 	ContractManualOrder    = 10 // Manual order set by contract creator
 	ContractOrderIHR       = 11 // IHR based order
 	ContractOrderIHRFuzzy  = 12 // Fuzzy IHR based order
-	ContractOrderESC       = 13 // ESC order for standard/first runs
-	ContractOrderESCGG     = 14 // ESC order for GG runs
-	ContractOrderCustom    = 15 // Custom boost order using comparison language
+	ContractOrderCustom    = 13 // Custom boost order using comparison language
 
 	ContractStateSignup    = 0 // Contract is in signup phase
 	ContractStateFastrun   = 1 // Contract in Boosting as fastrun

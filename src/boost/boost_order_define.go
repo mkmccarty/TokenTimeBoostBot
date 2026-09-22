@@ -415,6 +415,11 @@ func HandleDefineCustomOrderModalSubmit(_ dc.Client, e *dc.ModalEvent) {
 		_ = e.Respond(dc.Message{Content: "Invalid modal submission.", Ephemeral: true})
 		return
 	}
+	if e.FromComponent() {
+		_ = e.DeferUpdate()
+	} else {
+		_ = e.Defer(true)
+	}
 	sessionUUID := parts[1]
 
 	lvl1 := strings.TrimSpace(e.TextValue("custom-order-level-1"))
@@ -442,7 +447,7 @@ func HandleDefineCustomOrderModalSubmit(_ dc.Client, e *dc.ModalEvent) {
 	}
 
 	msg := BuildDefineCustomOrderMessage(contract, tmpl, session.uuidStr, "✓ Criteria updated! Click **SAVE** or **PUBLISH** to name and save, or **APPLY** to use now.")
-	_ = e.Respond(msg)
+	_ = e.EditResponse(msg)
 }
 
 // SendSaveCustomOrderModal presents a modal dialog to name and save the custom order to user presets.
@@ -475,11 +480,16 @@ func HandleSaveCustomOrderModalSubmit(_ dc.Client, e *dc.ModalEvent) {
 		_ = e.Respond(dc.Message{Content: "Invalid save submission.", Ephemeral: true})
 		return
 	}
+	if e.FromComponent() {
+		_ = e.DeferUpdate()
+	} else {
+		_ = e.Defer(true)
+	}
 	sessionUUID := parts[1]
 
 	session := getDefineSession(sessionUUID)
 	if session == nil {
-		_ = e.Respond(dc.Message{Content: "This session has expired. Please run `/define-custom-order` again.", Ephemeral: true})
+		_ = e.EditResponse(dc.Message{Content: "This session has expired. Please run `/define-custom-order` again.", Ephemeral: true})
 		return
 	}
 
@@ -495,7 +505,7 @@ func HandleSaveCustomOrderModalSubmit(_ dc.Client, e *dc.ModalEvent) {
 		contract = FindContractByHash(session.contractHash)
 	}
 	msg := BuildDefineCustomOrderMessage(contract, session.template, sessionUUID, fmt.Sprintf("✅ Saved **%s** to your personal custom boost orders!", name))
-	_ = e.Respond(msg)
+	_ = e.EditResponse(msg)
 }
 
 // SendPublishCustomOrderModal presents a modal dialog to name and publish the custom order globally.
@@ -528,11 +538,16 @@ func HandlePublishCustomOrderModalSubmit(_ dc.Client, e *dc.ModalEvent) {
 		_ = e.Respond(dc.Message{Content: "Invalid publish submission.", Ephemeral: true})
 		return
 	}
+	if e.FromComponent() {
+		_ = e.DeferUpdate()
+	} else {
+		_ = e.Defer(true)
+	}
 	sessionUUID := parts[1]
 
 	session := getDefineSession(sessionUUID)
 	if session == nil {
-		_ = e.Respond(dc.Message{Content: "This session has expired. Please run `/define-custom-order` again.", Ephemeral: true})
+		_ = e.EditResponse(dc.Message{Content: "This session has expired. Please run `/define-custom-order` again.", Ephemeral: true})
 		return
 	}
 
@@ -548,7 +563,7 @@ func HandlePublishCustomOrderModalSubmit(_ dc.Client, e *dc.ModalEvent) {
 		contract = FindContractByHash(session.contractHash)
 	}
 	msg := BuildDefineCustomOrderMessage(contract, session.template, sessionUUID, fmt.Sprintf("🌍 Published **%s** as a Global Boost Order across all servers!", name))
-	_ = e.Respond(msg)
+	_ = e.EditResponse(msg)
 }
 
 // Sample Booster Cohort for preview when outside a contract channel
