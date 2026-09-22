@@ -349,6 +349,7 @@ func TestInspectQuantBlitzAcl(t *testing.T) {
 				}
 				artStr = append(artStr, fmt.Sprintf("%s(R%d,stones=%v)", a.GetSpec().GetName(), a.GetSpec().GetRarity(), stones))
 			}
+			t.Logf("  Artifacts: %v", artStr)
 		}
 
 		for _, b := range c.GetBuffHistory() {

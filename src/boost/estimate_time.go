@@ -844,40 +844,6 @@ func calculateTwoPhaseBoostedEstimate(
 	return estimate
 }
 
-// simulateEggsDeliveredForSeconds mirrors the EI simulator step logic to compute eggs delivered
-// over a fixed number of seconds, returning eggs delivered, final population, and final laying
-// rate per step (seconds). This allows chaining phases with changing boost setups.
-func simulateEggsDeliveredForSeconds(initialPop, maxPop, growthRatePerMinute, layingRatePerHour float64, seconds int) (eggsDelivered float64, finalPop float64, finalLayingRatePerStep float64) {
-	if initialPop <= 0 || maxPop <= 0 || growthRatePerMinute <= 0 || layingRatePerHour <= 0 || seconds <= 0 {
-		return 0, initialPop, layingRatePerHour / 3600.0
-	}
-
-	timeStepSeconds := 1.0
-	layingRatePerStep := (layingRatePerHour / 3600.0) * timeStepSeconds
-	growthRatePerStep := (growthRatePerMinute / 60.0) * timeStepSeconds
-
-	currentPop := initialPop
-	totalEggs := 0.0
-
-	for i := 0; i < seconds; i++ {
-		// Eggs delivered in this step
-		totalEggs += layingRatePerStep
-
-		// Population growth and rate adjustment
-		if currentPop <= maxPop {
-			oldPop := currentPop
-			currentPop += growthRatePerStep
-			if currentPop > maxPop {
-				currentPop = maxPop
-			}
-			popIncrease := currentPop - oldPop
-			layingRatePerStep *= (1 + popIncrease/oldPop)
-		}
-	}
-
-	return totalEggs, currentPop, layingRatePerStep
-}
-
 type estimatePlayer struct {
 	id                string
 	deflectorBonus    float64
