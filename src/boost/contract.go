@@ -14,6 +14,7 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 )
@@ -691,6 +692,11 @@ func HandleContractSettingsReactions(client dc.Client, e *dc.ComponentEvent) {
 		}
 	}
 
+	if cmd == "order" && slices.Contains(dataValues, "custom") {
+		SendCustomBoostOrderModal(e, contractHash)
+		return
+	}
+
 	_ = e.DeferUpdate()
 
 	contract := FindContractByHash(contractHash)
@@ -843,36 +849,31 @@ func HandleContractSettingsReactions(client dc.Client, e *dc.ComponentEvent) {
 			for _, item := range usersToRefresh {
 				updateContractFarmerTE(client, item.userID, item.booster, contract)
 			}
-		case "esc", "escgg":
-			type userToRefresh struct {
-				userID  string
-				booster *Booster
-			}
-			if values[0] == "escgg" {
-				contract.BoostOrder = ContractOrderESCGG
-			} else {
-				contract.BoostOrder = ContractOrderESC
-			}
-			for _, b := range contract.Boosters {
-				b.ArtifactSet = getUserArtifacts(b.UserID, nil)
-			}
-			usersToRefresh := make([]userToRefresh, 0, len(contract.Boosters))
-			for userID, b := range contract.Boosters {
-				rate, logStr := CalculateIHRRateFromDB(userID)
-				if rate < DefaultLeggyIHR {
-					rate = DefaultLeggyIHR
+		default:
+			if strings.HasPrefix(values[0], "custom_g:") {
+				name := strings.TrimPrefix(values[0], "custom_g:")
+				tmpl := FindCustomOrderTemplate("", "global:"+name)
+				if tmpl != nil {
+					contract.BoostOrder = ContractOrderCustom
+					contract.CustomOrderLines = append([]string(nil), tmpl.Lines...)
+					refreshCustomBoosters(client, contract)
 				}
-				b.IHRRate = rate
-				b.IHRCalcLog = logStr
-
-				if b.IHRRate <= DefaultLeggyIHR {
-					usersToRefresh = append(usersToRefresh, userToRefresh{userID: userID, booster: b})
+			} else if strings.HasPrefix(values[0], "custom_u:") {
+				name := strings.TrimPrefix(values[0], "custom_u:")
+				tmpl := FindCustomOrderTemplate(e.UserID(), "user:"+name)
+				if tmpl == nil && len(contract.CreatorID) > 0 {
+					tmpl = FindCustomOrderTemplate(contract.CreatorID[0], "user:"+name)
 				}
-			}
-			for _, item := range usersToRefresh {
-				updateContractFarmerTE(client, item.userID, item.booster, contract)
+				if tmpl != nil {
+					contract.BoostOrder = ContractOrderCustom
+					contract.CustomOrderLines = append([]string(nil), tmpl.Lines...)
+					refreshCustomBoosters(client, contract)
+				}
 			}
 		}
+
+		redrawSignup = true
+		redrawSettings = true
 	}
 
 	switch cmd {
@@ -1258,5 +1259,167 @@ func HandleThresholdModalSubmit(client dc.Client, e *dc.ModalEvent) {
 		}
 
 		updateSignupReactionMessage(client, contract, loc)
+	}
+}
+
+// SendCustomBoostOrderModal displays a 4-row modal to configure custom boost order rules.
+func SendCustomBoostOrderModal(e *dc.ComponentEvent, contractHash string) {
+	contract := FindContractByHash(contractHash)
+	if contract == nil {
+		_ = e.Respond(dc.Message{
+			Content:   "Unable to find this contract.",
+			Ephemeral: true,
+		})
+		return
+	}
+
+	row1Val := ""
+	row2Val := ""
+	row3Val := ""
+	row4Val := ""
+
+	if len(contract.CustomOrderLines) > 0 {
+		if len(contract.CustomOrderLines) > 0 && contract.CustomOrderLines[0] != "" {
+			row1Val = contract.CustomOrderLines[0]
+		}
+		if len(contract.CustomOrderLines) > 1 && contract.CustomOrderLines[1] != "" {
+			row2Val = contract.CustomOrderLines[1]
+		}
+		if len(contract.CustomOrderLines) > 2 && contract.CustomOrderLines[2] != "" {
+			row3Val = contract.CustomOrderLines[2]
+		}
+		if len(contract.CustomOrderLines) > 3 && contract.CustomOrderLines[3] != "" {
+			row4Val = contract.CustomOrderLines[3]
+		}
+	} else {
+		saved := farmerstate.GetMiscSettingString(e.UserID(), "custom_boost_order")
+		if saved != "" {
+			parts := strings.Split(saved, "\n")
+			if len(parts) > 0 && parts[0] != "" {
+				row1Val = parts[0]
+			}
+			if len(parts) > 1 {
+				row2Val = parts[1]
+			}
+			if len(parts) > 2 {
+				row3Val = parts[2]
+			}
+			if len(parts) > 3 {
+				row4Val = parts[3]
+			}
+		}
+	}
+
+	err := e.ShowModal(dc.Modal{
+		CustomID: "m_custom_order#" + contractHash,
+		Title:    "Custom Boost Order Builder",
+		Inputs: []dc.TextInput{
+			{
+				CustomID:    "custom-order-row-1",
+				Label:       "Row 1 (Primary Condition)",
+				Style:       dc.TextInputStyleShort,
+				Placeholder: "<IHR[6%]",
+				Value:       row1Val,
+				MaxLength:   100,
+				Required:    true,
+			},
+			{
+				CustomID:    "custom-order-row-2",
+				Label:       "Row 2 (Secondary Tiebreaker)",
+				Style:       dc.TextInputStyleShort,
+				Placeholder: "ELR",
+				Value:       row2Val,
+				MaxLength:   100,
+				Required:    false,
+			},
+			{
+				CustomID:    "custom-order-row-3",
+				Label:       "Row 3 (Tertiary Tiebreaker)",
+				Style:       dc.TextInputStyleShort,
+				Placeholder: "",
+				Value:       row3Val,
+				MaxLength:   100,
+				Required:    false,
+			},
+			{
+				CustomID:    "custom-order-row-4",
+				Label:       "Row 4 (Fallback Tiebreaker)",
+				Style:       dc.TextInputStyleShort,
+				Placeholder: "",
+				Value:       row4Val,
+				MaxLength:   100,
+				Required:    false,
+			},
+		},
+	})
+	if err != nil {
+		log.Println("Error sending custom boost order modal:", err)
+	}
+}
+
+// HandleCustomOrderModalSubmit processes the submitted custom boost order modal dialog.
+func HandleCustomOrderModalSubmit(client dc.Client, e *dc.ModalEvent) {
+	parts := strings.Split(e.CustomID(), "#")
+	if len(parts) < 2 {
+		_ = e.Respond(dc.Message{
+			Content:   "Invalid custom order submission.",
+			Ephemeral: true,
+		})
+		return
+	}
+	if e.FromComponent() {
+		_ = e.DeferUpdate()
+	} else {
+		_ = e.Defer(true)
+	}
+	contractHash := parts[1]
+
+	contract := FindContractByHash(contractHash)
+	if contract == nil {
+		_ = e.EditResponse(dc.Message{
+			Content:   "Contract not found.",
+			Ephemeral: true,
+		})
+		return
+	}
+
+	lines := []string{
+		strings.TrimSpace(e.TextValue("custom-order-row-1")),
+		strings.TrimSpace(e.TextValue("custom-order-row-2")),
+		strings.TrimSpace(e.TextValue("custom-order-row-3")),
+		strings.TrimSpace(e.TextValue("custom-order-row-4")),
+	}
+
+	session := getOrCreateCustomOrderSession(e.UserID(), contractHash, lines)
+	session.channelID = e.ChannelID()
+	session.lines = lines
+
+	msg := BuildCustomOrderMessage(contract, session, "Review your custom boost order preview below. Use **EVAL** to refresh, or **SAVE & EXIT** to apply to the contract.")
+	_ = e.EditResponse(msg)
+}
+
+func refreshCustomBoosters(client dc.Client, contract *Contract) {
+	for _, b := range contract.Boosters {
+		b.ArtifactSet = getUserArtifacts(b.UserID, nil)
+	}
+	type userToRefresh struct {
+		userID  string
+		booster *Booster
+	}
+	usersToRefresh := make([]userToRefresh, 0, len(contract.Boosters))
+	for userID, b := range contract.Boosters {
+		rate, logStr := CalculateIHRRateFromDB(userID)
+		if rate < DefaultLeggyIHR {
+			rate = DefaultLeggyIHR
+		}
+		b.IHRRate = rate
+		b.IHRCalcLog = logStr
+
+		if b.IHRRate <= DefaultLeggyIHR || b.TECount == 0 {
+			usersToRefresh = append(usersToRefresh, userToRefresh{userID: userID, booster: b})
+		}
+	}
+	for _, item := range usersToRefresh {
+		updateContractFarmerTE(client, item.userID, item.booster, contract)
 	}
 }

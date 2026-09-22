@@ -412,7 +412,7 @@ func AddBoostTokens(client dc.Client, e dc.InteractionEvent, setCountWant int, c
 		farmerstate.SetTokens(b.UserID, b.TokensWanted)
 	}
 
-	if contract.BoostOrder == ContractOrderIHR || contract.BoostOrder == ContractOrderIHRFuzzy || contract.BoostOrder == ContractOrderESC || contract.BoostOrder == ContractOrderESCGG {
+	if contract.BoostOrder == ContractOrderIHR || contract.BoostOrder == ContractOrderIHRFuzzy {
 		for uID, booster := range contract.Boosters {
 			rate, logStr := CalculateIHRRateFromDB(uID)
 			if rate < DefaultLeggyIHR {
@@ -858,7 +858,7 @@ func AddFarmerToContract(client dc.Client, contract *Contract, guildID string, c
 			contract.UltraCount++
 		}
 
-		if contract.BoostOrder == ContractOrderTE || contract.BoostOrder == ContractOrderTEFuzzy || contract.BoostOrder == ContractOrderIHR || contract.BoostOrder == ContractOrderIHRFuzzy || contract.BoostOrder == ContractOrderESC || contract.BoostOrder == ContractOrderESCGG {
+		if contract.BoostOrder == ContractOrderTE || contract.BoostOrder == ContractOrderTEFuzzy || contract.BoostOrder == ContractOrderIHR || contract.BoostOrder == ContractOrderIHRFuzzy {
 			updateContractFarmerTE(client, userID, b, contract)
 		}
 
@@ -1667,9 +1667,10 @@ func StartContractBoosting(client dc.Client, guildID string, channelID string, u
 		contract.Order = contract.Order[:contract.CoopSize]
 	}
 
-	if contract.BoostOrder == ContractOrderESC || contract.BoostOrder == ContractOrderESCGG {
-		contract.Order = sortESCRemaining(contract, contract.Order, contract.BoostOrder == ContractOrderESCGG, true)
-	} else {
+	switch contract.BoostOrder {
+	case ContractOrderCustom:
+		contract.Order = sortCustomRemaining(contract, contract.Order, contract.CustomOrderLines, true)
+	default:
 		reorderBoosters(contract)
 	}
 	contract.OriginalOrder = append([]string(nil), contract.Order...)
@@ -2355,8 +2356,8 @@ func reorderBoosters(contract *Contract) {
 			contract.Order[i] = pairs[i].name
 		}
 
-	case ContractOrderESC, ContractOrderESCGG:
-		contract.Order = sortESCRemaining(contract, contract.Order, contract.BoostOrder == ContractOrderESCGG, false)
+	case ContractOrderCustom:
+		contract.Order = sortCustomRemaining(contract, contract.Order, contract.CustomOrderLines, false)
 	}
 
 	if contract.BoostOrder != ContractOrderTVal {

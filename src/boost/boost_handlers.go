@@ -168,102 +168,146 @@ func getSignupContractSettings(channelID string, hashID string, thread bool) (st
 				},
 			},
 		},
-		dc.ActionRow{
-			Components: []dc.InteractiveComponent{
-				dc.SelectMenu{
-					CustomID:    "cs_#order#" + hashID,
-					Placeholder: "Select the boosting order for this contract",
-					MinValues:   &minValues,
-					MaxValues:   1,
-					Options: []dc.SelectOption{
-						{
-							Label:       "Sign-up Order",
-							Description: "Boost list is in the order farmers sign up",
-							Value:       "signup",
-							Emoji:       ei.GetBotComponentEmoji("signup"),
-							Default:     contract.BoostOrder == ContractOrderSignup,
+		func() dc.ActionRow {
+			orderOptions := []dc.SelectOption{
+				{
+					Label:       "Sign-up Order",
+					Description: "Boost list is in the order farmers sign up",
+					Value:       "signup",
+					Emoji:       ei.GetBotComponentEmoji("signup"),
+					Default:     contract.BoostOrder == ContractOrderSignup,
+				},
+				{
+					Label:       "Token Value Order",
+					Description: "Highest token value boosts earlier",
+					Value:       "tval",
+					Emoji:       ei.GetBotComponentEmoji("sharing"),
+					Default:     contract.BoostOrder == ContractOrderTVal,
+				},
+				{
+					Label:       "ELR Order",
+					Description: "Highest Egg Lay Rate first",
+					Value:       "elr",
+					Emoji:       ei.GetBotComponentEmoji("elr"),
+					Default:     contract.BoostOrder == ContractOrderELR,
+				},
+				{
+					Label:       "Token Ask Order",
+					Description: "Those asking for less tokens boost earlier",
+					Value:       "ask",
+					Emoji:       ei.GetBotComponentEmoji("ask"),
+					Default:     contract.BoostOrder == ContractOrderTokenAsk,
+				},
+				{
+					Label:       "Random Order",
+					Description: "Boost order is random",
+					Value:       "random",
+					Emoji:       ei.GetBotComponentEmoji("random"),
+					Default:     contract.BoostOrder == ContractOrderRandom,
+				},
+				{
+					Label:       "Reverse Sign-up Order",
+					Description: "Boost list is in the reverse order farmers sign up",
+					Value:       "reverse",
+					Emoji:       ei.GetBotComponentEmoji("reverse"),
+					Default:     contract.BoostOrder == ContractOrderReverse,
+				},
+				{
+					Label:       "TE Order",
+					Description: "Highest Truth Egg count first",
+					Value:       "te",
+					Emoji:       ei.GetBotComponentEmoji("egg_truth"),
+					Default:     contract.BoostOrder == ContractOrderTE,
+				},
+				{
+					Label:       "Fuzzy TE Order",
+					Description: "Highest Truth Egg count first with randomization",
+					Value:       "fuzzyte",
+					Emoji:       ei.GetBotComponentEmoji("egg_truth"),
+					Default:     contract.BoostOrder == ContractOrderTEFuzzy,
+				},
+				{
+					Label:       "Boosting IHR Order",
+					Description: "Highest Boosting IHR first",
+					Value:       "ihr",
+					Emoji:       ei.GetBotComponentEmoji("chalice_T4L"),
+					Default:     contract.BoostOrder == ContractOrderIHR,
+				},
+				{
+					Label:       "Fuzzy Boosting IHR Order",
+					Description: "Highest Boosting IHR first with randomization",
+					Value:       "fuzzyihr",
+					Emoji:       ei.GetBotComponentEmoji("chalice_T4L"),
+					Default:     contract.BoostOrder == ContractOrderIHRFuzzy,
+				},
+				{
+					Label:       "Custom Boost Order",
+					Description: "Custom comparison rules with preview & evaluation",
+					Value:       "custom",
+					Emoji: &dc.Emoji{
+						Name: "⚙️",
+					},
+					Default: contract.BoostOrder == ContractOrderCustom,
+				},
+			}
+
+			// Add Global and Creator User custom orders to the dropdown
+			customMatched := false
+			contractCustomSig := strings.Join(contract.CustomOrderLines, "\n")
+			for _, g := range GetGlobalCustomOrders() {
+				if len(orderOptions) >= 25 {
+					break
+				}
+				isDef := contract.BoostOrder == ContractOrderCustom && contractCustomSig == strings.Join(g.Lines, "\n")
+				if isDef {
+					customMatched = true
+				}
+				orderOptions = append(orderOptions, dc.SelectOption{
+					Label:       fmt.Sprintf("⚙️ [Global] %s", g.Name),
+					Description: strings.Join(g.Lines, " > "),
+					Value:       "custom_g:" + g.Name,
+					Emoji: &dc.Emoji{
+						Name: "⚙️",
+					},
+					Default: isDef,
+				})
+			}
+			if len(contract.CreatorID) > 0 {
+				for _, u := range GetUserCustomOrders(contract.CreatorID[0]) {
+					if len(orderOptions) >= 25 {
+						break
+					}
+					isDef := contract.BoostOrder == ContractOrderCustom && contractCustomSig == strings.Join(u.Lines, "\n")
+					if isDef {
+						customMatched = true
+					}
+					orderOptions = append(orderOptions, dc.SelectOption{
+						Label:       fmt.Sprintf("👤 [User] %s", u.Name),
+						Description: strings.Join(u.Lines, " > "),
+						Value:       "custom_u:" + u.Name,
+						Emoji: &dc.Emoji{
+							Name: "👤",
 						},
-						{
-							Label:       "Token Value Order",
-							Description: "Highest token value boosts earlier",
-							Value:       "tval",
-							Emoji:       ei.GetBotComponentEmoji("sharing"),
-							Default:     contract.BoostOrder == ContractOrderTVal,
-						},
-						{
-							Label:       "ELR Order",
-							Description: "Highest Egg Lay Rate first",
-							Value:       "elr",
-							Emoji:       ei.GetBotComponentEmoji("elr"),
-							Default:     contract.BoostOrder == ContractOrderELR,
-						},
-						{
-							Label:       "Token Ask Order",
-							Description: "Those asking for less tokens boost earlier",
-							Value:       "ask",
-							Emoji:       ei.GetBotComponentEmoji("ask"),
-							Default:     contract.BoostOrder == ContractOrderTokenAsk,
-						},
-						{
-							Label:       "Random Order",
-							Description: "Boost order is random",
-							Value:       "random",
-							Emoji:       ei.GetBotComponentEmoji("random"),
-							Default:     contract.BoostOrder == ContractOrderRandom,
-						},
-						{
-							Label:       "Reverse Sign-up Order",
-							Description: "Boost list is in the reverse order farmers sign up",
-							Value:       "reverse",
-							Emoji:       ei.GetBotComponentEmoji("reverse"),
-							Default:     contract.BoostOrder == ContractOrderReverse,
-						},
-						{
-							Label:       "TE Order",
-							Description: "Highest Truth Egg count first",
-							Value:       "te",
-							Emoji:       ei.GetBotComponentEmoji("egg_truth"),
-							Default:     contract.BoostOrder == ContractOrderTE,
-						},
-						{
-							Label:       "Fuzzy TE Order",
-							Description: "Highest Truth Egg count first with randomization",
-							Value:       "fuzzyte",
-							Emoji:       ei.GetBotComponentEmoji("egg_truth"),
-							Default:     contract.BoostOrder == ContractOrderTEFuzzy,
-						},
-						{
-							Label:       "Boosting IHR Order",
-							Description: "Highest Boosting IHR first",
-							Value:       "ihr",
-							Emoji:       ei.GetBotComponentEmoji("chalice_T4L"),
-							Default:     contract.BoostOrder == ContractOrderIHR,
-						},
-						{
-							Label:       "Fuzzy Boosting IHR Order",
-							Description: "Highest Boosting IHR first with randomization",
-							Value:       "fuzzyihr",
-							Emoji:       ei.GetBotComponentEmoji("chalice_T4L"),
-							Default:     contract.BoostOrder == ContractOrderIHRFuzzy,
-						},
-						{
-							Label:       "ESC Order",
-							Description: "Standard runs: SIAB, Gusset, Quant, alts, Deflector slots & IHR",
-							Value:       "esc",
-							Emoji:       ei.GetBotComponentEmoji("defl_T4L"),
-							Default:     contract.BoostOrder == ContractOrderESC,
-						},
-						{
-							Label:       "ESC Order -GG",
-							Description: "GG runs: SIAB, Gusset, Quant, alts, Deflector tiers & IHR multi",
-							Value:       "escgg",
-							Emoji:       ei.GetBotComponentEmoji("defl_T4L"),
-							Default:     contract.BoostOrder == ContractOrderESCGG,
-						},
+						Default: isDef,
+					})
+				}
+			}
+			if customMatched && len(orderOptions) > 12 {
+				orderOptions[12].Default = false
+			}
+
+			return dc.ActionRow{
+				Components: []dc.InteractiveComponent{
+					dc.SelectMenu{
+						CustomID:    "cs_#order#" + hashID,
+						Placeholder: "Select the boosting order for this contract",
+						MinValues:   &minValues,
+						MaxValues:   1,
+						Options:     orderOptions,
 					},
 				},
-			},
-		},
+			}
+		}(),
 		dc.ActionRow{
 			Components: []dc.InteractiveComponent{
 				dc.SelectMenu{

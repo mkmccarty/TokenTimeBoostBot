@@ -106,7 +106,7 @@ func HandleBoostOrderHelpersCommand(client dc.Client, e *dc.CommandEvent) {
 		}
 		contract.mutex.Unlock()
 
-		if contract.BoostOrder == ContractOrderESC || contract.BoostOrder == ContractOrderESCGG {
+		if contract.BoostOrder == ContractOrderCustom || (len(contract.CustomOrderLines) > 0 && contract.CustomOrderLines[0] != "") {
 			reorderBoosters(contract)
 		}
 		saveData(contract.ContractHash)
@@ -156,7 +156,7 @@ func HandleBoostOrderHelpersCommand(client dc.Client, e *dc.CommandEvent) {
 		}
 		contract.mutex.Unlock()
 
-		if contract.BoostOrder == ContractOrderESC || contract.BoostOrder == ContractOrderESCGG {
+		if contract.BoostOrder == ContractOrderCustom || (len(contract.CustomOrderLines) > 0 && contract.CustomOrderLines[0] != "") {
 			reorderBoosters(contract)
 		}
 		saveData(contract.ContractHash)

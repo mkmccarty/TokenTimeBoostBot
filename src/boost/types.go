@@ -54,21 +54,20 @@ var contractPlaystyleNames = []string{
 }
 
 var contractOrderNames = []string{
-	"Signup",        // ContractOrderSignup
-	"Reverse",       // ContractOrderReverse
-	"Random",        // ContractOrderRandom
-	"Fair",          // ContractOrderFair
-	"Time-Based",    // ContractOrderTimeBased
-	"ELR",           // ContractOrderELR
-	"TVal",          // ContractOrderTVal
-	"Token-Ask",     // ContractOrderTokenAsk
-	"TE",            // ContractOrderTE
-	"Fuzzy TE",      // ContractOrderTEFuzzy
-	"Manual",        // ContractManualOrder
-	"Boosting IHR",  // ContractOrderIHR
-	"Fuzzy IHR",     // ContractOrderIHRFuzzy
-	"ESC Order",     // ContractOrderESC
-	"ESC Order -GG", // ContractOrderESCGG
+	"Signup",       // ContractOrderSignup
+	"Reverse",      // ContractOrderReverse
+	"Random",       // ContractOrderRandom
+	"Fair",         // ContractOrderFair
+	"Time-Based",   // ContractOrderTimeBased
+	"ELR",          // ContractOrderELR
+	"TVal",         // ContractOrderTVal
+	"Token-Ask",    // ContractOrderTokenAsk
+	"TE",           // ContractOrderTE
+	"Fuzzy TE",     // ContractOrderTEFuzzy
+	"Manual",       // ContractManualOrder
+	"Boosting IHR", // ContractOrderIHR
+	"Fuzzy IHR",    // ContractOrderIHRFuzzy
+	"Custom",       // ContractOrderCustom
 }
 
 var contractFlagNames = []struct {
@@ -98,8 +97,7 @@ const (
 	ContractManualOrder    = 10 // Manual order set by contract creator
 	ContractOrderIHR       = 11 // IHR based order
 	ContractOrderIHRFuzzy  = 12 // Fuzzy IHR based order
-	ContractOrderESC       = 13 // ESC order for standard/first runs
-	ContractOrderESCGG     = 14 // ESC order for GG runs
+	ContractOrderCustom    = 13 // Custom boost order using comparison language
 
 	ContractStateSignup    = 0 // Contract is in signup phase
 	ContractStateFastrun   = 1 // Contract in Boosting as fastrun
@@ -361,6 +359,7 @@ type Contract struct {
 	buttonComponents           map[string]CompMap // Cached components for this contract
 	HelpGuidanceUntil          time.Time          // Show bottom guidance while now is before this timestamp
 	NewFeature                 int                // Used to slide in new features
+	CustomOrderLines           []string           // Custom boost order rules (up to 4 rows)
 	DynamicData                *DynamicTokenData
 	LastSaveTime               time.Time // The last time the contract was saved
 	ThematicComplaints         []string  `json:"thematic_complaints,omitempty"`

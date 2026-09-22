@@ -266,10 +266,6 @@ func handleBoostOrderAutoComplete(e *dc.AutocompleteEvent, searchString string) 
 			formattedName = "Fuzzy TE Ordering"
 		case ContractOrderIHRFuzzy:
 			formattedName = "Fuzzy IHR Ordering"
-		case ContractOrderESC:
-			formattedName = "ESC Order"
-		case ContractOrderESCGG:
-			formattedName = "ESC Order -GG"
 		default:
 			formattedName = name + " Ordering"
 		}

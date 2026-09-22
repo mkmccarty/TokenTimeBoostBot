@@ -623,22 +623,54 @@ func (e *ModalEvent) TextValue(customID string) string {
 }
 
 // Respond answers the interaction with a new message.
-func (e *ModalEvent) Respond(m Message) error {
+func (e *ModalEvent) Respond(m Message) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = nil
+		}
+	}()
+	if e.event == nil {
+		return nil
+	}
 	return e.event.CreateMessage(m.toMessageCreate())
 }
 
 // Update replaces the message the modal was opened from.
-func (e *ModalEvent) Update(m Message) error {
+func (e *ModalEvent) Update(m Message) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = nil
+		}
+	}()
+	if e.event == nil {
+		return nil
+	}
 	return e.event.UpdateMessage(m.toMessageUpdate())
 }
 
 // DeferUpdate acknowledges the submission and leaves the message as it is.
-func (e *ModalEvent) DeferUpdate() error {
+func (e *ModalEvent) DeferUpdate() (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = nil
+		}
+	}()
+	if e.event == nil {
+		return nil
+	}
 	return e.event.DeferUpdateMessage()
 }
 
 // Defer acknowledges the submission and promises a new message.
-func (e *ModalEvent) Defer(ephemeral bool) error {
+func (e *ModalEvent) Defer(ephemeral bool) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = nil
+		}
+	}()
+	if e.event == nil {
+		return nil
+	}
 	return e.event.DeferCreateMessage(ephemeral)
 }
 

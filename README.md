@@ -38,6 +38,7 @@ Install your bot into your discord server with this URL:
 * `/change` - Update contract settings and boost order options.
 * `/boost-order` - Interactive interview to reorder boost order.
 * `/catalyst` - Alias for `/boost-order`.
+* `/custom-boost-order` - Create, preview, and publish custom boost orders ([documentation](doc/CustomBoostOrder.md)).
 * `/update` - Refresh contract data/status for the current contract.
 * `/change-one-booster` - Change one booster entry in the running contract.
 * `/change-start` - Update planned contract start timing.

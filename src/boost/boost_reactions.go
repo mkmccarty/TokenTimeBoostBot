@@ -197,8 +197,6 @@ func ReactionAdd(client dc.Client, e *dc.ReactionEvent) string {
 				}
 				redraw = true
 			}
-		case "🪐":
-			sendESCOrderCalculationReport(client, e.ChannelID(), contract)
 		}
 
 		// Token reaction handling
@@ -219,6 +217,10 @@ func ReactionAdd(client dc.Client, e *dc.ReactionEvent) string {
 
 	if redraw {
 		refreshBoostListMessage(client, contract, false)
+	}
+
+	if e.EmojiName() == "⚙️" || e.EmojiName() == "⚙" {
+		go displayBoostOrderImage(client, e.ChannelID(), contract)
 	}
 
 	if e.EmojiName() == "❓" {
@@ -242,6 +244,7 @@ func ReactionAdd(client dc.Client, e *dc.ReactionEvent) string {
 			outputStr += "Reaction of ⤵️ to move yourself to last in the current boost order.\n"
 			outputStr += "Reaction of " + runReady + " when you're ready for others to run chickens on your farm.\n"
 			outputStr += "Anyone can add a 🚽 reaction to express your urgency to boost next.\n"
+			outputStr += "Reaction of ⚙️ to display the boost order table image.\n"
 			outputStr += "Additional help through the **/help** command.\n"
 
 			for _, loc := range contract.Location {
@@ -279,6 +282,18 @@ func updateEstimatedTime(client dc.Client, channelID string, contract *Contract,
 		contract.EstimatedDuration = time.Duration(coopDurationSeconds) * time.Second
 		contract.EstimateUpdateTime = time.Now()
 		refreshBoostListMessage(client, contract, false)
+	}
+}
+
+// displayBoostOrderImage renders and posts the boost order preview table for a contract in response to a gear reaction.
+func displayBoostOrderImage(client dc.Client, channelID string, contract *Contract) {
+	msg, err := BuildBoostOrderPreviewMessage(contract)
+	if err != nil {
+		log.Printf("boost: failed to build boost order preview message: %v", err)
+		return
+	}
+	if _, err := client.SendMessage(channelID, msg); err != nil {
+		log.Printf("boost: failed to send boost order preview message: %v", err)
 	}
 }
 

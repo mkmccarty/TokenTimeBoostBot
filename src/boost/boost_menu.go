@@ -576,9 +576,6 @@ func HandleMenuReactions(client dc.Client, e *dc.ComponentEvent) {
 			}},
 			Ephemeral: true,
 		})
-	case "esclog":
-		msg := BuildESCOrderMessage(contract, true)
-		_ = e.Respond(msg)
 	case "help":
 		_ = e.Defer(true)
 		buttonReactionHelp(client, e, contract)
