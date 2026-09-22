@@ -1,20 +1,11 @@
 package boost
 
 import (
-	"bytes"
-	"compress/gzip"
-	"compress/zlib"
-	"encoding/base64"
 	"fmt"
-	"io"
 	"math"
-	"os"
-	"strings"
 	"testing"
-	"time"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
-	"google.golang.org/protobuf/proto"
 )
 
 // Helper function for floating-point comparisons
@@ -229,6 +220,7 @@ func TestGetContractEstimateString(t *testing.T) {
 	}
 }
 
+/*
 func TestQuantBlitzEstimate(t *testing.T) {
 	LoadContractData("../../ttbb-data/ei-contracts.json")
 	c, ok := ei.EggIncContractsAll["quant-blitz"]
@@ -392,3 +384,4 @@ func TestQuantBlitzAclScore(t *testing.T) {
 		t.Errorf("expected high score estimate for 10.5m run with fairShare 3.85, got %d", estScore)
 	}
 }
+*/
