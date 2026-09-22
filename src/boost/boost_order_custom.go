@@ -103,6 +103,7 @@ const (
 	CritRole
 	CritArtifactCount
 	CritArtifactCraft
+	CritArtifactHas
 	CritUnknown
 )
 
@@ -139,7 +140,9 @@ var (
 	reFuzzySqrt   = regexp.MustCompile(`(?i)\[(?:sqrt|~)\]`)
 	reConditional = regexp.MustCompile(`(?i)^\s*IF\s+(?:\(?\s*ROLE\s*(==|=|!=|<>)?\s*)?([A-Za-z]+)\)?(?:\s+THEN)?\s+(.+?)(?:\s+ELSE\s+(.+))?$`)
 	reCraftExpr   = regexp.MustCompile(`(?i)^(?:CRAFTS?[\(\[]\s*([A-Za-z0-9_ -]+)\s*[\)\]]|CRAFT_([A-Za-z0-9_ -]+)|([A-Za-z0-9_ -]+)_CRAFTS?)$`)
-	reArtWrapper  = regexp.MustCompile(`(?i)^(?:ARTIFACT|ART|COUNT)[\(\[]\s*([A-Za-z0-9_ -]+)\s*[\)\]]$`)
+	reCountExpr   = regexp.MustCompile(`(?i)^(?:COUNT|QTY|QUANTITY)[\(\[]\s*([A-Za-z0-9_ -]+)\s*[\)\]]$|^COUNT_([A-Za-z0-9_ -]+)$`)
+	reHasExpr     = regexp.MustCompile(`(?i)^(?:HAS|OWN|OWNS)[\(\[]\s*([A-Za-z0-9_ -]+)\s*[\)\]]$|^HAS_([A-Za-z0-9_ -]+)$`)
+	reArtWrapper  = regexp.MustCompile(`(?i)^(?:ARTIFACT|ART)[\(\[]\s*([A-Za-z0-9_ -]+)\s*[\)\]]$`)
 	reTierRarity  = regexp.MustCompile(`(?i)\bT([1-4])([CREL])?\b`)
 	reRarityWord  = regexp.MustCompile(`(?i)\b(LEGENDARY|LEGGY|EPIC|RARE|COMMON)\b`)
 	reWhitespace  = regexp.MustCompile(`[\s\-]+`)
@@ -290,6 +293,16 @@ func parseArtifactSpecTokens(s string, isCraft bool) (artName ei.ArtifactSpec_Na
 	clean := strings.ToUpper(strings.TrimSpace(s))
 	if m := reArtWrapper.FindStringSubmatch(clean); len(m) > 1 {
 		clean = strings.ToUpper(strings.TrimSpace(m[1]))
+	} else if m := reHasExpr.FindStringSubmatch(clean); len(m) > 1 {
+		clean = strings.ToUpper(strings.TrimSpace(m[1]))
+		if clean == "" && len(m) > 2 {
+			clean = strings.ToUpper(strings.TrimSpace(m[2]))
+		}
+	} else if m := reCountExpr.FindStringSubmatch(clean); len(m) > 1 {
+		clean = strings.ToUpper(strings.TrimSpace(m[1]))
+		if clean == "" && len(m) > 2 {
+			clean = strings.ToUpper(strings.TrimSpace(m[2]))
+		}
 	}
 
 	level = -1
@@ -522,9 +535,24 @@ func parseCustomCriterion(s string) customCriterion {
 		} else {
 			crit.critType = CritUnknown
 		}
+	case reCountExpr.MatchString(cur):
+		m := reCountExpr.FindStringSubmatch(cur)
+		inner := m[1]
+		if inner == "" && len(m) > 2 {
+			inner = m[2]
+		}
+		if artName, level, rarity, label, ok := parseArtifactSpecTokens(inner, false); ok {
+			crit.critType = CritArtifactCount
+			crit.artName = artName
+			crit.artLevel = level
+			crit.artRarity = rarity
+			crit.artLabel = fmt.Sprintf("%s Count", label)
+		} else {
+			crit.critType = CritUnknown
+		}
 	default:
 		if artName, level, rarity, label, ok := parseArtifactSpecTokens(cur, false); ok {
-			crit.critType = CritArtifactCount
+			crit.critType = CritArtifactHas
 			crit.artName = artName
 			crit.artLevel = level
 			crit.artRarity = rarity
@@ -855,6 +883,12 @@ func getBoosterCriterionValue(contract *Contract, item *boosterEvalData, crit cu
 		return item.randomScore
 	case CritRole:
 		return item.roleScore
+	case CritArtifactHas:
+		b := contract.Boosters[item.userID]
+		if getBoosterArtifactCount(b, crit.artName, crit.artLevel, crit.artRarity) > 0 {
+			return 1.0
+		}
+		return 0.0
 	case CritArtifactCount:
 		b := contract.Boosters[item.userID]
 		return float64(getBoosterArtifactCount(b, crit.artName, crit.artLevel, crit.artRarity))
@@ -1205,6 +1239,25 @@ func buildCustomOrderTableColDefs(contract *Contract, criteria [4]customCriterio
 					col: TableImageColumn{Label: "Random", Align: bottools.StringAlignCenter},
 					evalCell: func(_ *Booster, _ int) TableImageCell {
 						return TableImageCell{Text: "🎲", Color: ""}
+					},
+				})
+			}
+		case CritArtifactHas:
+			id := fmt.Sprintf("art_has_%d_%d_%d", c.artName, c.artLevel, c.artRarity)
+			if !seenColIDs[id] {
+				seenColIDs[id] = true
+				name := c.artName
+				level := c.artLevel
+				rarity := c.artRarity
+				activeCols = append(activeCols, customTableColDef{
+					id:  id,
+					col: TableImageColumn{Label: c.artLabel, Align: bottools.StringAlignCenter},
+					evalCell: func(b *Booster, _ int) TableImageCell {
+						cnt := getBoosterArtifactCount(b, name, level, rarity)
+						if cnt > 0 {
+							return TableImageCell{Text: "Yes", Color: "green"}
+						}
+						return TableImageCell{Text: "-", Color: ""}
 					},
 				})
 			}

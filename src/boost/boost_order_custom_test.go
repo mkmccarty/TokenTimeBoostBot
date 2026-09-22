@@ -670,11 +670,19 @@ func TestParseCustomCriterion_ArtifactCountAndCrafts(t *testing.T) {
 	}{
 		{
 			input:     "T4L_ACTUATOR",
-			critType:  CritArtifactCount,
+			critType:  CritArtifactHas,
 			artName:   ei.ArtifactSpec_TITANIUM_ACTUATOR,
 			artLevel:  3,
 			artRarity: 3,
 			label:     "T4L Actuator",
+		},
+		{
+			input:     "COUNT(T4L_ACTUATOR)",
+			critType:  CritArtifactCount,
+			artName:   ei.ArtifactSpec_TITANIUM_ACTUATOR,
+			artLevel:  3,
+			artRarity: 3,
+			label:     "T4L Actuator Count",
 		},
 		{
 			input:     "CRAFT(T4_ACTUATOR)",
@@ -702,7 +710,7 @@ func TestParseCustomCriterion_ArtifactCountAndCrafts(t *testing.T) {
 		},
 		{
 			input:     "T4E_GUSSET",
-			critType:  CritArtifactCount,
+			critType:  CritArtifactHas,
 			artName:   ei.ArtifactSpec_ORNATE_GUSSET,
 			artLevel:  3,
 			artRarity: 2,
@@ -710,7 +718,7 @@ func TestParseCustomCriterion_ArtifactCountAndCrafts(t *testing.T) {
 		},
 		{
 			input:     "T4_COMPASS",
-			critType:  CritArtifactCount,
+			critType:  CritArtifactHas,
 			artName:   ei.ArtifactSpec_INTERSTELLAR_COMPASS,
 			artLevel:  3,
 			artRarity: -1,
@@ -739,12 +747,16 @@ func TestParseCustomCriterion_ArtifactCountAndCrafts(t *testing.T) {
 }
 
 func TestSortCustomRemaining_ArtifactAndCraftTiebreaker(t *testing.T) {
-	// Goal: primary = T4L_ACTUATOR, secondary = CRAFT(T4_ACTUATOR)
-	// Alice: 2x T4L Actuator, 10 crafts
-	// Bob: 1x T4L Actuator, 50 crafts
-	// Charlie: 0x T4L Actuator, 100 crafts
-	// Dana: 0x T4L Actuator, 30 crafts
-	// Expected Order: Alice (2 T4L) -> Bob (1 T4L) -> Charlie (0 T4L, 100 crafts) -> Dana (0 T4L, 30 crafts)
+	// Goal 1: primary = T4L_ACTUATOR (boolean has-it), secondary = CRAFT(T4_ACTUATOR)
+	// Alice: 2x T4L Actuator (has=1), 10 crafts
+	// Bob: 1x T4L Actuator (has=1), 50 crafts
+	// Charlie: 0x T4L Actuator (has=0), 100 crafts
+	// Dana: 0x T4L Actuator (has=0), 30 crafts
+	// Since both Alice and Bob have the item, they tie on Level 1 (T4L_ACTUATOR).
+	// Level 2 (CRAFT) breaks the tie: Bob (50 crafts) > Alice (10 crafts).
+	// Charlie and Dana lack the item (0), so they tie on Level 1.
+	// Level 2 (CRAFT) breaks the tie: Charlie (100 crafts) > Dana (30 crafts).
+	// Expected Order: Bob -> Alice -> Charlie -> Dana
 
 	contract := &Contract{
 		ContractID:   "test-actuator-coop",
@@ -778,13 +790,27 @@ func TestSortCustomRemaining_ArtifactAndCraftTiebreaker(t *testing.T) {
 	unselected := []string{"dana", "charlie", "bob", "alice"}
 	sorted := sortCustomRemaining(contract, unselected, lines, false)
 
-	expected := []string{"alice", "bob", "charlie", "dana"}
+	expected := []string{"bob", "alice", "charlie", "dana"}
 	if len(sorted) != len(expected) {
 		t.Fatalf("sorted length = %d, want %d", len(sorted), len(expected))
 	}
 	for i, id := range sorted {
 		if id != expected[i] {
 			t.Errorf("at index %d: got %s, want %s (sorted: %v)", i, id, expected[i], sorted)
+		}
+	}
+
+	// Goal 2: COUNT(T4L_ACTUATOR) as primary sort quantity:
+	// Alice (count 2) > Bob (count 1) > Charlie (count 0, 100 crafts) > Dana (count 0, 30 crafts)
+	countLines := []string{
+		"COUNT(T4L_ACTUATOR)",
+		"CRAFT(T4_ACTUATOR)",
+	}
+	sortedCount := sortCustomRemaining(contract, unselected, countLines, false)
+	expectedCount := []string{"alice", "bob", "charlie", "dana"}
+	for i, id := range sortedCount {
+		if id != expectedCount[i] {
+			t.Errorf("COUNT sort at index %d: got %s, want %s (sorted: %v)", i, id, expectedCount[i], sortedCount)
 		}
 	}
 

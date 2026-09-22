@@ -179,23 +179,29 @@ If `ELSE` is omitted, **the sort rule does not apply to non-matching boosters**:
 | `DELIV` | Delivery Capacity | `<` (Highest) | Estimated maximum shipping delivery rate. |
 | `SIGNUP` | Sign-up Order | `<` (First-in) | Order in which players signed up in the contract thread. |
 | `RANDOM` | Deterministic Random | — | Stable pseudo-random tiebreaker. |
-| `T4L_ACTUATOR` / `<T4L_ACTUATOR` | Artifact Quantity | `<` (Highest) | Inventory count of a specific artifact tier & rarity (e.g. `T4L_ACTUATOR`, `T4E_GUSSET`, `T4_COMPASS`). |
+| `T4L_ACTUATOR` / `<T4L_ACTUATOR` | Artifact Ownership (Boolean) | `<` (Has it) | Boolean check: players possessing $\ge 1$ of the item rank first; non-owners rank second. |
+| `COUNT(T4L_ACTUATOR)` | Artifact Quantity | `<` (Highest) | Exact inventory count of a specific artifact tier & rarity. |
 | `CRAFT(T4_ACTUATOR)` | Artifact Craft Count | `<` (Highest) | Total craft attempts for a given artifact tier (e.g. `CRAFT(T4_ACTUATOR)`, `T4_ACTUATOR_CRAFTS`). |
 
 ---
 
 ## 8. Artifact Counts & Crafts Syntax
 
-You can target any artifact in Egg, Inc. by its inventory count or crafting attempts:
+You can target any artifact in Egg, Inc. by ownership status, inventory count, or crafting attempts:
 
-### 1. Artifact Inventory Counts
+### 1. Artifact Ownership (Boolean Has-It)
 Specify the Tier (`T1`–`T4`) and optional Rarity (`C`, `R`, `E`, `L` or Common, Rare, Epic, Legendary):
-* `T4L_ACTUATOR` or `<T4L_ACTUATOR`: Boosters with the most T4 Legendary Actuators boost first.
-* `T4E_GUSSET`: Boosters with the most T4 Epic Gussets boost first.
-* `T4_COMPASS`: Total count of all T4 Compasses owned (any rarity).
-* `ART[T4L_ACTUATOR]` / `ARTIFACT(T4L_ACTUATOR)`: Explicit wrapper syntax.
+* `T4L_ACTUATOR` or `<T4L_ACTUATOR`: Boolean check. Boosters who own $\ge 1$ T4 Legendary Actuators boost first (all owners tie on this level). Boosters with 0 boost second.
+* `T4E_GUSSET`: Boosters who own a T4 Epic Gusset boost first.
+* `T4_COMPASS`: Boosters who own any T4 Compass boost first.
+* `HAS(T4L_ACTUATOR)`: Explicit wrapper syntax.
 
-### 2. Artifact Craft Attempts
+### 2. Artifact Inventory Quantity (`COUNT`)
+Use `COUNT(...)` or `QTY(...)` to sort by the exact number of items owned:
+* `COUNT(T4L_ACTUATOR)`: Boosters holding 2 T4L Actuators rank ahead of boosters holding 1, who rank ahead of boosters holding 0.
+* `COUNT(T4E_GUSSET)`: Total count of T4 Epic Gussets.
+
+### 3. Artifact Craft Attempts
 Specify crafting attempts for any artifact tier (defaults to T4 if tier is omitted):
 * `CRAFT(T4_ACTUATOR)` or `CRAFT[T4_ACTUATOR]`: Total number of T4 Actuators crafted.
 * `CRAFT_T4_ACTUATOR` or `T4_ACTUATOR_CRAFTS`: Equivalent shorthand forms.
