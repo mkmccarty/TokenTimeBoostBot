@@ -47,6 +47,9 @@ Selecting `<NEW>` or clicking **MODIFY** opens the **Custom Boost Order Criteria
 > [!NOTE]
 > Higher levels take absolute precedence. Lower levels are only evaluated when players are **tied** on all preceding levels. If all 4 levels result in a tie, sign-up order is used as the fallback.
 
+> [!TIP]
+> **Case Insensitive**: All rule inputs are completely case-insensitive. You can type criteria in uppercase, lowercase, or mixed case (e.g. `<ihr[6%]`, `elr`, `>tokens`, `soul_mirror_orange`, `Artifact Score`, or `if role == main then ihr else te`).
+
 ---
 
 ## 3. Understanding `<` and `>` (Sorting Direction)
@@ -258,7 +261,81 @@ All 21 Egg, Inc. artifacts and their common abbreviations are supported:
 
 ---
 
-## 9. ⚙️ Preview & Evaluation Report
+## 9. 📊 Player Stats, Inventory & Boost Counts
+
+You can sort directly by a wide variety of player account stats and owned boost item inventories retrieved from the Egg, Inc. backup:
+
+| Metric Keyword | Description | Default Order | Preview Column |
+| :--- | :--- | :---: | :---: |
+| `ARTIFACT_SCORE`, `ART_SCORE` | Total artifact inventory score | Highest first | `Art Score` |
+| `CRAFTING_XP`, `CRAFT_XP`, `CXP` | Crafting experience / level | Highest first | `Craft XP` |
+| `BOOST(<raw_id>)` (e.g. `BOOST(soul_mirror_orange)`) | Count of specific owned boost item by its raw game ID | Highest first | Boost Name |
+| `GE`, `GOLDEN_EGGS` | Current Golden Eggs balance (earned - spent) | Highest first | `GE` |
+| `EB`, `EARNINGS_BONUS` | Earnings Bonus percentage | Highest first | `EB` |
+| `SE`, `SOUL_EGGS` | Total Soul Eggs count | Highest first | `SE` |
+| `CTE`, `CLOTHED_TRUTH_EGGS` | Maximum Clothed Truth Eggs | Highest first | `CTE` |
+| `PRESTIGE`, `PRESTIGES` | Lifetime prestiges count | Highest first | `Prestiges` |
+| `DRONE`, `DRONES` | Lifetime standard drone takedowns | Highest first | `Drones` |
+| `ELITE_DRONE`, `ELITE_DRONES` | Lifetime elite drone takedowns | Highest first | `Elite Drones` |
+
+Prefixing any of these with `>` sorts lowest first (e.g. `>EB` to boost lower EB players first).
+
+### Raw Boost Item IDs Reference
+
+When using `BOOST(<raw_id>)`, specify the internal game `boost_id`. The list below covers all standard Egg, Inc. boost items:
+
+#### Soul Mirrors
+| In-Game Boost Name | Raw Boost ID | Duration & Effect |
+| :--- | :--- | :--- |
+| **Soul Mirror (10m)** | `soul_mirror_blue` | 10 min, match highest co-op EB |
+| **Soul Mirror (1h)** | `soul_mirror_purple` | 1 hour, match highest co-op EB |
+| **Soul Mirror (1d)** | `soul_mirror_orange` | 1 day, match highest co-op EB |
+
+#### Tachyon Prisms (Internal Hatchery Rate)
+| In-Game Boost Name | Raw Boost ID | Duration & Effect |
+| :--- | :--- | :--- |
+| **Tachyon Prism** | `tachyon_prism_blue` | 10 min, 10x hatchery |
+| **Large Tachyon Prism** | `tachyon_prism_blue_big` | 4 hours, 10x hatchery |
+| **Powerful Tachyon Prism** | `tachyon_prism_purple` | 10 min, 100x hatchery |
+| **Epic Tachyon Prism** | `tachyon_prism_purple_big` | 2 hours, 100x hatchery |
+| **Legendary Tachyon Prism** | `tachyon_prism_orange` | 10 min, 1000x hatchery |
+| **Supreme Tachyon Prism** | `tachyon_prism_orange_big` | 1 hour, 1000x hatchery |
+
+#### Boost Beacons (All Boost Multiplier)
+| In-Game Boost Name | Raw Boost ID | Duration & Effect |
+| :--- | :--- | :--- |
+| **Boost Beacon** | `boost_beacon_blue` | 30 min, 2x boost multiplier |
+| **Large Boost Beacon** | `boost_beacon_blue_big` | 2 hours, 2x boost multiplier |
+| **Epic Boost Beacon** | `boost_beacon_purple` | 10 min, 10x boost multiplier |
+| **Legendary Boost Beacon** | `boost_beacon_orange` | 10 min, 50x boost multiplier |
+
+#### Soul Beacons (Prestige Soul Egg Collection)
+| In-Game Boost Name | Raw Boost ID | Duration & Effect |
+| :--- | :--- | :--- |
+| **Soul Beacon** | `soul_beacon_blue` | 20 min, 5x soul eggs |
+| **Epic Soul Beacon** | `soul_beacon_purple` | 30 min, 50x soul eggs |
+| **Legendary Soul Beacon** | `soul_beacon_orange` | 10 min, 500x soul eggs |
+
+#### Jimbo's Best Bird Feed (Earnings Multiplier)
+| In-Game Boost Name | Raw Boost ID | Duration & Effect |
+| :--- | :--- | :--- |
+| **Jimbo's Best Bird Feed (20m)** | `jimbos_blue` | 20 min, 3x earnings |
+| **Jimbo's Best Bird Feed (2h)** | `jimbos_blue_big` | 2 hours, 3x earnings |
+| **Jimbo's Best Bird Feed (2h 10x)** | `jimbos_purple` | 2 hours, 10x earnings |
+| **Jimbo's Best Bird Feed (8h 10x)** | `jimbos_purple_big` | 8 hours, 10x earnings |
+| **Jimbo's Best Bird Feed (10m 50x)** | `jimbos_orange` | 10 min, 50x earnings |
+| **Jimbo's Best Bird Feed (1h 50x)** | `jimbos_orange_big` | 1 hour, 50x earnings |
+
+#### Utilities & Cash
+| In-Game Boost Name | Raw Boost ID | Effect |
+| :--- | :--- | :--- |
+| **Quantum Warming Bulb** | `dilithium_bulb` | 10 min infinite running chickens |
+| **Money Printer** | `money_printer` | Instant cash payout |
+| **Blank Check** | `blank_check` | Instant cash payout |
+
+---
+
+## 10. ⚙️ Preview & Evaluation Report
 
 Submitting the criteria modal or loading a preset generates an interactive preview report containing:
 1. **Tiebreaker Hierarchy**: Shows the exact condition configured for Levels 1–4.
@@ -273,7 +350,7 @@ Submitting the criteria modal or loading a preset generates an interactive previ
 
 ---
 
-## 10. Applying Custom Orders in Contracts
+## 11. Applying Custom Orders in Contracts
 
 1. **Via Dropdown (`cs_#order`)**:
    * In contract signup or `/contract-settings`, open the **Boosting Order** select menu.
@@ -287,7 +364,7 @@ Submitting the criteria modal or loading a preset generates an interactive previ
 
 ---
 
-## 11. Existing BoostBot Boost Orders in Custom Order Syntax
+## 12. Existing BoostBot Boost Orders in Custom Order Syntax
 
 Every built-in boost order in BoostBot can be reproduced using the Custom Boost Order syntax. The table below maps each built-in order to its 4-line configuration:
 

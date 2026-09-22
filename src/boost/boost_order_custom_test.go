@@ -1135,3 +1135,333 @@ func TestSuggestCustomOrderName(t *testing.T) {
 		})
 	}
 }
+
+func TestParseCustomCriterion_ExtendedCriteria(t *testing.T) {
+	tests := []struct {
+		input     string
+		critType  CustomCriterionType
+		ascending bool
+		boostID   string
+		boostLbl  string
+	}{
+		{input: "ARTIFACT_SCORE", critType: CritArtifactScore, ascending: false},
+		{input: "ART_SCORE", critType: CritArtifactScore, ascending: false},
+		{input: "<ARTIFACT_SCORE", critType: CritArtifactScore, ascending: false},
+		{input: ">ARTIFACT_SCORE", critType: CritArtifactScore, ascending: true},
+		{input: "CRAFTING_XP", critType: CritCraftingXP, ascending: false},
+		{input: "CRAFT_XP", critType: CritCraftingXP, ascending: false},
+		{input: "CXP", critType: CritCraftingXP, ascending: false},
+		{input: ">CRAFTING_XP", critType: CritCraftingXP, ascending: true},
+		{input: "GE", critType: CritGE, ascending: false},
+		{input: "GOLDEN_EGGS", critType: CritGE, ascending: false},
+		{input: "GOLDEN_EGG", critType: CritGE, ascending: false},
+		{input: ">GE", critType: CritGE, ascending: true},
+		{input: "EB", critType: CritEB, ascending: false},
+		{input: "EARNINGS_BONUS", critType: CritEB, ascending: false},
+		{input: ">EB", critType: CritEB, ascending: true},
+		{input: "SE", critType: CritSE, ascending: false},
+		{input: "SOUL_EGGS", critType: CritSE, ascending: false},
+		{input: "SOUL_EGG", critType: CritSE, ascending: false},
+		{input: ">SE", critType: CritSE, ascending: true},
+		{input: "CTE", critType: CritCTE, ascending: false},
+		{input: "CLOTHED_TRUTH_EGGS", critType: CritCTE, ascending: false},
+		{input: "CLOTHED_TE", critType: CritCTE, ascending: false},
+		{input: ">CTE", critType: CritCTE, ascending: true},
+		{input: "PRESTIGE", critType: CritPrestige, ascending: false},
+		{input: "PRESTIGES", critType: CritPrestige, ascending: false},
+		{input: "PRESTIGE_COUNT", critType: CritPrestige, ascending: false},
+		{input: ">PRESTIGE", critType: CritPrestige, ascending: true},
+		{input: "DRONE", critType: CritDrone, ascending: false},
+		{input: "DRONES", critType: CritDrone, ascending: false},
+		{input: "DRONE_COUNT", critType: CritDrone, ascending: false},
+		{input: "DRONE_TAKEDOWNS", critType: CritDrone, ascending: false},
+		{input: ">DRONE", critType: CritDrone, ascending: true},
+		{input: "ELITE_DRONE", critType: CritEliteDrone, ascending: false},
+		{input: "ELITE_DRONES", critType: CritEliteDrone, ascending: false},
+		{input: "ELITE_DRONE_COUNT", critType: CritEliteDrone, ascending: false},
+		{input: ">ELITE_DRONE", critType: CritEliteDrone, ascending: true},
+		{input: "SOUL_MIRROR_ORANGE", critType: CritBoostCount, ascending: false, boostID: "soul_mirror_orange", boostLbl: "Soul Mirror (1d)"},
+		{input: "SOUL_MIRROR_BLUE", critType: CritBoostCount, ascending: false, boostID: "soul_mirror_blue", boostLbl: "Soul Mirror (10m)"},
+		{input: "SOUL_MIRROR_PURPLE", critType: CritBoostCount, ascending: false, boostID: "soul_mirror_purple", boostLbl: "Soul Mirror (1h)"},
+		{input: "BOOST(soul_mirror_orange)", critType: CritBoostCount, ascending: false, boostID: "soul_mirror_orange", boostLbl: "Soul Mirror (1d)"},
+		{input: "BOOST(soul_mirror_blue)", critType: CritBoostCount, ascending: false, boostID: "soul_mirror_blue", boostLbl: "Soul Mirror (10m)"},
+		{input: "BOOST(tachyon_prism_epic)", critType: CritBoostCount, ascending: false, boostID: "tachyon_prism_epic", boostLbl: "Tachyon Prism Epic"},
+		{input: "BOOST(boost_beacon_orange)", critType: CritBoostCount, ascending: false, boostID: "boost_beacon_orange", boostLbl: "Legendary Boost Beacon"},
+		{input: ">BOOST(soul_mirror_orange)", critType: CritBoostCount, ascending: true, boostID: "soul_mirror_orange", boostLbl: "Soul Mirror (1d)"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			crit := parseCustomCriterion(tt.input)
+			if crit.critType != tt.critType {
+				t.Errorf("parseCustomCriterion(%q) critType = %v, want %v", tt.input, crit.critType, tt.critType)
+			}
+			if crit.ascending != tt.ascending {
+				t.Errorf("parseCustomCriterion(%q) ascending = %v, want %v", tt.input, crit.ascending, tt.ascending)
+			}
+			if tt.boostID != "" && crit.boostID != tt.boostID {
+				t.Errorf("parseCustomCriterion(%q) boostID = %q, want %q", tt.input, crit.boostID, tt.boostID)
+			}
+			if tt.boostLbl != "" && crit.boostLabel != tt.boostLbl {
+				t.Errorf("parseCustomCriterion(%q) boostLabel = %q, want %q", tt.input, crit.boostLabel, tt.boostLbl)
+			}
+		})
+	}
+}
+
+func TestParseCustomCriterion_CaseInsensitive(t *testing.T) {
+	tests := []struct {
+		input     string
+		critType  CustomCriterionType
+		ascending bool
+		fuzzyPct  float64
+		fuzzySqrt bool
+		effortN   int
+		boostID   string
+		boostLbl  string
+	}{
+		// Lowercase & mixed case basic criteria
+		{input: "ihr", critType: CritIHR, ascending: false},
+		{input: "Ihr", critType: CritIHR, ascending: false},
+		{input: "<ihr[6%]>", critType: CritIHR, ascending: false, fuzzyPct: 0.06},
+		{input: "ihr[6%]", critType: CritIHR, ascending: false, fuzzyPct: 0.06},
+		{input: "elr", critType: CritELR, ascending: false},
+		{input: "<elr", critType: CritELR, ascending: false},
+		{input: "te", critType: CritTE, ascending: false},
+		{input: "te[sqrt]", critType: CritTE, ascending: false, fuzzySqrt: true},
+		{input: "te[~]", critType: CritTE, ascending: false, fuzzySqrt: true},
+		{input: "tokens", critType: CritTokens, ascending: true},
+		{input: ">tokens", critType: CritTokens, ascending: true},
+		{input: "<tokens", critType: CritTokens, ascending: false},
+		{input: "defl", critType: CritDefl, ascending: false},
+		{input: "deflector", critType: CritDefl, ascending: false},
+		{input: "defl[5%]", critType: CritDefl, ascending: false, fuzzyPct: 0.05},
+		{input: "defl effort", critType: CritDeflEffort, ascending: false, effortN: 50},
+		{input: "deflector effort [40]", critType: CritDeflEffort, ascending: false, effortN: 40},
+		{input: "defl_slot", critType: CritDeflSlot, ascending: false},
+		{input: "deflector slot", critType: CritDeflSlot, ascending: false},
+		{input: "delivery", critType: CritDeliv, ascending: false},
+		{input: "shipping", critType: CritDeliv, ascending: false},
+		{input: "signup", critType: CritSignup, ascending: true},
+		{input: "reverse", critType: CritReverse, ascending: false},
+		{input: "random", critType: CritRandom, ascending: false},
+		{input: "role", critType: CritRole, ascending: false},
+		{input: "main", critType: CritRole, ascending: false},
+		{input: "helper", critType: CritRole, ascending: true},
+		{input: "siab", critType: CritRole, ascending: false},
+		{input: "gusset", critType: CritRole, ascending: false},
+		{input: "quant", critType: CritRole, ascending: false},
+		{input: "craft defl", critType: CritCraftDefl, ascending: false},
+
+		// Lowercase & mixed case extended account criteria
+		{input: "artifact score", critType: CritArtifactScore, ascending: false},
+		{input: "Artifact Score", critType: CritArtifactScore, ascending: false},
+		{input: "art_score", critType: CritArtifactScore, ascending: false},
+		{input: "crafting xp", critType: CritCraftingXP, ascending: false},
+		{input: "Crafting XP", critType: CritCraftingXP, ascending: false},
+		{input: "cxp", critType: CritCraftingXP, ascending: false},
+		{input: "ge", critType: CritGE, ascending: false},
+		{input: "golden eggs", critType: CritGE, ascending: false},
+		{input: "Golden Eggs", critType: CritGE, ascending: false},
+		{input: "eb", critType: CritEB, ascending: false},
+		{input: "earnings bonus", critType: CritEB, ascending: false},
+		{input: "Earnings Bonus", critType: CritEB, ascending: false},
+		{input: "se", critType: CritSE, ascending: false},
+		{input: "soul eggs", critType: CritSE, ascending: false},
+		{input: "cte", critType: CritCTE, ascending: false},
+		{input: "clothed truth eggs", critType: CritCTE, ascending: false},
+		{input: "clothed te", critType: CritCTE, ascending: false},
+		{input: "prestige", critType: CritPrestige, ascending: false},
+		{input: "prestige count", critType: CritPrestige, ascending: false},
+		{input: "drone", critType: CritDrone, ascending: false},
+		{input: "drone takedowns", critType: CritDrone, ascending: false},
+		{input: "elite drone", critType: CritEliteDrone, ascending: false},
+		{input: "Elite Drone", critType: CritEliteDrone, ascending: false},
+		{input: "elite drones", critType: CritEliteDrone, ascending: false},
+
+		// Case-insensitive boost items
+		{input: "soul_mirror_orange", critType: CritBoostCount, ascending: false, boostID: "soul_mirror_orange", boostLbl: "Soul Mirror (1d)"},
+		{input: "Soul Mirror Orange", critType: CritBoostCount, ascending: false, boostID: "soul_mirror_orange", boostLbl: "Soul Mirror (1d)"},
+		{input: "boost(soul_mirror_orange)", critType: CritBoostCount, ascending: false, boostID: "soul_mirror_orange", boostLbl: "Soul Mirror (1d)"},
+		{input: "boost(Soul Mirror Orange)", critType: CritBoostCount, ascending: false, boostID: "soul_mirror_orange", boostLbl: "Soul Mirror (1d)"},
+		{input: "boost[soul_mirror_orange]", critType: CritBoostCount, ascending: false, boostID: "soul_mirror_orange", boostLbl: "Soul Mirror (1d)"},
+		{input: "boost: soul_mirror_orange", critType: CritBoostCount, ascending: false, boostID: "soul_mirror_orange", boostLbl: "Soul Mirror (1d)"},
+		{input: "boost: Supreme Tachyon Prism", critType: CritBoostCount, ascending: false, boostID: "tachyon_prism_orange_big", boostLbl: "Supreme Tachyon Prism"},
+		{input: "boost: quantum warming bulb", critType: CritBoostCount, ascending: false, boostID: "dilithium_bulb", boostLbl: "Quantum Warming Bulb"},
+		{input: "dilithium_bulb", critType: CritBoostCount, ascending: false, boostID: "dilithium_bulb", boostLbl: "Quantum Warming Bulb"},
+		{input: "Dilithium Bulb", critType: CritBoostCount, ascending: false, boostID: "dilithium_bulb", boostLbl: "Quantum Warming Bulb"},
+
+		// Case-insensitive artifacts
+		{input: "t4l deflector", critType: CritArtifactHas, ascending: false},
+		{input: "T4l Deflector", critType: CritArtifactHas, ascending: false},
+		{input: "t4 gusset", critType: CritArtifactHas, ascending: false},
+		{input: "has(t4l deflector)", critType: CritArtifactHas, ascending: false},
+		{input: "Has(T4L Deflector)", critType: CritArtifactHas, ascending: false},
+		{input: "count(t4 gusset)", critType: CritArtifactCount, ascending: false},
+		{input: "Count(T4 Gusset)", critType: CritArtifactCount, ascending: false},
+		{input: "craft(t4 deflector)", critType: CritArtifactCraft, ascending: false},
+		{input: "Craft(T4 Deflector)", critType: CritArtifactCraft, ascending: false},
+		{input: "crafts(chalice)", critType: CritArtifactCraft, ascending: false},
+		{input: "legendary chalice", critType: CritArtifactHas, ascending: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			crit := parseCustomCriterion(tt.input)
+			if crit.critType != tt.critType {
+				t.Errorf("parseCustomCriterion(%q) critType = %v, want %v", tt.input, crit.critType, tt.critType)
+			}
+			if crit.ascending != tt.ascending {
+				t.Errorf("parseCustomCriterion(%q) ascending = %v, want %v", tt.input, crit.ascending, tt.ascending)
+			}
+			if tt.fuzzyPct != 0 && crit.fuzzyPct != tt.fuzzyPct {
+				t.Errorf("parseCustomCriterion(%q) fuzzyPct = %v, want %v", tt.input, crit.fuzzyPct, tt.fuzzyPct)
+			}
+			if tt.fuzzySqrt != crit.fuzzySqrt {
+				t.Errorf("parseCustomCriterion(%q) fuzzySqrt = %v, want %v", tt.input, crit.fuzzySqrt, tt.fuzzySqrt)
+			}
+			if tt.effortN != 0 && crit.effortN != tt.effortN {
+				t.Errorf("parseCustomCriterion(%q) effortN = %v, want %v", tt.input, crit.effortN, tt.effortN)
+			}
+			if tt.boostID != "" && crit.boostID != tt.boostID {
+				t.Errorf("parseCustomCriterion(%q) boostID = %q, want %q", tt.input, crit.boostID, tt.boostID)
+			}
+			if tt.boostLbl != "" && crit.boostLabel != tt.boostLbl {
+				t.Errorf("parseCustomCriterion(%q) boostLabel = %q, want %q", tt.input, crit.boostLabel, tt.boostLbl)
+			}
+		})
+	}
+}
+
+func TestParseCustomCriterion_ConditionalsCaseInsensitive(t *testing.T) {
+	tests := []struct {
+		input      string
+		targetRole customRoleCondition
+		thenType   CustomCriterionType
+		thenAsc    bool
+		hasElse    bool
+		elseType   CustomCriterionType
+		elseAsc    bool
+	}{
+		{
+			input:      "if role == main then ihr else te",
+			targetRole: roleConditionMain,
+			thenType:   CritIHR,
+			thenAsc:    false,
+			hasElse:    true,
+			elseType:   CritTE,
+			elseAsc:    false,
+		},
+		{
+			input:      "if helper then >tokens else <ihr",
+			targetRole: roleConditionHelper,
+			thenType:   CritTokens,
+			thenAsc:    true,
+			hasElse:    true,
+			elseType:   CritIHR,
+			elseAsc:    false,
+		},
+		{
+			input:      "if role != helper then ihr[6%] else >tokens",
+			targetRole: roleConditionMain,
+			thenType:   CritIHR,
+			thenAsc:    false,
+			hasElse:    true,
+			elseType:   CritTokens,
+			elseAsc:    true,
+		},
+		{
+			input:      "if not helper then ihr else te",
+			targetRole: roleConditionMain,
+			thenType:   CritIHR,
+			thenAsc:    false,
+			hasElse:    true,
+			elseType:   CritTE,
+			elseAsc:    false,
+		},
+		{
+			input:      "if main: ihr else: te",
+			targetRole: roleConditionMain,
+			thenType:   CritIHR,
+			thenAsc:    false,
+			hasElse:    true,
+			elseType:   CritTE,
+			elseAsc:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			crit := parseCustomCriterion(tt.input)
+			if !crit.isConditional {
+				t.Fatalf("parseCustomCriterion(%q) isConditional = false, want true", tt.input)
+			}
+			if crit.targetRole != tt.targetRole {
+				t.Errorf("parseCustomCriterion(%q) targetRole = %v, want %v", tt.input, crit.targetRole, tt.targetRole)
+			}
+			if crit.thenCrit == nil || crit.thenCrit.critType != tt.thenType {
+				t.Errorf("parseCustomCriterion(%q) thenCrit type = %v, want %v", tt.input, crit.thenCrit.critType, tt.thenType)
+			}
+			if crit.thenCrit.ascending != tt.thenAsc {
+				t.Errorf("parseCustomCriterion(%q) thenCrit ascending = %v, want %v", tt.input, crit.thenCrit.ascending, tt.thenAsc)
+			}
+			if crit.hasElse != tt.hasElse {
+				t.Errorf("parseCustomCriterion(%q) hasElse = %v, want %v", tt.input, crit.hasElse, tt.hasElse)
+			}
+			if tt.hasElse && (crit.elseCrit == nil || crit.elseCrit.critType != tt.elseType) {
+				t.Errorf("parseCustomCriterion(%q) elseCrit type = %v, want %v", tt.input, crit.elseCrit.critType, tt.elseType)
+			}
+			if tt.hasElse && crit.elseCrit.ascending != tt.elseAsc {
+				t.Errorf("parseCustomCriterion(%q) elseCrit ascending = %v, want %v", tt.input, crit.elseCrit.ascending, tt.elseAsc)
+			}
+		})
+	}
+}
+
+func TestSuggestCustomOrderName_ExtendedCriteria(t *testing.T) {
+	tests := []struct {
+		name     string
+		lines    []string
+		expected string
+	}{
+		{
+			name:     "Artifact score and CXP",
+			lines:    []string{"ARTIFACT_SCORE", "CRAFTING_XP"},
+			expected: "Artifact Score & Crafting XP",
+		},
+		{
+			name:     "EB and SE",
+			lines:    []string{"EB", "SE"},
+			expected: "EB & Soul Eggs",
+		},
+		{
+			name:     "GE and Prestiges",
+			lines:    []string{"GE", "PRESTIGE"},
+			expected: "Golden Eggs & Prestiges",
+		},
+		{
+			name:     "Soul Mirror boost and CTE",
+			lines:    []string{"SOUL_MIRROR_ORANGE", "CTE"},
+			expected: "Soul Mirror (1d) & CTE",
+		},
+		{
+			name:     "Drones and Elite Drones",
+			lines:    []string{"DRONE", "ELITE_DRONE"},
+			expected: "Drones & Elite Drones",
+		},
+		{
+			name:     "Ascending variations",
+			lines:    []string{">EB", ">GE"},
+			expected: "Lowest EB & Fewest GE",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := SuggestCustomOrderName(tt.lines)
+			if got != tt.expected {
+				t.Errorf("SuggestCustomOrderName(%v) = %q, want %q", tt.lines, got, tt.expected)
+			}
+		})
+	}
+}
