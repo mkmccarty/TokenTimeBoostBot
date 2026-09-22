@@ -1,11 +1,20 @@
 package boost
 
 import (
+	"bytes"
+	"compress/gzip"
+	"compress/zlib"
+	"encoding/base64"
 	"fmt"
+	"io"
 	"math"
+	"os"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
+	"google.golang.org/protobuf/proto"
 )
 
 // Helper function for floating-point comparisons
@@ -217,5 +226,168 @@ func TestGetContractEstimateString(t *testing.T) {
 	resWithOverride := GetContractEstimateString("predicted-placeholder", false, 150.0)
 	if resWithOverride != "Contract estimates are not available for predicted or incomplete contracts." {
 		t.Errorf("expected predicted contract error message with override, got: %q", resWithOverride)
+	}
+}
+
+func TestQuantBlitzEstimate(t *testing.T) {
+	LoadContractData("../../ttbb-data/ei-contracts.json")
+	c, ok := ei.EggIncContractsAll["quant-blitz"]
+	if !ok {
+		t.Fatalf("quant-blitz not found")
+	}
+
+	if c.EstimatedDurationLower >= c.EstimatedDuration {
+		t.Errorf("expected lower duration (%v) < upper duration (%v)", c.EstimatedDurationLower, c.EstimatedDuration)
+	}
+	if c.EstimatedDurationMax >= c.EstimatedDurationLower {
+		t.Errorf("expected max duration (%v) < lower duration (%v)", c.EstimatedDurationMax, c.EstimatedDurationLower)
+	}
+	if c.EstimatedDurationMax > 20*time.Minute {
+		t.Errorf("expected max duration (%v) to be under 20m", c.EstimatedDurationMax)
+	}
+
+	estStr := GetContractEstimateString("quant-blitz", true)
+	t.Logf("estStr:\n%s", estStr)
+	if !strings.Contains(estStr, "3.85 fair share") {
+		t.Errorf("expected GetContractEstimateString output to contain '3.85 fair share', got:\n%s", estStr)
+	}
+	if !strings.Contains(estStr, "Leggy Set: **10m**") {
+		t.Errorf("expected GetContractEstimateString output to contain 'Leggy Set: **10m**', got:\n%s", estStr)
+	}
+	if !strings.Contains(estStr, "8🪙 boost") && !strings.Contains(estStr, "8<::> boost") {
+		t.Errorf("expected GetContractEstimateString output to contain '8 token boost', got:\n%s", estStr)
+	}
+
+	estStrOverride := GetContractEstimateString("quant-blitz", true, 232.0)
+	if !strings.Contains(estStrOverride, "3.85 fair share") {
+		t.Errorf("expected GetContractEstimateString (TE=232) output to contain '3.85 fair share', got:\n%s", estStrOverride)
+	}
+	if !strings.Contains(estStrOverride, "Leggy Set: **8m**") {
+		t.Errorf("expected GetContractEstimateString (TE=232) output to contain 'Leggy Set: **8m**', got:\n%s", estStrOverride)
+	}
+}
+
+func TestInspectQuantBlitzAcl(t *testing.T) {
+	fname := "../../ttbb-data/pb-completed/quant-blitz-acl.pb"
+	protoDataBytes, err := os.ReadFile(fname)
+	if err != nil {
+		t.Fatalf("failed to read file: %v", err)
+	}
+	gzReader, err := gzip.NewReader(bytes.NewReader(protoDataBytes))
+	if err != nil {
+		t.Fatalf("failed to gzip reader: %v", err)
+	}
+	decompressedBytes, err := io.ReadAll(gzReader)
+	_ = gzReader.Close()
+	if err != nil {
+		t.Fatalf("failed to read decompressed: %v", err)
+	}
+
+	enc := base64.StdEncoding
+	decodedAuthBuf := &ei.AuthenticatedMessage{}
+	rawDecodedText, err := enc.DecodeString(string(decompressedBytes))
+	if err != nil {
+		t.Fatalf("failed to b64 decode: %v", err)
+	}
+	err = proto.Unmarshal(rawDecodedText, decodedAuthBuf)
+	if err != nil {
+		t.Fatalf("failed to unmarshal auth: %v", err)
+	}
+
+	if decodedAuthBuf.GetCompressed() {
+		gr, zerr := zlib.NewReader(bytes.NewReader(decodedAuthBuf.Message))
+		if zerr != nil {
+			t.Fatalf("failed zlib: %v", zerr)
+		}
+		var buf bytes.Buffer
+		_, _ = io.Copy(&buf, gr)
+		_ = gr.Close()
+		decodedAuthBuf.Message = buf.Bytes()
+	}
+
+	status := &ei.ContractCoopStatusResponse{}
+	err = proto.Unmarshal(decodedAuthBuf.Message, status)
+	if err != nil {
+		t.Fatalf("failed to unmarshal coop status: %v", err)
+	}
+
+	if status.GetContractIdentifier() != "quant-blitz" {
+		t.Errorf("expected contract quant-blitz, got %s", status.GetContractIdentifier())
+	}
+	if status.GetTotalAmount() < 1.3e14 {
+		t.Errorf("expected total amount >= 1.3e14, got %f", status.GetTotalAmount())
+	}
+
+	contributors := status.GetContributors()
+	if len(contributors) != 3 {
+		t.Fatalf("expected 3 contributors, got %d", len(contributors))
+	}
+
+	c0 := contributors[0]
+	farm := c0.GetFarmInfo()
+	var totalPop uint64
+	for _, p := range farm.GetHabPopulation() {
+		totalPop += p
+	}
+	var boosts []string
+	for _, b := range farm.GetActiveBoosts() {
+		boosts = append(boosts, fmt.Sprintf("%s(timeRemaining=%.1f)", b.GetBoostId(), b.GetTimeRemaining()))
+	}
+	t.Logf("Contributor 0: totalPop=%d, contribRate=%.3e (%.2f q/hr), activeBoosts=%v",
+		totalPop, c0.GetContributionRate(), c0.GetContributionRate()*3600/1e15, boosts)
+
+	for i, c := range contributors {
+
+		t.Logf("--- Contributor %d (%s) ---", i, c.GetUserName())
+		farm := c.GetFarmInfo()
+		var artStr []string
+		if farm != nil {
+			for _, a := range farm.GetEquippedArtifacts() {
+				var stones []string
+				for _, s := range a.GetStones() {
+					stones = append(stones, fmt.Sprintf("%s(L%d)", s.GetName(), s.GetLevel()))
+				}
+				artStr = append(artStr, fmt.Sprintf("%s(R%d,stones=%v)", a.GetSpec().GetName(), a.GetSpec().GetRarity(), stones))
+			}
+		}
+
+		for _, b := range c.GetBuffHistory() {
+			t.Logf("  Buff: time=%.1f, defl=%.2f, siab=%.2f",
+				b.GetServerTimestamp(), b.GetEggLayingRate(), b.GetEarnings())
+		}
+
+	}
+
+	fraction := c0.GetContributionAmount() / status.GetTotalAmount()
+	if fraction < 0.95 {
+		t.Errorf("expected contributor 0 fraction >= 0.95, got %f", fraction)
+	}
+
+	// When goals are achieved, SecondsRemaining_now = SecondsRemaining_completion - SecondsSinceAllGoalsAchieved
+	// So SecondsRemaining_completion = SecondsSinceAchieved + SecondsRemaining
+	// completionSec = 1800 - (SecondsSinceAchieved + SecondsRemaining)
+	completionSec := 1800.0 - (status.GetSecondsSinceAllGoalsAchieved() + status.GetSecondsRemaining())
+	t.Logf("Computed completion duration: %.1fs (%.1fm)", completionSec, completionSec/60.0)
+	if completionSec < 630 || completionSec > 640 {
+		t.Errorf("expected completion around 635s (10.5m), got %f", completionSec)
+	}
+}
+
+func TestQuantBlitzAclScore(t *testing.T) {
+	LoadContractData("../../ttbb-data/ei-contracts.json")
+	c := ei.EggIncContractsAll["quant-blitz"]
+	_ = getContractDurationEstimate(c, c.TargetAmount[len(c.TargetAmount)-1], float64(c.MaxCoopSize), c.LengthInSeconds,
+		c.ModifierSR, c.ModifierELR, c.ModifierHabCap, true, 100)
+
+	estScore := getContractScoreEstimateWithDuration(c, ei.Contract_GRADE_AAA,
+		635*time.Second,
+		3.85,
+		100, 10,
+		32, 0,
+		2,
+		100, 5)
+
+	if estScore < 14000 {
+		t.Errorf("expected high score estimate for 10.5m run with fairShare 3.85, got %d", estScore)
 	}
 }
