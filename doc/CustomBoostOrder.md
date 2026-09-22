@@ -8,9 +8,9 @@ Boost Bot supports **Custom Boost Orders**, allowing contract coordinators to cr
 
 Run the `/custom-boost-order` command:
 
-* **Modify / Preview / Create**:
+* **Craft / Preview / Create**:
 ```text
-/custom-boost-order modify [order]
+/custom-boost-order craft [order]
 ```
 * **Delete a Saved Order**:
 ```text
@@ -24,7 +24,7 @@ Displays the custom order rules (without image) with buttons to **DISMISS** (rem
 Displays an ephemeral response with this guide (`CustomBoostOrder.md`) attached directly in Discord.
 
 ### Autocomplete Options
-When running `/custom-boost-order modify`, the `order` parameter autocomplete provides:
+When running `/custom-boost-order craft`, the `order` parameter autocomplete provides:
 * `<NEW>`: Create a new custom boost order from scratch.
 * `[User] <name>`: Load a personal preset previously saved to your profile.
 * `[Global] <name>`: Load a globally published preset accessible across all servers.
@@ -268,7 +268,7 @@ Submitting the criteria modal or loading a preset generates an interactive previ
 
 ### Action Buttons:
 * **MODIFY**: Re-opens the 4-row criteria modal to tweak rules.
-* **SAVE**: Opens a modal to enter a Name and saves the preset to your personal profile.
+* **SAVE**: Opens a modal to enter a Name (pre-populated with a suggested name generated from your rules if not already named) and saves the preset to your personal profile.
 * **SELECT**: *(Only in active contracts when saved/loaded)* Immediately applies the custom order to the contract boost list and updates contract boost order.
 
 ---
@@ -278,8 +278,8 @@ Submitting the criteria modal or loading a preset generates an interactive previ
 1. **Via Dropdown (`cs_#order`)**:
    * In contract signup or `/contract-settings`, open the **Boosting Order** select menu.
    * All published global orders (`⚙️ [Global] <name>`) and personal presets (`👤 [User] <name>`) appear in the list.
-2. **Via `/custom-boost-order modify`**:
-   * Run `/custom-boost-order modify` inside a contract channel.
+2. **Via `/custom-boost-order craft`**:
+   * Run `/custom-boost-order craft` inside a contract channel.
    * Inspect the rendered image preview on the contract's real roster.
    * For newly created orders, **SELECT** defaults to unselectable until you press **SAVE** and name the preset.
    * If an existing preset was loaded to view/edit, **SELECT** is immediately active.

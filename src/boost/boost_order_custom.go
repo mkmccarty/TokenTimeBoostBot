@@ -1807,3 +1807,170 @@ func BuildBoostOrderPreviewMessage(contract *Contract) (dc.Message, error) {
 		Files:      files,
 	}, nil
 }
+
+// criterionShortName returns a concise, human-readable label for a single criterion.
+func criterionShortName(c customCriterion) string {
+	if c.isConditional {
+		thenName := ""
+		if c.thenCrit != nil {
+			thenName = criterionShortName(*c.thenCrit)
+			if c.thenCrit.critType == CritTE {
+				thenName = "TE"
+			}
+		}
+		elseName := ""
+		if c.elseCrit != nil {
+			elseName = criterionShortName(*c.elseCrit)
+			if c.elseCrit.critType == CritTE {
+				elseName = "TE"
+			}
+		}
+
+		target := "Role"
+		switch c.targetRole {
+		case roleConditionMain:
+			target = "Main"
+		case roleConditionHelper:
+			target = "Helper"
+		case roleConditionSIAB:
+			target = "SIAB"
+		case roleConditionGusset:
+			target = "Gusset"
+		case roleConditionQuant:
+			target = "Quant"
+		}
+
+		if thenName != "" && elseName != "" {
+			if target == "Main" {
+				return fmt.Sprintf("Role (%s/%s)", thenName, elseName)
+			}
+			return fmt.Sprintf("%s (%s/%s)", target, thenName, elseName)
+		} else if thenName != "" {
+			if target == "Main" {
+				return fmt.Sprintf("Role (%s)", thenName)
+			}
+			return fmt.Sprintf("%s (%s)", target, thenName)
+		}
+		return target
+	}
+
+	switch c.critType {
+	case CritDeflEffort:
+		if c.effortN != 50 && c.effortN > 0 {
+			return fmt.Sprintf("Defl Effort (%d)", c.effortN)
+		}
+		return "Deflector Effort"
+	case CritCraftDefl:
+		return "Deflector Crafts"
+	case CritIHR:
+		if c.fuzzyPct > 0 {
+			return "Fuzzy IHR"
+		}
+		return "IHR"
+	case CritELR:
+		return "ELR"
+	case CritTE:
+		if c.fuzzyPct > 0 {
+			return "Fuzzy TE"
+		}
+		return "Truth Eggs"
+	case CritTokens:
+		if !c.ascending {
+			return "Most Tokens"
+		}
+		return "Tokens"
+	case CritTVal:
+		return "Token Value"
+	case CritDefl:
+		return "Deflector"
+	case CritDeflSlot:
+		return "Deflector Slot"
+	case CritDeliv:
+		return "Delivery Rate"
+	case CritSignup:
+		if !c.ascending {
+			return "Reverse Signup"
+		}
+		return "Signup"
+	case CritReverse:
+		return "Reverse Signup"
+	case CritRandom:
+		return "Random"
+	case CritRole:
+		if c.ascending {
+			return "Helpers First"
+		}
+		return "Role"
+	case CritArtifactCraft:
+		if c.artLabel != "" {
+			return c.artLabel
+		}
+		return "Artifact Crafts"
+	case CritArtifactCount:
+		if c.artLabel != "" {
+			return c.artLabel
+		}
+		return "Artifact Count"
+	case CritArtifactHas:
+		if c.artLabel != "" {
+			return c.artLabel
+		}
+		return "Artifact"
+	case CritUnknown:
+		raw := strings.TrimSpace(c.raw)
+		if len(raw) > 20 {
+			raw = raw[:20]
+		}
+		return raw
+	}
+	return ""
+}
+
+func formatCustomOrderNameList(items []string) string {
+	switch len(items) {
+	case 0:
+		return ""
+	case 1:
+		return items[0]
+	case 2:
+		return fmt.Sprintf("%s & %s", items[0], items[1])
+	default:
+		return fmt.Sprintf("%s & %s", strings.Join(items[:len(items)-1], ", "), items[len(items)-1])
+	}
+}
+
+// SuggestCustomOrderName analyzes custom boost order rule lines and generates a concise, readable preset name.
+func SuggestCustomOrderName(lines []string) string {
+	var items []string
+	seen := make(map[string]bool)
+	for _, l := range lines {
+		trimmed := strings.TrimSpace(l)
+		if trimmed == "" || trimmed == "-" {
+			continue
+		}
+		crit := parseCustomCriterion(trimmed)
+		name := criterionShortName(crit)
+		if name != "" && !seen[name] {
+			seen[name] = true
+			items = append(items, name)
+		}
+	}
+
+	if len(items) == 0 {
+		return ""
+	}
+
+	// Try fitting as many criteria as possible within the 50-character modal limit
+	for k := len(items); k >= 1; k-- {
+		candidate := formatCustomOrderNameList(items[:k])
+		if len(candidate) <= 50 {
+			return candidate
+		}
+	}
+
+	first := items[0]
+	if len(first) > 50 {
+		return first[:50]
+	}
+	return first
+}

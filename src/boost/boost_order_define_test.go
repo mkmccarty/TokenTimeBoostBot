@@ -196,15 +196,15 @@ func TestSlashCustomBoostOrderCommand(t *testing.T) {
 		t.Fatalf("expected 3 subcommands in command, got %d", len(cmd.Options))
 	}
 	sub1, ok := cmd.Options[0].(dc.SubCommand)
-	if !ok || sub1.Name != "modify" {
-		t.Fatalf("expected Option[0] to be dc.SubCommand 'modify', got %T, val=%+v", cmd.Options[0], cmd.Options[0])
+	if !ok || sub1.Name != "craft" {
+		t.Fatalf("expected Option[0] to be dc.SubCommand 'craft', got %T, val=%+v", cmd.Options[0], cmd.Options[0])
 	}
 	if len(sub1.Options) == 0 {
-		t.Fatalf("expected 'order' option under 'modify' subcommand")
+		t.Fatalf("expected 'order' option under 'craft' subcommand")
 	}
 	opt1, ok := sub1.Options[0].(dc.StringOption)
 	if !ok || opt1.Name != "order" || !opt1.Autocomplete {
-		t.Errorf("expected autocomplete enabled for order option in modify, got Name=%s, Autocomplete=%v", opt1.Name, opt1.Autocomplete)
+		t.Errorf("expected autocomplete enabled for order option in craft, got Name=%s, Autocomplete=%v", opt1.Name, opt1.Autocomplete)
 	}
 
 	sub2, ok := cmd.Options[1].(dc.SubCommand)
@@ -227,6 +227,38 @@ func TestSlashCustomBoostOrderCommand(t *testing.T) {
 	docData := GetCustomBoostOrderDoc()
 	if len(docData) == 0 {
 		t.Errorf("expected non-empty doc data from GetCustomBoostOrderDoc")
+	}
+}
+
+func TestSaveCustomOrderSuggestedName(t *testing.T) {
+	tmplEmptyName := CustomBoostOrderTemplate{
+		Name:  "",
+		Lines: []string{"DEFL_EFFORT", "IHR"},
+	}
+	suggested := SuggestCustomOrderName(tmplEmptyName.Lines)
+	if suggested != "Deflector Effort & IHR" {
+		t.Errorf("expected 'Deflector Effort & IHR', got %q", suggested)
+	}
+
+	tmplCustomOrder := CustomBoostOrderTemplate{
+		Name:  "Custom Order",
+		Lines: []string{"T4L_ACTUATOR", "CRAFT(T4_ACTUATOR)"},
+	}
+	suggested2 := SuggestCustomOrderName(tmplCustomOrder.Lines)
+	if suggested2 != "T4L Actuator & T4 Actuator Crafts" {
+		t.Errorf("expected 'T4L Actuator & T4 Actuator Crafts', got %q", suggested2)
+	}
+
+	tmplExistingName := CustomBoostOrderTemplate{
+		Name:  "My Custom Order",
+		Lines: []string{"DEFL_EFFORT"},
+	}
+	nameVal := tmplExistingName.Name
+	if strings.TrimSpace(nameVal) == "" || strings.EqualFold(nameVal, "Custom Order") {
+		nameVal = SuggestCustomOrderName(tmplExistingName.Lines)
+	}
+	if nameVal != "My Custom Order" {
+		t.Errorf("expected existing name to be preserved, got %q", nameVal)
 	}
 }
 

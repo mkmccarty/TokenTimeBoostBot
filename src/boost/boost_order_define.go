@@ -241,17 +241,17 @@ func GetCustomBoostOrderDoc() []byte {
 
 // Slash Command Definition
 
-// GetSlashCustomBoostOrderCommand defines the /custom-boost-order slash command with modify, delete, and help subcommands.
+// GetSlashCustomBoostOrderCommand defines the /custom-boost-order slash command with craft, delete, and help subcommands.
 func GetSlashCustomBoostOrderCommand(cmd string) *dc.Command {
-	command := guildOnlyCommand(cmd, "Create, modify, preview, delete, or view documentation for custom boost orders")
+	command := guildOnlyCommand(cmd, "Craft, preview, delete, or view documentation for custom boost orders")
 	command.Options = []dc.Option{
 		dc.SubCommand{
-			Name:        "modify",
-			Description: "Define, modify, or preview a custom boost order",
+			Name:        "craft",
+			Description: "Craft, define, or preview a custom boost order",
 			Options: []dc.Option{
 				dc.StringOption{
 					Name:         "order",
-					Description:  "Select an existing custom order to view/modify, or <NEW> to create one",
+					Description:  "Select an existing custom order to view/craft, or <NEW> to create one",
 					Required:     false,
 					Autocomplete: true,
 				},
@@ -285,12 +285,12 @@ func GetSlashDefineCustomOrderCommand(cmd string) *dc.Command {
 // HandleCustomBoostOrderAutoComplete provides autocomplete options for /custom-boost-order.
 func HandleCustomBoostOrderAutoComplete(e *dc.AutocompleteEvent) {
 	sub, _ := e.Subcommand()
-	if sub != "modify" && sub != "delete" {
+	if sub != "craft" && sub != "modify" && sub != "delete" {
 		_ = e.RespondChoices(nil)
 		return
 	}
 
-	if sub == "modify" {
+	if sub == "craft" || sub == "modify" {
 		if contract := FindContract(e.ChannelID()); contract == nil {
 			_ = e.RespondChoices(nil)
 			return
@@ -301,8 +301,8 @@ func HandleCustomBoostOrderAutoComplete(e *dc.AutocompleteEvent) {
 	focused := strings.ToLower(strings.TrimSpace(focusedVal))
 	var choices []dc.Choice[string]
 
-	// Only offer <NEW> for modify
-	if sub == "modify" {
+	// Only offer <NEW> for craft / modify
+	if sub == "craft" || sub == "modify" {
 		if focused == "" || strings.Contains("<new>", focused) || strings.Contains("new", focused) {
 			choices = append(choices, dc.Choice[string]{
 				Name:  "<NEW> (Create a new custom boost order)",
@@ -373,7 +373,7 @@ func HandleCustomBoostOrderCommand(client dc.Client, e *dc.CommandEvent) {
 		})
 	case "delete":
 		handleCustomBoostOrderDelete(client, e)
-	case "modify", "":
+	case "craft", "modify", "":
 		contract := FindContract(e.ChannelID())
 		if contract == nil {
 			_ = e.Respond(dc.Message{
@@ -382,7 +382,7 @@ func HandleCustomBoostOrderCommand(client dc.Client, e *dc.CommandEvent) {
 			})
 			return
 		}
-		handleCustomBoostOrderModify(client, e, contract)
+		handleCustomBoostOrderCraft(client, e, contract)
 	default:
 		_ = e.Respond(dc.Message{Content: fmt.Sprintf("Unknown subcommand %q.", subcmd), Ephemeral: true})
 	}
@@ -451,7 +451,7 @@ func handleCustomBoostOrderDelete(_ dc.Client, e *dc.CommandEvent) {
 	})
 }
 
-func handleCustomBoostOrderModify(_ dc.Client, e *dc.CommandEvent, contract *Contract) {
+func handleCustomBoostOrderCraft(_ dc.Client, e *dc.CommandEvent, contract *Contract) {
 	orderArg, _ := e.OptString("order")
 	orderArg = strings.TrimSpace(orderArg)
 
@@ -675,6 +675,9 @@ func HandleDefineCustomOrderModalSubmit(_ dc.Client, e *dc.ModalEvent) {
 // SendSaveCustomOrderModal presents a modal dialog to name and save the custom order to user presets.
 func SendSaveCustomOrderModal(e *dc.ComponentEvent, tmpl CustomBoostOrderTemplate, sessionUUID string) {
 	nameVal := tmpl.Name
+	if strings.TrimSpace(nameVal) == "" || strings.EqualFold(nameVal, "Custom Order") {
+		nameVal = SuggestCustomOrderName(tmpl.Lines)
+	}
 	_ = e.ShowModal(dc.Modal{
 		CustomID: fmt.Sprintf("m_save_order#%s", sessionUUID),
 		Title:    "Save Custom Boost Order",
@@ -708,13 +711,16 @@ func HandleSaveCustomOrderModalSubmit(_ dc.Client, e *dc.ModalEvent) {
 
 	session := getDefineSession(sessionUUID)
 	if session == nil {
-		_ = e.EditResponse(dc.Message{Content: "This session has expired. Please run `/custom-boost-order modify` again.", Ephemeral: true})
+		_ = e.EditResponse(dc.Message{Content: "This session has expired. Please run `/custom-boost-order craft` again.", Ephemeral: true})
 		return
 	}
 
 	name := strings.TrimSpace(e.TextValue("save-order-name"))
 	if name == "" {
-		name = "Custom Order"
+		name = SuggestCustomOrderName(session.template.Lines)
+		if name == "" {
+			name = "Custom Order"
+		}
 	}
 	session.template.Name = name
 	session.isSaved = true
@@ -731,8 +737,8 @@ func HandleSaveCustomOrderModalSubmit(_ dc.Client, e *dc.ModalEvent) {
 // SendPublishCustomOrderModal presents a modal dialog to name and publish the custom order globally.
 func SendPublishCustomOrderModal(e *dc.ComponentEvent, tmpl CustomBoostOrderTemplate, sessionUUID string) {
 	nameVal := tmpl.Name
-	if nameVal == "Custom Order" {
-		nameVal = ""
+	if strings.TrimSpace(nameVal) == "" || strings.EqualFold(nameVal, "Custom Order") {
+		nameVal = SuggestCustomOrderName(tmpl.Lines)
 	}
 	_ = e.ShowModal(dc.Modal{
 		CustomID: fmt.Sprintf("m_publish_order#%s", sessionUUID),
@@ -767,13 +773,16 @@ func HandlePublishCustomOrderModalSubmit(_ dc.Client, e *dc.ModalEvent) {
 
 	session := getDefineSession(sessionUUID)
 	if session == nil {
-		_ = e.EditResponse(dc.Message{Content: "This session has expired. Please run `/custom-boost-order modify` again.", Ephemeral: true})
+		_ = e.EditResponse(dc.Message{Content: "This session has expired. Please run `/custom-boost-order craft` again.", Ephemeral: true})
 		return
 	}
 
 	name := strings.TrimSpace(e.TextValue("publish-order-name"))
 	if name == "" {
-		name = "Custom Order"
+		name = SuggestCustomOrderName(session.template.Lines)
+		if name == "" {
+			name = "Custom Order"
+		}
 	}
 	session.template.Name = name
 	PublishGlobalCustomOrder(session.template)
@@ -997,7 +1006,7 @@ func HandleDefineCustomOrderReactions(client dc.Client, e *dc.ComponentEvent) {
 
 	session := getDefineSession(sessionUUID)
 	if session == nil {
-		_ = e.Update(dc.Message{Content: "This session has expired. Please run `/custom-boost-order modify` again.", Ephemeral: true})
+		_ = e.Update(dc.Message{Content: "This session has expired. Please run `/custom-boost-order craft` again.", Ephemeral: true})
 		return
 	}
 

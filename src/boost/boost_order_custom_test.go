@@ -1069,3 +1069,69 @@ func TestBuildBoostOrderPreviewMessage(t *testing.T) {
 		t.Errorf("unexpected Dismiss button CustomID: %s", dismissBtn.CustomID)
 	}
 }
+
+func TestSuggestCustomOrderName(t *testing.T) {
+	tests := []struct {
+		name     string
+		lines    []string
+		expected string
+	}{
+		{
+			name:     "Single criterion",
+			lines:    []string{"DEFL_EFFORT"},
+			expected: "Deflector Effort",
+		},
+		{
+			name:     "Two criteria",
+			lines:    []string{"DEFL_EFFORT", "IHR"},
+			expected: "Deflector Effort & IHR",
+		},
+		{
+			name:     "Four criteria fitting within 50 chars",
+			lines:    []string{"DEFL_EFFORT", "IHR", "TE", "SIGNUP"},
+			expected: "Deflector Effort, IHR, Truth Eggs & Signup",
+		},
+		{
+			name:     "Artifact count and craft",
+			lines:    []string{"T4L_ACTUATOR", "CRAFT(T4_ACTUATOR)"},
+			expected: "T4L Actuator & T4 Actuator Crafts",
+		},
+		{
+			name:     "Conditional rule with else",
+			lines:    []string{"IF ROLE = MAIN THEN IHR ELSE TE"},
+			expected: "Role (IHR/TE)",
+		},
+		{
+			name:     "Conditional rule helper",
+			lines:    []string{"IF ROLE = HELPER THEN TE"},
+			expected: "Helper (TE)",
+		},
+		{
+			name:     "Tokens ascending vs descending",
+			lines:    []string{"+TOKENS", "-TOKENS"},
+			expected: "Tokens & Most Tokens",
+		},
+		{
+			name:     "Empty and dash lines",
+			lines:    []string{"-", "", "   "},
+			expected: "",
+		},
+		{
+			name:     "Long criteria trimmed to fit 50 chars",
+			lines:    []string{"COUNT(T4E_GUSSET)", "T4_COMPASS", "CRAFT(T4_ACTUATOR)", "DEFL_EFFORT"},
+			expected: "T4E Gusset Count, T4 Compass & T4 Actuator Crafts",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := SuggestCustomOrderName(tt.lines)
+			if got != tt.expected {
+				t.Errorf("SuggestCustomOrderName(%v) = %q, want %q", tt.lines, got, tt.expected)
+			}
+			if len(got) > 50 {
+				t.Errorf("SuggestCustomOrderName(%v) length %d exceeds 50 chars: %q", tt.lines, len(got), got)
+			}
+		})
+	}
+}
