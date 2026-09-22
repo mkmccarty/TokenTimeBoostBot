@@ -39,10 +39,10 @@ Selecting `<NEW>` or clicking **MODIFY** opens the **Custom Boost Order Criteria
 
 | Row | Role | Required | Example |
 | :--- | :--- | :---: | :--- |
-| **Level 1** | Primary sorting rule | Yes | `<DEFL_EFFORT[50]` |
-| **Level 2** | Secondary tiebreaker | No | `<IHR[6%]` |
-| **Level 3** | Tertiary tiebreaker | No | `>TOKENS` |
-| **Level 4** | Quaternary tiebreaker | No | `<TE` |
+| **Level 1** | Primary sorting rule | Yes | `<IHR[6%]` |
+| **Level 2** | Secondary tiebreaker | No | `ELR` |
+| **Level 3** | Tertiary tiebreaker | No | *(blank)* |
+| **Level 4** | Quaternary tiebreaker | No | *(blank)* |
 
 > [!NOTE]
 > Higher levels take absolute precedence. Lower levels are only evaluated when players are **tied** on all preceding levels. If all 4 levels result in a tie, sign-up order is used as the fallback.

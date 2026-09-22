@@ -477,10 +477,10 @@ func handleCustomBoostOrderCraft(_ dc.Client, e *dc.CommandEvent, contract *Cont
 // SendDefineCustomOrderModalFromCommand presents the 4-line criteria modal in response to a CommandEvent.
 func SendDefineCustomOrderModalFromCommand(e *dc.CommandEvent, contract *Contract, initial *CustomBoostOrderTemplate) {
 	nameVal := ""
-	lvl1Val := "<DEFL_EFFORT[50]"
-	lvl2Val := "<IHR[6%]"
-	lvl3Val := ">TOKENS"
-	lvl4Val := "<TE"
+	lvl1Val := ""
+	lvl2Val := ""
+	lvl3Val := ""
+	lvl4Val := ""
 
 	if initial != nil {
 		if initial.Name != "" {
@@ -491,18 +491,12 @@ func SendDefineCustomOrderModalFromCommand(e *dc.CommandEvent, contract *Contrac
 		}
 		if len(initial.Lines) > 1 && initial.Lines[1] != "" {
 			lvl2Val = initial.Lines[1]
-		} else {
-			lvl2Val = ""
 		}
 		if len(initial.Lines) > 2 && initial.Lines[2] != "" {
 			lvl3Val = initial.Lines[2]
-		} else {
-			lvl3Val = ""
 		}
 		if len(initial.Lines) > 3 && initial.Lines[3] != "" {
 			lvl4Val = initial.Lines[3]
-		} else {
-			lvl4Val = ""
 		}
 	}
 
@@ -519,7 +513,7 @@ func SendDefineCustomOrderModalFromCommand(e *dc.CommandEvent, contract *Contrac
 				CustomID:    "custom-order-level-1",
 				Label:       "Level 1 (Primary Condition)",
 				Style:       dc.TextInputStyleShort,
-				Placeholder: "<DEFL_EFFORT[50]",
+				Placeholder: "<IHR[6%]",
 				Value:       lvl1Val,
 				MaxLength:   100,
 				Required:    true,
@@ -528,7 +522,7 @@ func SendDefineCustomOrderModalFromCommand(e *dc.CommandEvent, contract *Contrac
 				CustomID:    "custom-order-level-2",
 				Label:       "Level 2 (Tiebreaker 1)",
 				Style:       dc.TextInputStyleShort,
-				Placeholder: "<IHR[6%]",
+				Placeholder: "ELR",
 				Value:       lvl2Val,
 				MaxLength:   100,
 				Required:    false,
@@ -537,7 +531,7 @@ func SendDefineCustomOrderModalFromCommand(e *dc.CommandEvent, contract *Contrac
 				CustomID:    "custom-order-level-3",
 				Label:       "Level 3 (Tiebreaker 2)",
 				Style:       dc.TextInputStyleShort,
-				Placeholder: ">TOKENS",
+				Placeholder: "",
 				Value:       lvl3Val,
 				MaxLength:   100,
 				Required:    false,
@@ -546,7 +540,7 @@ func SendDefineCustomOrderModalFromCommand(e *dc.CommandEvent, contract *Contrac
 				CustomID:    "custom-order-level-4",
 				Label:       "Level 4 (Tiebreaker 3)",
 				Style:       dc.TextInputStyleShort,
-				Placeholder: "<TE",
+				Placeholder: "",
 				Value:       lvl4Val,
 				MaxLength:   100,
 				Required:    false,
@@ -583,7 +577,7 @@ func SendDefineCustomOrderModalFromComponent(e *dc.ComponentEvent, tmpl CustomBo
 				CustomID:    "custom-order-level-1",
 				Label:       "Level 1 (Primary Condition)",
 				Style:       dc.TextInputStyleShort,
-				Placeholder: "<DEFL_EFFORT[50]",
+				Placeholder: "<IHR[6%]",
 				Value:       lvl1Val,
 				MaxLength:   100,
 				Required:    true,
@@ -592,7 +586,7 @@ func SendDefineCustomOrderModalFromComponent(e *dc.ComponentEvent, tmpl CustomBo
 				CustomID:    "custom-order-level-2",
 				Label:       "Level 2 (Tiebreaker 1)",
 				Style:       dc.TextInputStyleShort,
-				Placeholder: "<IHR[6%]",
+				Placeholder: "ELR",
 				Value:       lvl2Val,
 				MaxLength:   100,
 				Required:    false,
@@ -601,7 +595,7 @@ func SendDefineCustomOrderModalFromComponent(e *dc.ComponentEvent, tmpl CustomBo
 				CustomID:    "custom-order-level-3",
 				Label:       "Level 3 (Tiebreaker 2)",
 				Style:       dc.TextInputStyleShort,
-				Placeholder: ">TOKENS",
+				Placeholder: "",
 				Value:       lvl3Val,
 				MaxLength:   100,
 				Required:    false,
@@ -610,7 +604,7 @@ func SendDefineCustomOrderModalFromComponent(e *dc.ComponentEvent, tmpl CustomBo
 				CustomID:    "custom-order-level-4",
 				Label:       "Level 4 (Tiebreaker 3)",
 				Style:       dc.TextInputStyleShort,
-				Placeholder: "<TE",
+				Placeholder: "",
 				Value:       lvl4Val,
 				MaxLength:   100,
 				Required:    false,

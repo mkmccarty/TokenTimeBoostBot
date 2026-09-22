@@ -1273,10 +1273,10 @@ func SendCustomBoostOrderModal(e *dc.ComponentEvent, contractHash string) {
 		return
 	}
 
-	row1Val := "<DEFL_EFFORT[50]>"
-	row2Val := "<IHR[6%]>"
-	row3Val := ">TOKENS"
-	row4Val := "<TE"
+	row1Val := ""
+	row2Val := ""
+	row3Val := ""
+	row4Val := ""
 
 	if len(contract.CustomOrderLines) > 0 {
 		if len(contract.CustomOrderLines) > 0 && contract.CustomOrderLines[0] != "" {
@@ -1284,18 +1284,12 @@ func SendCustomBoostOrderModal(e *dc.ComponentEvent, contractHash string) {
 		}
 		if len(contract.CustomOrderLines) > 1 && contract.CustomOrderLines[1] != "" {
 			row2Val = contract.CustomOrderLines[1]
-		} else {
-			row2Val = ""
 		}
 		if len(contract.CustomOrderLines) > 2 && contract.CustomOrderLines[2] != "" {
 			row3Val = contract.CustomOrderLines[2]
-		} else {
-			row3Val = ""
 		}
 		if len(contract.CustomOrderLines) > 3 && contract.CustomOrderLines[3] != "" {
 			row4Val = contract.CustomOrderLines[3]
-		} else {
-			row4Val = ""
 		}
 	} else {
 		saved := farmerstate.GetMiscSettingString(e.UserID(), "custom_boost_order")
@@ -1324,7 +1318,7 @@ func SendCustomBoostOrderModal(e *dc.ComponentEvent, contractHash string) {
 				CustomID:    "custom-order-row-1",
 				Label:       "Row 1 (Primary Condition)",
 				Style:       dc.TextInputStyleShort,
-				Placeholder: "<DEFL_EFFORT[50]>",
+				Placeholder: "<IHR[6%]",
 				Value:       row1Val,
 				MaxLength:   100,
 				Required:    true,
@@ -1333,7 +1327,7 @@ func SendCustomBoostOrderModal(e *dc.ComponentEvent, contractHash string) {
 				CustomID:    "custom-order-row-2",
 				Label:       "Row 2 (Secondary Tiebreaker)",
 				Style:       dc.TextInputStyleShort,
-				Placeholder: "<IHR[6%]>",
+				Placeholder: "ELR",
 				Value:       row2Val,
 				MaxLength:   100,
 				Required:    false,
@@ -1342,7 +1336,7 @@ func SendCustomBoostOrderModal(e *dc.ComponentEvent, contractHash string) {
 				CustomID:    "custom-order-row-3",
 				Label:       "Row 3 (Tertiary Tiebreaker)",
 				Style:       dc.TextInputStyleShort,
-				Placeholder: ">TOKENS",
+				Placeholder: "",
 				Value:       row3Val,
 				MaxLength:   100,
 				Required:    false,
@@ -1351,7 +1345,7 @@ func SendCustomBoostOrderModal(e *dc.ComponentEvent, contractHash string) {
 				CustomID:    "custom-order-row-4",
 				Label:       "Row 4 (Fallback Tiebreaker)",
 				Style:       dc.TextInputStyleShort,
-				Placeholder: "<TE",
+				Placeholder: "",
 				Value:       row4Val,
 				MaxLength:   100,
 				Required:    false,
