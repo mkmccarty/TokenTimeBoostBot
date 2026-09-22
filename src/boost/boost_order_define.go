@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	"uuid"
 
@@ -18,7 +20,75 @@ import (
 const (
 	defineOrderHandlerPrefix = "bo_define"
 	defineOrderSessionTTL    = 30 * time.Minute
+	// maxCustomOrderLineLen caps the length of a single criteria line after sanitization.
+	maxCustomOrderLineLen = 100
+	// maxCustomOrderNameLen caps the length of a saved order name after sanitization.
+	maxCustomOrderNameLen = 50
 )
+
+// reDiscordMention matches Discord mention patterns that could ping users,
+// roles, channels, or use @everyone/@here.
+var reDiscordMention = regexp.MustCompile(`<@[!&]?\d+>|<#\d+>`)
+
+// reMarkdownLink matches markdown-style links [text](url) used for phishing.
+var reMarkdownLink = regexp.MustCompile(`\[([^\]]{0,100})\]\([^)]*\)`)
+
+// sanitizeCustomOrderInput strips dangerous content from a single criteria
+// line entered via the modal. It prevents Discord mention injection,
+// markdown link abuse, control characters, and excessive length.
+func sanitizeCustomOrderInput(s string) string {
+	// Trim whitespace
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return s
+	}
+
+	// Remove control characters (except normal space) that could break
+	// formatting or hide content.
+	s = strings.Map(func(r rune) rune {
+		if r == ' ' {
+			return r
+		}
+		if unicode.IsControl(r) {
+			return -1 // drop
+		}
+		// Drop zero-width characters used to hide content
+		if r == '\u200B' || r == '\u200C' || r == '\u200D' || r == '\uFEFF' {
+			return -1
+		}
+		return r
+	}, s)
+
+	// Strip Discord mention syntax: <@id>, <@!id>, <@&id>, <#id>
+	s = reDiscordMention.ReplaceAllString(s, "")
+
+	// Neutralise @everyone and @here (replace @ with fullwidth @)
+	s = strings.ReplaceAll(s, "@everyone", "＠everyone")
+	s = strings.ReplaceAll(s, "@here", "＠here")
+	// Also catch case-insensitive variants
+	for _, mention := range []string{"@EVERYONE", "@Everyone", "@HERE", "@Here"} {
+		s = strings.ReplaceAll(s, mention, "＠"+mention[1:])
+	}
+
+	// Strip markdown links [text](url) to prevent phishing; keep the text part
+	s = reMarkdownLink.ReplaceAllString(s, "$1")
+
+	// Enforce max length
+	if len(s) > maxCustomOrderLineLen {
+		s = s[:maxCustomOrderLineLen]
+	}
+
+	return strings.TrimSpace(s)
+}
+
+// sanitizeCustomOrderName sanitizes a saved/published order name.
+func sanitizeCustomOrderName(s string) string {
+	s = sanitizeCustomOrderInput(s)
+	if len(s) > maxCustomOrderNameLen {
+		s = s[:maxCustomOrderNameLen]
+	}
+	return strings.TrimSpace(s)
+}
 
 // CustomBoostOrderTemplate represents a named custom boost order definition.
 type CustomBoostOrderTemplate struct {
@@ -627,10 +697,10 @@ func HandleDefineCustomOrderModalSubmit(_ dc.Client, e *dc.ModalEvent) {
 	}
 	sessionUUID := parts[1]
 
-	lvl1 := strings.TrimSpace(e.TextValue("custom-order-level-1"))
-	lvl2 := strings.TrimSpace(e.TextValue("custom-order-level-2"))
-	lvl3 := strings.TrimSpace(e.TextValue("custom-order-level-3"))
-	lvl4 := strings.TrimSpace(e.TextValue("custom-order-level-4"))
+	lvl1 := sanitizeCustomOrderInput(e.TextValue("custom-order-level-1"))
+	lvl2 := sanitizeCustomOrderInput(e.TextValue("custom-order-level-2"))
+	lvl3 := sanitizeCustomOrderInput(e.TextValue("custom-order-level-3"))
+	lvl4 := sanitizeCustomOrderInput(e.TextValue("custom-order-level-4"))
 
 	session := getDefineSession(sessionUUID)
 	contract := FindContract(e.ChannelID())
@@ -709,7 +779,7 @@ func HandleSaveCustomOrderModalSubmit(_ dc.Client, e *dc.ModalEvent) {
 		return
 	}
 
-	name := strings.TrimSpace(e.TextValue("save-order-name"))
+	name := sanitizeCustomOrderName(e.TextValue("save-order-name"))
 	if name == "" {
 		name = SuggestCustomOrderName(session.template.Lines)
 		if name == "" {
@@ -771,7 +841,7 @@ func HandlePublishCustomOrderModalSubmit(_ dc.Client, e *dc.ModalEvent) {
 		return
 	}
 
-	name := strings.TrimSpace(e.TextValue("publish-order-name"))
+	name := sanitizeCustomOrderName(e.TextValue("publish-order-name"))
 	if name == "" {
 		name = SuggestCustomOrderName(session.template.Lines)
 		if name == "" {

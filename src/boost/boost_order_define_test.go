@@ -262,6 +262,170 @@ func TestSaveCustomOrderSuggestedName(t *testing.T) {
 	}
 }
 
+func TestSanitizeCustomOrderInput(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name:  "valid formula passes through",
+			input: "<IHR[6%]>",
+			want:  "<IHR[6%]>",
+		},
+		{
+			name:  "valid CRAFT passes through",
+			input: "CRAFT(T4_DEFLECTOR)",
+			want:  "CRAFT(T4_DEFLECTOR)",
+		},
+		{
+			name:  "valid DEFL_EFFORT passes through",
+			input: "<DEFL_EFFORT[50]>",
+			want:  "<DEFL_EFFORT[50]>",
+		},
+		{
+			name:  "ELR passes through",
+			input: "ELR",
+			want:  "ELR",
+		},
+		{
+			name:  "conditional IF passes through",
+			input: "IF ROLE==MAIN THEN IHR ELSE TOKENS",
+			want:  "IF ROLE==MAIN THEN IHR ELSE TOKENS",
+		},
+		{
+			name:  "empty string",
+			input: "",
+			want:  "",
+		},
+		{
+			name:  "whitespace only",
+			input: "   ",
+			want:  "",
+		},
+		{
+			name:  "strips @everyone",
+			input: "@everyone IHR",
+			want:  "\uff20everyone IHR",
+		},
+		{
+			name:  "strips @here",
+			input: "@here ELR",
+			want:  "\uff20here ELR",
+		},
+		{
+			name:  "strips @EVERYONE uppercase",
+			input: "@EVERYONE",
+			want:  "\uff20EVERYONE",
+		},
+		{
+			name:  "strips user mention <@123>",
+			input: "<@123456789> IHR",
+			want:  "IHR",
+		},
+		{
+			name:  "strips role mention <@&123>",
+			input: "<@&999888777> ELR",
+			want:  "ELR",
+		},
+		{
+			name:  "strips channel mention <#123>",
+			input: "<#111222333> TOKENS",
+			want:  "TOKENS",
+		},
+		{
+			name:  "strips nick mention <@!123>",
+			input: "<@!555666777> DEFL",
+			want:  "DEFL",
+		},
+		{
+			name:  "strips markdown link keeps text",
+			input: "[Click here](http://evil.com)",
+			want:  "Click here",
+		},
+		{
+			name:  "strips markdown link in context",
+			input: "IHR [phish](http://bad.site) ELR",
+			want:  "IHR phish ELR",
+		},
+		{
+			name:  "strips control characters",
+			input: "IHR\x00\x01\x02ELR",
+			want:  "IHRELR",
+		},
+		{
+			name:  "strips zero-width spaces",
+			input: "IHR\u200B\u200C\u200DELR",
+			want:  "IHRELR",
+		},
+		{
+			name:  "preserves normal spaces",
+			input: "IF ROLE==MAIN THEN IHR",
+			want:  "IF ROLE==MAIN THEN IHR",
+		},
+		{
+			name:  "trims and strips tabs/newlines",
+			input: "\tIHR\nELR\r",
+			want:  "IHRELR",
+		},
+		{
+			name:  "combined attack vector",
+			input: "@everyone <@&123> [hack](http://x.com) \x00IHR",
+			want:  "\uff20everyone  hack IHR",
+		},
+		{
+			name:  "enforces max length",
+			input: strings.Repeat("A", 200),
+			want:  strings.Repeat("A", 100),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := sanitizeCustomOrderInput(tt.input)
+			if got != tt.want {
+				t.Errorf("sanitizeCustomOrderInput(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSanitizeCustomOrderName(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name:  "valid name passes through",
+			input: "Deflector Effort & IHR",
+			want:  "Deflector Effort & IHR",
+		},
+		{
+			name:  "strips @everyone from name",
+			input: "@everyone Order",
+			want:  "\uff20everyone Order",
+		},
+		{
+			name:  "enforces 50 char limit",
+			input: strings.Repeat("B", 80),
+			want:  strings.Repeat("B", 50),
+		},
+		{
+			name:  "strips mentions from name",
+			input: "<@&123> My Order",
+			want:  "My Order",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := sanitizeCustomOrderName(tt.input)
+			if got != tt.want {
+				t.Errorf("sanitizeCustomOrderName(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
 func init() {
 	// Initialize farmerstate test dir if needed
 	farmerstate.SetMiscSettingString("test_user_define_init", "key", "val")

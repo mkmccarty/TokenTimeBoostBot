@@ -1384,10 +1384,10 @@ func HandleCustomOrderModalSubmit(client dc.Client, e *dc.ModalEvent) {
 	}
 
 	lines := []string{
-		strings.TrimSpace(e.TextValue("custom-order-row-1")),
-		strings.TrimSpace(e.TextValue("custom-order-row-2")),
-		strings.TrimSpace(e.TextValue("custom-order-row-3")),
-		strings.TrimSpace(e.TextValue("custom-order-row-4")),
+		sanitizeCustomOrderInput(e.TextValue("custom-order-row-1")),
+		sanitizeCustomOrderInput(e.TextValue("custom-order-row-2")),
+		sanitizeCustomOrderInput(e.TextValue("custom-order-row-3")),
+		sanitizeCustomOrderInput(e.TextValue("custom-order-row-4")),
 	}
 
 	session := getOrCreateCustomOrderSession(e.UserID(), contractHash, lines)
