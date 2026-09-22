@@ -613,7 +613,7 @@ func TestESCOrderRolePriority(t *testing.T) {
 	}
 }
 
-func TestESCOrderGGDeflectorAndEquivELR(t *testing.T) {
+func TestESCOrderGGDeflectorStrict(t *testing.T) {
 	// 1. GG deflector tiering: T4L > T4E > T4R > T3R
 	contract := &Contract{
 		State:      ContractStateSignup,
@@ -661,7 +661,7 @@ func TestESCOrderGGDeflectorAndEquivELR(t *testing.T) {
 		t.Fatalf("unexpected GG deflector order:\ngot  = %v\nwant = %v", sortedGG, expectedGG)
 	}
 
-	// 2. Equivalent ELR allows higher IHR to jump ahead of deflector
+	// 2. Deflector tiering is strict; higher deflector tier always takes priority over IHR regardless of ELR
 	contractEquiv := &Contract{
 		State:      ContractStateSignup,
 		BoostOrder: ContractOrderESCGG,
@@ -687,9 +687,9 @@ func TestESCOrderGGDeflectorAndEquivELR(t *testing.T) {
 	}
 
 	sortedEquiv := sortESCRemaining(contractEquiv, contractEquiv.Order, true)
-	expectedEquiv := []string{"uT4E_highIHR", "uT4L_lowIHR"}
+	expectedEquiv := []string{"uT4L_lowIHR", "uT4E_highIHR"}
 	if !reflect.DeepEqual(sortedEquiv, expectedEquiv) {
-		t.Fatalf("unexpected GG equivalent ELR order:\ngot  = %v\nwant = %v", sortedEquiv, expectedEquiv)
+		t.Fatalf("unexpected GG deflector order with equivalent ELR (deflector tier should strictly rule):\ngot  = %v\nwant = %v", sortedEquiv, expectedEquiv)
 	}
 }
 
