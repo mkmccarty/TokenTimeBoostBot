@@ -38,8 +38,16 @@ type ThematicComplaintsGeneratorFunc func(eggName string, contractName string, c
 // PeriodicalsRefresherFunc triggers an update of periodicals / contracts / events from Egg Inc API.
 type PeriodicalsRefresherFunc func(client dc.Client) bool
 
+// TokenComplaintsRefresherFunc triggers a download and reload of token complaints.
+type TokenComplaintsRefresherFunc func() (int, error)
+
+// StatusMessagesRefresherFunc triggers a download and reload of status messages.
+type StatusMessagesRefresherFunc func() (int, error)
+
 var thematicComplaintsGenerator ThematicComplaintsGeneratorFunc
 var periodicalsRefresher PeriodicalsRefresherFunc
+var tokenComplaintsRefresher TokenComplaintsRefresherFunc
+var statusMessagesRefresher StatusMessagesRefresherFunc
 
 // SetThematicComplaintsGenerator configures the function used to generate complaints with LLM.
 func SetThematicComplaintsGenerator(gen ThematicComplaintsGeneratorFunc) {
@@ -49,6 +57,16 @@ func SetThematicComplaintsGenerator(gen ThematicComplaintsGeneratorFunc) {
 // SetPeriodicalsRefresher configures the function used to refresh periodicals from API.
 func SetPeriodicalsRefresher(refresher PeriodicalsRefresherFunc) {
 	periodicalsRefresher = refresher
+}
+
+// SetTokenComplaintsRefresher configures the function used to refresh token complaints.
+func SetTokenComplaintsRefresher(refresher TokenComplaintsRefresherFunc) {
+	tokenComplaintsRefresher = refresher
+}
+
+// SetStatusMessagesRefresher configures the function used to refresh status messages.
+func SetStatusMessagesRefresher(refresher StatusMessagesRefresherFunc) {
+	statusMessagesRefresher = refresher
 }
 
 var adminTaskList = []adminTaskDef{
@@ -76,6 +94,16 @@ var adminTaskList = []adminTaskDef{
 		ID:          "regen-complaints",
 		Name:        "Regen Complaints",
 		Description: "Regenerate AI contract complaints for a specific contract",
+	},
+	{
+		ID:          "refresh-token-complaints",
+		Name:        "Refresh Token Complaints",
+		Description: "Replace token-complaints.json with latest and reload internal data",
+	},
+	{
+		ID:          "refresh-status-messages",
+		Name:        "Refresh Status Messages",
+		Description: "Replace status-messages.json with latest and reload internal data",
 	},
 }
 
@@ -123,9 +151,25 @@ func HandleAdminTasksAutocomplete(e *dc.AutocompleteEvent) {
 		return
 	}
 
+	choices := filterAdminTaskChoices(isAdminUser, isHome, search)
+	_ = e.RespondChoices(choices)
+}
+
+func filterAdminTaskChoices(isAdminUser, isHome bool, search string) []dc.Choice[string] {
 	choices := make([]dc.Choice[string], 0)
 	for _, task := range adminTaskList {
-		if task.ID == "cycle-encryption-key" && (!isAdminUser || !isHome) {
+		if task.ID == "cycle-encryption-key" {
+			if !isAdminUser || !isHome || search == "" {
+				continue
+			}
+			if !strings.Contains(strings.ToLower(task.Name), search) &&
+				!strings.Contains(strings.ToLower(task.ID), search) {
+				continue
+			}
+			choices = append(choices, dc.Choice[string]{
+				Name:  task.Name,
+				Value: task.ID,
+			})
 			continue
 		}
 		if task.ID == "regen-complaints" && !isAdminUser {
@@ -145,8 +189,7 @@ func HandleAdminTasksAutocomplete(e *dc.AutocompleteEvent) {
 	if len(choices) > 25 {
 		choices = choices[:25]
 	}
-
-	_ = e.RespondChoices(choices)
+	return choices
 }
 
 func handleAdminTasksParamContractAutoComplete(e *dc.AutocompleteEvent, search string) {
@@ -346,6 +389,14 @@ func HandleAdminTasksCommand(client dc.Client, e *dc.CommandEvent) {
 			return
 		}
 		handleRegenComplaintsTask(e, taskName, param)
+	case taskKey == "refresh-token-complaints" || taskKey == "refresh token complaints" ||
+		taskKey == "refresh-token-complaints.json" || taskKey == "token-complaints" ||
+		taskKey == "token-complaints.json" || taskKey == "token complaints":
+		handleRefreshTokenComplaintsTask(e)
+	case taskKey == "refresh-status-messages" || taskKey == "refresh status messages" ||
+		taskKey == "refresh-status-messages.json" || taskKey == "status-messages" ||
+		taskKey == "status-messages.json" || taskKey == "status messages":
+		handleRefreshStatusMessagesTask(e)
 	default:
 		_ = e.Followup(dc.Message{
 			Content: fmt.Sprintf("Unknown administrative task: `%s`", taskName),
@@ -579,5 +630,57 @@ func handleCheckColleggtibleTask(client dc.Client, e *dc.CommandEvent) {
 	responseMsg := "## 🥚 Checked for Colleggtibles\n" +
 		"- **Config**: `ttbb-data/ei-config.json` refreshed\n" +
 		"- **Status**: No new custom hatcheries found"
+	_ = e.Followup(dc.Message{Content: responseMsg})
+}
+
+func handleRefreshTokenComplaintsTask(e *dc.CommandEvent) {
+	if tokenComplaintsRefresher == nil {
+		_ = e.Followup(dc.Message{
+			Content: "❌ Token complaints refresher is not initialized.",
+		})
+		return
+	}
+
+	count, err := tokenComplaintsRefresher()
+	if err != nil {
+		_ = e.Followup(dc.Message{
+			Content: fmt.Sprintf("❌ Failed to refresh token complaints: %v", err),
+		})
+		return
+	}
+
+	responseMsg := fmt.Sprintf(
+		"## 🔄 Token Complaints Refreshed Successfully\n"+
+			"- **File**: `ttbb-data/token-complaints.json` replaced\n"+
+			"- **Token Complaints Loaded**: %d\n"+
+			"- **Internal Data**: Updated in memory",
+		count,
+	)
+	_ = e.Followup(dc.Message{Content: responseMsg})
+}
+
+func handleRefreshStatusMessagesTask(e *dc.CommandEvent) {
+	if statusMessagesRefresher == nil {
+		_ = e.Followup(dc.Message{
+			Content: "❌ Status messages refresher is not initialized.",
+		})
+		return
+	}
+
+	count, err := statusMessagesRefresher()
+	if err != nil {
+		_ = e.Followup(dc.Message{
+			Content: fmt.Sprintf("❌ Failed to refresh status messages: %v", err),
+		})
+		return
+	}
+
+	responseMsg := fmt.Sprintf(
+		"## 🔄 Status Messages Refreshed Successfully\n"+
+			"- **File**: `ttbb-data/status-messages.json` replaced\n"+
+			"- **Status Messages Loaded**: %d\n"+
+			"- **Internal Data**: Updated in memory",
+		count,
+	)
 	_ = e.Followup(dc.Message{Content: responseMsg})
 }

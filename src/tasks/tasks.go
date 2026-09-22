@@ -48,14 +48,19 @@ const eggIncEiAfxConfigFile string = "ttbb-data/ei-afx-config.json"
 const eggIncEiResearchesURL string = "https://raw.githubusercontent.com/carpetsage/egg/refs/heads/main/lib/researches.json"
 const eggIncEiResearchesFile string = "ttbb-data/ei-researches.json"
 
-const eggIncTokenComplaintsURL string = "https://raw.githubusercontent.com/mkmccarty/TokenTimeBoostBot/refs/heads/main/data/token-complaints.json"
-const eggIncTokenComplaintsFile string = "ttbb-data/token-complaints.json"
+var eggIncTokenComplaintsURL = "https://raw.githubusercontent.com/mkmccarty/TokenTimeBoostBot/refs/heads/main/data/token-complaints.json"
+var eggIncTokenComplaintsFile = "ttbb-data/token-complaints.json"
 
-const eggIncStatusMessagesURL string = "https://raw.githubusercontent.com/mkmccarty/TokenTimeBoostBot/refs/heads/main/data/status-messages.json"
-const eggIncStatusMessagesFile string = "ttbb-data/status-messages.json"
+var eggIncStatusMessagesURL = "https://raw.githubusercontent.com/mkmccarty/TokenTimeBoostBot/refs/heads/main/data/status-messages.json"
+var eggIncStatusMessagesFile = "ttbb-data/status-messages.json"
 
 const eggscapeCoopIDURL string = "https://raw.githubusercontent.com/mkmccarty/TokenTimeBoostBot/refs/heads/main/data/coopid-eggscape.json"
 const eggscapeCoopIDFile string = "ttbb-data/coopid-eggscape.json"
+
+func init() {
+	boost.SetTokenComplaintsRefresher(RefreshTokenComplaints)
+	boost.SetStatusMessagesRefresher(RefreshStatusMessages)
+}
 
 var lastContractUpdate time.Time
 var lastEventUpdate time.Time
@@ -648,6 +653,114 @@ func downloadEggIncData(urlStr string, filename string, force bool, maxAge time.
 		boost.LoadEggscapeCoopIDs(filename)
 	}
 	return true
+}
+
+// RefreshTokenComplaints downloads the latest token complaints, replaces the file on disk,
+// and reloads the internal data into memory.
+func RefreshTokenComplaints() (int, error) {
+	unlock := lockDownloadFile(eggIncTokenComplaintsFile)
+	defer unlock()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, eggIncTokenComplaintsURL, nil)
+	if err != nil {
+		return 0, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Cache-Control", "no-cache")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return 0, fmt.Errorf("failed to download %s: %w", eggIncTokenComplaintsURL, err)
+	}
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			log.Printf("Failed to close response body: %v", cerr)
+		}
+	}()
+
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		return 0, fmt.Errorf("download failed with status %s for %s", resp.Status, eggIncTokenComplaintsURL)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return 0, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	var complaintsLoaded ei.TokenComplaintsFile
+	if err := jsonv2.Unmarshal(body, &complaintsLoaded); err != nil {
+		return 0, fmt.Errorf("invalid token complaints JSON: %w", err)
+	}
+
+	if err := writeFileAtomic(eggIncTokenComplaintsFile, body, 0644); err != nil {
+		return 0, fmt.Errorf("failed to write %s: %w", eggIncTokenComplaintsFile, err)
+	}
+
+	updateManifestEntry(eggIncTokenComplaintsFile, resp.Header.Get("ETag"))
+
+	count, err := ei.ForceLoadTokenComplaints(eggIncTokenComplaintsFile)
+	if err != nil {
+		return 0, fmt.Errorf("failed to reload token complaints: %w", err)
+	}
+
+	log.Printf("EI-TokenComplaints. Refreshed data loaded, length: %d, complaints: %d\n", len(body), count)
+	return count, nil
+}
+
+// RefreshStatusMessages downloads the latest status messages, replaces the file on disk,
+// and reloads the internal data into memory.
+func RefreshStatusMessages() (int, error) {
+	unlock := lockDownloadFile(eggIncStatusMessagesFile)
+	defer unlock()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, eggIncStatusMessagesURL, nil)
+	if err != nil {
+		return 0, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Cache-Control", "no-cache")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return 0, fmt.Errorf("failed to download %s: %w", eggIncStatusMessagesURL, err)
+	}
+	defer func() {
+		if cerr := resp.Body.Close(); cerr != nil {
+			log.Printf("Failed to close response body: %v", cerr)
+		}
+	}()
+
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		return 0, fmt.Errorf("download failed with status %s for %s", resp.Status, eggIncStatusMessagesURL)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return 0, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	var messagesLoaded ei.StatusMessagesFile
+	if err := jsonv2.Unmarshal(body, &messagesLoaded); err != nil {
+		return 0, fmt.Errorf("invalid status messages JSON: %w", err)
+	}
+
+	if err := writeFileAtomic(eggIncStatusMessagesFile, body, 0644); err != nil {
+		return 0, fmt.Errorf("failed to write %s: %w", eggIncStatusMessagesFile, err)
+	}
+
+	updateManifestEntry(eggIncStatusMessagesFile, resp.Header.Get("ETag"))
+
+	count, err := ei.ForceLoadStatusMessages(eggIncStatusMessagesFile)
+	if err != nil {
+		return 0, fmt.Errorf("failed to reload status messages: %w", err)
+	}
+
+	log.Printf("EI-StatusMessages. Refreshed data loaded, length: %d, messages: %d\n", len(body), count)
+	return count, nil
 }
 
 // scheduleDaily triggers a task every day at the specified local time

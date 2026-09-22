@@ -1,6 +1,7 @@
 package ei
 
 import (
+	"os"
 	"strings"
 	"testing"
 )
@@ -51,5 +52,29 @@ func TestGetRandomComplaintSamples(t *testing.T) {
 		if !strings.Contains(s, playerToken) {
 			t.Errorf("sample %q does not contain player token", s)
 		}
+	}
+}
+
+func TestForceLoadTokenComplaints(t *testing.T) {
+	tmpDir := t.TempDir()
+	filePath := tmpDir + "/complaints.json"
+
+	data := `{"token_complaints": ["[player] wants tokens", "[player] is waiting"]}`
+	if err := os.WriteFile(filePath, []byte(data), 0644); err != nil {
+		t.Fatalf("failed to write test file: %v", err)
+	}
+
+	count, err := ForceLoadTokenComplaints(filePath)
+	if err != nil {
+		t.Fatalf("ForceLoadTokenComplaints failed: %v", err)
+	}
+	if count != 2 {
+		t.Errorf("expected count = 2, got %d", count)
+	}
+
+	// Test non-existent file
+	_, err = ForceLoadTokenComplaints(tmpDir + "/does-not-exist.json")
+	if err == nil {
+		t.Errorf("expected error for non-existent file, got nil")
 	}
 }

@@ -27,20 +27,19 @@ var loadedTokenComplaintsSize int64
 
 const tokenComplaintsResortFlag = "__TTBB_TOKEN_COMPLAINTS_RESORT__"
 
-// LoadTokenComplaints loads token complaints from a JSON file
-func LoadTokenComplaints(filename string) {
+func loadTokenComplaints(filename string, force bool) (int, error) {
 	fileInfo, err := os.Stat(filename)
 	if err != nil {
-		log.Printf("Failed to stat token complaints file: %v", err)
-		return
+		return 0, fmt.Errorf("failed to stat token complaints file: %w", err)
 	}
 
 	tokenComplaintsMutex.Lock()
-	if loadedTokenComplaintsPath == filename &&
+	if !force && loadedTokenComplaintsPath == filename &&
 		loadedTokenComplaintsModTime.Equal(fileInfo.ModTime()) &&
 		loadedTokenComplaintsSize == fileInfo.Size() {
+		count := len(TokenComplaints)
 		tokenComplaintsMutex.Unlock()
-		return
+		return count, nil
 	}
 	tokenComplaintsMutex.Unlock()
 
@@ -48,17 +47,15 @@ func LoadTokenComplaints(filename string) {
 
 	file, err := os.Open(filename)
 	if err != nil {
-		log.Printf("Failed to open token complaints file: %v", err)
-		return
+		return 0, fmt.Errorf("failed to open token complaints file: %w", err)
 	}
 	defer func() {
-		if err := file.Close(); err != nil {
-			log.Printf("Failed to close: %v", err)
+		if cerr := file.Close(); cerr != nil {
+			log.Printf("Failed to close: %v", cerr)
 		}
 	}()
 	if err := jsonv2.UnmarshalRead(file, &complaintsLoaded); err != nil {
-		log.Printf("Failed to decode token complaints: %v", err)
-		return
+		return 0, fmt.Errorf("failed to decode token complaints: %w", err)
 	}
 
 	tokenComplaintsMutex.Lock()
@@ -72,9 +69,23 @@ func LoadTokenComplaints(filename string) {
 	loadedTokenComplaintsPath = filename
 	loadedTokenComplaintsModTime = fileInfo.ModTime()
 	loadedTokenComplaintsSize = fileInfo.Size()
+	count := len(complaintsLoaded.TokenComplaints)
 	tokenComplaintsMutex.Unlock()
 
-	log.Printf("Loaded %d token complaints", len(complaintsLoaded.TokenComplaints))
+	log.Printf("Loaded %d token complaints", count)
+	return count, nil
+}
+
+// LoadTokenComplaints loads token complaints from a JSON file
+func LoadTokenComplaints(filename string) {
+	if _, err := loadTokenComplaints(filename, false); err != nil {
+		log.Printf("%v", err)
+	}
+}
+
+// ForceLoadTokenComplaints forces loading token complaints from a JSON file, bypassing cache checks, and returns the count.
+func ForceLoadTokenComplaints(filename string) (int, error) {
+	return loadTokenComplaints(filename, true)
 }
 
 // GetTokenComplaint returns the next complaint string from a shuffled queue for the given userName.
