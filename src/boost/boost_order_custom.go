@@ -101,6 +101,8 @@ const (
 	CritReverse
 	CritRandom
 	CritRole
+	CritArtifactCount
+	CritArtifactCraft
 	CritUnknown
 )
 
@@ -124,15 +126,227 @@ type customCriterion struct {
 	thenCrit      *customCriterion
 	hasElse       bool
 	elseCrit      *customCriterion
+
+	artName   ei.ArtifactSpec_Name
+	artLevel  int // 0..3 for T1..T4, -1 for any
+	artRarity int // 0..3 for C..L, -1 for any
+	artLabel  string
 }
 
 var (
 	reDeflEffort  = regexp.MustCompile(`(?i)DEFL_EFFORT(?:\[(\d+)\])?`)
-	reCraftDefl   = regexp.MustCompile(`(?i)(?:CRAFT_DEFL|CRAFT\(T4_DEFL\))`)
 	reFuzzyPct    = regexp.MustCompile(`\[(\d+(?:\.\d+)?)%\]`)
 	reFuzzySqrt   = regexp.MustCompile(`(?i)\[(?:sqrt|~)\]`)
 	reConditional = regexp.MustCompile(`(?i)^\s*IF\s+(?:\(?\s*ROLE\s*(==|=|!=|<>)?\s*)?([A-Za-z]+)\)?(?:\s+THEN)?\s+(.+?)(?:\s+ELSE\s+(.+))?$`)
+	reCraftExpr   = regexp.MustCompile(`(?i)^(?:CRAFTS?[\(\[]\s*([A-Za-z0-9_ -]+)\s*[\)\]]|CRAFT_([A-Za-z0-9_ -]+)|([A-Za-z0-9_ -]+)_CRAFTS?)$`)
+	reArtWrapper  = regexp.MustCompile(`(?i)^(?:ARTIFACT|ART|COUNT)[\(\[]\s*([A-Za-z0-9_ -]+)\s*[\)\]]$`)
+	reTierRarity  = regexp.MustCompile(`(?i)\bT([1-4])([CREL])?\b`)
+	reRarityWord  = regexp.MustCompile(`(?i)\b(LEGENDARY|LEGGY|EPIC|RARE|COMMON)\b`)
+	reWhitespace  = regexp.MustCompile(`[\s\-]+`)
 )
+
+var artifactAliasMap = map[string]ei.ArtifactSpec_Name{
+	"ACTUATOR":             ei.ArtifactSpec_TITANIUM_ACTUATOR,
+	"TITANIUM_ACTUATOR":    ei.ArtifactSpec_TITANIUM_ACTUATOR,
+	"DEFLECTOR":            ei.ArtifactSpec_TACHYON_DEFLECTOR,
+	"TACHYON_DEFLECTOR":    ei.ArtifactSpec_TACHYON_DEFLECTOR,
+	"DEFL":                 ei.ArtifactSpec_TACHYON_DEFLECTOR,
+	"METRONOME":            ei.ArtifactSpec_QUANTUM_METRONOME,
+	"QUANTUM_METRONOME":    ei.ArtifactSpec_QUANTUM_METRONOME,
+	"METR":                 ei.ArtifactSpec_QUANTUM_METRONOME,
+	"COMPASS":              ei.ArtifactSpec_INTERSTELLAR_COMPASS,
+	"INTERSTELLAR_COMPASS": ei.ArtifactSpec_INTERSTELLAR_COMPASS,
+	"COMP":                 ei.ArtifactSpec_INTERSTELLAR_COMPASS,
+	"GUSSET":               ei.ArtifactSpec_ORNATE_GUSSET,
+	"ORNATE_GUSSET":        ei.ArtifactSpec_ORNATE_GUSSET,
+	"GUSS":                 ei.ArtifactSpec_ORNATE_GUSSET,
+	"CHALICE":              ei.ArtifactSpec_THE_CHALICE,
+	"THE_CHALICE":          ei.ArtifactSpec_THE_CHALICE,
+	"BOOK":                 ei.ArtifactSpec_BOOK_OF_BASAN,
+	"BOOK_OF_BASAN":        ei.ArtifactSpec_BOOK_OF_BASAN,
+	"BOB":                  ei.ArtifactSpec_BOOK_OF_BASAN,
+	"FEATHER":              ei.ArtifactSpec_PHOENIX_FEATHER,
+	"PHOENIX_FEATHER":      ei.ArtifactSpec_PHOENIX_FEATHER,
+	"ANKH":                 ei.ArtifactSpec_TUNGSTEN_ANKH,
+	"TUNGSTEN_ANKH":        ei.ArtifactSpec_TUNGSTEN_ANKH,
+	"BROOCH":               ei.ArtifactSpec_AURELIAN_BROOCH,
+	"AURELIAN_BROOCH":      ei.ArtifactSpec_AURELIAN_BROOCH,
+	"RAINSTICK":            ei.ArtifactSpec_CARVED_RAINSTICK,
+	"CARVED_RAINSTICK":     ei.ArtifactSpec_CARVED_RAINSTICK,
+	"CUBE":                 ei.ArtifactSpec_PUZZLE_CUBE,
+	"PUZZLE_CUBE":          ei.ArtifactSpec_PUZZLE_CUBE,
+	"SIAB":                 ei.ArtifactSpec_SHIP_IN_A_BOTTLE,
+	"SHIP":                 ei.ArtifactSpec_SHIP_IN_A_BOTTLE,
+	"SHIP_IN_A_BOTTLE":     ei.ArtifactSpec_SHIP_IN_A_BOTTLE,
+	"MONOCLE":              ei.ArtifactSpec_DILITHIUM_MONOCLE,
+	"DILITHIUM_MONOCLE":    ei.ArtifactSpec_DILITHIUM_MONOCLE,
+	"LENS":                 ei.ArtifactSpec_MERCURYS_LENS,
+	"MERCURYS_LENS":        ei.ArtifactSpec_MERCURYS_LENS,
+	"TOTEM":                ei.ArtifactSpec_LUNAR_TOTEM,
+	"LUNAR_TOTEM":          ei.ArtifactSpec_LUNAR_TOTEM,
+	"MEDALLION":            ei.ArtifactSpec_NEODYMIUM_MEDALLION,
+	"NEODYMIUM_MEDALLION":  ei.ArtifactSpec_NEODYMIUM_MEDALLION,
+	"NEO_MEDALLION":        ei.ArtifactSpec_NEODYMIUM_MEDALLION,
+	"BEAK":                 ei.ArtifactSpec_BEAK_OF_MIDAS,
+	"BEAK_OF_MIDAS":        ei.ArtifactSpec_BEAK_OF_MIDAS,
+	"LIGHT":                ei.ArtifactSpec_LIGHT_OF_EGGENDIL,
+	"LIGHT_OF_EGGENDIL":    ei.ArtifactSpec_LIGHT_OF_EGGENDIL,
+	"LOE":                  ei.ArtifactSpec_LIGHT_OF_EGGENDIL,
+	"NECKLACE":             ei.ArtifactSpec_DEMETERS_NECKLACE,
+	"DEMETERS_NECKLACE":    ei.ArtifactSpec_DEMETERS_NECKLACE,
+	"VIAL":                 ei.ArtifactSpec_VIAL_MARTIAN_DUST,
+	"VIAL_MARTIAN_DUST":    ei.ArtifactSpec_VIAL_MARTIAN_DUST,
+	"DUST":                 ei.ArtifactSpec_VIAL_MARTIAN_DUST,
+	"TACHYON_STONE":        ei.ArtifactSpec_TACHYON_STONE,
+	"DILITHIUM_STONE":      ei.ArtifactSpec_DILITHIUM_STONE,
+	"SHELL_STONE":          ei.ArtifactSpec_SHELL_STONE,
+	"LUNAR_STONE":          ei.ArtifactSpec_LUNAR_STONE,
+	"SOUL_STONE":           ei.ArtifactSpec_SOUL_STONE,
+	"PROPHECY_STONE":       ei.ArtifactSpec_PROPHECY_STONE,
+	"PROP_STONE":           ei.ArtifactSpec_PROPHECY_STONE,
+	"QUANTUM_STONE":        ei.ArtifactSpec_QUANTUM_STONE,
+	"TERRA_STONE":          ei.ArtifactSpec_TERRA_STONE,
+	"LIFE_STONE":           ei.ArtifactSpec_LIFE_STONE,
+	"CLARITY_STONE":        ei.ArtifactSpec_CLARITY_STONE,
+}
+
+func artifactDisplayName(name ei.ArtifactSpec_Name) string {
+	switch name {
+	case ei.ArtifactSpec_TITANIUM_ACTUATOR:
+		return "Actuator"
+	case ei.ArtifactSpec_TACHYON_DEFLECTOR:
+		return "Deflector"
+	case ei.ArtifactSpec_QUANTUM_METRONOME:
+		return "Metronome"
+	case ei.ArtifactSpec_INTERSTELLAR_COMPASS:
+		return "Compass"
+	case ei.ArtifactSpec_ORNATE_GUSSET:
+		return "Gusset"
+	case ei.ArtifactSpec_THE_CHALICE:
+		return "Chalice"
+	case ei.ArtifactSpec_BOOK_OF_BASAN:
+		return "Book of Basan"
+	case ei.ArtifactSpec_PHOENIX_FEATHER:
+		return "Feather"
+	case ei.ArtifactSpec_TUNGSTEN_ANKH:
+		return "Ankh"
+	case ei.ArtifactSpec_AURELIAN_BROOCH:
+		return "Brooch"
+	case ei.ArtifactSpec_CARVED_RAINSTICK:
+		return "Rainstick"
+	case ei.ArtifactSpec_PUZZLE_CUBE:
+		return "Puzzle Cube"
+	case ei.ArtifactSpec_SHIP_IN_A_BOTTLE:
+		return "SIAB"
+	case ei.ArtifactSpec_DILITHIUM_MONOCLE:
+		return "Monocle"
+	case ei.ArtifactSpec_MERCURYS_LENS:
+		return "Lens"
+	case ei.ArtifactSpec_LUNAR_TOTEM:
+		return "Totem"
+	case ei.ArtifactSpec_NEODYMIUM_MEDALLION:
+		return "Medallion"
+	case ei.ArtifactSpec_BEAK_OF_MIDAS:
+		return "Beak"
+	case ei.ArtifactSpec_LIGHT_OF_EGGENDIL:
+		return "Light"
+	case ei.ArtifactSpec_DEMETERS_NECKLACE:
+		return "Necklace"
+	case ei.ArtifactSpec_VIAL_MARTIAN_DUST:
+		return "Vial"
+	default:
+		return name.String()
+	}
+}
+
+func formatArtifactTierRarity(level int, rarity int) string {
+	rarityLetters := []string{"C", "R", "E", "L"}
+	if level >= 0 && rarity >= 0 && rarity < len(rarityLetters) {
+		return fmt.Sprintf("T%d%s", level+1, rarityLetters[rarity])
+	}
+	if level >= 0 {
+		return fmt.Sprintf("T%d", level+1)
+	}
+	return ""
+}
+
+func formatArtifactCountLabel(level int, rarity int, name ei.ArtifactSpec_Name) string {
+	disp := artifactDisplayName(name)
+	rarityLetters := []string{"C", "R", "E", "L"}
+	if level >= 0 && rarity >= 0 && rarity < len(rarityLetters) {
+		return fmt.Sprintf("T%d%s %s", level+1, rarityLetters[rarity], disp)
+	}
+	if level >= 0 {
+		return fmt.Sprintf("T%d %s", level+1, disp)
+	}
+	if rarity >= 0 && rarity < len(rarityLetters) {
+		rNames := []string{"Common", "Rare", "Epic", "Legendary"}
+		return fmt.Sprintf("%s %s", rNames[rarity], disp)
+	}
+	return disp
+}
+
+func parseArtifactSpecTokens(s string, isCraft bool) (artName ei.ArtifactSpec_Name, level int, rarity int, label string, ok bool) {
+	clean := strings.ToUpper(strings.TrimSpace(s))
+	if m := reArtWrapper.FindStringSubmatch(clean); len(m) > 1 {
+		clean = strings.ToUpper(strings.TrimSpace(m[1]))
+	}
+
+	level = -1
+	rarity = -1
+
+	// Normalize separators like underscores or hyphens so \b word boundaries match tier/rarity
+	clean = strings.ReplaceAll(clean, "_", " ")
+	clean = strings.ReplaceAll(clean, "-", " ")
+	clean = strings.TrimSpace(reWhitespace.ReplaceAllString(clean, " "))
+
+	// Check tier and rarity e.g. T4L, T4, T3R
+	if m := reTierRarity.FindStringSubmatch(clean); len(m) > 0 {
+		level = int(m[1][0] - '1')
+		if len(m) > 2 && m[2] != "" {
+			switch strings.ToUpper(m[2]) {
+			case "C":
+				rarity = 0
+			case "R":
+				rarity = 1
+			case "E":
+				rarity = 2
+			case "L":
+				rarity = 3
+			}
+		}
+		clean = strings.TrimSpace(reTierRarity.ReplaceAllString(clean, " "))
+	} else if m := reRarityWord.FindStringSubmatch(clean); len(m) > 0 {
+		switch strings.ToUpper(m[1]) {
+		case "COMMON":
+			rarity = 0
+		case "RARE":
+			rarity = 1
+		case "EPIC":
+			rarity = 2
+		case "LEGENDARY", "LEGGY":
+			rarity = 3
+		}
+		clean = strings.TrimSpace(reRarityWord.ReplaceAllString(clean, " "))
+	}
+
+	if isCraft && level < 0 {
+		level = 3 // default T4 for crafts
+	}
+
+	normKey := strings.ToUpper(strings.Trim(reWhitespace.ReplaceAllString(clean, "_"), "_"))
+	if name, found := artifactAliasMap[normKey]; found {
+		disp := artifactDisplayName(name)
+		if isCraft {
+			label = fmt.Sprintf("T%d %s Crafts", level+1, disp)
+		} else {
+			label = formatArtifactCountLabel(level, rarity, name)
+		}
+		return name, level, rarity, label, true
+	}
+
+	return 0, -1, -1, "", false
+}
 
 func isBoosterHelper(b *Booster) bool {
 	if b == nil {
@@ -247,8 +461,10 @@ func parseCustomCriterion(s string) customCriterion {
 				crit.effortN = n
 			}
 		}
-	case reCraftDefl.MatchString(upper):
-		crit.critType = CritCraftDefl
+	case strings.HasPrefix(upper, "DEFL_SLOT"):
+		crit.critType = CritDeflSlot
+	case upper == "DEFL" || upper == "DEFLECTOR":
+		crit.critType = CritDefl
 	case strings.HasPrefix(upper, "IHR"):
 		crit.critType = CritIHR
 	case strings.HasPrefix(upper, "ELR"):
@@ -264,10 +480,6 @@ func parseCustomCriterion(s string) customCriterion {
 		}
 	case strings.HasPrefix(upper, "TVAL"):
 		crit.critType = CritTVal
-	case strings.HasPrefix(upper, "DEFL_SLOT"):
-		crit.critType = CritDeflSlot
-	case strings.HasPrefix(upper, "DEFL"):
-		crit.critType = CritDefl
 	case strings.HasPrefix(upper, "DELIV") || strings.HasPrefix(upper, "DEL"):
 		crit.critType = CritDeliv
 	case strings.HasPrefix(upper, "SIGNUP") || strings.HasPrefix(upper, "JOIN"):
@@ -290,15 +502,42 @@ func parseCustomCriterion(s string) customCriterion {
 	case upper == "HELPER" || upper == "HELPERS" || upper == "ALT" || upper == "ALTS":
 		crit.critType = CritRole
 		crit.ascending = true
+	case upper == "CRAFT_DEFL" || upper == "DEFL_CRAFT" || upper == "CRAFTS":
+		crit.critType = CritCraftDefl
+	case reCraftExpr.MatchString(cur):
+		m := reCraftExpr.FindStringSubmatch(cur)
+		inner := m[1]
+		if inner == "" {
+			inner = m[2]
+		}
+		if inner == "" {
+			inner = m[3]
+		}
+		if artName, level, rarity, label, ok := parseArtifactSpecTokens(inner, true); ok {
+			crit.critType = CritArtifactCraft
+			crit.artName = artName
+			crit.artLevel = level
+			crit.artRarity = rarity
+			crit.artLabel = label
+		} else {
+			crit.critType = CritUnknown
+		}
 	default:
-		crit.critType = CritUnknown
+		if artName, level, rarity, label, ok := parseArtifactSpecTokens(cur, false); ok {
+			crit.critType = CritArtifactCount
+			crit.artName = artName
+			crit.artLevel = level
+			crit.artRarity = rarity
+			crit.artLabel = label
+		} else {
+			crit.critType = CritUnknown
+		}
 	}
 
 	return crit
 }
 
-// getBoosterT4DeflectorCraftCount retrieves how many T4 Deflectors the booster has crafted.
-func getBoosterT4DeflectorCraftCount(userID string) int {
+func getBoosterBackup(userID string) *ei.Backup {
 	eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
 	if eiID == "" && !isDiscordSnowflake(userID) {
 		if discordID, err := farmerstate.GetDiscordUserIDFromEiIgnExact(userID); err == nil && discordID != "" {
@@ -306,20 +545,129 @@ func getBoosterT4DeflectorCraftCount(userID string) int {
 		}
 	}
 	if eiID == "" {
-		return 0
+		return nil
 	}
 	backup, _ := ei.GetFirstContactFromAPI(eiID, userID, true)
-	if backup == nil || backup.GetArtifactsDb() == nil {
+	return backup
+}
+
+func getBoosterArtifactCraftCount(b *Booster, name ei.ArtifactSpec_Name, level int) int {
+	if b == nil {
 		return 0
 	}
-	for _, a := range backup.GetArtifactsDb().GetArtifactStatus() {
-		if a != nil && a.Spec != nil &&
-			a.Spec.GetName() == ei.ArtifactSpec_TACHYON_DEFLECTOR &&
-			a.Spec.GetLevel() == ei.ArtifactSpec_GREATER {
-			return int(a.GetCount())
+	overrideKey := fmt.Sprintf("crafts_%d_%d", name, level)
+	if s := farmerstate.GetMiscSettingString(b.UserID, overrideKey); s != "" {
+		if v, err := strconv.Atoi(s); err == nil {
+			return v
 		}
 	}
+	overrideKeyNamed := fmt.Sprintf("crafts_%s_%d", name.String(), level)
+	if s := farmerstate.GetMiscSettingString(b.UserID, overrideKeyNamed); s != "" {
+		if v, err := strconv.Atoi(s); err == nil {
+			return v
+		}
+	}
+	if name == ei.ArtifactSpec_TACHYON_DEFLECTOR && (level < 0 || level == int(ei.ArtifactSpec_GREATER)) {
+		if s := farmerstate.GetMiscSettingString(b.UserID, "t4_crafts"); s != "" {
+			if v, err := strconv.Atoi(s); err == nil {
+				return v
+			}
+		}
+	}
+
+	backup := getBoosterBackup(b.UserID)
+	if backup != nil && backup.GetArtifactsDb() != nil {
+		total := 0
+		for _, a := range backup.GetArtifactsDb().GetArtifactStatus() {
+			if a != nil && a.Spec != nil && a.Spec.GetName() == name {
+				if level < 0 || int(a.Spec.GetLevel()) == level {
+					total += int(a.GetCount())
+				}
+			}
+		}
+		return total
+	}
 	return 0
+}
+
+func getBoosterArtifactCount(b *Booster, name ei.ArtifactSpec_Name, level int, rarity int) int {
+	if b == nil {
+		return 0
+	}
+	overrideKey := fmt.Sprintf("art_count_%d_%d_%d", name, level, rarity)
+	if s := farmerstate.GetMiscSettingString(b.UserID, overrideKey); s != "" {
+		if v, err := strconv.Atoi(s); err == nil {
+			return v
+		}
+	}
+	overrideKeyNamed := fmt.Sprintf("art_count_%s_%d_%d", name.String(), level, rarity)
+	if s := farmerstate.GetMiscSettingString(b.UserID, overrideKeyNamed); s != "" {
+		if v, err := strconv.Atoi(s); err == nil {
+			return v
+		}
+	}
+
+	backup := getBoosterBackup(b.UserID)
+	if backup != nil && backup.GetArtifactsDb() != nil {
+		db := backup.GetArtifactsDb()
+		total := 0
+		countItems := func(items []*ei.ArtifactInventoryItem) {
+			for _, item := range items {
+				art := item.GetArtifact()
+				if art == nil {
+					continue
+				}
+				spec := art.GetSpec()
+				if spec == nil {
+					continue
+				}
+				if spec.GetName() != name {
+					continue
+				}
+				if level >= 0 && int(spec.GetLevel()) != level {
+					continue
+				}
+				if rarity >= 0 && int(spec.GetRarity()) != rarity {
+					continue
+				}
+				qty := int(item.GetQuantity())
+				if qty == 0 {
+					qty = 1
+				}
+				total += qty
+			}
+		}
+		countItems(db.GetInventoryItems())
+		if virtueDB := db.GetVirtueAfxDb(); virtueDB != nil {
+			countItems(virtueDB.GetInventoryItems())
+		}
+		if total > 0 {
+			return total
+		}
+	}
+
+	// Fallback to equipped artifacts if backup is unavailable or didn't report
+	total := 0
+	artDisp := artifactDisplayName(name)
+	for _, a := range b.ArtifactSet.Artifacts {
+		if strings.EqualFold(a.Type, artDisp) || strings.EqualFold(a.Type, name.String()) {
+			expQuality := formatArtifactTierRarity(level, rarity)
+			if expQuality == "" || strings.EqualFold(a.Quality, expQuality) {
+				total++
+			}
+		}
+	}
+	if name == ei.ArtifactSpec_TACHYON_DEFLECTOR && (level < 0 || level == int(ei.ArtifactSpec_GREATER)) && (rarity < 0 || rarity == int(ei.ArtifactSpec_LEGENDARY)) {
+		if total == 0 && hasBoosterT4LDeflector(b) {
+			total = 1
+		}
+	}
+	return total
+}
+
+// getBoosterT4DeflectorCraftCount retrieves how many T4 Deflectors the booster has crafted.
+func getBoosterT4DeflectorCraftCount(userID string) int {
+	return getBoosterArtifactCraftCount(&Booster{UserID: userID}, ei.ArtifactSpec_TACHYON_DEFLECTOR, int(ei.ArtifactSpec_GREATER))
 }
 
 // hasBoosterT4LDeflector checks if the booster possesses a T4L Deflector.
@@ -507,6 +855,12 @@ func getBoosterCriterionValue(contract *Contract, item *boosterEvalData, crit cu
 		return item.randomScore
 	case CritRole:
 		return item.roleScore
+	case CritArtifactCount:
+		b := contract.Boosters[item.userID]
+		return float64(getBoosterArtifactCount(b, crit.artName, crit.artLevel, crit.artRarity))
+	case CritArtifactCraft:
+		b := contract.Boosters[item.userID]
+		return float64(getBoosterArtifactCraftCount(b, crit.artName, crit.artLevel))
 	default:
 		return 0.0
 	}
@@ -618,6 +972,317 @@ func sortCustomRemaining(contract *Contract, unselected []string, lines []string
 	return sorted
 }
 
+type customTableColDef struct {
+	id       string
+	col      TableImageColumn
+	evalCell func(b *Booster, signupIdx int) TableImageCell
+}
+
+func buildCustomOrderTableColDefs(contract *Contract, criteria [4]customCriterion) ([]customTableColDef, []TableImageColumn) {
+	var activeCols []customTableColDef
+	seenColIDs := make(map[string]bool)
+	var tvalByUser map[string]float64
+
+	var addCritCol func(c customCriterion)
+	addCritCol = func(c customCriterion) {
+		if c.isConditional {
+			if !seenColIDs["role"] {
+				seenColIDs["role"] = true
+				activeCols = append(activeCols, customTableColDef{
+					id:  "role",
+					col: TableImageColumn{Label: "Role", Align: bottools.StringAlignCenter},
+					evalCell: func(b *Booster, _ int) TableImageCell {
+						if isBoosterHelper(b) {
+							return TableImageCell{Text: "Helper", Color: "red"}
+						}
+						return TableImageCell{Text: "Main", Color: "green"}
+					},
+				})
+			}
+			if c.thenCrit != nil {
+				addCritCol(*c.thenCrit)
+			}
+			if c.elseCrit != nil {
+				addCritCol(*c.elseCrit)
+			}
+			return
+		}
+
+		switch c.critType {
+		case CritRole:
+			if !seenColIDs["role"] {
+				seenColIDs["role"] = true
+				activeCols = append(activeCols, customTableColDef{
+					id:  "role",
+					col: TableImageColumn{Label: "Role", Align: bottools.StringAlignCenter},
+					evalCell: func(b *Booster, _ int) TableImageCell {
+						if isBoosterHelper(b) {
+							return TableImageCell{Text: "Helper", Color: "red"}
+						}
+						return TableImageCell{Text: "Main", Color: "green"}
+					},
+				})
+			}
+		case CritDeflEffort:
+			id := fmt.Sprintf("defl_effort_%d", c.effortN)
+			if !seenColIDs[id] {
+				seenColIDs[id] = true
+				effortN := c.effortN
+				activeCols = append(activeCols, customTableColDef{
+					id:  id,
+					col: TableImageColumn{Label: fmt.Sprintf("Effort [N=%d]", effortN), Align: bottools.StringAlignCenter},
+					evalCell: func(b *Booster, _ int) TableImageCell {
+						effScore, craftCount, hasT4L := calculateBoosterDeflectorEffort(b, effortN)
+						effortDisplay := fmt.Sprintf("%d", effScore)
+						effortColor := ""
+						if hasT4L {
+							effortDisplay = fmt.Sprintf("%d (T4L)", effScore)
+							effortColor = "green"
+						} else if craftCount >= effortN {
+							effortDisplay = fmt.Sprintf("%d (Capped)", effScore)
+							effortColor = "green"
+						} else if effScore > 0 {
+							effortColor = "blue"
+						}
+						return TableImageCell{Text: effortDisplay, Color: effortColor}
+					},
+				})
+			}
+		case CritCraftDefl:
+			if !seenColIDs["craft_defl"] {
+				seenColIDs["craft_defl"] = true
+				activeCols = append(activeCols, customTableColDef{
+					id:  "craft_defl",
+					col: TableImageColumn{Label: "T4 Crafts", Align: bottools.StringAlignRight},
+					evalCell: func(b *Booster, _ int) TableImageCell {
+						craftCount := getBoosterT4DeflectorCraftCount(b.UserID)
+						craftsDisplay := fmt.Sprintf("%d", craftCount)
+						craftsColor := ""
+						if craftCount >= 50 {
+							craftsColor = "green"
+						}
+						return TableImageCell{Text: craftsDisplay, Color: craftsColor}
+					},
+				})
+			}
+		case CritDefl:
+			if !seenColIDs["defl"] {
+				seenColIDs["defl"] = true
+				activeCols = append(activeCols, customTableColDef{
+					id:  "defl",
+					col: TableImageColumn{Label: "Deflector", Align: bottools.StringAlignCenter},
+					evalCell: func(b *Booster, _ int) TableImageCell {
+						quality := getBoosterDeflectorQualityString(b)
+						deflColor := ""
+						if hasBoosterT4LDeflector(b) {
+							deflColor = "green"
+						} else if strings.HasPrefix(quality, "T4") {
+							deflColor = "blue"
+						}
+						return TableImageCell{Text: quality, Color: deflColor}
+					},
+				})
+			}
+		case CritDeflSlot:
+			if !seenColIDs["defl_slot"] {
+				seenColIDs["defl_slot"] = true
+				activeCols = append(activeCols, customTableColDef{
+					id:  "defl_slot",
+					col: TableImageColumn{Label: "Defl Slot", Align: bottools.StringAlignCenter},
+					evalCell: func(b *Booster, _ int) TableImageCell {
+						quality := getBoosterDeflectorQualityString(b)
+						slots := getESCDeflectorScore(b, false)
+						text := fmt.Sprintf("%s (%d)", quality, slots)
+						if quality == "-" {
+							text = "-"
+						}
+						return TableImageCell{Text: text, Color: ""}
+					},
+				})
+			}
+		case CritIHR:
+			if !seenColIDs["ihr"] {
+				seenColIDs["ihr"] = true
+				activeCols = append(activeCols, customTableColDef{
+					id:  "ihr",
+					col: TableImageColumn{Label: "IHR", Align: bottools.StringAlignRight},
+					evalCell: func(b *Booster, _ int) TableImageCell {
+						ihrMult := fmt.Sprintf("%0.2fx", b.IHRRate/DefaultLeggyIHR)
+						return TableImageCell{Text: ihrMult, Color: ""}
+					},
+				})
+			}
+		case CritELR:
+			if !seenColIDs["elr"] {
+				seenColIDs["elr"] = true
+				activeCols = append(activeCols, customTableColDef{
+					id:  "elr",
+					col: TableImageColumn{Label: "ELR", Align: bottools.StringAlignRight},
+					evalCell: func(b *Booster, _ int) TableImageCell {
+						elrStr := fmt.Sprintf("%0.2f", b.ArtifactSet.LayRate)
+						return TableImageCell{Text: elrStr, Color: ""}
+					},
+				})
+			}
+		case CritTokens:
+			if !seenColIDs["tokens"] {
+				seenColIDs["tokens"] = true
+				activeCols = append(activeCols, customTableColDef{
+					id:  "tokens",
+					col: TableImageColumn{Label: "Tokens", Align: bottools.StringAlignRight},
+					evalCell: func(b *Booster, _ int) TableImageCell {
+						tokensStr := fmt.Sprintf("%d", b.TokensWanted)
+						return TableImageCell{Text: tokensStr, Color: ""}
+					},
+				})
+			}
+		case CritTE:
+			if !seenColIDs["te"] {
+				seenColIDs["te"] = true
+				activeCols = append(activeCols, customTableColDef{
+					id:  "te",
+					col: TableImageColumn{Label: "TE", Align: bottools.StringAlignRight},
+					evalCell: func(b *Booster, _ int) TableImageCell {
+						teStr := fmt.Sprintf("%d", b.TECount)
+						return TableImageCell{Text: teStr, Color: ""}
+					},
+				})
+			}
+		case CritTVal:
+			if !seenColIDs["tval"] {
+				seenColIDs["tval"] = true
+				activeCols = append(activeCols, customTableColDef{
+					id:  "tval",
+					col: TableImageColumn{Label: "TVal", Align: bottools.StringAlignRight},
+					evalCell: func(b *Booster, _ int) TableImageCell {
+						val := 0.0
+						if tvalByUser != nil {
+							val = tvalByUser[b.UserID]
+						}
+						return TableImageCell{Text: fmt.Sprintf("%0.1f", val), Color: ""}
+					},
+				})
+			}
+		case CritDeliv:
+			if !seenColIDs["deliv"] {
+				seenColIDs["deliv"] = true
+				activeCols = append(activeCols, customTableColDef{
+					id:  "deliv",
+					col: TableImageColumn{Label: "Delivery", Align: bottools.StringAlignRight},
+					evalCell: func(b *Booster, _ int) TableImageCell {
+						delivScore := getArtifactQualityScore(b, "Metronome") + getArtifactQualityScore(b, "Compass") + getArtifactQualityScore(b, "Gusset")
+						return TableImageCell{Text: fmt.Sprintf("%d", delivScore), Color: ""}
+					},
+				})
+			}
+		case CritSignup:
+			if !seenColIDs["signup"] {
+				seenColIDs["signup"] = true
+				activeCols = append(activeCols, customTableColDef{
+					id:  "signup",
+					col: TableImageColumn{Label: "Signup", Align: bottools.StringAlignRight},
+					evalCell: func(_ *Booster, signupIdx int) TableImageCell {
+						return TableImageCell{Text: fmt.Sprintf("#%d", signupIdx+1), Color: ""}
+					},
+				})
+			}
+		case CritReverse:
+			if !seenColIDs["reverse"] {
+				seenColIDs["reverse"] = true
+				activeCols = append(activeCols, customTableColDef{
+					id:  "reverse",
+					col: TableImageColumn{Label: "Reverse", Align: bottools.StringAlignRight},
+					evalCell: func(_ *Booster, signupIdx int) TableImageCell {
+						return TableImageCell{Text: fmt.Sprintf("#%d", signupIdx+1), Color: ""}
+					},
+				})
+			}
+		case CritRandom:
+			if !seenColIDs["random"] {
+				seenColIDs["random"] = true
+				activeCols = append(activeCols, customTableColDef{
+					id:  "random",
+					col: TableImageColumn{Label: "Random", Align: bottools.StringAlignCenter},
+					evalCell: func(_ *Booster, _ int) TableImageCell {
+						return TableImageCell{Text: "🎲", Color: ""}
+					},
+				})
+			}
+		case CritArtifactCount:
+			id := fmt.Sprintf("art_count_%d_%d_%d", c.artName, c.artLevel, c.artRarity)
+			if !seenColIDs[id] {
+				seenColIDs[id] = true
+				name := c.artName
+				level := c.artLevel
+				rarity := c.artRarity
+				activeCols = append(activeCols, customTableColDef{
+					id:  id,
+					col: TableImageColumn{Label: c.artLabel, Align: bottools.StringAlignRight},
+					evalCell: func(b *Booster, _ int) TableImageCell {
+						cnt := getBoosterArtifactCount(b, name, level, rarity)
+						color := ""
+						if cnt > 0 {
+							color = "green"
+						}
+						return TableImageCell{Text: fmt.Sprintf("%d", cnt), Color: color}
+					},
+				})
+			}
+		case CritArtifactCraft:
+			id := fmt.Sprintf("art_craft_%d_%d", c.artName, c.artLevel)
+			if !seenColIDs[id] {
+				seenColIDs[id] = true
+				name := c.artName
+				level := c.artLevel
+				activeCols = append(activeCols, customTableColDef{
+					id:  id,
+					col: TableImageColumn{Label: c.artLabel, Align: bottools.StringAlignRight},
+					evalCell: func(b *Booster, _ int) TableImageCell {
+						cnt := getBoosterArtifactCraftCount(b, name, level)
+						color := ""
+						if cnt > 0 {
+							color = "green"
+						}
+						return TableImageCell{Text: fmt.Sprintf("%d", cnt), Color: color}
+					},
+				})
+			}
+		}
+	}
+
+	for _, c := range criteria {
+		addCritCol(c)
+	}
+
+	if seenColIDs["tval"] && contract != nil {
+		_, _, tvalByUser, _ = buildTokenTotalsFromLog(contract)
+	}
+
+	cols := []TableImageColumn{
+		{Label: "#", Align: bottools.StringAlignRight},
+		{Label: "Player", Align: bottools.StringAlignLeft},
+	}
+	for _, ac := range activeCols {
+		cols = append(cols, ac.col)
+	}
+
+	return activeCols, cols
+}
+
+// getCustomOrderTableColumns returns the columns that would be displayed for the given custom boost order lines.
+func getCustomOrderTableColumns(contract *Contract, lines []string) []TableImageColumn {
+	var criteria [4]customCriterion
+	for i := 0; i < 4; i++ {
+		line := ""
+		if i < len(lines) {
+			line = lines[i]
+		}
+		criteria[i] = parseCustomCriterion(line)
+	}
+	_, cols := buildCustomOrderTableColDefs(contract, criteria)
+	return cols
+}
+
 // RenderCustomOrderTableImage renders a PNG table image of the custom boost order.
 func RenderCustomOrderTableImage(contract *Contract, lines []string) ([]byte, error) {
 	if contract == nil {
@@ -636,36 +1301,7 @@ func RenderCustomOrderTableImage(contract *Contract, lines []string) ([]byte, er
 		criteria[i] = parseCustomCriterion(line)
 	}
 
-	effortN := 50
-	for _, c := range criteria {
-		if c.critType == CritDeflEffort {
-			effortN = c.effortN
-			break
-		}
-		if c.isConditional {
-			if c.thenCrit != nil && c.thenCrit.critType == CritDeflEffort {
-				effortN = c.thenCrit.effortN
-				break
-			}
-			if c.elseCrit != nil && c.elseCrit.critType == CritDeflEffort {
-				effortN = c.elseCrit.effortN
-				break
-			}
-		}
-	}
-
-	cols := []TableImageColumn{
-		{Label: "#", Align: bottools.StringAlignRight},
-		{Label: "Player", Align: bottools.StringAlignLeft},
-		{Label: "Role", Align: bottools.StringAlignCenter},
-		{Label: "Deflector", Align: bottools.StringAlignCenter},
-		{Label: "T4 Crafts", Align: bottools.StringAlignRight},
-		{Label: fmt.Sprintf("Effort [N=%d]", effortN), Align: bottools.StringAlignCenter},
-		{Label: "ELR", Align: bottools.StringAlignRight},
-		{Label: "IHR", Align: bottools.StringAlignRight},
-		{Label: "Tokens", Align: bottools.StringAlignRight},
-		{Label: "TE", Align: bottools.StringAlignRight},
-	}
+	activeCols, cols := buildCustomOrderTableColDefs(contract, criteria)
 
 	var tableRows []TableImageRow
 	for idx, userID := range sortedIDs {
@@ -684,58 +1320,23 @@ func RenderCustomOrderTableImage(contract *Contract, lines []string) ([]byte, er
 			name = userID
 		}
 
-		roleStr := "Main"
-		roleColor := "green"
-		if isBoosterHelper(b) {
-			roleStr = "Helper"
-			roleColor = "red"
+		signupIdx := 0
+		for i, id := range contract.Order {
+			if id == userID {
+				signupIdx = i
+				break
+			}
 		}
-
-		effScore, craftCount, hasT4L := calculateBoosterDeflectorEffort(b, effortN)
-		deflQuality := getBoosterDeflectorQualityString(b)
-
-		deflColor := ""
-		if hasT4L {
-			deflColor = "green"
-		} else if strings.HasPrefix(deflQuality, "T4") {
-			deflColor = "blue"
-		}
-
-		effortDisplay := fmt.Sprintf("%d", effScore)
-		effortColor := ""
-		if hasT4L {
-			effortDisplay = fmt.Sprintf("%d (T4L)", effScore)
-			effortColor = "green"
-		} else if craftCount >= effortN {
-			effortDisplay = fmt.Sprintf("%d (Capped)", effScore)
-			effortColor = "green"
-		} else if effScore > 0 {
-			effortColor = "blue"
-		}
-
-		craftsDisplay := fmt.Sprintf("%d", craftCount)
-		craftsColor := ""
-		if craftCount >= effortN {
-			craftsColor = "green"
-		}
-
-		ihrMult := fmt.Sprintf("%0.2fx", b.IHRRate/DefaultLeggyIHR)
-		elrStr := fmt.Sprintf("%0.2f", b.ArtifactSet.LayRate)
-		tokensStr := fmt.Sprintf("%d", b.TokensWanted)
-		teStr := fmt.Sprintf("%d", b.TECount)
 
 		cells := []TableImageCell{
 			{Text: fmt.Sprintf("%d", idx+1), Color: ""},
 			{Text: name, Color: ""},
-			{Text: roleStr, Color: roleColor},
-			{Text: deflQuality, Color: deflColor},
-			{Text: craftsDisplay, Color: craftsColor},
-			{Text: effortDisplay, Color: effortColor},
-			{Text: elrStr, Color: ""},
-			{Text: ihrMult, Color: ""},
-			{Text: tokensStr, Color: ""},
-			{Text: teStr, Color: ""},
 		}
+
+		for _, ac := range activeCols {
+			cells = append(cells, ac.evalCell(b, signupIdx))
+		}
+
 		tableRows = append(tableRows, TableImageRow{Cells: cells})
 	}
 

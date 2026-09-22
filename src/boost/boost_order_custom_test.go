@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
 func TestParseCustomCriterion(t *testing.T) {
@@ -657,4 +658,215 @@ func TestSortCustomRemaining_RoleStandalone(t *testing.T) {
 		t.Errorf(">ROLE expected [h1, m1], got %v", sortedHelpersFirst)
 	}
 }
+
+func TestParseCustomCriterion_ArtifactCountAndCrafts(t *testing.T) {
+	tests := []struct {
+		input     string
+		critType  CustomCriterionType
+		artName   ei.ArtifactSpec_Name
+		artLevel  int
+		artRarity int
+		label     string
+	}{
+		{
+			input:     "T4L_ACTUATOR",
+			critType:  CritArtifactCount,
+			artName:   ei.ArtifactSpec_TITANIUM_ACTUATOR,
+			artLevel:  3,
+			artRarity: 3,
+			label:     "T4L Actuator",
+		},
+		{
+			input:     "CRAFT(T4_ACTUATOR)",
+			critType:  CritArtifactCraft,
+			artName:   ei.ArtifactSpec_TITANIUM_ACTUATOR,
+			artLevel:  3,
+			artRarity: -1,
+			label:     "T4 Actuator Crafts",
+		},
+		{
+			input:     "CRAFT_T4_ACTUATOR",
+			critType:  CritArtifactCraft,
+			artName:   ei.ArtifactSpec_TITANIUM_ACTUATOR,
+			artLevel:  3,
+			artRarity: -1,
+			label:     "T4 Actuator Crafts",
+		},
+		{
+			input:     "T4_ACTUATOR_CRAFTS",
+			critType:  CritArtifactCraft,
+			artName:   ei.ArtifactSpec_TITANIUM_ACTUATOR,
+			artLevel:  3,
+			artRarity: -1,
+			label:     "T4 Actuator Crafts",
+		},
+		{
+			input:     "T4E_GUSSET",
+			critType:  CritArtifactCount,
+			artName:   ei.ArtifactSpec_ORNATE_GUSSET,
+			artLevel:  3,
+			artRarity: 2,
+			label:     "T4E Gusset",
+		},
+		{
+			input:     "T4_COMPASS",
+			critType:  CritArtifactCount,
+			artName:   ei.ArtifactSpec_INTERSTELLAR_COMPASS,
+			artLevel:  3,
+			artRarity: -1,
+			label:     "T4 Compass",
+		},
+	}
+
+	for _, tt := range tests {
+		crit := parseCustomCriterion(tt.input)
+		if crit.critType != tt.critType {
+			t.Errorf("parseCustomCriterion(%q) critType = %v, want %v", tt.input, crit.critType, tt.critType)
+		}
+		if crit.artName != tt.artName {
+			t.Errorf("parseCustomCriterion(%q) artName = %v, want %v", tt.input, crit.artName, tt.artName)
+		}
+		if crit.artLevel != tt.artLevel {
+			t.Errorf("parseCustomCriterion(%q) artLevel = %v, want %v", tt.input, crit.artLevel, tt.artLevel)
+		}
+		if crit.artRarity != tt.artRarity {
+			t.Errorf("parseCustomCriterion(%q) artRarity = %v, want %v", tt.input, crit.artRarity, tt.artRarity)
+		}
+		if crit.artLabel != tt.label {
+			t.Errorf("parseCustomCriterion(%q) artLabel = %q, want %q", tt.input, crit.artLabel, tt.label)
+		}
+	}
+}
+
+func TestSortCustomRemaining_ArtifactAndCraftTiebreaker(t *testing.T) {
+	// Goal: primary = T4L_ACTUATOR, secondary = CRAFT(T4_ACTUATOR)
+	// Alice: 2x T4L Actuator, 10 crafts
+	// Bob: 1x T4L Actuator, 50 crafts
+	// Charlie: 0x T4L Actuator, 100 crafts
+	// Dana: 0x T4L Actuator, 30 crafts
+	// Expected Order: Alice (2 T4L) -> Bob (1 T4L) -> Charlie (0 T4L, 100 crafts) -> Dana (0 T4L, 30 crafts)
+
+	contract := &Contract{
+		ContractID:   "test-actuator-coop",
+		CoopID:       "coop",
+		ContractHash: "actuator-hash",
+		Boosters:     make(map[string]*Booster),
+		Order:        []string{"alice", "bob", "charlie", "dana"},
+	}
+
+	contract.Boosters["alice"] = &Booster{UserID: "alice", Nick: "Alice"}
+	farmerstate.SetMiscSettingString("alice", "art_count_29_3_3", "2")
+	farmerstate.SetMiscSettingString("alice", "crafts_29_3", "10")
+
+	contract.Boosters["bob"] = &Booster{UserID: "bob", Nick: "Bob"}
+	farmerstate.SetMiscSettingString("bob", "art_count_29_3_3", "1")
+	farmerstate.SetMiscSettingString("bob", "crafts_29_3", "50")
+
+	contract.Boosters["charlie"] = &Booster{UserID: "charlie", Nick: "Charlie"}
+	farmerstate.SetMiscSettingString("charlie", "art_count_29_3_3", "0")
+	farmerstate.SetMiscSettingString("charlie", "crafts_29_3", "100")
+
+	contract.Boosters["dana"] = &Booster{UserID: "dana", Nick: "Dana"}
+	farmerstate.SetMiscSettingString("dana", "art_count_29_3_3", "0")
+	farmerstate.SetMiscSettingString("dana", "crafts_29_3", "30")
+
+	lines := []string{
+		"T4L_ACTUATOR",
+		"CRAFT(T4_ACTUATOR)",
+	}
+
+	unselected := []string{"dana", "charlie", "bob", "alice"}
+	sorted := sortCustomRemaining(contract, unselected, lines, false)
+
+	expected := []string{"alice", "bob", "charlie", "dana"}
+	if len(sorted) != len(expected) {
+		t.Fatalf("sorted length = %d, want %d", len(sorted), len(expected))
+	}
+	for i, id := range sorted {
+		if id != expected[i] {
+			t.Errorf("at index %d: got %s, want %s (sorted: %v)", i, id, expected[i], sorted)
+		}
+	}
+
+	// Verify table image rendering with custom columns
+	imgBytes, err := RenderCustomOrderTableImage(contract, lines)
+	if err != nil {
+		t.Fatalf("RenderCustomOrderTableImage failed: %v", err)
+	}
+	if len(imgBytes) == 0 {
+		t.Fatalf("RenderCustomOrderTableImage produced empty image bytes")
+	}
+}
+
+func TestCustomOrderTableColumns_OnlyActiveCriteria(t *testing.T) {
+	// Case 1: Actuator primary and crafts tiebreaker
+	lines1 := []string{"T4L_ACTUATOR", "CRAFT(T4_ACTUATOR)"}
+	cols1 := getCustomOrderTableColumns(nil, lines1)
+	var labels1 []string
+	for _, c := range cols1 {
+		labels1 = append(labels1, c.Label)
+	}
+	expectedLabels1 := []string{"#", "Player", "T4L Actuator", "T4 Actuator Crafts"}
+	if len(labels1) != len(expectedLabels1) {
+		t.Fatalf("Case 1 got cols %v, want %v", labels1, expectedLabels1)
+	}
+	for i, l := range labels1 {
+		if l != expectedLabels1[i] {
+			t.Errorf("Case 1 col %d = %q, want %q", i, l, expectedLabels1[i])
+		}
+	}
+
+	// Case 2: Role, IHR, Tokens
+	lines2 := []string{"<ROLE", "<IHR[6%]", ">TOKENS"}
+	cols2 := getCustomOrderTableColumns(nil, lines2)
+	var labels2 []string
+	for _, c := range cols2 {
+		labels2 = append(labels2, c.Label)
+	}
+	expectedLabels2 := []string{"#", "Player", "Role", "IHR", "Tokens"}
+	if len(labels2) != len(expectedLabels2) {
+		t.Fatalf("Case 2 got cols %v, want %v", labels2, expectedLabels2)
+	}
+	for i, l := range labels2 {
+		if l != expectedLabels2[i] {
+			t.Errorf("Case 2 col %d = %q, want %q", i, l, expectedLabels2[i])
+		}
+	}
+
+	// Case 3: Conditional IF MAIN ... with Defl Effort, Tokens, and TE
+	lines3 := []string{"IF MAIN <DEFL_EFFORT[50] ELSE >TOKENS", "<TE"}
+	cols3 := getCustomOrderTableColumns(nil, lines3)
+	var labels3 []string
+	for _, c := range cols3 {
+		labels3 = append(labels3, c.Label)
+	}
+	expectedLabels3 := []string{"#", "Player", "Role", "Effort [N=50]", "Tokens", "TE"}
+	if len(labels3) != len(expectedLabels3) {
+		t.Fatalf("Case 3 got cols %v, want %v", labels3, expectedLabels3)
+	}
+	for i, l := range labels3 {
+		if l != expectedLabels3[i] {
+			t.Errorf("Case 3 col %d = %q, want %q", i, l, expectedLabels3[i])
+		}
+	}
+
+	// Case 4: Empty lines -> only # and Player (name always shown)
+	lines4 := []string{}
+	cols4 := getCustomOrderTableColumns(nil, lines4)
+	var labels4 []string
+	for _, c := range cols4 {
+		labels4 = append(labels4, c.Label)
+	}
+	expectedLabels4 := []string{"#", "Player"}
+	if len(labels4) != len(expectedLabels4) {
+		t.Fatalf("Case 4 got cols %v, want %v", labels4, expectedLabels4)
+	}
+	for i, l := range labels4 {
+		if l != expectedLabels4[i] {
+			t.Errorf("Case 4 col %d = %q, want %q", i, l, expectedLabels4[i])
+		}
+	}
+}
+
+
 

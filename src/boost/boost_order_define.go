@@ -629,6 +629,19 @@ func buildBenchmarkSampleContract() *Contract {
 			LayRate:   14.0,
 		},
 	}
+	farmerstate.SetMiscSettingString("alice", "art_count_29_3_3", "1")
+	farmerstate.SetMiscSettingString("alice", "crafts_29_3", "12")
+	farmerstate.SetMiscSettingString("bob", "art_count_29_3_3", "0")
+	farmerstate.SetMiscSettingString("bob", "crafts_29_3", "85")
+	farmerstate.SetMiscSettingString("charlie", "art_count_29_3_3", "0")
+	farmerstate.SetMiscSettingString("charlie", "crafts_29_3", "45")
+	farmerstate.SetMiscSettingString("dana", "art_count_29_3_3", "0")
+	farmerstate.SetMiscSettingString("dana", "crafts_29_3", "20")
+	farmerstate.SetMiscSettingString("eve", "art_count_29_3_3", "0")
+	farmerstate.SetMiscSettingString("eve", "crafts_29_3", "10")
+	farmerstate.SetMiscSettingString("frank", "art_count_29_3_3", "0")
+	farmerstate.SetMiscSettingString("frank", "crafts_29_3", "2")
+
 	return c
 }
 

@@ -179,16 +179,62 @@ If `ELSE` is omitted, **the sort rule does not apply to non-matching boosters**:
 | `DELIV` | Delivery Capacity | `<` (Highest) | Estimated maximum shipping delivery rate. |
 | `SIGNUP` | Sign-up Order | `<` (First-in) | Order in which players signed up in the contract thread. |
 | `RANDOM` | Deterministic Random | — | Stable pseudo-random tiebreaker. |
+| `T4L_ACTUATOR` / `<T4L_ACTUATOR` | Artifact Quantity | `<` (Highest) | Inventory count of a specific artifact tier & rarity (e.g. `T4L_ACTUATOR`, `T4E_GUSSET`, `T4_COMPASS`). |
+| `CRAFT(T4_ACTUATOR)` | Artifact Craft Count | `<` (Highest) | Total craft attempts for a given artifact tier (e.g. `CRAFT(T4_ACTUATOR)`, `T4_ACTUATOR_CRAFTS`). |
 
 ---
 
-## 8. ⚙️ Preview & Evaluation Report
+## 8. Artifact Counts & Crafts Syntax
+
+You can target any artifact in Egg, Inc. by its inventory count or crafting attempts:
+
+### 1. Artifact Inventory Counts
+Specify the Tier (`T1`–`T4`) and optional Rarity (`C`, `R`, `E`, `L` or Common, Rare, Epic, Legendary):
+* `T4L_ACTUATOR` or `<T4L_ACTUATOR`: Boosters with the most T4 Legendary Actuators boost first.
+* `T4E_GUSSET`: Boosters with the most T4 Epic Gussets boost first.
+* `T4_COMPASS`: Total count of all T4 Compasses owned (any rarity).
+* `ART[T4L_ACTUATOR]` / `ARTIFACT(T4L_ACTUATOR)`: Explicit wrapper syntax.
+
+### 2. Artifact Craft Attempts
+Specify crafting attempts for any artifact tier (defaults to T4 if tier is omitted):
+* `CRAFT(T4_ACTUATOR)` or `CRAFT[T4_ACTUATOR]`: Total number of T4 Actuators crafted.
+* `CRAFT_T4_ACTUATOR` or `T4_ACTUATOR_CRAFTS`: Equivalent shorthand forms.
+* `CRAFT(ACTUATOR)`: Defaults to T4 Actuator crafts.
+* `CRAFT(DEFL)` / `CRAFT_DEFL`: Tachyon Deflector crafts.
+
+### 3. Supported Artifact Names & Aliases
+All 21 Egg, Inc. artifacts and their common abbreviations are supported:
+* **Actuator**: `ACTUATOR`, `TITANIUM_ACTUATOR`
+* **Deflector**: `DEFL`, `DEFLECTOR`, `TACHYON_DEFLECTOR`
+* **Metronome**: `METR`, `METRONOME`, `QUANTUM_METRONOME`
+* **Compass**: `COMP`, `COMPASS`, `INTERSTELLAR_COMPASS`
+* **Gusset**: `GUSS`, `GUSSET`, `ORNATE_GUSSET`
+* **Chalice**: `CHALICE`, `THE_CHALICE`
+* **Book of Basan**: `BOB`, `BOOK`, `BOOK_OF_BASAN`
+* **Feather**: `FEATHER`, `PHOENIX_FEATHER`
+* **Ankh**: `ANKH`, `TUNGSTEN_ANKH`
+* **Brooch**: `BROOCH`, `AURELIAN_BROOCH`
+* **Rainstick**: `RAINSTICK`, `CARVED_RAINSTICK`
+* **Puzzle Cube**: `CUBE`, `PUZZLE_CUBE`
+* **Ship in a Bottle**: `SIAB`, `SHIP`, `SHIP_IN_A_BOTTLE`
+* **Monocle**: `MONOCLE`, `DILITHIUM_MONOCLE`
+* **Lens**: `LENS`, `MERCURYS_LENS`
+* **Totem**: `TOTEM`, `LUNAR_TOTEM`
+* **Medallion**: `MEDALLION`, `NEODYMIUM_MEDALLION`
+* **Beak**: `BEAK`, `BEAK_OF_MIDAS`
+* **Light of Eggendil**: `LIGHT`, `LIGHT_OF_EGGENDIL`
+* **Necklace**: `NECKLACE`, `DEMETERS_NECKLACE`
+* **Vial of Martian Dust**: `VIAL`, `VIAL_OF_MARTIAN_DUST`
+
+---
+
+## 9. ⚙️ Preview & Evaluation Report
 
 Submitting the criteria modal or loading a preset generates an interactive preview report containing:
 1. **Tiebreaker Hierarchy**: Shows the exact condition configured for Levels 1–4.
-2. **Table Image Preview**: Renders a PNG table displaying each booster's data (`#`, `Player`, `Role`, `Deflector`, `T4 Crafts`, `Effort [N]`, `ELR`, `IHR`, `Tokens`, `TE`).
-   * **Role Column**: Shows whether a player is a `Main` (green) or `Helper` (red).
-   * Outside a contract channel: Evaluates a 6-player benchmark cohort (including both Main and Helper accounts).
+2. **Table Image Preview**: Renders a PNG table displaying each booster's metrics.
+   * **Focused Dynamic Columns**: The table always shows the position rank (`#`) and player name (`Player`), followed strictly by columns for the criteria actually included in the boost order (e.g. `T4L Actuator`, `T4 Actuator Crafts`, `Role`, `IHR`, `Tokens`, etc.). Unused metrics are omitted to keep the table clean and concise.
+   * Outside a contract channel: Evaluates a 6-player benchmark cohort (including mock Actuator counts and crafts).
    * Inside a contract channel: Evaluates the active contract's actual players.
 
 ### Action Buttons:
@@ -200,7 +246,7 @@ Submitting the criteria modal or loading a preset generates an interactive previ
 
 ---
 
-## 9. Applying Custom Orders in Contracts
+## 10. Applying Custom Orders in Contracts
 
 1. **Via Dropdown (`cs_#order`)**:
    * In contract signup or `/contract-settings`, open the **Boosting Order** select menu.
@@ -212,7 +258,7 @@ Submitting the criteria modal or loading a preset generates an interactive previ
 
 ---
 
-## 10. Existing BoostBot Boost Orders in Custom Order Syntax
+## 11. Existing BoostBot Boost Orders in Custom Order Syntax
 
 Every built-in boost order in BoostBot can be reproduced using the Custom Boost Order syntax. The table below maps each built-in order to its 4-line configuration:
 
@@ -270,4 +316,15 @@ Every built-in boost order in BoostBot can be reproduced using the Custom Boost 
   Level 3: >TOKENS
   Level 4: <TE
   ```
+
+#### 4. Actuator-Focused Boost Order (Primary T4L, Tiebreaker Crafts)
+* **Behavior**: Prioritizes players with a T4L Actuator. If players tie (both have or both lack a T4L Actuator), ties are broken by their total T4 Actuator craft attempts, followed by fuzzy IHR and tokens:
+* **Custom Syntax**:
+  ```text
+  Level 1: T4L_ACTUATOR
+  Level 2: CRAFT(T4_ACTUATOR)
+  Level 3: <IHR[6%]
+  Level 4: >TOKENS
+  ```
+
 
