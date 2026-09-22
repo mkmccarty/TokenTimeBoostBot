@@ -3,7 +3,6 @@ package boost
 import (
 	"bytes"
 	"fmt"
-	"math"
 	"math/rand/v2"
 	"sort"
 	"strings"
@@ -142,7 +141,6 @@ type escSortItem struct {
 	userID       string
 	rolePriority int
 	deflScore    int
-	elr          float64
 	ihr          float64
 	tokensWanted int
 	te           int
@@ -162,13 +160,11 @@ func sortESCRemaining(contract *Contract, unselected []string, isGG bool, applyF
 		b := contract.Boosters[userID]
 		rolePrio := getESCRolePriority(b)
 		deflScore := getESCDeflectorScore(b, isGG)
-		elrVal := 0.0
 		ihrVal := 0.0
 		tokensW := 0
 		teVal := 0
 
 		if b != nil {
-			elrVal = b.ArtifactSet.LayRate
 			ihrVal = b.IHRRate
 			tokensW = b.TokensWanted
 			teVal = b.TECount
@@ -193,7 +189,6 @@ func sortESCRemaining(contract *Contract, unselected []string, isGG bool, applyF
 			userID:       userID,
 			rolePriority: rolePrio,
 			deflScore:    deflScore,
-			elr:          elrVal,
 			ihr:          ihrVal,
 			tokensWanted: tokensW,
 			te:           teVal,
@@ -206,38 +201,24 @@ func sortESCRemaining(contract *Contract, unselected []string, isGG bool, applyF
 			return items[i].rolePriority < items[j].rolePriority
 		}
 
-		if isGG {
-			// In GG runs: Def sort can be skipped if equivalent ELR
-			equivELR := math.Abs(items[i].elr-items[j].elr) < 1e-4
-			if !equivELR && items[i].deflScore != items[j].deflScore {
-				return items[i].deflScore > items[j].deflScore
-			}
+		// 2. Deflector priority:
+		// GG runs: strict deflector tiering (T4L > T4E > T4R > T3R > Other)
+		// Standard runs: slot-based (2-slot > 1-slot > T3R > Other)
+		if items[i].deflScore != items[j].deflScore {
+			return items[i].deflScore > items[j].deflScore
+		}
 
-			// Boost token plan priority: IHR multi is primary sort
-			if items[i].ihr != items[j].ihr {
-				return items[i].ihr > items[j].ihr
-			}
-			if items[i].tokensWanted != items[j].tokensWanted {
-				return items[i].tokensWanted < items[j].tokensWanted
-			}
-			if items[i].te != items[j].te {
-				return items[i].te > items[j].te
-			}
-		} else {
-			// Standard runs: Deflector (2-slot > 1-slot > T3R)
-			if items[i].deflScore != items[j].deflScore {
-				return items[i].deflScore > items[j].deflScore
-			}
-			// Fuzzy IHR
-			if items[i].ihr != items[j].ihr {
-				return items[i].ihr > items[j].ihr
-			}
-			if items[i].tokensWanted != items[j].tokensWanted {
-				return items[i].tokensWanted < items[j].tokensWanted
-			}
-			if items[i].te != items[j].te {
-				return items[i].te > items[j].te
-			}
+		// 3. IHR (GG: strict IHR; Standard: fuzzy IHR if applied)
+		if items[i].ihr != items[j].ihr {
+			return items[i].ihr > items[j].ihr
+		}
+		// 4. Tokens wanted
+		if items[i].tokensWanted != items[j].tokensWanted {
+			return items[i].tokensWanted < items[j].tokensWanted
+		}
+		// 5. Token efficiency (TE)
+		if items[i].te != items[j].te {
+			return items[i].te > items[j].te
 		}
 
 		return items[i].userID < items[j].userID
