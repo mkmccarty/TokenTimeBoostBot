@@ -246,10 +246,7 @@ func hasBoosterT4LDeflector(b *Booster) bool {
 		return true
 	}
 	qualityIHR := strings.ToUpper(strings.TrimSpace(farmerstate.GetMiscSettingString(b.UserID, "defl-ihr")))
-	if strings.Contains(qualityIHR, "T4L") {
-		return true
-	}
-	return false
+	return strings.Contains(qualityIHR, "T4L")
 }
 
 // getBoosterDeflectorQualityString returns display string of booster's deflector.

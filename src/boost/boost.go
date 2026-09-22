@@ -1667,11 +1667,12 @@ func StartContractBoosting(client dc.Client, guildID string, channelID string, u
 		contract.Order = contract.Order[:contract.CoopSize]
 	}
 
-	if contract.BoostOrder == ContractOrderESC || contract.BoostOrder == ContractOrderESCGG {
+	switch contract.BoostOrder {
+	case ContractOrderESC, ContractOrderESCGG:
 		contract.Order = sortESCRemaining(contract, contract.Order, contract.BoostOrder == ContractOrderESCGG, true)
-	} else if contract.BoostOrder == ContractOrderCustom {
+	case ContractOrderCustom:
 		contract.Order = sortCustomRemaining(contract, contract.Order, contract.CustomOrderLines, true)
-	} else {
+	default:
 		reorderBoosters(contract)
 	}
 	contract.OriginalOrder = append([]string(nil), contract.Order...)
