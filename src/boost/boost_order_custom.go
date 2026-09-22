@@ -104,6 +104,16 @@ const (
 	CritArtifactCount
 	CritArtifactCraft
 	CritArtifactHas
+	CritArtifactScore
+	CritCraftingXP
+	CritBoostCount
+	CritGE
+	CritEB
+	CritSE
+	CritCTE
+	CritPrestige
+	CritDrone
+	CritEliteDrone
 	CritUnknown
 )
 
@@ -139,25 +149,117 @@ type customCriterion struct {
 	hasElse       bool
 	elseCrit      *customCriterion
 
-	artName   ei.ArtifactSpec_Name
-	artLevel  int // 0..3 for T1..T4, -1 for any
-	artRarity int // 0..3 for C..L, -1 for any
-	artLabel  string
+	artName    ei.ArtifactSpec_Name
+	artLevel   int // 0..3 for T1..T4, -1 for any
+	artRarity  int // 0..3 for C..L, -1 for any
+	artLabel   string
+	boostID    string
+	boostLabel string
 }
 
 var (
-	reDeflEffort  = regexp.MustCompile(`(?i)DEFL_EFFORT(?:\[(\d+)\])?`)
+	reDeflEffort  = regexp.MustCompile(`(?i)^(?:(?:DEFL|DEFLECTOR)_)?EFFORT(?:_?\[\s*(\d+)\s*\])?$|(?i)^DEFL_EFFORT(?:_?\[\s*(\d+)\s*\])?$`)
 	reFuzzyPct    = regexp.MustCompile(`\[(\d+(?:\.\d+)?)%\]`)
 	reFuzzySqrt   = regexp.MustCompile(`(?i)\[(?:sqrt|~)\]`)
-	reConditional = regexp.MustCompile(`(?i)^\s*IF\s+(?:\(?\s*ROLE\s*(==|=|!=|<>)?\s*)?([A-Za-z]+)\)?(?:\s+THEN)?\s+(.+?)(?:\s+ELSE\s+(.+))?$`)
-	reCraftExpr   = regexp.MustCompile(`(?i)^(?:CRAFTS?[\(\[]\s*([A-Za-z0-9_ -]+)\s*[\)\]]|CRAFT_([A-Za-z0-9_ -]+)|([A-Za-z0-9_ -]+)_CRAFTS?)$`)
-	reCountExpr   = regexp.MustCompile(`(?i)^(?:COUNT|QTY|QUANTITY)[\(\[]\s*([A-Za-z0-9_ -]+)\s*[\)\]]$|^COUNT_([A-Za-z0-9_ -]+)$`)
-	reHasExpr     = regexp.MustCompile(`(?i)^(?:HAS|OWN|OWNS)[\(\[]\s*([A-Za-z0-9_ -]+)\s*[\)\]]$|^HAS_([A-Za-z0-9_ -]+)$`)
+	reConditional = regexp.MustCompile(`(?i)^\s*IF\s+(?:(NOT)\s+)?(?:\(?\s*ROLE\s*(==|=|!=|<>|IS\s+NOT|IS|NOT)?\s*)?([A-Za-z"']+)\)?(?:\s*(?:THEN|:))?\s+(.+?)(?:\s+ELSE(?::)?\s+(.+))?$`)
+	reCraftExpr   = regexp.MustCompile(`(?i)^(?:CRAFTS?[\(\[]\s*([A-Za-z0-9_ -]+)\s*[\)\]]|CRAFTS?[:_ ]\s*([A-Za-z0-9_ -]+)|([A-Za-z0-9_ -]+)_CRAFTS?)$`)
+	reCountExpr   = regexp.MustCompile(`(?i)^(?:COUNTS?|QTY|QUANTITY)(?:[\(\[]\s*([A-Za-z0-9_ -]+)\s*[\)\]]|[:_ ]\s*([A-Za-z0-9_ -]+))$`)
+	reHasExpr     = regexp.MustCompile(`(?i)^(?:HAS|OWN|OWNS)(?:[\(\[]\s*([A-Za-z0-9_ -]+)\s*[\)\]]|[:_ ]\s*([A-Za-z0-9_ -]+))$`)
+	reBoostExpr   = regexp.MustCompile(`(?i)^(?:BOOSTS?|BOOST_COUNT)(?:[\(\[]\s*([A-Za-z0-9_ -]+)\s*[\)\]]|[:_ ]\s*([A-Za-z0-9_ -]+))$`)
 	reArtWrapper  = regexp.MustCompile(`(?i)^(?:ARTIFACT|ART)[\(\[]\s*([A-Za-z0-9_ -]+)\s*[\)\]]$`)
 	reTierRarity  = regexp.MustCompile(`(?i)\bT([1-4])([CREL])?\b`)
 	reRarityWord  = regexp.MustCompile(`(?i)\b(LEGENDARY|LEGGY|EPIC|RARE|COMMON)\b`)
 	reWhitespace  = regexp.MustCompile(`[\s\-]+`)
 )
+
+var knownRawBoostIDs = map[string]string{
+	"soul_mirror_blue":         "Soul Mirror (10m)",
+	"soul_mirror_purple":       "Soul Mirror (1h)",
+	"soul_mirror_orange":       "Soul Mirror (1d)",
+	"tachyon_prism_blue":       "Tachyon Prism",
+	"tachyon_prism_blue_big":   "Large Tachyon Prism",
+	"tachyon_prism_purple":     "Powerful Tachyon Prism",
+	"tachyon_prism_purple_big": "Epic Tachyon Prism",
+	"tachyon_prism_purple_v2":  "Tachyon Prism",
+	"tachyon_prism_orange":     "Legendary Tachyon Prism",
+	"tachyon_prism_orange_big": "Supreme Tachyon Prism",
+	"boost_beacon_blue":        "Boost Beacon",
+	"boost_beacon_blue_big":    "Large Boost Beacon",
+	"boost_beacon_purple":      "Epic Boost Beacon",
+	"boost_beacon_orange":      "Legendary Boost Beacon",
+	"soul_beacon_blue":         "Soul Beacon",
+	"soul_beacon_purple":       "Epic Soul Beacon",
+	"soul_beacon_orange":       "Legendary Soul Beacon",
+	"jimbos_blue":              "Jimbo's Best Bird Feed (20m)",
+	"jimbos_blue_big":          "Jimbo's Best Bird Feed (2h)",
+	"jimbos_purple":            "Jimbo's Best Bird Feed (2h 10x)",
+	"jimbos_purple_big":        "Jimbo's Best Bird Feed (8h 10x)",
+	"jimbos_orange":            "Jimbo's Best Bird Feed (10m 50x)",
+	"jimbos_orange_big":        "Jimbo's Best Bird Feed (1h 50x)",
+	"dilithium_bulb":           "Quantum Warming Bulb",
+	"money_printer":            "Money Printer",
+	"blank_check":              "Blank Check",
+}
+
+var boostFriendlyToRawID = map[string]string{
+	"soul_mirror":             "soul_mirror_blue",
+	"soul_mirror_10m":         "soul_mirror_blue",
+	"soul_mirror_1h":          "soul_mirror_purple",
+	"soul_mirror_1d":          "soul_mirror_orange",
+	"epic_soul_mirror":        "soul_mirror_purple",
+	"legendary_soul_mirror":   "soul_mirror_orange",
+	"tachyon_prism":           "tachyon_prism_purple_v2",
+	"tachyon_prism_10m_10x":   "tachyon_prism_blue",
+	"large_tachyon_prism":     "tachyon_prism_blue_big",
+	"powerful_tachyon_prism":  "tachyon_prism_purple",
+	"epic_tachyon_prism":      "tachyon_prism_purple_big",
+	"legendary_tachyon_prism": "tachyon_prism_orange",
+	"supreme_tachyon_prism":   "tachyon_prism_orange_big",
+	"boost_beacon":            "boost_beacon_blue",
+	"large_boost_beacon":      "boost_beacon_blue_big",
+	"epic_boost_beacon":       "boost_beacon_purple",
+	"legendary_boost_beacon":  "boost_beacon_orange",
+	"soul_beacon":             "soul_beacon_blue",
+	"epic_soul_beacon":        "soul_beacon_purple",
+	"legendary_soul_beacon":   "soul_beacon_orange",
+	"quantum_warming_bulb":    "dilithium_bulb",
+	"warming_bulb":            "dilithium_bulb",
+}
+
+func isKnownBoostID(s string) bool {
+	rawID := strings.ToLower(strings.Trim(reWhitespace.ReplaceAllString(s, "_"), "_"))
+	if _, ok := knownRawBoostIDs[rawID]; ok {
+		return true
+	}
+	if _, ok := boostFriendlyToRawID[rawID]; ok {
+		return true
+	}
+	return strings.HasPrefix(rawID, "soul_mirror_") ||
+		strings.HasPrefix(rawID, "tachyon_prism_") ||
+		strings.HasPrefix(rawID, "boost_beacon_") ||
+		strings.HasPrefix(rawID, "soul_beacon_") ||
+		strings.HasPrefix(rawID, "jimbo_") ||
+		strings.HasPrefix(rawID, "jimbos_")
+}
+
+func resolveBoostTarget(raw string) (string, string) {
+	rawID := strings.ToLower(strings.Trim(reWhitespace.ReplaceAllString(raw, "_"), "_"))
+	if targetID, ok := boostFriendlyToRawID[rawID]; ok {
+		rawID = targetID
+	}
+	if label, found := knownRawBoostIDs[rawID]; found {
+		return rawID, label
+	}
+
+	labelWords := strings.Split(rawID, "_")
+	for i, w := range labelWords {
+		if len(w) > 0 {
+			labelWords[i] = strings.ToUpper(w[:1]) + w[1:]
+		}
+	}
+	label := strings.Join(labelWords, " ")
+	return rawID, label
+}
 
 var artifactAliasMap = map[string]ei.ArtifactSpec_Name{
 	"ACTUATOR":             ei.ArtifactSpec_TITANIUM_ACTUATOR,
@@ -506,10 +608,11 @@ func parseCustomCriterion(s string) customCriterion {
 	}
 
 	// Check if this is a conditional IF ... [ELSE ...] rule
-	if m := reConditional.FindStringSubmatch(trimmed); len(m) > 3 {
-		op := strings.TrimSpace(m[1])
-		roleStr := strings.ToUpper(strings.Trim(strings.TrimSpace(m[2]), `"'`))
-		isNot := (op == "!=" || op == "<>")
+	if m := reConditional.FindStringSubmatch(trimmed); len(m) > 4 {
+		notPrefix := strings.TrimSpace(m[1])
+		op := strings.TrimSpace(m[2])
+		roleStr := strings.ToUpper(strings.Trim(strings.TrimSpace(m[3]), `"'`))
+		isNot := (notPrefix != "" || op == "!=" || op == "<>" || strings.Contains(strings.ToUpper(op), "NOT"))
 
 		var targetRole customRoleCondition
 		switch roleStr {
@@ -529,14 +632,14 @@ func parseCustomCriterion(s string) customCriterion {
 			targetRole = roleConditionSIAB
 		case "GUSSET", "GUSS":
 			targetRole = roleConditionGusset
-		case "QUANT":
+		case "QUANT", "COMPASS":
 			targetRole = roleConditionQuant
 		default:
 			targetRole = roleConditionNone
 		}
 
 		if targetRole != roleConditionNone {
-			thenStr := strings.TrimSpace(m[3])
+			thenStr := strings.TrimSpace(m[4])
 			thenCrit := parseCustomCriterion(thenStr)
 			crit := customCriterion{
 				raw:           trimmed,
@@ -544,8 +647,8 @@ func parseCustomCriterion(s string) customCriterion {
 				targetRole:    targetRole,
 				thenCrit:      &thenCrit,
 			}
-			if len(m) > 4 && strings.TrimSpace(m[4]) != "" {
-				elseStr := strings.TrimSpace(m[4])
+			if len(m) > 5 && strings.TrimSpace(m[5]) != "" {
+				elseStr := strings.TrimSpace(m[5])
 				elseCrit := parseCustomCriterion(elseStr)
 				crit.hasElse = true
 				crit.elseCrit = &elseCrit
@@ -580,71 +683,114 @@ func parseCustomCriterion(s string) customCriterion {
 		if pct, err := strconv.ParseFloat(m[1], 64); err == nil {
 			crit.fuzzyPct = pct / 100.0
 		}
+		cur = strings.TrimSpace(reFuzzyPct.ReplaceAllString(cur, ""))
 	}
 	if reFuzzySqrt.MatchString(cur) {
 		crit.fuzzySqrt = true
+		cur = strings.TrimSpace(reFuzzySqrt.ReplaceAllString(cur, ""))
 	}
 
 	upper := strings.ToUpper(cur)
+	norm := strings.Trim(reWhitespace.ReplaceAllString(upper, "_"), "_")
 
 	switch {
-	case reDeflEffort.MatchString(upper):
+	case reDeflEffort.MatchString(norm):
 		crit.critType = CritDeflEffort
-		m := reDeflEffort.FindStringSubmatch(upper)
-		if len(m) > 1 && m[1] != "" {
-			if n, err := strconv.Atoi(m[1]); err == nil && n > 0 {
+		m := reDeflEffort.FindStringSubmatch(norm)
+		digitStr := ""
+		for idx := 1; idx < len(m); idx++ {
+			if m[idx] != "" {
+				digitStr = m[idx]
+				break
+			}
+		}
+		if digitStr != "" {
+			if n, err := strconv.Atoi(digitStr); err == nil && n > 0 {
 				crit.effortN = n
 			}
 		}
-	case strings.HasPrefix(upper, "DEFL_SLOT"):
+	case strings.HasPrefix(norm, "DEFL_SLOT") || strings.HasPrefix(norm, "DEFLECTOR_SLOT") || norm == "SLOT" || norm == "SLOTS":
 		crit.critType = CritDeflSlot
-	case upper == "DEFL" || upper == "DEFLECTOR":
+	case norm == "DEFL" || norm == "DEFLECTOR" || norm == "DEFLECTORS":
 		crit.critType = CritDefl
-	case strings.HasPrefix(upper, "IHR"):
+	case strings.HasPrefix(norm, "IHR") || norm == "INTERNAL_HATCHERY" || norm == "INTERNAL_HATCHERY_RATE":
 		crit.critType = CritIHR
-	case strings.HasPrefix(upper, "ELR"):
+	case strings.HasPrefix(norm, "ELR") || norm == "EGG_LAYING_RATE" || norm == "LAYING_RATE":
 		crit.critType = CritELR
-	case strings.HasPrefix(upper, "TE"):
+	case strings.HasPrefix(norm, "TE") || norm == "TRUTH_EGGS" || norm == "TRUTH_EGG" || norm == "EOFT":
 		crit.critType = CritTE
-	case strings.HasPrefix(upper, "TOKEN") || strings.HasPrefix(upper, "TASK"):
+	case strings.HasPrefix(norm, "TOKEN") || strings.HasPrefix(norm, "TASK"):
 		crit.critType = CritTokens
 		// For tokens wanted, ascending order is naturally preferred (fewer tokens boost earlier)
 		// unless explicitly prefixed with <
 		if !strings.HasPrefix(trimmed, "<") && !strings.HasPrefix(trimmed, "-") {
 			crit.ascending = true
 		}
-	case strings.HasPrefix(upper, "TVAL"):
+	case strings.HasPrefix(norm, "TVAL") || strings.HasPrefix(norm, "TOKEN_VALUE") || strings.HasPrefix(norm, "TOKENVALUE"):
 		crit.critType = CritTVal
-	case strings.HasPrefix(upper, "DELIV") || strings.HasPrefix(upper, "DEL"):
+	case strings.HasPrefix(norm, "DELIV") || strings.HasPrefix(norm, "DEL") || strings.HasPrefix(norm, "SHIPPING") || strings.HasPrefix(norm, "SHIP"):
 		crit.critType = CritDeliv
-	case strings.HasPrefix(upper, "SIGNUP") || strings.HasPrefix(upper, "JOIN"):
+	case strings.HasPrefix(norm, "SIGNUP") || strings.HasPrefix(norm, "JOIN") || strings.HasPrefix(norm, "ORDER"):
 		crit.critType = CritSignup
 		if !strings.HasPrefix(trimmed, "<") && !strings.HasPrefix(trimmed, "-") {
 			crit.ascending = true
 		}
-	case strings.HasPrefix(upper, "REVERSE"):
+	case strings.HasPrefix(norm, "REVERSE") || norm == "REV":
 		crit.critType = CritReverse
-	case strings.HasPrefix(upper, "RANDOM"):
+	case strings.HasPrefix(norm, "RANDOM") || norm == "RND" || norm == "SHUFFLE":
 		crit.critType = CritRandom
-	case strings.HasPrefix(upper, "ROLE"):
+	case strings.HasPrefix(norm, "ROLE"):
 		crit.critType = CritRole
-		if strings.Contains(upper, "HELP") || strings.Contains(upper, "ALT") {
+		if strings.Contains(norm, "HELP") || strings.Contains(norm, "ALT") {
 			crit.ascending = true
 		}
-	case upper == "MAIN" || upper == "MAINS":
+	case norm == "MAIN" || norm == "MAINS":
 		crit.critType = CritRole
 		crit.ascending = false
-	case upper == "HELPER" || upper == "HELPERS" || upper == "ALT" || upper == "ALTS":
+	case norm == "HELPER" || norm == "HELPERS" || norm == "ALT" || norm == "ALTS":
 		crit.critType = CritRole
 		crit.ascending = true
-	case upper == "SIAB":
+	case norm == "SIAB":
 		crit.critType = CritRole
-	case upper == "GUSSET":
+	case norm == "GUSSET" || norm == "GUSS":
 		crit.critType = CritRole
-	case upper == "QUANT":
+	case norm == "QUANT" || norm == "COMPASS":
 		crit.critType = CritRole
-	case upper == "CRAFT_DEFL" || upper == "DEFL_CRAFT" || upper == "CRAFTS":
+	case norm == "CRAFT_DEFL" || norm == "DEFL_CRAFT" || norm == "CRAFTS" || norm == "CRAFT_DEFLECTOR" || norm == "DEFLECTOR_CRAFT" || norm == "DEFLECTOR_CRAFTS" || norm == "DEFL_CRAFTS":
 		crit.critType = CritCraftDefl
+	case norm == "ARTIFACT_SCORE" || norm == "ART_SCORE" || norm == "SCORE" || norm == "ARTIFACTS_SCORE" || norm == "ARTIFACTSCORE":
+		crit.critType = CritArtifactScore
+	case norm == "CRAFTING_XP" || norm == "CRAFT_XP" || norm == "CXP" || norm == "CRAFTINGXP" || norm == "CRAFTXP" || norm == "CRAFT_EXPERIENCE" || norm == "CRAFTING_EXPERIENCE":
+		crit.critType = CritCraftingXP
+	case norm == "GE" || norm == "GOLDEN_EGGS" || norm == "GOLDEN_EGG":
+		crit.critType = CritGE
+	case norm == "EB" || norm == "EARNINGS_BONUS" || norm == "EARNING_BONUS":
+		crit.critType = CritEB
+	case norm == "SE" || norm == "SOUL_EGGS" || norm == "SOUL_EGG":
+		crit.critType = CritSE
+	case norm == "CTE" || norm == "CLOTHED_TRUTH_EGGS" || norm == "CLOTHED_TRUTH_EGG" || norm == "CLOTHED_TE":
+		crit.critType = CritCTE
+	case norm == "PRESTIGE" || norm == "PRESTIGES" || norm == "PRESTIGE_COUNT":
+		crit.critType = CritPrestige
+	case norm == "DRONE" || norm == "DRONES" || norm == "DRONE_COUNT" || norm == "DRONE_TAKEDOWNS" || norm == "REGULAR_DRONE" || norm == "REGULAR_DRONES":
+		crit.critType = CritDrone
+	case norm == "ELITE_DRONE" || norm == "ELITE_DRONES" || norm == "ELITE_DRONE_COUNT" || norm == "ELITE_DRONE_TAKEDOWNS" || norm == "ELITE" || norm == "ELITES":
+		crit.critType = CritEliteDrone
+	case isKnownBoostID(norm):
+		boostID, label := resolveBoostTarget(norm)
+		crit.critType = CritBoostCount
+		crit.boostID = boostID
+		crit.boostLabel = label
+	case reBoostExpr.MatchString(cur):
+		m := reBoostExpr.FindStringSubmatch(cur)
+		inner := m[1]
+		if inner == "" && len(m) > 2 {
+			inner = m[2]
+		}
+		boostID, label := resolveBoostTarget(inner)
+		crit.critType = CritBoostCount
+		crit.boostID = boostID
+		crit.boostLabel = label
 	case reCraftExpr.MatchString(cur):
 		m := reCraftExpr.FindStringSubmatch(cur)
 		inner := m[1]
@@ -884,26 +1030,188 @@ func calculateBoosterDeflectorEffort(b *Booster, n int) (score int, craftCount i
 	return score, craftCount, hasT4L
 }
 
+func getBoosterArtifactScore(backup *ei.Backup) float64 {
+	if backup == nil || backup.GetArtifacts() == nil {
+		return 0
+	}
+	return backup.GetArtifacts().GetInventoryScore()
+}
+
+func getBoosterCraftingXP(backup *ei.Backup) float64 {
+	if backup == nil || backup.GetArtifacts() == nil {
+		return 0
+	}
+	return backup.GetArtifacts().GetCraftingXp()
+}
+
+func getBoosterBoostCount(backup *ei.Backup, boostID string) float64 {
+	if backup == nil || backup.GetGame() == nil {
+		return 0
+	}
+	for _, b := range backup.GetGame().GetBoosts() {
+		if b != nil && strings.EqualFold(b.GetBoostId(), boostID) {
+			return float64(b.GetCount())
+		}
+	}
+	return 0
+}
+
+func getBoosterGE(backup *ei.Backup) float64 {
+	if backup == nil || backup.GetGame() == nil {
+		return 0
+	}
+	earned := backup.GetGame().GetGoldenEggsEarned()
+	spent := backup.GetGame().GetGoldenEggsSpent()
+	if earned > spent {
+		return float64(earned - spent)
+	}
+	return 0
+}
+
+func getBoosterEB(backup *ei.Backup) float64 {
+	if backup == nil {
+		return 0
+	}
+	te := float64(ei.GetCurrentTruthEggs(backup))
+	return ei.GetEarningsBonus(backup, te)
+}
+
+func getBoosterSE(backup *ei.Backup) float64 {
+	if backup == nil || backup.GetGame() == nil {
+		return 0
+	}
+	return backup.GetGame().GetSoulEggsD()
+}
+
+func getBoosterCTE(backup *ei.Backup) float64 {
+	if backup == nil {
+		return 0
+	}
+	res := ei.CalculateMaxClothedTE(backup)
+	return res.ClothedTE
+}
+
+func getBoosterPrestiges(backup *ei.Backup) float64 {
+	if backup == nil || backup.GetStats() == nil {
+		return 0
+	}
+	return float64(backup.GetStats().GetNumPrestiges())
+}
+
+func getBoosterDrones(backup *ei.Backup) float64 {
+	if backup == nil || backup.GetStats() == nil {
+		return 0
+	}
+	return float64(backup.GetStats().GetDroneTakedowns())
+}
+
+func getBoosterEliteDrones(backup *ei.Backup) float64 {
+	if backup == nil || backup.GetStats() == nil {
+		return 0
+	}
+	return float64(backup.GetStats().GetDroneTakedownsElite())
+}
+
+func getBoosterArtifactScoreVal(b *Booster) float64 {
+	if b == nil {
+		return 0
+	}
+	return getBoosterArtifactScore(getBoosterBackup(b.UserID))
+}
+
+func getBoosterCraftingXPVal(b *Booster) float64 {
+	if b == nil {
+		return 0
+	}
+	return getBoosterCraftingXP(getBoosterBackup(b.UserID))
+}
+
+func getBoosterBoostCountVal(b *Booster, boostID string) float64 {
+	if b == nil {
+		return 0
+	}
+	return getBoosterBoostCount(getBoosterBackup(b.UserID), boostID)
+}
+
+func getBoosterGEVal(b *Booster) float64 {
+	if b == nil {
+		return 0
+	}
+	return getBoosterGE(getBoosterBackup(b.UserID))
+}
+
+func getBoosterEBVal(b *Booster) float64 {
+	if b == nil {
+		return 0
+	}
+	return getBoosterEB(getBoosterBackup(b.UserID))
+}
+
+func getBoosterSEVal(b *Booster) float64 {
+	if b == nil {
+		return 0
+	}
+	return getBoosterSE(getBoosterBackup(b.UserID))
+}
+
+func getBoosterCTEVal(b *Booster) float64 {
+	if b == nil {
+		return 0
+	}
+	return getBoosterCTE(getBoosterBackup(b.UserID))
+}
+
+func getBoosterPrestigeVal(b *Booster) float64 {
+	if b == nil {
+		return 0
+	}
+	return getBoosterPrestiges(getBoosterBackup(b.UserID))
+}
+
+func getBoosterDroneVal(b *Booster) float64 {
+	if b == nil {
+		return 0
+	}
+	return getBoosterDrones(getBoosterBackup(b.UserID))
+}
+
+func getBoosterEliteDroneVal(b *Booster) float64 {
+	if b == nil {
+		return 0
+	}
+	return getBoosterEliteDrones(getBoosterBackup(b.UserID))
+}
+
 type boosterEvalData struct {
-	userID        string
-	signupIndex   int
-	isMain        bool
-	isHelper      bool
-	hasT4L        bool
-	t4Crafts      int
-	deflQuality   string
-	ihrBase       float64
-	ihrSort       float64
-	elr           float64
-	teBase        int
-	teSort        float64
-	tokensWanted  int
-	deflScore     int
-	deflSlotScore int
-	delivScore    int
-	roleScore     float64
-	randomScore   float64
-	rowScores     [4]float64
+	userID          string
+	signupIndex     int
+	isMain          bool
+	isHelper        bool
+	hasT4L          bool
+	t4Crafts        int
+	deflQuality     string
+	ihrBase         float64
+	ihrSort         float64
+	elr             float64
+	teBase          int
+	teSort          float64
+	tokensWanted    int
+	deflScore       int
+	deflSlotScore   int
+	delivScore      int
+	roleScore       float64
+	randomScore     float64
+	artifactScore   float64
+	craftingXP      float64
+	ge              float64
+	eb              float64
+	se              float64
+	cte             float64
+	prestigeCount   float64
+	droneCount      float64
+	eliteDroneCount float64
+	boostCounts     map[string]float64
+	rowScores       [4]float64
 }
 
 func applyFuzzyModifiers(b *Booster, data *boosterEvalData, crit customCriterion, applyFuzzy bool) {
@@ -946,6 +1254,7 @@ func evaluateBoosterForCustom(contract *Contract, userID string, signupIdx int, 
 		userID:      userID,
 		signupIndex: signupIdx,
 		randomScore: rand.Float64(),
+		boostCounts: make(map[string]float64),
 	}
 
 	if b != nil {
@@ -965,6 +1274,51 @@ func evaluateBoosterForCustom(contract *Contract, userID string, signupIdx int, 
 		data.deflScore = getArtifactQualityScore(b, "Deflector")
 		data.deflSlotScore = getBoosterDeflectorSlotScore(b)
 		data.delivScore = getArtifactQualityScore(b, "Metronome") + getArtifactQualityScore(b, "Compass") + getArtifactQualityScore(b, "Gusset")
+	}
+
+	needsBackup := false
+	var neededBoostIDs []string
+	var checkNeedsBackup func(c customCriterion)
+	checkNeedsBackup = func(c customCriterion) {
+		if c.isConditional {
+			if c.thenCrit != nil {
+				checkNeedsBackup(*c.thenCrit)
+			}
+			if c.elseCrit != nil {
+				checkNeedsBackup(*c.elseCrit)
+			}
+			return
+		}
+		switch c.critType {
+		case CritArtifactScore, CritCraftingXP, CritGE, CritEB, CritSE, CritCTE, CritPrestige, CritDrone, CritEliteDrone:
+			needsBackup = true
+		case CritBoostCount:
+			needsBackup = true
+			if c.boostID != "" {
+				neededBoostIDs = append(neededBoostIDs, c.boostID)
+			}
+		}
+	}
+	for _, c := range criteria {
+		checkNeedsBackup(c)
+	}
+
+	if needsBackup {
+		backup := getBoosterBackup(userID)
+		if backup != nil {
+			data.artifactScore = getBoosterArtifactScore(backup)
+			data.craftingXP = getBoosterCraftingXP(backup)
+			data.ge = getBoosterGE(backup)
+			data.eb = getBoosterEB(backup)
+			data.se = getBoosterSE(backup)
+			data.cte = getBoosterCTE(backup)
+			data.prestigeCount = getBoosterPrestiges(backup)
+			data.droneCount = getBoosterDrones(backup)
+			data.eliteDroneCount = getBoosterEliteDrones(backup)
+			for _, boostID := range neededBoostIDs {
+				data.boostCounts[boostID] = getBoosterBoostCount(backup, boostID)
+			}
+		}
 	}
 
 	for rowIdx, crit := range criteria {
@@ -1020,6 +1374,29 @@ func getBoosterCriterionValue(contract *Contract, item *boosterEvalData, crit cu
 	case CritArtifactCraft:
 		b := contract.Boosters[item.userID]
 		return float64(getBoosterArtifactCraftCount(b, crit.artName, crit.artLevel))
+	case CritArtifactScore:
+		return item.artifactScore
+	case CritCraftingXP:
+		return item.craftingXP
+	case CritBoostCount:
+		if item.boostCounts != nil {
+			return item.boostCounts[crit.boostID]
+		}
+		return 0
+	case CritGE:
+		return item.ge
+	case CritEB:
+		return item.eb
+	case CritSE:
+		return item.se
+	case CritCTE:
+		return item.cte
+	case CritPrestige:
+		return item.prestigeCount
+	case CritDrone:
+		return item.droneCount
+	case CritEliteDrone:
+		return item.eliteDroneCount
 	default:
 		return 0.0
 	}
@@ -1418,6 +1795,133 @@ func buildCustomOrderTableColDefs(contract *Contract, criteria [4]customCriterio
 							color = "green"
 						}
 						return TableImageCell{Text: fmt.Sprintf("%d", cnt), Color: color}
+					},
+				})
+			}
+		case CritArtifactScore:
+			if !seenColIDs["art_score"] {
+				seenColIDs["art_score"] = true
+				activeCols = append(activeCols, customTableColDef{
+					id:  "art_score",
+					col: TableImageColumn{Label: "Art Score", Align: bottools.StringAlignRight},
+					evalCell: func(b *Booster, _ int) TableImageCell {
+						score := getBoosterArtifactScoreVal(b)
+						return TableImageCell{Text: ei.FormatEIValue(score, map[string]any{"decimals": 1, "trim": true}), Color: ""}
+					},
+				})
+			}
+		case CritCraftingXP:
+			if !seenColIDs["crafting_xp"] {
+				seenColIDs["crafting_xp"] = true
+				activeCols = append(activeCols, customTableColDef{
+					id:  "crafting_xp",
+					col: TableImageColumn{Label: "Craft XP", Align: bottools.StringAlignRight},
+					evalCell: func(b *Booster, _ int) TableImageCell {
+						xp := getBoosterCraftingXPVal(b)
+						lvl := ei.GetCraftingLevel(xp)
+						return TableImageCell{Text: fmt.Sprintf("Lvl %d", lvl), Color: ""}
+					},
+				})
+			}
+		case CritBoostCount:
+			id := "boost_" + c.boostID
+			if !seenColIDs[id] {
+				seenColIDs[id] = true
+				boostID := c.boostID
+				label := c.boostLabel
+				if label == "" {
+					label = "Boosts"
+				}
+				activeCols = append(activeCols, customTableColDef{
+					id:  id,
+					col: TableImageColumn{Label: label, Align: bottools.StringAlignRight},
+					evalCell: func(b *Booster, _ int) TableImageCell {
+						cnt := getBoosterBoostCountVal(b, boostID)
+						return TableImageCell{Text: fmt.Sprintf("%.0f", cnt), Color: ""}
+					},
+				})
+			}
+		case CritGE:
+			if !seenColIDs["ge"] {
+				seenColIDs["ge"] = true
+				activeCols = append(activeCols, customTableColDef{
+					id:  "ge",
+					col: TableImageColumn{Label: "GE", Align: bottools.StringAlignRight},
+					evalCell: func(b *Booster, _ int) TableImageCell {
+						ge := getBoosterGEVal(b)
+						return TableImageCell{Text: ei.FormatEIValue(ge, map[string]any{"decimals": 2, "trim": true}), Color: ""}
+					},
+				})
+			}
+		case CritEB:
+			if !seenColIDs["eb"] {
+				seenColIDs["eb"] = true
+				activeCols = append(activeCols, customTableColDef{
+					id:  "eb",
+					col: TableImageColumn{Label: "EB", Align: bottools.StringAlignRight},
+					evalCell: func(b *Booster, _ int) TableImageCell {
+						eb := getBoosterEBVal(b)
+						return TableImageCell{Text: ei.FormatEIValue(eb, map[string]any{"decimals": 2, "trim": true}) + "%", Color: ""}
+					},
+				})
+			}
+		case CritSE:
+			if !seenColIDs["se"] {
+				seenColIDs["se"] = true
+				activeCols = append(activeCols, customTableColDef{
+					id:  "se",
+					col: TableImageColumn{Label: "SE", Align: bottools.StringAlignRight},
+					evalCell: func(b *Booster, _ int) TableImageCell {
+						se := getBoosterSEVal(b)
+						return TableImageCell{Text: ei.FormatEIValue(se, map[string]any{"decimals": 2, "trim": true}), Color: ""}
+					},
+				})
+			}
+		case CritCTE:
+			if !seenColIDs["cte"] {
+				seenColIDs["cte"] = true
+				activeCols = append(activeCols, customTableColDef{
+					id:  "cte",
+					col: TableImageColumn{Label: "CTE", Align: bottools.StringAlignRight},
+					evalCell: func(b *Booster, _ int) TableImageCell {
+						cte := getBoosterCTEVal(b)
+						return TableImageCell{Text: fmt.Sprintf("%.0f", cte), Color: ""}
+					},
+				})
+			}
+		case CritPrestige:
+			if !seenColIDs["prestige"] {
+				seenColIDs["prestige"] = true
+				activeCols = append(activeCols, customTableColDef{
+					id:  "prestige",
+					col: TableImageColumn{Label: "Prestiges", Align: bottools.StringAlignRight},
+					evalCell: func(b *Booster, _ int) TableImageCell {
+						p := getBoosterPrestigeVal(b)
+						return TableImageCell{Text: fmt.Sprintf("%.0f", p), Color: ""}
+					},
+				})
+			}
+		case CritDrone:
+			if !seenColIDs["drone"] {
+				seenColIDs["drone"] = true
+				activeCols = append(activeCols, customTableColDef{
+					id:  "drone",
+					col: TableImageColumn{Label: "Drones", Align: bottools.StringAlignRight},
+					evalCell: func(b *Booster, _ int) TableImageCell {
+						d := getBoosterDroneVal(b)
+						return TableImageCell{Text: fmt.Sprintf("%.0f", d), Color: ""}
+					},
+				})
+			}
+		case CritEliteDrone:
+			if !seenColIDs["elite_drone"] {
+				seenColIDs["elite_drone"] = true
+				activeCols = append(activeCols, customTableColDef{
+					id:  "elite_drone",
+					col: TableImageColumn{Label: "Elite Drones", Align: bottools.StringAlignRight},
+					evalCell: func(b *Booster, _ int) TableImageCell {
+						ed := getBoosterEliteDroneVal(b)
+						return TableImageCell{Text: fmt.Sprintf("%.0f", ed), Color: ""}
 					},
 				})
 			}
@@ -1916,6 +2420,60 @@ func criterionShortName(c customCriterion) string {
 			return c.artLabel
 		}
 		return "Artifact"
+	case CritArtifactScore:
+		if c.ascending {
+			return "Lowest Art Score"
+		}
+		return "Artifact Score"
+	case CritCraftingXP:
+		if c.ascending {
+			return "Lowest Craft XP"
+		}
+		return "Crafting XP"
+	case CritBoostCount:
+		label := c.boostLabel
+		if label == "" {
+			label = "Boosts"
+		}
+		if c.ascending {
+			return "Fewest " + label
+		}
+		return label
+	case CritGE:
+		if c.ascending {
+			return "Fewest GE"
+		}
+		return "Golden Eggs"
+	case CritEB:
+		if c.ascending {
+			return "Lowest EB"
+		}
+		return "EB"
+	case CritSE:
+		if c.ascending {
+			return "Lowest SE"
+		}
+		return "Soul Eggs"
+	case CritCTE:
+		if c.ascending {
+			return "Lowest CTE"
+		}
+		return "CTE"
+	case CritPrestige:
+		if c.ascending {
+			return "Fewest Prestiges"
+		}
+		return "Prestiges"
+	case CritDrone:
+		if c.ascending {
+			return "Fewest Drones"
+		}
+		return "Drones"
+	case CritEliteDrone:
+		if c.ascending {
+			return "Fewest Elite Drones"
+		}
+		return "Elite Drones"
 	case CritUnknown:
 		raw := strings.TrimSpace(c.raw)
 		if len(raw) > 20 {
