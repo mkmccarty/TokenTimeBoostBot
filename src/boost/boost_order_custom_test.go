@@ -1,7 +1,6 @@
 package boost
 
 import (
-	"reflect"
 	"strings"
 	"testing"
 
@@ -897,7 +896,7 @@ func TestCustomOrderTableColumns_OnlyActiveCriteria(t *testing.T) {
 	}
 }
 
-func TestCustomOrderRolePriorityHierarchy(t *testing.T) {
+func TestCustomOrderRolePriority(t *testing.T) {
 	contract := &Contract{
 		State: ContractStateSignup,
 		Order: []string{"altUser", "regularUser", "quantUser", "gussetUser", "siabUser"},
@@ -931,21 +930,8 @@ func TestCustomOrderRolePriorityHierarchy(t *testing.T) {
 			},
 		},
 	}
-	farmerstate.SetMiscSettingFlag("quantUser", "quant", true)
 
-	// 1. Verify Role strings
-	siabStr, siabColor := getBoosterRoleString(contract.Boosters["siabUser"])
-	if siabStr != "SIAB" || siabColor != "green" {
-		t.Errorf("expected SIAB role, got %s / %s", siabStr, siabColor)
-	}
-	gussStr, gussColor := getBoosterRoleString(contract.Boosters["gussetUser"])
-	if gussStr != "Gusset" || gussColor != "blue" {
-		t.Errorf("expected Gusset role, got %s / %s", gussStr, gussColor)
-	}
-	quantStr, quantColor := getBoosterRoleString(contract.Boosters["quantUser"])
-	if quantStr != "Quant" || quantColor != "blue" {
-		t.Errorf("expected Quant role, got %s / %s", quantStr, quantColor)
-	}
+	// 1. Verify Role strings (only Main or Helper)
 	regStr, regColor := getBoosterRoleString(contract.Boosters["regularUser"])
 	if regStr != "Main" || regColor != "green" {
 		t.Errorf("expected Main role, got %s / %s", regStr, regColor)
@@ -954,35 +940,43 @@ func TestCustomOrderRolePriorityHierarchy(t *testing.T) {
 	if altStr != "Helper" || altColor != "red" {
 		t.Errorf("expected Helper role, got %s / %s", altStr, altColor)
 	}
+	siabStr, siabColor := getBoosterRoleString(contract.Boosters["siabUser"])
+	if siabStr != "Main" || siabColor != "green" {
+		t.Errorf("expected Main role for siabUser, got %s / %s", siabStr, siabColor)
+	}
 
-	// 2. Verify sort order: SIAB > Gusset > Quant > Main > Helper
+	// 2. Verify sort order: Mains first, Helper last
 	lines := []string{"<ROLE"}
 	sorted := sortCustomRemaining(contract, contract.Order, lines, false)
-	expectedOrder := []string{"siabUser", "gussetUser", "quantUser", "regularUser", "altUser"}
-
-	if !reflect.DeepEqual(sorted, expectedOrder) {
-		t.Fatalf("unexpected Custom <ROLE order:\ngot  = %v\nwant = %v", sorted, expectedOrder)
+	if sorted[len(sorted)-1] != "altUser" {
+		t.Fatalf("expected altUser (Helper) to be last, got order %v", sorted)
 	}
 
-	// 3. Verify sub-role condition: IF SIAB ...
-	siabCrit := parseCustomCriterion("IF SIAB <IHR ELSE >TOKENS")
-	if !siabCrit.matchesRole(contract.Boosters["siabUser"]) {
-		t.Errorf("expected siabUser to match IF SIAB")
-	}
-	if siabCrit.matchesRole(contract.Boosters["gussetUser"]) {
-		t.Errorf("did not expect gussetUser to match IF SIAB")
+	// >ROLE puts Helper first
+	linesReverse := []string{">ROLE"}
+	sortedReverse := sortCustomRemaining(contract, contract.Order, linesReverse, false)
+	if sortedReverse[0] != "altUser" {
+		t.Fatalf("expected altUser (Helper) to be first with >ROLE, got order %v", sortedReverse)
 	}
 
-	// 4. Verify IF MAIN matches all non-helpers
+	// 3. Verify IF MAIN and IF HELPER conditions
 	mainCrit := parseCustomCriterion("IF MAIN <IHR ELSE >TOKENS")
-	if !mainCrit.matchesRole(contract.Boosters["siabUser"]) {
-		t.Errorf("expected siabUser to match IF MAIN")
-	}
 	if !mainCrit.matchesRole(contract.Boosters["regularUser"]) {
 		t.Errorf("expected regularUser to match IF MAIN")
 	}
+	if !mainCrit.matchesRole(contract.Boosters["siabUser"]) {
+		t.Errorf("expected siabUser to match IF MAIN")
+	}
 	if mainCrit.matchesRole(contract.Boosters["altUser"]) {
 		t.Errorf("did not expect altUser to match IF MAIN")
+	}
+
+	helperCrit := parseCustomCriterion("IF HELPER <IHR ELSE >TOKENS")
+	if !helperCrit.matchesRole(contract.Boosters["altUser"]) {
+		t.Errorf("expected altUser to match IF HELPER")
+	}
+	if helperCrit.matchesRole(contract.Boosters["regularUser"]) {
+		t.Errorf("did not expect regularUser to match IF HELPER")
 	}
 }
 
@@ -1248,9 +1242,9 @@ func TestParseCustomCriterion_CaseInsensitive(t *testing.T) {
 		{input: "role", critType: CritRole, ascending: false},
 		{input: "main", critType: CritRole, ascending: false},
 		{input: "helper", critType: CritRole, ascending: true},
-		{input: "siab", critType: CritRole, ascending: false},
-		{input: "gusset", critType: CritRole, ascending: false},
-		{input: "quant", critType: CritRole, ascending: false},
+		{input: "siab", critType: CritArtifactHas, ascending: false},
+		{input: "gusset", critType: CritArtifactHas, ascending: false},
+		{input: "quant", critType: CritArtifactHas, ascending: false},
 		{input: "craft defl", critType: CritCraftDefl, ascending: false},
 
 		// Lowercase & mixed case extended account criteria

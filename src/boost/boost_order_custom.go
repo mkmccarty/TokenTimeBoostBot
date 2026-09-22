@@ -123,17 +123,11 @@ const (
 	roleConditionNone customRoleCondition = iota
 	roleConditionMain
 	roleConditionHelper
-	roleConditionSIAB
-	roleConditionGusset
-	roleConditionQuant
 )
 
 const (
-	RolePrioritySIAB    = 1
-	RolePriorityGusset  = 2
-	RolePriorityQuant   = 3
-	RolePriorityRegular = 4
-	RolePriorityHelper  = 5
+	RolePriorityMain   = 1
+	RolePriorityHelper = 2
 )
 
 type customCriterion struct {
@@ -273,6 +267,7 @@ var artifactAliasMap = map[string]ei.ArtifactSpec_Name{
 	"COMPASS":              ei.ArtifactSpec_INTERSTELLAR_COMPASS,
 	"INTERSTELLAR_COMPASS": ei.ArtifactSpec_INTERSTELLAR_COMPASS,
 	"COMP":                 ei.ArtifactSpec_INTERSTELLAR_COMPASS,
+	"QUANT":                ei.ArtifactSpec_INTERSTELLAR_COMPASS,
 	"GUSSET":               ei.ArtifactSpec_ORNATE_GUSSET,
 	"ORNATE_GUSSET":        ei.ArtifactSpec_ORNATE_GUSSET,
 	"GUSS":                 ei.ArtifactSpec_ORNATE_GUSSET,
@@ -509,68 +504,17 @@ func getBoosterDeflectorSlotScore(b *Booster) int {
 }
 
 func getBoosterRolePriority(b *Booster) int {
-	if b == nil {
+	if isBoosterHelper(b) {
 		return RolePriorityHelper
 	}
-	if b.IsAlt || b.AltController != "" {
-		return RolePriorityHelper
-	}
-	if hasBoosterArtifactType(b, "SIAB") || (farmerstate.GetMiscSettingString(b.UserID, "siab") != "" && farmerstate.GetMiscSettingString(b.UserID, "siab") != "NONE") {
-		return RolePrioritySIAB
-	}
-	if hasBoosterArtifactType(b, "Gusset") || (farmerstate.GetMiscSettingString(b.UserID, "guss") != "" && farmerstate.GetMiscSettingString(b.UserID, "guss") != "NONE") {
-		return RolePriorityGusset
-	}
-	if isBoosterQuant(b) {
-		return RolePriorityQuant
-	}
-	return RolePriorityRegular
-}
-
-func hasBoosterArtifactType(b *Booster, artType string) bool {
-	if b == nil {
-		return false
-	}
-	for _, a := range b.ArtifactSet.Artifacts {
-		if a.Type == artType && a.Quality != "NONE" && a.Quality != "" {
-			return true
-		}
-	}
-	return false
-}
-
-func isBoosterQuant(b *Booster) bool {
-	if b == nil {
-		return false
-	}
-	if farmerstate.GetMiscSettingFlag(b.UserID, "quant") || farmerstate.GetMiscSettingString(b.UserID, "quant") != "" {
-		return true
-	}
-	stoneSetting := strings.ToLower(farmerstate.GetMiscSettingString(b.UserID, "stone"))
-	if strings.Contains(stoneSetting, "quant") {
-		return true
-	}
-	for _, a := range b.ArtifactSet.Artifacts {
-		if a.Type == "Compass" || strings.Contains(strings.ToLower(a.Type), "quant") {
-			return true
-		}
-	}
-	return false
+	return RolePriorityMain
 }
 
 func getBoosterRoleString(b *Booster) (string, string) {
-	switch getBoosterRolePriority(b) {
-	case RolePrioritySIAB:
-		return "SIAB", "green"
-	case RolePriorityGusset:
-		return "Gusset", "blue"
-	case RolePriorityQuant:
-		return "Quant", "blue"
-	case RolePriorityHelper:
+	if isBoosterHelper(b) {
 		return "Helper", "red"
-	default:
-		return "Main", "green"
 	}
+	return "Main", "green"
 }
 
 func isBoosterHelper(b *Booster) bool {
@@ -590,12 +534,6 @@ func (c customCriterion) matchesRole(b *Booster) bool {
 		return isBoosterMain(b)
 	case roleConditionHelper:
 		return isBoosterHelper(b)
-	case roleConditionSIAB:
-		return getBoosterRolePriority(b) == RolePrioritySIAB
-	case roleConditionGusset:
-		return getBoosterRolePriority(b) == RolePriorityGusset
-	case roleConditionQuant:
-		return getBoosterRolePriority(b) == RolePriorityQuant
 	default:
 		return true
 	}
@@ -628,12 +566,6 @@ func parseCustomCriterion(s string) customCriterion {
 			} else {
 				targetRole = roleConditionHelper
 			}
-		case "SIAB":
-			targetRole = roleConditionSIAB
-		case "GUSSET", "GUSS":
-			targetRole = roleConditionGusset
-		case "QUANT", "COMPASS":
-			targetRole = roleConditionQuant
 		default:
 			targetRole = roleConditionNone
 		}
@@ -750,12 +682,6 @@ func parseCustomCriterion(s string) customCriterion {
 	case norm == "HELPER" || norm == "HELPERS" || norm == "ALT" || norm == "ALTS":
 		crit.critType = CritRole
 		crit.ascending = true
-	case norm == "SIAB":
-		crit.critType = CritRole
-	case norm == "GUSSET" || norm == "GUSS":
-		crit.critType = CritRole
-	case norm == "QUANT" || norm == "COMPASS":
-		crit.critType = CritRole
 	case norm == "CRAFT_DEFL" || norm == "DEFL_CRAFT" || norm == "CRAFTS" || norm == "CRAFT_DEFLECTOR" || norm == "DEFLECTOR_CRAFT" || norm == "DEFLECTOR_CRAFTS" || norm == "DEFL_CRAFTS":
 		crit.critType = CritCraftDefl
 	case norm == "ARTIFACT_SCORE" || norm == "ART_SCORE" || norm == "SCORE" || norm == "ARTIFACTS_SCORE" || norm == "ARTIFACTSCORE":
@@ -1261,7 +1187,11 @@ func evaluateBoosterForCustom(contract *Contract, userID string, signupIdx int, 
 		prio := getBoosterRolePriority(b)
 		data.isHelper = prio == RolePriorityHelper
 		data.isMain = !data.isHelper
-		data.roleScore = float64(6 - prio)
+		if data.isMain {
+			data.roleScore = 1.0
+		} else {
+			data.roleScore = 0.0
+		}
 		data.hasT4L = hasBoosterT4LDeflector(b)
 		data.t4Crafts = getBoosterT4DeflectorCraftCount(b.UserID)
 		data.deflQuality = getBoosterDeflectorQualityString(b)
@@ -2336,12 +2266,6 @@ func criterionShortName(c customCriterion) string {
 			target = "Main"
 		case roleConditionHelper:
 			target = "Helper"
-		case roleConditionSIAB:
-			target = "SIAB"
-		case roleConditionGusset:
-			target = "Gusset"
-		case roleConditionQuant:
-			target = "Quant"
 		}
 
 		if thenName != "" && elseName != "" {
