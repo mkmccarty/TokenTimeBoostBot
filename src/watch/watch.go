@@ -1144,7 +1144,7 @@ func CheckWatches(client dc.Client) {
 								estimateText = fmt.Sprintf("🆕 **NEW COLLEGGTIBLE DETECTED!** 🆕\n\nEgg ID: `%s`", eggID)
 							}
 						} else {
-							estimateText = boost.GetContractEstimateString(m.contractID, true)
+							estimateText = boost.GetContractEstimateString(m.contractID, true, false)
 						}
 
 						// Create DM channel
@@ -1218,7 +1218,7 @@ func HandleTestContract(client dc.Client, e *dc.ComponentEvent) {
 		}
 	}
 
-	estimateText := boost.GetContractEstimateString(contractID, true)
+	estimateText := boost.GetContractEstimateString(contractID, true, false)
 
 	channel, err := client.CreateUserChannel(userID)
 	if err == nil {
@@ -1267,7 +1267,7 @@ func HandleTestColleggtible(client dc.Client, e *dc.ComponentEvent) {
 		}
 	}
 
-	estimateText := boost.GetContractEstimateString(contractID, true)
+	estimateText := boost.GetContractEstimateString(contractID, true, false)
 
 	channel, err := client.CreateUserChannel(userID)
 	if err == nil {
