@@ -127,9 +127,11 @@ func HandleRenameThreadCommand(client dc.Client, e *dc.CommandEvent) {
 			fmt.Fprint(&builder, "clear - Clear the thread name and use the default\n")
 		} else if strings.HasPrefix(threadName, "clear") {
 			c.ThreadName = ""
+			c.ThreadRenameFinalized = false
 			fmt.Fprint(&builder, "The thread name has been cleared and will use the default\n")
 		} else {
 			c.ThreadName = threadName
+			c.ThreadRenameFinalized = false
 			fmt.Fprintf(&builder, "The thread will use your string:\n> %s\n", threadName)
 			fmt.Fprintf(&builder, "> %s", generateThreadName(c))
 			fmt.Fprint(&builder, "\nUse the 🌊 reaction to rename the thread.")

@@ -1194,6 +1194,321 @@ func TestUpdateThreadName_SkipIfUnchanged(t *testing.T) {
 	}
 }
 
+func TestUpdateThreadName_FinalizedWhenFullAndMatched(t *testing.T) {
+	contract := &Contract{
+		ContractHash: "test-contract-finalized",
+		ContractID:   "test-contract",
+		CoopID:       "test-coop",
+		CoopSize:     2,
+		State:        ContractStateSignup,
+		Location: []*LocationData{{
+			GuildID:   "guild1",
+			ChannelID: "thread1",
+		}},
+		Boosters: map[string]*Booster{
+			"u1": {UserID: "u1"},
+			"u2": {UserID: "u2"},
+		},
+	}
+	expectedName := generateThreadName(contract)
+	if !strings.Contains(expectedName, "(FULL)") {
+		t.Fatalf("expected generated name to have (FULL), got %q", expectedName)
+	}
+
+	client := dctest.New().
+		WithGuild("guild1", "Guild 1").
+		WithThread("thread1", "guild1", "parent1", "Old Thread Name")
+
+	UpdateThreadName(client, contract)
+	if !client.Called("EditChannel") {
+		t.Fatalf("expected EditChannel to be called on first rename")
+	}
+	if !contract.ThreadRenameFinalized {
+		t.Fatalf("expected contract.ThreadRenameFinalized to be true after full rename")
+	}
+
+	// Calling UpdateThreadName again should do nothing (no channel or edit calls)
+	client.ResetCalls()
+	UpdateThreadName(client, contract)
+	if len(client.AllCalls()) != 0 {
+		t.Errorf("expected 0 client calls when contract thread is finalized, got: %v", client.AllCalls())
+	}
+
+	// If participant count drops so it isn't full, it should un-finalize and update
+	delete(contract.Boosters, "u2")
+	contract.ThreadRenameTime = time.Now().Add(-ThreadRenameCooldown) // ensure not on cooldown
+	client.ResetCalls()
+
+	UpdateThreadName(client, contract)
+	if contract.ThreadRenameFinalized {
+		t.Errorf("expected contract.ThreadRenameFinalized to be false after participant count drops below full")
+	}
+	if !client.Called("EditChannel") {
+		t.Errorf("expected EditChannel to be called when participant count drops below full")
+	}
+}
+
+func TestUpdateThreadName_NotFinalizedIfTBD(t *testing.T) {
+	contract := &Contract{
+		ContractHash: "test-contract-tbd",
+		ContractID:   "test-contract",
+		CoopID:       "tbd",
+		CoopSize:     2,
+		State:        ContractStateSignup,
+		Location: []*LocationData{{
+			GuildID:   "guild1",
+			ChannelID: "thread1",
+		}},
+		Boosters: map[string]*Booster{
+			"u1": {UserID: "u1"},
+			"u2": {UserID: "u2"},
+		},
+	}
+	client := dctest.New().
+		WithGuild("guild1", "Guild 1").
+		WithThread("thread1", "guild1", "parent1", "Old Thread Name")
+
+	UpdateThreadName(client, contract)
+	if contract.ThreadRenameFinalized {
+		t.Errorf("expected contract.ThreadRenameFinalized to be false when CoopID is TBD")
+	}
+}
+
+func TestUpdateThreadName_NotFinalizedIfPrediction(t *testing.T) {
+	contract := &Contract{
+		ContractHash:     "test-contract-predicted",
+		ContractID:       "monday-2026-09-23",
+		CoopID:           "test-coop",
+		CoopSize:         2,
+		PredictionSignup: true,
+		State:            ContractStateSignup,
+		Location: []*LocationData{{
+			GuildID:   "guild1",
+			ChannelID: "thread1",
+		}},
+		Boosters: map[string]*Booster{
+			"u1": {UserID: "u1"},
+			"u2": {UserID: "u2"},
+		},
+	}
+	client := dctest.New().
+		WithGuild("guild1", "Guild 1").
+		WithThread("thread1", "guild1", "parent1", "Old Thread Name")
+
+	UpdateThreadName(client, contract)
+	if contract.ThreadRenameFinalized {
+		t.Errorf("expected contract.ThreadRenameFinalized to be false for predicted signup")
+	}
+}
+
+func TestUpdateThreadName_RateLimitDebounce(t *testing.T) {
+	contract := &Contract{
+		ContractHash: "test-contract-debounce",
+		ContractID:   "test-contract",
+		CoopID:       "test-coop",
+		CoopSize:     5,
+		State:        ContractStateSignup,
+		Location: []*LocationData{{
+			GuildID:   "guild1",
+			ChannelID: "thread1",
+		}},
+	}
+	client := dctest.New().
+		WithGuild("guild1", "Guild 1").
+		WithThread("thread1", "guild1", "parent1", "Old Name")
+
+	UpdateThreadName(client, contract)
+	if !client.Called("EditChannel") {
+		t.Fatalf("expected initial EditChannel call")
+	}
+
+	// Immediately calling it again with a different desired name while on cooldown
+	contract.Boosters = map[string]*Booster{"u1": {UserID: "u1"}}
+	client.ResetCalls()
+
+	UpdateThreadName(client, contract)
+	if client.Called("EditChannel") {
+		t.Errorf("expected EditChannel NOT to be called immediately while on cooldown")
+	}
+	contract.mutex.Lock()
+	if contract.renameTimer == nil {
+		t.Errorf("expected renameTimer to be scheduled")
+	} else {
+		contract.renameTimer.Stop()
+		contract.renameTimer = nil
+	}
+	contract.mutex.Unlock()
+}
+
+func TestJoinContract_IntermediateJoinDoesNotRenameAndReachingFullRenames(t *testing.T) {
+	contract := &Contract{
+		ContractHash: "test-hash-join-rename",
+		ContractID:   "test-contract",
+		CoopID:       "test-coop",
+		CoopSize:     2,
+		State:        ContractStateSignup,
+		CreatorID:    []string{"creator1"},
+		Order:        []string{"creator1"},
+		Boosters: map[string]*Booster{
+			"creator1": {UserID: "creator1", Name: "Creator", Nick: "Creator"},
+		},
+		Location: []*LocationData{{GuildID: "guild1", ChannelID: "thread-join"}},
+	}
+	ContractsMutex.Lock()
+	Contracts[contract.ContractHash] = contract
+	ContractsMutex.Unlock()
+	defer func() {
+		ContractsMutex.Lock()
+		delete(Contracts, contract.ContractHash)
+		ContractsMutex.Unlock()
+	}()
+
+	client := dctest.New().
+		WithGuild("guild1", "Guild 1").
+		WithThread("thread-join", "guild1", "parent1", "Initial Name").
+		WithUser("user2", "farmer2", "Farmer Two")
+
+	// Joining to fill the contract to 2/2 (full)
+	err := JoinContract(client, "guild1", "thread-join", "user2", false)
+	if err != nil {
+		t.Fatalf("unexpected JoinContract error: %v", err)
+	}
+
+	if !client.Called("EditChannel") {
+		t.Errorf("expected EditChannel to be called when contract reaches full")
+	}
+	if !contract.ThreadRenameFinalized {
+		t.Errorf("expected contract.ThreadRenameFinalized to be true after reaching full")
+	}
+}
+
+func TestRemoveFarmer_DropsBelowFullRenamesAndUnfinalizes(t *testing.T) {
+	contract := &Contract{
+		ContractHash:          "test-hash-remove-unfinalize",
+		ContractID:            "test-contract",
+		CoopID:                "test-coop",
+		CoopSize:              2,
+		State:                 ContractStateSignup,
+		ThreadRenameFinalized: true,
+		CreatorID:             []string{"100000000000000001"},
+		Order:                 []string{"100000000000000001", "100000000000000002"},
+		Boosters: map[string]*Booster{
+			"100000000000000001": {UserID: "100000000000000001", Name: "Creator", Nick: "Creator"},
+			"100000000000000002": {UserID: "100000000000000002", Name: "Farmer Two", Nick: "farmer2"},
+		},
+		Location: []*LocationData{{GuildID: "guild1", ChannelID: "thread-rem"}},
+	}
+	ContractsMutex.Lock()
+	Contracts[contract.ContractHash] = contract
+	ContractsMutex.Unlock()
+	defer func() {
+		ContractsMutex.Lock()
+		delete(Contracts, contract.ContractHash)
+		ContractsMutex.Unlock()
+	}()
+
+	client := dctest.New().
+		WithGuild("guild1", "Guild 1").
+		WithThread("thread-rem", "guild1", "parent1", "Full Name (FULL)").
+		WithUser("100000000000000002", "farmer2", "Farmer Two")
+
+	err := RemoveFarmerByMention(client, "guild1", "thread-rem", "100000000000000002", "<@100000000000000002>")
+	if err != nil {
+		t.Fatalf("unexpected RemoveFarmerByMention error: %v", err)
+	}
+
+	if contract.ThreadRenameFinalized {
+		t.Errorf("expected ThreadRenameFinalized to be false after dropping below full")
+	}
+	if !client.Called("EditChannel") {
+		t.Errorf("expected EditChannel to be called to update thread name after dropping below full")
+	}
+}
+
+func TestChangeContractIDs_CoopIDAndContractIDRename(t *testing.T) {
+	contract := &Contract{
+		ContractHash:          "test-hash-change-ids",
+		ContractID:            "test-contract",
+		CoopID:                "test-coop",
+		CoopSize:              2,
+		State:                 ContractStateSignup,
+		ThreadRenameFinalized: true,
+		CreatorID:             []string{"100000000000000001"},
+		Order:                 []string{"100000000000000001", "100000000000000002"},
+		Boosters: map[string]*Booster{
+			"100000000000000001": {UserID: "100000000000000001", Name: "Creator", Nick: "Creator"},
+			"100000000000000002": {UserID: "100000000000000002", Name: "Farmer Two", Nick: "farmer2"},
+		},
+		Location: []*LocationData{{GuildID: "guild1", ChannelID: "thread-change"}},
+	}
+	ContractsMutex.Lock()
+	Contracts[contract.ContractHash] = contract
+	ContractsMutex.Unlock()
+	defer func() {
+		ContractsMutex.Lock()
+		delete(Contracts, contract.ContractHash)
+		ContractsMutex.Unlock()
+	}()
+
+	client := dctest.New().
+		WithGuild("guild1", "Guild 1").
+		WithThread("thread-change", "guild1", "parent1", "Old Name").
+		WithUser("100000000000000001", "creator", "Creator")
+
+	// Changing coopID should reset finalization and trigger EditChannel
+	_, err := ChangeContractIDs(client, "guild1", "thread-change", "100000000000000001", "", "new-coop", "")
+	if err != nil {
+		t.Fatalf("unexpected ChangeContractIDs error: %v", err)
+	}
+
+	if !client.Called("EditChannel") {
+		t.Errorf("expected EditChannel to be called when coopID changes")
+	}
+	edits := client.CallsTo("EditChannel")
+	if len(edits) > 0 && !strings.Contains(edits[0].Args[1], "new-coop") {
+		t.Errorf("expected EditChannel to have new-coop, got %v", edits[0].Args[1])
+	}
+}
+
+func TestStartContractBoosting_TriggersThreadRename(t *testing.T) {
+	contract := &Contract{
+		ContractHash: "test-hash-start-boosting",
+		ContractID:   "test-contract",
+		CoopID:       "test-coop",
+		CoopSize:     5,
+		Style:        ContractFlagFastrun,
+		State:        ContractStateSignup,
+		CreatorID:    []string{"100000000000000001"},
+		Order:        []string{"100000000000000001"},
+		Boosters: map[string]*Booster{
+			"100000000000000001": {UserID: "100000000000000001", Name: "Creator", Nick: "Creator"},
+		},
+		Location: []*LocationData{{GuildID: "guild1", ChannelID: "thread-start"}},
+	}
+	ContractsMutex.Lock()
+	Contracts[contract.ContractHash] = contract
+	ContractsMutex.Unlock()
+	defer func() {
+		ContractsMutex.Lock()
+		delete(Contracts, contract.ContractHash)
+		ContractsMutex.Unlock()
+	}()
+
+	client := dctest.New().
+		WithGuild("guild1", "Guild 1").
+		WithThread("thread-start", "guild1", "parent1", "Signup Name").
+		WithUser("100000000000000001", "creator", "Creator")
+
+	err := StartContractBoosting(client, "guild1", "thread-start", "100000000000000001")
+	if err != nil {
+		t.Fatalf("unexpected StartContractBoosting error: %v", err)
+	}
+
+	if !client.Called("EditChannel") {
+		t.Errorf("expected EditChannel to be called when contract starts boosting")
+	}
+}
+
 func TestAddFarmerToContract_MinimumIHR(t *testing.T) {
 	client := dctest.New().
 		WithGuild("guild1", "Guild 1").

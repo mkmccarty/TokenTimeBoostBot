@@ -135,6 +135,7 @@ func ReactionAdd(client dc.Client, e *dc.ReactionEvent) string {
 		// Anyone can use these reactions
 		switch e.EmojiName() {
 		case "🌊":
+			contract.ThreadRenameFinalized = false
 			if time.Since(contract.ThreadRenameTime) < ThreadRenameCooldown {
 				msg, err := client.SendMessage(e.ChannelID(), dc.Message{Content: fmt.Sprintf("🌊 thread renaming is on cooldown, try again <t:%d:R>", contract.ThreadRenameTime.Add(ThreadRenameCooldown).Unix())})
 				if err == nil {

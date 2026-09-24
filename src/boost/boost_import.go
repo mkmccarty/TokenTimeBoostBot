@@ -276,6 +276,7 @@ func UpdatePredictedSignupContracts(client dc.Client, liveContracts []ei.EggIncC
 
 				UpdateBannerURL(contract)
 				refreshBoostListMessage(client, contract, true)
+				contract.ThreadRenameFinalized = false
 				UpdateThreadName(client, contract)
 				saveData(contract.ContractHash)
 				updated++

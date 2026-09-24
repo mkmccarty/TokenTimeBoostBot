@@ -258,6 +258,12 @@ func DeleteContract(client dc.Client, guildID string, channelID string) (string,
 		}
 	}
 	contract.State = ContractStateArchive
+	contract.mutex.Lock()
+	if contract.renameTimer != nil {
+		contract.renameTimer.Stop()
+		contract.renameTimer = nil
+	}
+	contract.mutex.Unlock()
 	saveData(contract.ContractHash)
 	ContractsMutex.Lock()
 	delete(Contracts, coopHash)
@@ -662,6 +668,10 @@ func AddContractMember(client dc.Client, guildID string, channelID string, opera
 				}
 			}
 		}
+	}
+
+	if len(contract.Boosters) >= contract.CoopSize {
+		UpdateThreadName(client, contract)
 	}
 
 	return nil
@@ -1436,6 +1446,10 @@ func JoinContract(client dc.Client, guildID string, channelID string, userID str
 
 	}
 
+	if len(contract.Boosters) >= contract.CoopSize {
+		UpdateThreadName(client, contract)
+	}
+
 	saveData(contract.ContractHash)
 	return nil
 }
@@ -1459,6 +1473,13 @@ func RemoveFarmerByMention(client dc.Client, guildID string, channelID string, o
 	if len(contract.Boosters) == 0 {
 		return errors.New(errorContractEmpty)
 	}
+
+	defer func() {
+		if len(contract.Boosters) < contract.CoopSize {
+			contract.ThreadRenameFinalized = false
+			UpdateThreadName(client, contract)
+		}
+	}()
 	userID := normalizeUserIDInput(mention)
 
 	if _, isMention := parseMentionUserID(mention); isMention {
@@ -1760,6 +1781,8 @@ func StartContractBoosting(client dc.Client, guildID string, channelID string, u
 	}
 
 	sendNextNotification(client, contract, true)
+
+	UpdateThreadName(client, contract)
 
 	return nil
 }
