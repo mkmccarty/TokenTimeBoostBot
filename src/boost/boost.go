@@ -66,9 +66,22 @@ func (c *Contract) UnmarshalJSON(data []byte) error {
 		c.CRMessageIDs = make(map[string]string)
 	}
 
+	if c.PredictionSignup || len(c.PredictionsList) > 0 || len(c.PredictionInfo) > 0 {
+		c.WasPredictedContract = true
+	}
+
 	// Backward compatibility: hydrate current booster from legacy position.
 	c.syncCurrentBoosterFromLegacyPosition(aux.BoostPosition)
 	return nil
+}
+
+// IsOrWasPrediction returns true if the contract is currently a prediction contract
+// or was created as a prediction contract.
+func (c *Contract) IsOrWasPrediction() bool {
+	if c == nil {
+		return false
+	}
+	return c.PredictionSignup || c.WasPredictedContract || len(c.PredictionsList) > 0 || len(c.PredictionInfo) > 0
 }
 
 // currentBoosterID returns the current booster ID without mutating state.
@@ -671,7 +684,7 @@ func AddContractMember(client dc.Client, guildID string, channelID string, opera
 	}
 
 	if len(contract.Boosters) >= contract.CoopSize {
-		UpdateThreadName(client, contract)
+		AutoUpdateThreadName(client, contract)
 	}
 
 	return nil
@@ -1447,7 +1460,7 @@ func JoinContract(client dc.Client, guildID string, channelID string, userID str
 	}
 
 	if len(contract.Boosters) >= contract.CoopSize {
-		UpdateThreadName(client, contract)
+		AutoUpdateThreadName(client, contract)
 	}
 
 	saveData(contract.ContractHash)
@@ -1477,7 +1490,7 @@ func RemoveFarmerByMention(client dc.Client, guildID string, channelID string, o
 	defer func() {
 		if len(contract.Boosters) < contract.CoopSize {
 			contract.ThreadRenameFinalized = false
-			UpdateThreadName(client, contract)
+			AutoUpdateThreadName(client, contract)
 		}
 	}()
 	userID := normalizeUserIDInput(mention)
@@ -1782,7 +1795,7 @@ func StartContractBoosting(client dc.Client, guildID string, channelID string, u
 
 	sendNextNotification(client, contract, true)
 
-	UpdateThreadName(client, contract)
+	AutoUpdateThreadName(client, contract)
 
 	return nil
 }

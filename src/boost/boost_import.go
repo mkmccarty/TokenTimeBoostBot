@@ -276,8 +276,9 @@ func UpdatePredictedSignupContracts(client dc.Client, liveContracts []ei.EggIncC
 
 				UpdateBannerURL(contract)
 				refreshBoostListMessage(client, contract, true)
+				contract.WasPredictedContract = true
 				contract.ThreadRenameFinalized = false
-				UpdateThreadName(client, contract)
+				AutoUpdateThreadName(client, contract)
 				saveData(contract.ContractHash)
 				updated++
 			}
@@ -604,8 +605,10 @@ func updateContractWithEggIncData(client dc.Client, contract *Contract) {
 			contract.ChickenRunCooldownMinutes = cc.ChickenRunCooldownMinutes
 			contract.MinutesPerToken = cc.MinutesPerToken
 			contract.Ultra = cc.Ultra
-			contract.SeasonalScoring = cc.SeasonalScoring
 			contract.PredictionSignup = cc.Predicted
+			if cc.Predicted {
+				contract.WasPredictedContract = true
+			}
 			contract.PredictionsList = cc.PredictionsList
 			var pInfo []PredictionInfo
 			for _, pid := range cc.PredictionsList {
@@ -638,6 +641,9 @@ func updateContractWithEggIncData(client dc.Client, contract *Contract) {
 		contract.Ultra = cc.Ultra
 		contract.SeasonalScoring = cc.SeasonalScoring
 		contract.PredictionSignup = cc.Predicted
+		if cc.Predicted {
+			contract.WasPredictedContract = true
+		}
 		contract.PredictionsList = cc.PredictionsList
 		var pInfo []PredictionInfo
 		for _, pid := range cc.PredictionsList {
