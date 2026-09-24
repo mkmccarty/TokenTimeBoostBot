@@ -65,6 +65,10 @@ func GetSlashEstimateTime(cmd string) *dc.Command {
 			Name:        "include-leggy",
 			Description: "Include estimate for full leggy set.",
 		},
+		dc.BoolOption{
+			Name:        "show-gg",
+			Description: "Show Generous Gift (GG) scoring.",
+		},
 		dc.IntOption{
 			Name:        "te-override",
 			Description: "Override default TE (0-490) for this run.",
@@ -80,6 +84,7 @@ func HandleEstimateTimeCommand(e *dc.CommandEvent) {
 	var contractID = ""
 	var str = ""
 	includeLeggySet := false
+	showGG := false
 
 	_ = e.Defer(false)
 
@@ -93,6 +98,9 @@ func HandleEstimateTimeCommand(e *dc.CommandEvent) {
 	}
 	if opt, ok := e.OptBool("include-leggy"); ok {
 		includeLeggySet = opt
+	}
+	if opt, ok := e.OptBool("show-gg"); ok {
+		showGG = opt
 	}
 
 	var teOverride []float64
@@ -108,7 +116,7 @@ func HandleEstimateTimeCommand(e *dc.CommandEvent) {
 	}
 
 	if str == "" {
-		estimateText := GetContractEstimateString(contractID, includeLeggySet, teOverride...)
+		estimateText := GetContractEstimateString(contractID, includeLeggySet, showGG, teOverride...)
 
 		_ = e.Followup(dc.Message{
 			SuppressEmbeds: true,
@@ -127,7 +135,7 @@ func HandleEstimateTimeCommand(e *dc.CommandEvent) {
 }
 
 // GetContractEstimateString returns a string with the estimated completion time of a contract
-func GetContractEstimateString(contractID string, includeLeggySet bool, teOverride ...float64) string {
+func GetContractEstimateString(contractID string, includeLeggySet bool, showGG bool, teOverride ...float64) string {
 
 	str := ""
 	c := ei.EggIncContractsAll[contractID]
@@ -408,16 +416,19 @@ func GetContractEstimateString(contractID string, includeLeggySet bool, teOverri
 				int64(c.Cxp),
 				c.Cxp*csTarget)
 		}
-		if includeLeggySet {
+		if includeLeggySet || showGG {
 			gg, ugg, _ := ei.GetGenerousGiftEvent()
 			ggicon := ""
 			if gg > 1.0 {
-				ggicon = " " + ei.GetBotEmojiMarkdown("std_gg")
+				ggicon = ei.GetBotEmojiMarkdown("std_gg")
 			}
 			if ugg > 1.0 {
 				// farmers with ultra
 				//gg = ugg + (float64(contract.UltraCount) / float64(contract.CoopSize))
-				ggicon = " " + ei.GetBotEmojiMarkdown("ultra_gg")
+				ggicon = ei.GetBotEmojiMarkdown("ultra_gg")
+			}
+			if showGG && ggicon == "" {
+				ggicon = ei.GetBotEmojiMarkdown("std_gg")
 			}
 
 			estStrMax := c.EstimatedDurationMax.Round(time.Minute).String()
@@ -448,7 +459,7 @@ func GetContractEstimateString(contractID string, includeLeggySet bool, teOverri
 					maxGGComment = " (no compass, 11 stones)"
 				}
 				str += fmt.Sprintf("%s **%s** CS:**%d**%s", ggicon, estStrGG, int64(c.CxpMaxGG), maxGGComment)
-				if c.CxpMaxSiab > c.CxpMax {
+				if c.CxpMaxSiab > c.CxpMax || c.CxpMaxSiabGG > c.CxpMaxGG {
 					estStrGG := c.EstimatedDurationSIABGG.Round(time.Minute).String()
 					estStrGG = strings.TrimRight(estStrGG, "0s")
 					str += fmt.Sprintf(" / %s **%s** CS:**%d**", ei.GetBotEmojiMarkdown("SIAB_T4L"), estStrGG, int64(c.CxpMaxSiabGG))

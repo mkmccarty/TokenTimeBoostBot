@@ -112,7 +112,7 @@ func HandleScoreExplorerCommand(e *dc.CommandEvent) {
 		SiabMinutes:          45,
 		FairShare:            1.0,
 		ChickenRuns:          0,
-		contractInfo:         GetContractEstimateString(contractID, false),
+		contractInfo:         GetContractEstimateString(contractID, false, false),
 	}
 
 	playStyleValues := []float64{1.0, 1.0, 1.20, 2.0}

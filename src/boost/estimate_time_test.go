@@ -3,7 +3,9 @@ package boost
 import (
 	"fmt"
 	"math"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
@@ -196,7 +198,7 @@ func TestGetContractEstimateString(t *testing.T) {
 	}
 
 	// 1. Non-existent contract
-	res := GetContractEstimateString("non-existent-contract-id", false)
+	res := GetContractEstimateString("non-existent-contract-id", false, false)
 	if res != "No contract found in this channel, use the command parameters to pick one." {
 		t.Errorf("expected missing contract error message, got: %q", res)
 	}
@@ -209,14 +211,86 @@ func TestGetContractEstimateString(t *testing.T) {
 		MaxCoopSize: 10,
 	}
 
-	res = GetContractEstimateString("predicted-placeholder", false)
+	res = GetContractEstimateString("predicted-placeholder", false, false)
 	if res != "Contract estimates are not available for predicted or incomplete contracts." {
 		t.Errorf("expected predicted contract error message, got: %q", res)
 	}
 
-	resWithOverride := GetContractEstimateString("predicted-placeholder", false, 150.0)
+	resWithOverride := GetContractEstimateString("predicted-placeholder", false, false, 150.0)
 	if resWithOverride != "Contract estimates are not available for predicted or incomplete contracts." {
 		t.Errorf("expected predicted contract error message with override, got: %q", resWithOverride)
+	}
+
+	// 3. Valid contract with showGG tests
+	ei.EggIncContractsAll["test-contract"] = ei.EggIncContract{
+		ID:              "test-contract",
+		Name:            "Test Contract",
+		EggName:         "medical",
+		MaxCoopSize:     5,
+		LengthInSeconds: 86400,
+		MinutesPerToken: 30,
+		TargetAmount:    []float64{1e15},
+		ContractVersion: 2,
+		Grade: func() []ei.ContractGrade {
+			g := make([]ei.ContractGrade, 6)
+			g[ei.Contract_GRADE_AAA] = ei.ContractGrade{
+				TargetAmount:    []float64{1e15},
+				LengthInSeconds: 86400,
+			}
+			return g
+		}(),
+		EstimatedDuration:      10 * time.Hour,
+		EstimatedDurationLower: 8 * time.Hour,
+		EstimatedDurationMax:   5 * time.Hour,
+		EstimatedDurationMaxGG: 4 * time.Hour,
+		Cxp:                    100000,
+		CxpMax:                 120000,
+		CxpMaxGG:               130000,
+	}
+
+	// Normal run without leggy set and without GG
+	resDefault := GetContractEstimateString("test-contract", false, false)
+	if strings.Contains(resDefault, "Leggy Set:") {
+		t.Errorf("expected no leggy set in default output, got: %s", resDefault)
+	}
+	if strings.Contains(resDefault, "CS:**130000**") {
+		t.Errorf("expected no GG scoring in default output, got: %s", resDefault)
+	}
+
+	// Leggy set without showGG
+	resLeggyOnly := GetContractEstimateString("test-contract", true, false)
+	if !strings.Contains(resLeggyOnly, "Leggy Set:") {
+		t.Errorf("expected leggy set in output, got: %s", resLeggyOnly)
+	}
+	if !strings.Contains(resLeggyOnly, "CS:**120000**") {
+		t.Errorf("expected normal scoring CS:120000, got: %s", resLeggyOnly)
+	}
+	if strings.Contains(resLeggyOnly, "CS:**130000**") {
+		t.Errorf("expected no GG scoring without showGG, got: %s", resLeggyOnly)
+	}
+
+	// showGG = true without includeLeggySet
+	resGGOnly := GetContractEstimateString("test-contract", false, true)
+	if !strings.Contains(resGGOnly, "Leggy Set:") {
+		t.Errorf("expected leggy set when showGG is true, got: %s", resGGOnly)
+	}
+	if !strings.Contains(resGGOnly, "CS:**120000**") {
+		t.Errorf("expected normal scoring CS:120000 when showGG is true, got: %s", resGGOnly)
+	}
+	if !strings.Contains(resGGOnly, "CS:**130000**") {
+		t.Errorf("expected GG scoring CS:130000 when showGG is true, got: %s", resGGOnly)
+	}
+
+	// showGG = true with includeLeggySet = true
+	resBoth := GetContractEstimateString("test-contract", true, true)
+	if !strings.Contains(resBoth, "Leggy Set:") {
+		t.Errorf("expected leggy set when both are true, got: %s", resBoth)
+	}
+	if !strings.Contains(resBoth, "CS:**120000**") {
+		t.Errorf("expected normal scoring CS:120000 when both are true, got: %s", resBoth)
+	}
+	if !strings.Contains(resBoth, "CS:**130000**") {
+		t.Errorf("expected GG scoring CS:130000 when both are true, got: %s", resBoth)
 	}
 }
 
@@ -238,7 +312,7 @@ func TestQuantBlitzEstimate(t *testing.T) {
 		t.Errorf("expected max duration (%v) to be under 20m", c.EstimatedDurationMax)
 	}
 
-	estStr := GetContractEstimateString("quant-blitz", true)
+	estStr := GetContractEstimateString("quant-blitz", true, false)
 	t.Logf("estStr:\n%s", estStr)
 	if !strings.Contains(estStr, "3.85 fair share") {
 		t.Errorf("expected GetContractEstimateString output to contain '3.85 fair share', got:\n%s", estStr)
@@ -250,7 +324,7 @@ func TestQuantBlitzEstimate(t *testing.T) {
 		t.Errorf("expected GetContractEstimateString output to contain '8 token boost', got:\n%s", estStr)
 	}
 
-	estStrOverride := GetContractEstimateString("quant-blitz", true, 232.0)
+	estStrOverride := GetContractEstimateString("quant-blitz", true, false, 232.0)
 	if !strings.Contains(estStrOverride, "3.85 fair share") {
 		t.Errorf("expected GetContractEstimateString (TE=232) output to contain '3.85 fair share', got:\n%s", estStrOverride)
 	}
