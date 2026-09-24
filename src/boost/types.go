@@ -314,6 +314,7 @@ type Contract struct {
 	EstimatedDurationValid    bool
 	ThreadName                string
 	ThreadRenameTime          time.Time
+	ThreadRenameFinalized     bool
 	EstimateUpdateTime        time.Time
 	TimeBoosting              time.Time // When the contract boost started
 
@@ -364,7 +365,8 @@ type Contract struct {
 	LastSaveTime               time.Time // The last time the contract was saved
 	ThematicComplaints         []string  `json:"thematic_complaints,omitempty"`
 
-	mutex sync.Mutex // Keep this contract thread safe
+	renameTimer *time.Timer
+	mutex       sync.Mutex // Keep this contract thread safe
 }
 
 // Bookmark represents a bookmark for a specific channel in the dashboard

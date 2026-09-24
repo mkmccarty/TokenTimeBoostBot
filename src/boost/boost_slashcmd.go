@@ -33,19 +33,77 @@ func tokenSerialToInt(serial string) int32 {
 // ThreadRenameCooldown is the cooldown between Discord thread/channel renames (Discord limits PATCH /channels to 2 per 10m).
 const ThreadRenameCooldown = 3 * time.Minute
 
+// isThreadFullAndMatched returns true if the contract is full and the contract-id
+// and coop-id are real (non-placeholder), meaning no further thread renames are needed.
+func isThreadFullAndMatched(contract *Contract) bool {
+	if contract == nil {
+		return false
+	}
+	// A predicted contract signup doesn't have the final contract ID yet.
+	if contract.PredictionSignup {
+		return false
+	}
+	// A TBD coop ID doesn't have the final coop ID yet.
+	if isTBDCoopID(contract.CoopID) || contract.CoopID == "" {
+		return false
+	}
+	// Check if the thread is full (number of boosters is at or above coop size).
+	if contract.CoopSize <= 0 || len(contract.Boosters) < contract.CoopSize {
+		return false
+	}
+	return true
+}
+
 // UpdateThreadName will update a threads name to the current contract state
 func UpdateThreadName(client dc.Client, contract *Contract) {
 	if contract == nil || client == nil {
 		return
 	}
 
+	if contract.ThreadRenameFinalized {
+		if !isThreadFullAndMatched(contract) {
+			contract.ThreadRenameFinalized = false
+		} else {
+			return
+		}
+	}
+
+	contract.mutex.Lock()
+	if time.Since(contract.ThreadRenameTime) < ThreadRenameCooldown {
+		if contract.renameTimer == nil {
+			remaining := ThreadRenameCooldown - time.Since(contract.ThreadRenameTime)
+			if remaining < 0 {
+				remaining = 0
+			}
+			contract.renameTimer = time.AfterFunc(remaining, func() {
+				contract.mutex.Lock()
+				contract.renameTimer = nil
+				contract.mutex.Unlock()
+				UpdateThreadName(client, contract)
+			})
+		}
+		contract.mutex.Unlock()
+		return
+	}
+
+	if contract.renameTimer != nil {
+		contract.renameTimer.Stop()
+		contract.renameTimer = nil
+	}
+	contract.mutex.Unlock()
+
 	desiredName := generateThreadName(contract)
+	allMatchedAndFull := isThreadFullAndMatched(contract)
+	hasThreadLocation := false
+	allThreadsUpdated := true
+
 	for _, loc := range contract.Location {
 		if loc == nil || loc.ChannelID == "" {
 			continue
 		}
 		ch, err := client.Channel(loc.ChannelID)
 		if err == nil && ch != nil && ch.IsThread {
+			hasThreadLocation = true
 			// Skip editing if the thread already has the desired name
 			if ch.Name == desiredName {
 				continue
@@ -55,8 +113,24 @@ func UpdateThreadName(client dc.Client, contract *Contract) {
 			_, err := client.EditChannel(loc.ChannelID, desiredName)
 			if err != nil {
 				log.Println("Error updating thread name", err)
+				allThreadsUpdated = false
+				contract.mutex.Lock()
+				if contract.renameTimer == nil {
+					contract.renameTimer = time.AfterFunc(ThreadRenameCooldown, func() {
+						contract.mutex.Lock()
+						contract.renameTimer = nil
+						contract.mutex.Unlock()
+						UpdateThreadName(client, contract)
+					})
+				}
+				contract.mutex.Unlock()
 			}
 		}
+	}
+
+	if allMatchedAndFull && hasThreadLocation && allThreadsUpdated {
+		contract.ThreadRenameFinalized = true
+		saveData(contract.ContractHash)
 	}
 }
 
