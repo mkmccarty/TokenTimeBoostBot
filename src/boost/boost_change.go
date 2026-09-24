@@ -564,7 +564,7 @@ func ChangeContractIDs(client dc.Client, guildID string, channelID string, userI
 	}
 	if contractID != "" || coopID != "" {
 		contract.ThreadRenameFinalized = false
-		UpdateThreadName(client, contract)
+		AutoUpdateThreadName(client, contract)
 		CheckAndPublishAMQPContractUpdate(contract)
 	}
 	return movedToWaitlist, nil

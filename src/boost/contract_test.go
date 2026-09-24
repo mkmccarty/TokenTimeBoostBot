@@ -1509,6 +1509,107 @@ func TestStartContractBoosting_TriggersThreadRename(t *testing.T) {
 	}
 }
 
+func TestAutoUpdateThreadName_SkipsPredictedContracts(t *testing.T) {
+	testCases := []struct {
+		name     string
+		contract *Contract
+	}{
+		{
+			name: "active prediction signup",
+			contract: &Contract{
+				ContractHash:     "test-pred-active",
+				ContractID:       "monday-2026-09-23",
+				CoopID:           "test-coop",
+				CoopSize:         2,
+				PredictionSignup: true,
+				State:            ContractStateSignup,
+				Location:         []*LocationData{{GuildID: "guild1", ChannelID: "thread-pred-1"}},
+				Boosters:         map[string]*Booster{"u1": {UserID: "u1"}},
+			},
+		},
+		{
+			name: "was predicted contract",
+			contract: &Contract{
+				ContractHash:         "test-pred-past",
+				ContractID:           "live-contract-id",
+				CoopID:               "test-coop",
+				CoopSize:             2,
+				PredictionSignup:     false,
+				WasPredictedContract: true,
+				State:                ContractStateSignup,
+				Location:             []*LocationData{{GuildID: "guild1", ChannelID: "thread-pred-2"}},
+				Boosters:             map[string]*Booster{"u1": {UserID: "u1"}},
+			},
+		},
+		{
+			name: "predictions list populated",
+			contract: &Contract{
+				ContractHash:    "test-pred-list",
+				ContractID:      "live-contract-id",
+				CoopID:          "test-coop",
+				CoopSize:        2,
+				PredictionsList: []string{"contract-1"},
+				State:           ContractStateSignup,
+				Location:        []*LocationData{{GuildID: "guild1", ChannelID: "thread-pred-3"}},
+				Boosters:        map[string]*Booster{"u1": {UserID: "u1"}},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			client := dctest.New().
+				WithGuild("guild1", "Guild 1").
+				WithThread(tc.contract.Location[0].ChannelID, "guild1", "parent1", "Original Thread Name")
+
+			AutoUpdateThreadName(client, tc.contract)
+			if client.Called("EditChannel") {
+				t.Errorf("expected AutoUpdateThreadName NOT to call EditChannel for %s", tc.name)
+			}
+		})
+	}
+}
+
+func TestJoinContract_PredictedContractDoesNotAutoRename(t *testing.T) {
+	contract := &Contract{
+		ContractHash:     "test-hash-join-pred",
+		ContractID:       "monday-2026-09-23",
+		CoopID:           "test-coop",
+		CoopSize:         2,
+		PredictionSignup: true,
+		State:            ContractStateSignup,
+		CreatorID:        []string{"creator1"},
+		Order:            []string{"creator1"},
+		Boosters: map[string]*Booster{
+			"creator1": {UserID: "creator1", Name: "Creator", Nick: "Creator"},
+		},
+		Location: []*LocationData{{GuildID: "guild1", ChannelID: "thread-join-pred"}},
+	}
+	ContractsMutex.Lock()
+	Contracts[contract.ContractHash] = contract
+	ContractsMutex.Unlock()
+	defer func() {
+		ContractsMutex.Lock()
+		delete(Contracts, contract.ContractHash)
+		ContractsMutex.Unlock()
+	}()
+
+	client := dctest.New().
+		WithGuild("guild1", "Guild 1").
+		WithThread("thread-join-pred", "guild1", "parent1", "Initial Name").
+		WithUser("user2", "farmer2", "Farmer Two")
+
+	// Joining to fill the contract to 2/2 (full)
+	err := JoinContract(client, "guild1", "thread-join-pred", "user2", false)
+	if err != nil {
+		t.Fatalf("unexpected JoinContract error: %v", err)
+	}
+
+	if client.Called("EditChannel") {
+		t.Errorf("expected EditChannel NOT to be called when predicted contract is joined")
+	}
+}
+
 func TestAddFarmerToContract_MinimumIHR(t *testing.T) {
 	client := dctest.New().
 		WithGuild("guild1", "Guild 1").

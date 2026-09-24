@@ -296,6 +296,7 @@ type Contract struct {
 	ContractID                string           // Contract ID
 	CoopID                    string           // CoopID
 	PredictionSignup          bool             // True if this contract is/was a prediction
+	WasPredictedContract      bool             // True if this contract was created as a prediction contract
 	PredictionsList           []string         // List of predictions for this contract
 	PredictionInfo            []PredictionInfo // Cached info for predictions
 	SeasonalScoring           int              // 1 = new scoring
