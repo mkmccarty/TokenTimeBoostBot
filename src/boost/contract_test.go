@@ -1340,12 +1340,12 @@ func TestUpdateThreadName_RateLimitDebounce(t *testing.T) {
 	contract.mutex.Unlock()
 }
 
-func TestJoinContract_IntermediateJoinDoesNotRenameAndReachingFullRenames(t *testing.T) {
+func TestJoinContract_IntermediateJoinRenamesAndReachingFullFinalizes(t *testing.T) {
 	contract := &Contract{
 		ContractHash: "test-hash-join-rename",
 		ContractID:   "test-contract",
 		CoopID:       "test-coop",
-		CoopSize:     2,
+		CoopSize:     3,
 		State:        ContractStateSignup,
 		CreatorID:    []string{"creator1"},
 		Order:        []string{"creator1"},
@@ -1366,20 +1366,41 @@ func TestJoinContract_IntermediateJoinDoesNotRenameAndReachingFullRenames(t *tes
 	client := dctest.New().
 		WithGuild("guild1", "Guild 1").
 		WithThread("thread-join", "guild1", "parent1", "Initial Name").
-		WithUser("user2", "farmer2", "Farmer Two")
+		WithUser("user2", "farmer2", "Farmer Two").
+		WithUser("user3", "farmer3", "Farmer Three")
 
-	// Joining to fill the contract to 2/2 (full)
+	// Joining an intermediate slot (2/3) - should trigger EditChannel
 	err := JoinContract(client, "guild1", "thread-join", "user2", false)
 	if err != nil {
 		t.Fatalf("unexpected JoinContract error: %v", err)
 	}
 
 	if !client.Called("EditChannel") {
-		t.Errorf("expected EditChannel to be called when contract reaches full")
+		t.Errorf("expected EditChannel to be called on intermediate join")
 	}
-	if !contract.ThreadRenameFinalized {
-		t.Errorf("expected contract.ThreadRenameFinalized to be true after reaching full")
+	if contract.ThreadRenameFinalized {
+		t.Errorf("expected contract.ThreadRenameFinalized to be false for intermediate join")
 	}
+
+	// Joining user3 immediately while on cooldown should debounce via timer
+	client.ResetCalls()
+	err = JoinContract(client, "guild1", "thread-join", "user3", false)
+	if err != nil {
+		t.Fatalf("unexpected JoinContract error: %v", err)
+	}
+
+	// Should not call EditChannel immediately due to cooldown, but should schedule timer
+	if client.Called("EditChannel") {
+		t.Errorf("expected EditChannel NOT to be called immediately while on cooldown")
+	}
+	contract.mutex.Lock()
+	if contract.renameTimer == nil {
+		t.Errorf("expected renameTimer to be scheduled for debounced join update")
+	} else {
+		contract.renameTimer.Stop()
+		contract.renameTimer = nil
+	}
+	contract.mutex.Unlock()
 }
 
 func TestRemoveFarmer_DropsBelowFullRenamesAndUnfinalizes(t *testing.T) {

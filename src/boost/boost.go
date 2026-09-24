@@ -683,9 +683,7 @@ func AddContractMember(client dc.Client, guildID string, channelID string, opera
 		}
 	}
 
-	if len(contract.Boosters) >= contract.CoopSize {
-		AutoUpdateThreadName(client, contract)
-	}
+	AutoUpdateThreadName(client, contract)
 
 	return nil
 }
@@ -1459,9 +1457,7 @@ func JoinContract(client dc.Client, guildID string, channelID string, userID str
 
 	}
 
-	if len(contract.Boosters) >= contract.CoopSize {
-		AutoUpdateThreadName(client, contract)
-	}
+	AutoUpdateThreadName(client, contract)
 
 	saveData(contract.ContractHash)
 	return nil
@@ -1488,10 +1484,8 @@ func RemoveFarmerByMention(client dc.Client, guildID string, channelID string, o
 	}
 
 	defer func() {
-		if len(contract.Boosters) < contract.CoopSize {
-			contract.ThreadRenameFinalized = false
-			AutoUpdateThreadName(client, contract)
-		}
+		contract.ThreadRenameFinalized = false
+		AutoUpdateThreadName(client, contract)
 	}()
 	userID := normalizeUserIDInput(mention)
 
