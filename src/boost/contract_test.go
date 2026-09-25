@@ -1584,8 +1584,15 @@ func TestAutoUpdateThreadName_SkipsPredictedContracts(t *testing.T) {
 				WithThread(tc.contract.Location[0].ChannelID, "guild1", "parent1", "Original Thread Name")
 
 			AutoUpdateThreadName(client, tc.contract)
-			if client.Called("EditChannel") {
-				t.Errorf("expected AutoUpdateThreadName NOT to call EditChannel for %s", tc.name)
+			// Expect rename only if contract was a predicted contract and now has a real ContractID
+			if tc.contract.WasPredictedContract && tc.contract.ContractID != "" {
+				if !client.Called("EditChannel") {
+					t.Errorf("expected AutoUpdateThreadName to call EditChannel for resolved predicted contract %s", tc.name)
+				}
+			} else {
+				if client.Called("EditChannel") {
+					t.Errorf("expected AutoUpdateThreadName NOT to call EditChannel for %s", tc.name)
+				}
 			}
 		})
 	}

@@ -60,7 +60,12 @@ func AutoUpdateThreadName(client dc.Client, contract *Contract) {
 	if contract == nil || client == nil {
 		return
 	}
-	if contract.IsOrWasPrediction() {
+	// Skip rename if still a prediction signup and the contract is not yet full,
+	// or if it was a predicted contract without a real ContractID yet,
+	// or if there are pending predictions listed.
+	if (contract.PredictionSignup && len(contract.Boosters) < contract.CoopSize) ||
+		(contract.WasPredictedContract && contract.ContractID == "") ||
+		len(contract.PredictionsList) > 0 {
 		return
 	}
 	UpdateThreadName(client, contract)
