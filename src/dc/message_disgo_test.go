@@ -119,3 +119,22 @@ func TestDisgoAllowedMentionsDropsMalformedIDs(t *testing.T) {
 		t.Error("nil AllowedMentions must stay nil, or it would suppress every mention")
 	}
 }
+
+func TestDisgoMessageUpdateFlags(t *testing.T) {
+	update := Message{
+		Content:        "test",
+		Ephemeral:      true,
+		SuppressEmbeds: true,
+	}.toMessageUpdate()
+
+	if update.Flags == nil {
+		t.Fatal("expected flags to be set for SuppressEmbeds")
+	}
+	if update.Flags.Has(discord.MessageFlagEphemeral) {
+		t.Error("MessageUpdate must NOT have MessageFlagEphemeral, as Discord rejects it on edit with 400 Invalid Form Body")
+	}
+	if !update.Flags.Has(discord.MessageFlagSuppressEmbeds) {
+		t.Error("MessageUpdate should retain MessageFlagSuppressEmbeds")
+	}
+}
+

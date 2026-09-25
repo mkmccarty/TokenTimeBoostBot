@@ -2,7 +2,9 @@ package boost
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
+	"log"
 	"math"
 	"math/rand/v2"
 	"regexp"
@@ -39,6 +41,110 @@ var (
 	customOrderSessionsMutex sync.Mutex
 )
 
+func saveCustomOrderSessionDB(s *customOrderSession) {
+	if dbConn == nil || s == nil {
+		return
+	}
+	linesJSON, _ := json.Marshal(s.lines)
+	_, _ = dbConn.ExecContext(ctx,
+		`INSERT INTO custom_order_sessions (uuid, contract_hash, channel_id, user_id, lines, expires_at)
+		 VALUES (?, ?, ?, ?, ?, ?)
+		 ON CONFLICT(uuid) DO UPDATE SET
+		   contract_hash = excluded.contract_hash,
+		   channel_id = excluded.channel_id,
+		   user_id = excluded.user_id,
+		   lines = excluded.lines,
+		   expires_at = excluded.expires_at`,
+		s.uuidStr, s.contractHash, s.channelID, s.userID, string(linesJSON), s.expiresAt.Unix(),
+	)
+}
+
+func loadCustomOrderSessionDB(uuidStr string) *customOrderSession {
+	if dbConn == nil {
+		return nil
+	}
+	var contractHash, channelID, userID, linesJSON string
+	var expiresAtSec int64
+	err := dbConn.QueryRowContext(ctx,
+		`SELECT contract_hash, channel_id, user_id, lines, expires_at FROM custom_order_sessions WHERE uuid = ?`,
+		uuidStr,
+	).Scan(&contractHash, &channelID, &userID, &linesJSON, &expiresAtSec)
+	if err != nil {
+		return nil
+	}
+	expiresAt := time.Unix(expiresAtSec, 0)
+	if expiresAt.Before(time.Now()) {
+		_, _ = dbConn.ExecContext(ctx, `DELETE FROM custom_order_sessions WHERE uuid = ?`, uuidStr)
+		return nil
+	}
+	var lines []string
+	if err := json.Unmarshal([]byte(linesJSON), &lines); err != nil {
+		lines = strings.Split(linesJSON, "\n")
+	}
+	return &customOrderSession{
+		uuidStr:      uuidStr,
+		contractHash: contractHash,
+		channelID:    channelID,
+		userID:       userID,
+		lines:        lines,
+		expiresAt:    expiresAt,
+	}
+}
+
+func deleteCustomOrderSessionDB(uuidStr string) {
+	if dbConn == nil {
+		return
+	}
+	_, _ = dbConn.ExecContext(ctx, `DELETE FROM custom_order_sessions WHERE uuid = ?`, uuidStr)
+}
+
+func cleanupExpiredCustomOrderSessionsDB() {
+	if dbConn == nil {
+		return
+	}
+	_, _ = dbConn.ExecContext(ctx, `DELETE FROM custom_order_sessions WHERE expires_at < ?`, time.Now().Unix())
+}
+
+func findCustomOrderSession(userID string, contractHash string) *customOrderSession {
+	customOrderSessionsMutex.Lock()
+	defer customOrderSessionsMutex.Unlock()
+
+	now := time.Now()
+	for _, s := range customOrderSessions {
+		if s.userID == userID && s.contractHash == contractHash && !s.expiresAt.Before(now) {
+			return s
+		}
+	}
+
+	if dbConn != nil {
+		var uuidStr, channelID, linesJSON string
+		var expiresAtSec int64
+		err := dbConn.QueryRowContext(ctx,
+			`SELECT uuid, channel_id, lines, expires_at FROM custom_order_sessions
+			 WHERE user_id = ? AND contract_hash = ? AND expires_at > ?
+			 ORDER BY expires_at DESC LIMIT 1`,
+			userID, contractHash, now.Unix(),
+		).Scan(&uuidStr, &channelID, &linesJSON, &expiresAtSec)
+		if err == nil {
+			var lines []string
+			if err := json.Unmarshal([]byte(linesJSON), &lines); err != nil {
+				lines = strings.Split(linesJSON, "\n")
+			}
+			s := &customOrderSession{
+				uuidStr:      uuidStr,
+				contractHash: contractHash,
+				channelID:    channelID,
+				userID:       userID,
+				lines:        lines,
+				expiresAt:    time.Unix(expiresAtSec, 0),
+			}
+			customOrderSessions[s.uuidStr] = s
+			return s
+		}
+	}
+	return nil
+}
+
 func getOrCreateCustomOrderSession(userID string, contractHash string, lines []string) *customOrderSession {
 	customOrderSessionsMutex.Lock()
 	defer customOrderSessionsMutex.Unlock()
@@ -49,6 +155,7 @@ func getOrCreateCustomOrderSession(userID string, contractHash string, lines []s
 			delete(customOrderSessions, k)
 		}
 	}
+	cleanupExpiredCustomOrderSessionsDB()
 
 	for _, s := range customOrderSessions {
 		if s.userID == userID && s.contractHash == contractHash {
@@ -56,6 +163,7 @@ func getOrCreateCustomOrderSession(userID string, contractHash string, lines []s
 			if len(lines) > 0 {
 				s.lines = append([]string(nil), lines...)
 			}
+			saveCustomOrderSessionDB(s)
 			return s
 		}
 	}
@@ -68,20 +176,38 @@ func getOrCreateCustomOrderSession(userID string, contractHash string, lines []s
 		expiresAt:    now.Add(customOrderSessionTTL),
 	}
 	customOrderSessions[session.uuidStr] = session
+	saveCustomOrderSessionDB(session)
 	return session
 }
 
 func getCustomOrderSession(uuidStr string) *customOrderSession {
 	customOrderSessionsMutex.Lock()
 	defer customOrderSessionsMutex.Unlock()
-	return customOrderSessions[uuidStr]
+
+	if s, ok := customOrderSessions[uuidStr]; ok {
+		if s.expiresAt.Before(time.Now()) {
+			delete(customOrderSessions, uuidStr)
+			deleteCustomOrderSessionDB(uuidStr)
+			return nil
+		}
+		return s
+	}
+
+	if s := loadCustomOrderSessionDB(uuidStr); s != nil {
+		customOrderSessions[s.uuidStr] = s
+		return s
+	}
+
+	return nil
 }
 
 func clearCustomOrderSession(uuidStr string) {
 	customOrderSessionsMutex.Lock()
 	defer customOrderSessionsMutex.Unlock()
 	delete(customOrderSessions, uuidStr)
+	deleteCustomOrderSessionDB(uuidStr)
 }
+
 
 // CustomCriterionType enumerates the metric types in custom boost order rules.
 type CustomCriterionType int
@@ -1207,6 +1333,24 @@ func evaluateBoosterForCustom(contract *Contract, userID string, signupIdx int, 
 		data.hasT4L = hasBoosterT4LDeflector(b)
 		data.t4Crafts = getBoosterT4DeflectorCraftCount(b.UserID)
 		data.deflQuality = getBoosterDeflectorQualityString(b)
+		if b.IHRRate <= DefaultLeggyIHR {
+			rate, logStr := CalculateIHRRateFromDB(userID)
+			if rate > DefaultLeggyIHR {
+				b.IHRRate = rate
+				b.IHRCalcLog = logStr
+			}
+		}
+		if b.TECount <= 0 {
+			teStr := farmerstate.GetMiscSettingString(userID, "TE")
+			if teStr != "" {
+				if n, err := strconv.Atoi(teStr); err == nil && n > 0 {
+					b.TECount = n
+				}
+			}
+		}
+		if b.ArtifactSet.LayRate == 0 && b.ArtifactSet.ShipRate == 0 && len(b.ArtifactSet.Artifacts) == 0 {
+			b.ArtifactSet = getUserArtifacts(userID, nil)
+		}
 		data.ihrBase = b.IHRRate
 		data.ihrSort = b.IHRRate
 		data.elr = b.ArtifactSet.LayRate
@@ -1969,6 +2113,27 @@ func RenderCustomOrderTableImage(contract *Contract, lines []string) ([]byte, er
 		return nil, fmt.Errorf("contract is nil")
 	}
 
+	for userID, b := range contract.Boosters {
+		if b.IHRRate <= DefaultLeggyIHR {
+			rate, logStr := CalculateIHRRateFromDB(userID)
+			if rate > DefaultLeggyIHR {
+				b.IHRRate = rate
+				b.IHRCalcLog = logStr
+			}
+		}
+		if b.TECount <= 0 {
+			teStr := farmerstate.GetMiscSettingString(userID, "TE")
+			if teStr != "" {
+				if n, err := strconv.Atoi(teStr); err == nil && n > 0 {
+					b.TECount = n
+				}
+			}
+		}
+		if b.ArtifactSet.LayRate == 0 && b.ArtifactSet.ShipRate == 0 && len(b.ArtifactSet.Artifacts) == 0 {
+			b.ArtifactSet = getUserArtifacts(userID, nil)
+		}
+	}
+
 	unselected := append([]string(nil), contract.Order...)
 	sortedIDs := sortCustomRemaining(contract, unselected, lines, false)
 
@@ -2124,23 +2289,35 @@ func HandleCustomOrderReactions(client dc.Client, e *dc.ComponentEvent) {
 	action := reaction[2]
 	contractHash := reaction[3]
 
-	session := getCustomOrderSession(uuidStr)
-	if session == nil {
-		_ = e.Update(dc.Message{Content: "This catalyst session expired. Please reselect Custom Boost Order.", Ephemeral: true})
-		return
-	}
-
 	contract := FindContractByHash(contractHash)
 	if contract == nil {
 		_ = e.Update(dc.Message{Content: "Unable to find this contract.", Ephemeral: true})
 		return
 	}
 
+	session := getCustomOrderSession(uuidStr)
+	if session == nil {
+		session = findCustomOrderSession(e.UserID(), contractHash)
+	}
+	if session == nil {
+		lines := contract.CustomOrderLines
+		if len(lines) == 0 {
+			saved := farmerstate.GetMiscSettingString(e.UserID(), "custom_boost_order")
+			if saved != "" {
+				lines = strings.Split(saved, "\n")
+			}
+		}
+		session = getOrCreateCustomOrderSession(e.UserID(), contractHash, lines)
+	}
+
 	switch action {
 	case "eval":
 		_ = e.DeferUpdate()
+		refreshCustomBoosters(client, contract)
 		msg := BuildCustomOrderMessage(contract, session, "✓ Evaluated and refreshed boost order preview.")
-		_ = e.Update(msg)
+		if err := e.EditResponse(msg); err != nil {
+			log.Printf("HandleCustomOrderReactions eval EditResponse error: %v", err)
+		}
 
 	case "edit":
 		SendCustomBoostOrderModal(e, contractHash)
@@ -2149,24 +2326,33 @@ func HandleCustomOrderReactions(client dc.Client, e *dc.ComponentEvent) {
 		_ = e.DeferUpdate()
 		savedStr := strings.Join(session.lines, "\n")
 		farmerstate.SetMiscSettingString(session.userID, "custom_boost_order", savedStr)
+		saveCustomOrderSessionDB(session)
 		msg := BuildCustomOrderMessage(contract, session, "✓ Saved conditions to your personal custom boost order preset!")
-		_ = e.Update(msg)
+		if err := e.EditResponse(msg); err != nil {
+			log.Printf("HandleCustomOrderReactions save EditResponse error: %v", err)
+		}
 
 	case "load":
 		_ = e.DeferUpdate()
 		saved := farmerstate.GetMiscSettingString(session.userID, "custom_boost_order")
 		if saved == "" {
 			msg := BuildCustomOrderMessage(contract, session, "⚠️ No saved custom boost order preset found in your profile.")
-			_ = e.Update(msg)
+			if err := e.EditResponse(msg); err != nil {
+				log.Printf("HandleCustomOrderReactions load EditResponse error: %v", err)
+			}
 			return
 		}
 		parts := strings.Split(saved, "\n")
 		session.lines = parts
+		saveCustomOrderSessionDB(session)
 		msg := BuildCustomOrderMessage(contract, session, "✓ Loaded custom boost order preset from your profile!")
-		_ = e.Update(msg)
+		if err := e.EditResponse(msg); err != nil {
+			log.Printf("HandleCustomOrderReactions load EditResponse error: %v", err)
+		}
 
 	case "apply":
 		_ = e.DeferUpdate()
+		refreshCustomBoosters(client, contract)
 		contract.mutex.Lock()
 		contract.CustomOrderLines = append([]string(nil), session.lines...)
 		contract.CustomOrderName = SuggestCustomOrderName(session.lines)
@@ -2179,17 +2365,49 @@ func HandleCustomOrderReactions(client dc.Client, e *dc.ComponentEvent) {
 		refreshBoostListMessage(client, contract, false)
 		clearCustomOrderSession(session.uuidStr)
 
-		_ = e.Update(dc.Message{
-			Content:   "✅ Custom Boost Order applied to contract and boost list updated.",
-			Ephemeral: true,
+		channelID := e.ChannelID()
+		if len(contract.Location) > 0 {
+			channelID = contract.Location[0].ChannelID
+		}
+		inThread := false
+		ch, err := client.Channel(e.ChannelID())
+		if err == nil && ch.IsThread {
+			inThread = true
+		}
+		str, comp := getSignupContractSettings(channelID, contract.ContractHash, inThread)
+		var components []dc.LayoutComponent
+		components = append(components, dc.TextDisplay{
+			Content: str,
 		})
+		components = append(components, comp...)
+
+		if err := e.EditResponse(dc.Message{Components: components}); err != nil {
+			log.Printf("HandleCustomOrderReactions apply EditResponse error: %v", err)
+		}
 
 	case "exit":
+		_ = e.DeferUpdate()
 		clearCustomOrderSession(session.uuidStr)
-		_ = e.Update(dc.Message{
-			Content:   "Exited without saving custom boost order changes.",
-			Ephemeral: true,
+
+		channelID := e.ChannelID()
+		if len(contract.Location) > 0 {
+			channelID = contract.Location[0].ChannelID
+		}
+		inThread := false
+		ch, err := client.Channel(e.ChannelID())
+		if err == nil && ch.IsThread {
+			inThread = true
+		}
+		str, comp := getSignupContractSettings(channelID, contract.ContractHash, inThread)
+		var components []dc.LayoutComponent
+		components = append(components, dc.TextDisplay{
+			Content: str,
 		})
+		components = append(components, comp...)
+
+		if err := e.EditResponse(dc.Message{Components: components}); err != nil {
+			log.Printf("HandleCustomOrderReactions exit EditResponse error: %v", err)
+		}
 
 	default:
 		_ = e.Update(dc.Message{Content: "Unknown action.", Ephemeral: true})

@@ -113,6 +113,125 @@ var (
 	defineOrderSessionsMutex sync.Mutex
 )
 
+func saveDefineSessionDB(s *defineOrderSession) {
+	if dbConn == nil || s == nil {
+		return
+	}
+	tmplJSON, _ := json.Marshal(s.template)
+	isSavedInt := 0
+	if s.isSaved {
+		isSavedInt = 1
+	}
+	_, _ = dbConn.ExecContext(ctx,
+		`INSERT INTO define_order_sessions (uuid, contract_hash, channel_id, user_id, template_json, is_saved, expires_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT(uuid) DO UPDATE SET
+		   contract_hash = excluded.contract_hash,
+		   channel_id = excluded.channel_id,
+		   user_id = excluded.user_id,
+		   template_json = excluded.template_json,
+		   is_saved = excluded.is_saved,
+		   expires_at = excluded.expires_at`,
+		s.uuidStr, s.contractHash, s.channelID, s.userID, string(tmplJSON), isSavedInt, s.expiresAt.Unix(),
+	)
+}
+
+func loadDefineSessionDB(uuidStr string) *defineOrderSession {
+	if dbConn == nil {
+		return nil
+	}
+	var contractHash, channelID, userID, tmplJSON string
+	var isSavedInt int
+	var expiresAtSec int64
+	err := dbConn.QueryRowContext(ctx,
+		`SELECT contract_hash, channel_id, user_id, template_json, is_saved, expires_at FROM define_order_sessions WHERE uuid = ?`,
+		uuidStr,
+	).Scan(&contractHash, &channelID, &userID, &tmplJSON, &isSavedInt, &expiresAtSec)
+	if err != nil {
+		return nil
+	}
+	expiresAt := time.Unix(expiresAtSec, 0)
+	if expiresAt.Before(time.Now()) {
+		_, _ = dbConn.ExecContext(ctx, `DELETE FROM define_order_sessions WHERE uuid = ?`, uuidStr)
+		return nil
+	}
+	var tmpl CustomBoostOrderTemplate
+	_ = json.Unmarshal([]byte(tmplJSON), &tmpl)
+	return &defineOrderSession{
+		uuidStr:      uuidStr,
+		contractHash: contractHash,
+		channelID:    channelID,
+		userID:       userID,
+		template:     tmpl,
+		isSaved:      isSavedInt == 1,
+		expiresAt:    expiresAt,
+	}
+}
+
+func deleteDefineSessionDB(uuidStr string) {
+	if dbConn == nil {
+		return
+	}
+	_, _ = dbConn.ExecContext(ctx, `DELETE FROM define_order_sessions WHERE uuid = ?`, uuidStr)
+}
+
+func cleanupExpiredDefineSessionsDB() {
+	if dbConn == nil {
+		return
+	}
+	_, _ = dbConn.ExecContext(ctx, `DELETE FROM define_order_sessions WHERE expires_at < ?`, time.Now().Unix())
+}
+
+func findDefineSession(userID string, contractHash string) *defineOrderSession {
+	defineOrderSessionsMutex.Lock()
+	defer defineOrderSessionsMutex.Unlock()
+
+	now := time.Now()
+	for _, s := range defineOrderSessions {
+		if s.userID == userID && (contractHash == "" || s.contractHash == contractHash) && !s.expiresAt.Before(now) {
+			return s
+		}
+	}
+
+	if dbConn != nil {
+		var uuidStr, cHash, channelID, tmplJSON string
+		var isSavedInt int
+		var expiresAtSec int64
+		var err error
+		if contractHash != "" {
+			err = dbConn.QueryRowContext(ctx,
+				`SELECT uuid, contract_hash, channel_id, template_json, is_saved, expires_at FROM define_order_sessions
+				 WHERE user_id = ? AND contract_hash = ? AND expires_at > ?
+				 ORDER BY expires_at DESC LIMIT 1`,
+				userID, contractHash, now.Unix(),
+			).Scan(&uuidStr, &cHash, &channelID, &tmplJSON, &isSavedInt, &expiresAtSec)
+		} else {
+			err = dbConn.QueryRowContext(ctx,
+				`SELECT uuid, contract_hash, channel_id, template_json, is_saved, expires_at FROM define_order_sessions
+				 WHERE user_id = ? AND expires_at > ?
+				 ORDER BY expires_at DESC LIMIT 1`,
+				userID, now.Unix(),
+			).Scan(&uuidStr, &cHash, &channelID, &tmplJSON, &isSavedInt, &expiresAtSec)
+		}
+		if err == nil {
+			var tmpl CustomBoostOrderTemplate
+			_ = json.Unmarshal([]byte(tmplJSON), &tmpl)
+			s := &defineOrderSession{
+				uuidStr:      uuidStr,
+				userID:       userID,
+				channelID:    channelID,
+				contractHash: cHash,
+				template:     tmpl,
+				isSaved:      isSavedInt == 1,
+				expiresAt:    time.Unix(expiresAtSec, 0),
+			}
+			defineOrderSessions[s.uuidStr] = s
+			return s
+		}
+	}
+	return nil
+}
+
 func getOrCreateDefineSession(userID string, contract *Contract, tmpl CustomBoostOrderTemplate, isSaved bool) *defineOrderSession {
 	defineOrderSessionsMutex.Lock()
 	defer defineOrderSessionsMutex.Unlock()
@@ -123,6 +242,7 @@ func getOrCreateDefineSession(userID string, contract *Contract, tmpl CustomBoos
 			delete(defineOrderSessions, k)
 		}
 	}
+	cleanupExpiredDefineSessionsDB()
 
 	contractHash := ""
 	channelID := ""
@@ -143,20 +263,38 @@ func getOrCreateDefineSession(userID string, contract *Contract, tmpl CustomBoos
 		expiresAt:    now.Add(defineOrderSessionTTL),
 	}
 	defineOrderSessions[session.uuidStr] = session
+	saveDefineSessionDB(session)
 	return session
 }
 
 func getDefineSession(uuidStr string) *defineOrderSession {
 	defineOrderSessionsMutex.Lock()
 	defer defineOrderSessionsMutex.Unlock()
-	return defineOrderSessions[uuidStr]
+
+	if s, ok := defineOrderSessions[uuidStr]; ok {
+		if s.expiresAt.Before(time.Now()) {
+			delete(defineOrderSessions, uuidStr)
+			deleteDefineSessionDB(uuidStr)
+			return nil
+		}
+		return s
+	}
+
+	if s := loadDefineSessionDB(uuidStr); s != nil {
+		defineOrderSessions[s.uuidStr] = s
+		return s
+	}
+
+	return nil
 }
 
 func clearDefineSession(uuidStr string) {
 	defineOrderSessionsMutex.Lock()
 	defer defineOrderSessionsMutex.Unlock()
 	delete(defineOrderSessions, uuidStr)
+	deleteDefineSessionDB(uuidStr)
 }
+
 
 // Storage Helpers for User and Global Custom Orders
 
@@ -1070,6 +1208,9 @@ func HandleDefineCustomOrderReactions(client dc.Client, e *dc.ComponentEvent) {
 
 	session := getDefineSession(sessionUUID)
 	if session == nil {
+		session = findDefineSession(e.UserID(), "")
+	}
+	if session == nil {
 		_ = e.Update(dc.Message{Content: "This session has expired. Please run `/custom-boost-order craft` again.", Ephemeral: true})
 		return
 	}
@@ -1114,6 +1255,7 @@ func HandleDefineCustomOrderReactions(client dc.Client, e *dc.ComponentEvent) {
 			contract = FindContractByHash(session.contractHash)
 		}
 		if contract != nil {
+			refreshCustomBoosters(client, contract)
 			contract.mutex.Lock()
 			contract.CustomOrderLines = append([]string(nil), session.template.Lines...)
 			contract.CustomOrderName = session.template.Name
