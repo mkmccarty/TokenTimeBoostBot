@@ -188,6 +188,9 @@ func TestBuildEbEmbedHomeAndVirtueWithPending(t *testing.T) {
 	if !strings.Contains(embed.Description, "### 🏠 Home Farm (with pending TE)") {
 		t.Errorf("expected Home Farm with pending TE when pendingTE > 0: %s", embed.Description)
 	}
+	if strings.Contains(embed.Description, "\n\n###") {
+		t.Errorf("found unwanted extra newline before section header: %s", embed.Description)
+	}
 }
 
 func TestBuildEbEmbedHomeAndVirtueNoPending(t *testing.T) {
