@@ -11,6 +11,9 @@ TokenTimeBoostBot
 output
 build
 bin
+bin/deploy.sh
+bin/deploy_freebsd.sh
+bin/Makefile
 banners
 ttbb-data
 src/mint/emoji

@@ -1119,13 +1119,19 @@ func getActiveContractsForAdminExit(now time.Time) []*Contract {
 func buildAdminExitResponse(page int) []dc.LayoutComponent {
 	activeContracts := getActiveContractsForAdminExit(time.Now())
 
-	runningVer, runningRev, runningTime, diskRev, diskTime := getVersionAndRevisionInfo()
+	runningVer, runningRev, runningTime, diskVer, diskRev, diskTime, diskChanged := getVersionAndRevisionInfo()
 
 	var b strings.Builder
 	b.WriteString("## ⚠️ Bot Exit & Restart Confirmation\n")
 	fmt.Fprintf(&b, "**Running Version:** `%s` (Commit: `%s`, Built: `%s`)\n", runningVer, shortenRevision(runningRev), runningTime)
-	if runningRev != diskRev && diskRev != "Unknown" {
-		fmt.Fprintf(&b, "**Disk Version (Pending):** Commit `%s` (Built: `%s`)\n", shortenRevision(diskRev), diskTime)
+	if diskChanged {
+		if diskVer != "Unknown" {
+			fmt.Fprintf(&b, "**Disk Version (Pending):** `%s` (Commit: `%s`, Built: `%s`)\n", diskVer, shortenRevision(diskRev), diskTime)
+		} else if diskRev != "Unknown" {
+			fmt.Fprintf(&b, "**Disk Version (Pending):** Commit `%s` (Built: `%s`)\n", shortenRevision(diskRev), diskTime)
+		} else {
+			fmt.Fprintf(&b, "**Disk Version (Pending):** *New binary detected* (File time: `%s`)\n", diskTime)
+		}
 		b.WriteString("⚠️ *A new binary version is detected on disk. Confirming restart will load this version.*\n\n")
 	} else {
 		b.WriteString("**Disk Version:** Matches running version.\n\n")
@@ -1310,7 +1316,9 @@ func init() {
 	}
 }
 
-func getVersionAndRevisionInfo() (runningVer, runningRev, runningTime, diskRev, diskTime string) {
+var ldflagsVersionRegex = regexp.MustCompile(`(?:main\.)?Version=([^\s"']+)`)
+
+func getVersionAndRevisionInfo() (runningVer, runningRev, runningTime, diskVer, diskRev, diskTime string, diskChanged bool) {
 	runningVer = version.Version
 	if runningVer == "" {
 		runningVer = "Unknown"
@@ -1329,44 +1337,42 @@ func getVersionAndRevisionInfo() (runningVer, runningRev, runningTime, diskRev, 
 		}
 	}
 
+	diskVer = "Unknown"
 	diskRev = "Unknown"
 	diskTime = "Unknown"
+
+	targetExe := ""
 	if exePath, err := os.Executable(); err == nil {
-		if info, err := os.Stat(exePath); err == nil {
-			if !startupExeModTime.IsZero() && (info.ModTime().After(startupExeModTime) || info.Size() != startupExeSize) {
-				diskRev = "New Version Detected (Disk Changed)"
-				diskTime = info.ModTime().Format("2006-01-02 15:04:05")
-				return
-			}
-		}
-		if bi, err := buildinfo.ReadFile(exePath); err == nil && bi != nil {
-			for _, s := range bi.Settings {
-				switch s.Key {
-				case "vcs.revision":
-					diskRev = s.Value
-				case "vcs.time":
-					diskTime = s.Value
-				}
-			}
-		}
+		targetExe = exePath
 	} else {
-		if info, err := os.Stat(os.Args[0]); err == nil {
-			if !startupExeModTime.IsZero() && (info.ModTime().After(startupExeModTime) || info.Size() != startupExeSize) {
-				diskRev = "New Version Detected (Disk Changed)"
-				diskTime = info.ModTime().Format("2006-01-02 15:04:05")
-				return
-			}
+		targetExe = os.Args[0]
+	}
+
+	if info, err := os.Stat(targetExe); err == nil {
+		if !startupExeModTime.IsZero() && (info.ModTime().After(startupExeModTime) || info.Size() != startupExeSize) {
+			diskChanged = true
+			diskTime = info.ModTime().Format("2006-01-02 15:04:05")
 		}
-		if bi, err := buildinfo.ReadFile(os.Args[0]); err == nil && bi != nil {
-			for _, s := range bi.Settings {
-				switch s.Key {
-				case "vcs.revision":
-					diskRev = s.Value
-				case "vcs.time":
-					diskTime = s.Value
+	}
+
+	if bi, err := buildinfo.ReadFile(targetExe); err == nil && bi != nil {
+		for _, s := range bi.Settings {
+			switch s.Key {
+			case "vcs.revision":
+				diskRev = s.Value
+			case "vcs.time":
+				// Prefer VCS build time if available, fallback to file mtime
+				diskTime = s.Value
+			case "-ldflags":
+				if m := ldflagsVersionRegex.FindStringSubmatch(s.Value); len(m) > 1 {
+					diskVer = m[1]
 				}
 			}
 		}
+	}
+
+	if (diskVer != "Unknown" && diskVer != runningVer) || (diskRev != "Unknown" && diskRev != runningRev) {
+		diskChanged = true
 	}
 
 	return
