@@ -40,7 +40,7 @@ func isThreadFullAndMatched(contract *Contract) bool {
 		return false
 	}
 	// A predicted contract signup doesn't have the final contract ID yet.
-	if contract.IsOrWasPrediction() {
+	if contract.PredictionSignup || contract.ContractID == "" || len(contract.PredictionsList) > 0 {
 		return false
 	}
 	// A TBD coop ID doesn't have the final coop ID yet.
@@ -54,18 +54,9 @@ func isThreadFullAndMatched(contract *Contract) bool {
 	return true
 }
 
-// AutoUpdateThreadName will automatically update a thread's name if the contract
-// is not (and was not) a predicted contract.
+// AutoUpdateThreadName will automatically update a thread's name to the current contract state
 func AutoUpdateThreadName(client dc.Client, contract *Contract) {
 	if contract == nil || client == nil {
-		return
-	}
-	// Skip rename if still a prediction signup and the contract is not yet full,
-	// or if it was a predicted contract without a real ContractID yet,
-	// or if there are pending predictions listed.
-	if (contract.PredictionSignup && len(contract.Boosters) < contract.CoopSize) ||
-		(contract.WasPredictedContract && contract.ContractID == "") ||
-		len(contract.PredictionsList) > 0 {
 		return
 	}
 	UpdateThreadName(client, contract)
