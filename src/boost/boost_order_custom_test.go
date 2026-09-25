@@ -1,6 +1,7 @@
 package boost
 
 import (
+	"math"
 	"strings"
 	"testing"
 
@@ -851,7 +852,7 @@ func TestCustomOrderTableColumns_OnlyActiveCriteria(t *testing.T) {
 	for _, c := range cols2 {
 		labels2 = append(labels2, c.Label)
 	}
-	expectedLabels2 := []string{"#", "Player", "Role", "IHR", "Tokens"}
+	expectedLabels2 := []string{"#", "Player", "Role", "IHR[6%]", "Tokens"}
 	if len(labels2) != len(expectedLabels2) {
 		t.Fatalf("Case 2 got cols %v, want %v", labels2, expectedLabels2)
 	}
@@ -868,7 +869,7 @@ func TestCustomOrderTableColumns_OnlyActiveCriteria(t *testing.T) {
 	for _, c := range cols3 {
 		labels3 = append(labels3, c.Label)
 	}
-	expectedLabels3 := []string{"#", "Player", "Role", "Effort [N=50]", "Tokens", "TE"}
+	expectedLabels3 := []string{"#", "Player", "Role", "Effort[N=50]", "Tokens", "TE"}
 	if len(labels3) != len(expectedLabels3) {
 		t.Fatalf("Case 3 got cols %v, want %v", labels3, expectedLabels3)
 	}
@@ -1002,6 +1003,31 @@ func TestGetContractBoostOrderLines(t *testing.T) {
 	if lines := GetContractBoostOrderLines(cCustom); len(lines) != 4 || lines[0] != "<ROLE" {
 		t.Errorf("expected custom lines, got %v", lines)
 	}
+
+	orderTests := []struct {
+		order int
+		want  string
+	}{
+		{ContractOrderSignup, "SIGNUP"},
+		{ContractOrderReverse, "REVERSE"},
+		{ContractOrderRandom, "RANDOM"},
+		{ContractOrderFair, "FAIR"},
+		{ContractOrderTimeBased, "TIME"},
+		{ContractOrderELR, "<ELR"},
+		{ContractOrderTVal, "<TVAL"},
+		{ContractOrderTokenAsk, ">TOKENS"},
+		{ContractOrderTE, "<TE"},
+		{ContractOrderTEFuzzy, "<TE[sqrt]"},
+		{ContractManualOrder, "MANUAL"},
+	}
+
+	for _, tt := range orderTests {
+		c := &Contract{BoostOrder: tt.order}
+		lines := GetContractBoostOrderLines(c)
+		if len(lines) == 0 || lines[0] != tt.want {
+			t.Errorf("GetContractBoostOrderLines(order=%d) = %v, want starting with %s", tt.order, lines, tt.want)
+		}
+	}
 }
 
 func TestBuildBoostOrderPreviewMessage(t *testing.T) {
@@ -1061,6 +1087,130 @@ func TestBuildBoostOrderPreviewMessage(t *testing.T) {
 		t.Errorf("expected Dismiss button in action row")
 	} else if dismissBtn.CustomID != "rc_#dismiss#preview-hash-456" {
 		t.Errorf("unexpected Dismiss button CustomID: %s", dismissBtn.CustomID)
+	}
+}
+
+func TestBuildBoostOrderPreviewMessage_AllBoostOrders(t *testing.T) {
+	allOrders := []struct {
+		order int
+		name  string
+	}{
+		{ContractOrderSignup, "Signup"},
+		{ContractOrderReverse, "Reverse"},
+		{ContractOrderRandom, "Random"},
+		{ContractOrderFair, "Fair"},
+		{ContractOrderTimeBased, "Time-Based"},
+		{ContractOrderELR, "ELR"},
+		{ContractOrderTVal, "TVal"},
+		{ContractOrderTokenAsk, "Token-Ask"},
+		{ContractOrderTE, "TE"},
+		{ContractOrderTEFuzzy, "Fuzzy TE"},
+		{ContractManualOrder, "Manual"},
+		{ContractOrderIHR, "Boosting IHR"},
+		{ContractOrderIHRFuzzy, "Fuzzy IHR"},
+		{ContractOrderCustom, "Custom"},
+	}
+
+	for _, tc := range allOrders {
+		t.Run(tc.name, func(t *testing.T) {
+			contract := &Contract{
+				ContractID:   "preview-test-contract",
+				CoopID:       "preview-coop",
+				ContractHash: "hash-" + tc.name,
+				BoostOrder:   tc.order,
+				Boosters:     make(map[string]*Booster),
+				Order:        []string{"u1", "u2"},
+			}
+			if tc.order == ContractOrderCustom {
+				contract.CustomOrderLines = []string{"<IHR", "<DEFL"}
+				contract.CustomOrderName = "My CBO Preset"
+			}
+			contract.Boosters["u1"] = &Booster{
+				UserID:       "u1",
+				Nick:         "Farmer 1",
+				IHRRate:      5e9,
+				TokensWanted: 6,
+				TECount:      50,
+			}
+			contract.Boosters["u2"] = &Booster{
+				UserID:       "u2",
+				Nick:         "Farmer 2",
+				IHRRate:      10e9,
+				TokensWanted: 4,
+				TECount:      100,
+			}
+
+			msg, err := BuildBoostOrderPreviewMessage(contract)
+			if err != nil {
+				t.Fatalf("BuildBoostOrderPreviewMessage failed for %s: %v", tc.name, err)
+			}
+			if len(msg.Components) == 0 {
+				t.Fatalf("expected components for %s", tc.name)
+			}
+			if len(msg.Files) == 0 {
+				t.Fatalf("expected image file for %s", tc.name)
+			}
+
+			// Verify header text contains the order name
+			firstComp, ok := msg.Components[0].(dc.TextDisplay)
+			if !ok {
+				t.Fatalf("expected first component to be TextDisplay for %s", tc.name)
+			}
+			if tc.order == ContractOrderCustom {
+				if !strings.Contains(firstComp.Content, "My CBO Preset") {
+					t.Errorf("expected My CBO Preset in header, got: %s", firstComp.Content)
+				}
+				if strings.Contains(firstComp.Content, "CBO:") {
+					t.Errorf("expected no CBO: in header, got: %s", firstComp.Content)
+				}
+			} else {
+				if !strings.Contains(firstComp.Content, tc.name) {
+					t.Errorf("expected %s in header, got: %s", tc.name, firstComp.Content)
+				}
+			}
+
+			// Verify Keep and Dismiss buttons exist
+			hasKeep := false
+			hasDismiss := false
+			for _, comp := range msg.Components {
+				if ar, ok := comp.(dc.ActionRow); ok {
+					for _, ic := range ar.Components {
+						if btn, ok := ic.(dc.Button); ok {
+							if strings.Contains(btn.CustomID, "#keep#") {
+								hasKeep = true
+							}
+							if strings.Contains(btn.CustomID, "#dismiss#") {
+								hasDismiss = true
+							}
+						}
+					}
+				}
+			}
+			if !hasKeep || !hasDismiss {
+				t.Errorf("missing Keep or Dismiss button for %s", tc.name)
+			}
+		})
+	}
+}
+
+func TestCritReverse_Sorting(t *testing.T) {
+	contract := &Contract{
+		ContractHash: "test-rev",
+		Order:        []string{"u1", "u2", "u3"},
+		Boosters: map[string]*Booster{
+			"u1": {UserID: "u1", Nick: "First Joined"},
+			"u2": {UserID: "u2", Nick: "Second Joined"},
+			"u3": {UserID: "u3", Nick: "Third Joined"},
+		},
+	}
+
+	sorted := sortCustomRemaining(contract, contract.Order, []string{"REVERSE"}, false)
+	if len(sorted) != 3 {
+		t.Fatalf("expected 3 items, got %d", len(sorted))
+	}
+	// Reverse of u1, u2, u3 should be u3, u2, u1
+	if sorted[0] != "u3" || sorted[1] != "u2" || sorted[2] != "u1" {
+		t.Errorf("expected [u3, u2, u1], got %v", sorted)
 	}
 }
 
@@ -1457,5 +1607,227 @@ func TestSuggestCustomOrderName_ExtendedCriteria(t *testing.T) {
 				t.Errorf("SuggestCustomOrderName(%v) = %q, want %q", tt.lines, got, tt.expected)
 			}
 		})
+	}
+}
+
+func TestCustomOrderTableColumns_FuzzyHeaders(t *testing.T) {
+	tests := []struct {
+		name      string
+		lines     []string
+		wantCol   string
+		wantFound bool
+	}{
+		{
+			name:      "IHR with 6%",
+			lines:     []string{"<IHR[6%]"},
+			wantCol:   "IHR[6%]",
+			wantFound: true,
+		},
+		{
+			name:      "IHR with 10%",
+			lines:     []string{"<IHR[10%]"},
+			wantCol:   "IHR[10%]",
+			wantFound: true,
+		},
+		{
+			name:      "TE with sqrt",
+			lines:     []string{"<TE[sqrt]"},
+			wantCol:   "TE[√]",
+			wantFound: true,
+		},
+		{
+			name:      "TE with tilde",
+			lines:     []string{"<TE[~]"},
+			wantCol:   "TE[√]",
+			wantFound: true,
+		},
+		{
+			name:      "TE with unicode sqrt",
+			lines:     []string{"<TE[√]"},
+			wantCol:   "TE[√]",
+			wantFound: true,
+		},
+		{
+			name:      "TE with 8%",
+			lines:     []string{"<TE[8%]"},
+			wantCol:   "TE[8%]",
+			wantFound: true,
+		},
+		{
+			name:      "IHR without fuzzy",
+			lines:     []string{"<IHR"},
+			wantCol:   "IHR",
+			wantFound: true,
+		},
+		{
+			name:      "TE without fuzzy",
+			lines:     []string{"<TE"},
+			wantCol:   "TE",
+			wantFound: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cols := getCustomOrderTableColumns(nil, tt.lines)
+			found := false
+			for _, c := range cols {
+				if c.Label == tt.wantCol {
+					found = true
+					break
+				}
+			}
+			if found != tt.wantFound {
+				var gotLabels []string
+				for _, c := range cols {
+					gotLabels = append(gotLabels, c.Label)
+				}
+				t.Errorf("getCustomOrderTableColumns(%v) cols = %v, want col %q (found=%v)", tt.lines, gotLabels, tt.wantCol, tt.wantFound)
+			}
+		})
+	}
+
+	// Verify built-in Fuzzy IHR contract order
+	cIHRFuzzy := &Contract{
+		ContractID:   "c-ihr-fuzzy",
+		BoostOrder:   ContractOrderIHRFuzzy,
+		Order:        []string{"u1"},
+		Boosters:     map[string]*Booster{"u1": {UserID: "u1", Nick: "Booster 1"}},
+		ContractHash: "test-ihr-fuzzy",
+	}
+	ihrLines := GetContractBoostOrderLines(cIHRFuzzy)
+	colsIHR := getCustomOrderTableColumns(cIHRFuzzy, ihrLines)
+	hasIHRFuzzy := false
+	for _, c := range colsIHR {
+		if c.Label == "IHR[6%]" {
+			hasIHRFuzzy = true
+			break
+		}
+	}
+	if !hasIHRFuzzy {
+		t.Errorf("ContractOrderIHRFuzzy expected 'IHR[6%%]' column, got: %v", colsIHR)
+	}
+
+	// Verify built-in Fuzzy TE contract order
+	cTEFuzzy := &Contract{
+		ContractID:   "c-te-fuzzy",
+		BoostOrder:   ContractOrderTEFuzzy,
+		Order:        []string{"u1"},
+		Boosters:     map[string]*Booster{"u1": {UserID: "u1", Nick: "Booster 1"}},
+		ContractHash: "test-te-fuzzy",
+	}
+	teLines := GetContractBoostOrderLines(cTEFuzzy)
+	colsTE := getCustomOrderTableColumns(cTEFuzzy, teLines)
+	hasTEFuzzy := false
+	for _, c := range colsTE {
+		if c.Label == "TE[√]" {
+			hasTEFuzzy = true
+			break
+		}
+	}
+	if !hasTEFuzzy {
+		t.Errorf("ContractOrderTEFuzzy expected 'TE[√]' column, got: %v", colsTE)
+	}
+
+	// Verify RenderCustomOrderTableImage renders successfully with √
+	imgBytes, err := RenderCustomOrderTableImage(cTEFuzzy, teLines)
+	if err != nil {
+		t.Fatalf("RenderCustomOrderTableImage error: %v", err)
+	}
+	if len(imgBytes) == 0 {
+		t.Fatalf("RenderCustomOrderTableImage returned empty bytes")
+	}
+
+	// Verify Signup column cell does not include '#'
+	crit := parseCustomCriterion("SIGNUP")
+	activeCols, _ := buildCustomOrderTableColDefs(cIHRFuzzy, [4]customCriterion{crit})
+	for _, ac := range activeCols {
+		if ac.id == "signup" {
+			cell := ac.evalCell(cIHRFuzzy.Boosters["u1"], 0)
+			if cell.Text != "1" {
+				t.Errorf("Signup column cell = %q, want '1' without '#'", cell.Text)
+			}
+		}
+	}
+}
+
+func TestBoosterDeliveryRate(t *testing.T) {
+	b1 := &Booster{
+		UserID: "u1",
+		Nick:   "Player 1",
+		ArtifactSet: ArtifactSet{
+			LayRate:  12.00,
+			ShipRate: 19.25,
+		},
+	}
+	b2 := &Booster{
+		UserID: "u2",
+		Nick:   "Player 2",
+		ArtifactSet: ArtifactSet{
+			LayRate:  25.00,
+			ShipRate: 18.50,
+		},
+	}
+
+	if r := getBoosterDeliveryRate(b1); math.Abs(r-12.00) > 1e-4 {
+		t.Errorf("getBoosterDeliveryRate(b1) = %f, want 12.00", r)
+	}
+	if r := getBoosterDeliveryRate(b2); math.Abs(r-18.50) > 1e-4 {
+		t.Errorf("getBoosterDeliveryRate(b2) = %f, want 18.50", r)
+	}
+	if r := getBoosterDeliveryRate(nil); r != 0 {
+		t.Errorf("getBoosterDeliveryRate(nil) = %f, want 0", r)
+	}
+
+	contract := &Contract{
+		ContractHash: "test-deliv",
+		Order:        []string{"u1", "u2"},
+		Boosters: map[string]*Booster{
+			"u1": b1,
+			"u2": b2,
+		},
+	}
+
+	// b2 has deliv rate 18.50, b1 has 12.00. Descending (<DELIV) should put u2 first.
+	sorted := sortCustomRemaining(contract, contract.Order, []string{"<DELIV"}, false)
+	if len(sorted) != 2 || sorted[0] != "u2" || sorted[1] != "u1" {
+		t.Errorf("sortCustomRemaining(<DELIV) = %v, want [u2, u1]", sorted)
+	}
+
+	cols := getCustomOrderTableColumns(contract, []string{"<DELIV"})
+	hasDelivCol := false
+	for _, c := range cols {
+		if c.Label == "Delivery" {
+			hasDelivCol = true
+			break
+		}
+	}
+	if !hasDelivCol {
+		t.Errorf("expected Delivery column in table, got %v", cols)
+	}
+
+	activeCols, _ := buildCustomOrderTableColDefs(contract, [4]customCriterion{parseCustomCriterion("<DELIV")})
+	for _, ac := range activeCols {
+		if ac.id == "deliv" {
+			cell1 := ac.evalCell(b1, 0)
+			if cell1.Text != "12.00" {
+				t.Errorf("Delivery cell b1 = %q, want '12.00'", cell1.Text)
+			}
+			cell2 := ac.evalCell(b2, 1)
+			if cell2.Text != "18.50" {
+				t.Errorf("Delivery cell b2 = %q, want '18.50'", cell2.Text)
+			}
+		}
+	}
+
+	// Verify RANDOM table output produces "RND"
+	rndCols, _ := buildCustomOrderTableColDefs(contract, [4]customCriterion{parseCustomCriterion("RANDOM")})
+	for _, ac := range rndCols {
+		if ac.id == "random" {
+			cell := ac.evalCell(b1, 0)
+			if cell.Text != "RND" {
+				t.Errorf("Random cell = %q, want 'RND'", cell.Text)
+			}
+		}
 	}
 }

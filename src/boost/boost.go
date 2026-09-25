@@ -377,6 +377,9 @@ func getBoostOrderString(contract *Contract) string {
 		return fmt.Sprintf("Fair -> Sign-up <t:%d:R> ", thresholdStartTime.Unix())
 	case ContractOrderELR:
 		return fmt.Sprintf("Egg Lay Rate order (%s)", bottools.GetFormattedCommand("artifact"))
+	case ContractOrderCustom:
+		orderName := GetContractCustomOrderName(contract)
+		return strings.TrimPrefix(orderName, "CBO: ")
 	}
 	if contract.BoostOrder >= 0 && contract.BoostOrder < len(contractOrderNames) {
 		return contractOrderNames[contract.BoostOrder]
@@ -2341,7 +2344,7 @@ func reorderBoosters(contract *Contract) {
 			ihr          float64
 			tokensWanted int
 			deflQual     int
-			delQual      int
+			delivRate    float64
 			te           int
 		}
 		pairs := make([]ihrOrderPair, len(contract.Order))
@@ -2349,7 +2352,7 @@ func reorderBoosters(contract *Contract) {
 		for i, name := range contract.Order {
 			b := contract.Boosters[name]
 			deflQ := getArtifactQualityScore(b, "Deflector")
-			delQ := getArtifactQualityScore(b, "Metronome") + getArtifactQualityScore(b, "Compass") + getArtifactQualityScore(b, "Gusset")
+			delRate := getBoosterDeliveryRate(b)
 			baseIHR := b.IHRRate
 			sortIHR := baseIHR
 			if contract.BoostOrder == ContractOrderIHRFuzzy {
@@ -2366,7 +2369,7 @@ func reorderBoosters(contract *Contract) {
 					b.IHRCalcLog = fmt.Sprintf("%s, Fuzzy (Max=%0.2f, Offset=%0.2f, Sorted=%0.2f)", b.IHRCalcLog, randomBonusMax, randomOffset, sortIHR)
 				}
 			}
-			pairs[i] = ihrOrderPair{name: name, ihr: sortIHR, tokensWanted: b.TokensWanted, deflQual: deflQ, delQual: delQ, te: b.TECount}
+			pairs[i] = ihrOrderPair{name: name, ihr: sortIHR, tokensWanted: b.TokensWanted, deflQual: deflQ, delivRate: delRate, te: b.TECount}
 		}
 
 		sort.Slice(pairs, func(i, j int) bool {
@@ -2376,8 +2379,8 @@ func reorderBoosters(contract *Contract) {
 			if pairs[i].deflQual != pairs[j].deflQual {
 				return pairs[i].deflQual > pairs[j].deflQual
 			}
-			if pairs[i].delQual != pairs[j].delQual {
-				return pairs[i].delQual > pairs[j].delQual
+			if pairs[i].delivRate != pairs[j].delivRate {
+				return pairs[i].delivRate > pairs[j].delivRate
 			}
 			return pairs[i].te > pairs[j].te
 		})
@@ -2704,4 +2707,20 @@ func getArtifactQualityScore(b *Booster, artType string) int {
 		}
 	}
 	return -1
+}
+
+func getBoosterDeliveryRate(b *Booster) float64 {
+	if b == nil {
+		return 0
+	}
+	if b.ArtifactSet.LayRate > 0 && b.ArtifactSet.ShipRate > 0 {
+		return math.Min(b.ArtifactSet.LayRate, b.ArtifactSet.ShipRate)
+	}
+	if b.ArtifactSet.LayRate > 0 {
+		return b.ArtifactSet.LayRate
+	}
+	if b.ArtifactSet.ShipRate > 0 {
+		return b.ArtifactSet.ShipRate
+	}
+	return 0
 }

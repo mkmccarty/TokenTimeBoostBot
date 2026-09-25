@@ -256,6 +256,12 @@ func speedrunReactions(client dc.Client, e *dc.ReactionEvent, contract *Contract
 	keepReaction := false
 	redraw := false
 
+	if e.EmojiName() == "⚙️" || e.EmojiName() == "⚙" {
+		go displayBoostOrderImage(client, e.ChannelID(), contract)
+		go RemoveAddedReaction(client, e)
+		return ""
+	}
+
 	// Token reaction handling
 	tokenReactionStr := "token"
 	userID := e.UserID()

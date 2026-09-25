@@ -856,6 +856,7 @@ func HandleContractSettingsReactions(client dc.Client, e *dc.ComponentEvent) {
 				if tmpl != nil {
 					contract.BoostOrder = ContractOrderCustom
 					contract.CustomOrderLines = append([]string(nil), tmpl.Lines...)
+					contract.CustomOrderName = tmpl.Name
 					refreshCustomBoosters(client, contract)
 				}
 			} else if strings.HasPrefix(values[0], "custom_u:") {
@@ -867,6 +868,7 @@ func HandleContractSettingsReactions(client dc.Client, e *dc.ComponentEvent) {
 				if tmpl != nil {
 					contract.BoostOrder = ContractOrderCustom
 					contract.CustomOrderLines = append([]string(nil), tmpl.Lines...)
+					contract.CustomOrderName = tmpl.Name
 					refreshCustomBoosters(client, contract)
 				}
 			}

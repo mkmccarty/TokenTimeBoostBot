@@ -272,3 +272,59 @@ func TestDrawBoostListSignupPrefixNumbers(t *testing.T) {
 		t.Errorf("expected waiting/active contract to contain numbers, got %q", activeOutput)
 	}
 }
+
+func TestDrawBoostList_CustomBoostOrderName(t *testing.T) {
+	contract := &Contract{
+		ContractHash:     "cbo-test-hash",
+		ContractID:       "test-cbo",
+		CoopID:           "cbo-coop",
+		Description:      "Egg Inc Contract",
+		State:            ContractStateSignup,
+		BoostOrder:       ContractOrderCustom,
+		CustomOrderLines: []string{"<IHR", "<DEFL"},
+		CustomOrderName:  "Elite Speedrun Preset",
+		Order:            []string{"u1"},
+		Boosters: map[string]*Booster{
+			"u1": {
+				UserID:     "u1",
+				Mention:    "<@u1>",
+				Name:       "Farmer1",
+				BoostState: BoostStateUnboosted,
+			},
+		},
+		CreatorID: []string{"u1"},
+		Location:  []*LocationData{{GuildID: "g1", ChannelID: "c1"}},
+		CoopSize:  5,
+	}
+
+	components := DrawBoostList(contract)
+	var output strings.Builder
+	for _, comp := range components {
+		if td, ok := comp.(dc.TextDisplay); ok {
+			output.WriteString(td.Content)
+		}
+	}
+	outStr := output.String()
+	expectedHeading := "### Custom Boost Ordering is Elite Speedrun Preset"
+	if !strings.Contains(outStr, expectedHeading) {
+		t.Errorf("expected %q in boost_draw output, got: %s", expectedHeading, outStr)
+	}
+
+	// Test fallback to suggested name if CustomOrderName is empty
+	contract.CustomOrderName = ""
+	components2 := DrawBoostList(contract)
+	var output2 strings.Builder
+	for _, comp := range components2 {
+		if td, ok := comp.(dc.TextDisplay); ok {
+			output2.WriteString(td.Content)
+		}
+	}
+	outStr2 := output2.String()
+	expectedSuggestedPrefix := "### Custom Boost Ordering is "
+	if !strings.Contains(outStr2, expectedSuggestedPrefix) {
+		t.Errorf("expected %q in boost_draw output, got: %s", expectedSuggestedPrefix, outStr2)
+	}
+	if strings.Contains(outStr2, "### Custom Boost Ordering is Custom\n") || strings.Contains(outStr2, "### Boost ordering is Custom\n") {
+		t.Errorf("boost_draw should not just say 'Custom', got: %s", outStr2)
+	}
+}

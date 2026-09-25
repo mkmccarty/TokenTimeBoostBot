@@ -1116,6 +1116,7 @@ func HandleDefineCustomOrderReactions(client dc.Client, e *dc.ComponentEvent) {
 		if contract != nil {
 			contract.mutex.Lock()
 			contract.CustomOrderLines = append([]string(nil), session.template.Lines...)
+			contract.CustomOrderName = session.template.Name
 			contract.BoostOrder = ContractOrderCustom
 			unselected := append([]string(nil), contract.Order...)
 			contract.Order = sortCustomRemaining(contract, unselected, contract.CustomOrderLines, false)

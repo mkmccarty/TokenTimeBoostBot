@@ -956,7 +956,7 @@ func boostOrderSortRemaining(contract *Contract, unselected []string, sortType s
 			ihr          float64
 			tokensWanted int
 			deflQual     int
-			delQual      int
+			delivRate    float64
 			te           int
 		}
 		pairs := make([]ihrPair, len(sorted))
@@ -964,13 +964,13 @@ func boostOrderSortRemaining(contract *Contract, unselected []string, sortType s
 			ihrVal := 0.0
 			tokensW := 0
 			deflQ := 0
-			delQ := 0
+			delRate := 0.0
 			teVal := 0
 			if b := contract.Boosters[name]; b != nil {
 				ihrVal = b.IHRRate
 				tokensW = b.TokensWanted
 				deflQ = getArtifactQualityScore(b, "Deflector")
-				delQ = getArtifactQualityScore(b, "Metronome") + getArtifactQualityScore(b, "Compass") + getArtifactQualityScore(b, "Gusset")
+				delRate = getBoosterDeliveryRate(b)
 				teVal = b.TECount
 			}
 			if sortType == "fuzzyihr" {
@@ -993,7 +993,7 @@ func boostOrderSortRemaining(contract *Contract, unselected []string, sortType s
 				ihr:          ihrVal,
 				tokensWanted: tokensW,
 				deflQual:     deflQ,
-				delQual:      delQ,
+				delivRate:    delRate,
 				te:           teVal,
 			}
 		}
@@ -1004,8 +1004,8 @@ func boostOrderSortRemaining(contract *Contract, unselected []string, sortType s
 			if pairs[i].deflQual != pairs[j].deflQual {
 				return pairs[i].deflQual > pairs[j].deflQual
 			}
-			if pairs[i].delQual != pairs[j].delQual {
-				return pairs[i].delQual > pairs[j].delQual
+			if pairs[i].delivRate != pairs[j].delivRate {
+				return pairs[i].delivRate > pairs[j].delivRate
 			}
 			return pairs[i].te > pairs[j].te
 		})
