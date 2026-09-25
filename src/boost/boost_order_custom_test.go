@@ -1,6 +1,7 @@
 package boost
 
 import (
+	"database/sql"
 	"math"
 	"strings"
 	"testing"
@@ -1831,3 +1832,108 @@ func TestBoosterDeliveryRate(t *testing.T) {
 		}
 	}
 }
+
+func TestCustomOrderSessionPersistenceAndFallback(t *testing.T) {
+	origDB := dbConn
+	defer func() { dbConn = origDB }()
+
+	db, err := sqlOpenMemory()
+	if err == nil && db != nil {
+		_, _ = db.ExecContext(ctx, ddl)
+		dbConn = db
+	}
+
+	lines := []string{"<IHR[6%]", "ELR"}
+	s := getOrCreateCustomOrderSession("user_test_persist", "hash_test_persist", lines)
+	if s == nil {
+		t.Fatal("expected session to be created")
+	}
+	uuidStr := s.uuidStr
+
+	// Verify in-memory retrieval
+	got := getCustomOrderSession(uuidStr)
+	if got == nil || len(got.lines) != 2 || got.lines[0] != "<IHR[6%]" {
+		t.Fatalf("unexpected session from memory: %#v", got)
+	}
+
+	if dbConn != nil {
+		// Simulate bot restart by wiping in-memory map
+		customOrderSessionsMutex.Lock()
+		delete(customOrderSessions, uuidStr)
+		customOrderSessionsMutex.Unlock()
+
+		// Verify retrieval from SQLite database
+		recovered := getCustomOrderSession(uuidStr)
+		if recovered == nil {
+			t.Fatal("expected session to be recovered from DB after memory wipe")
+		}
+		if recovered.userID != "user_test_persist" || recovered.contractHash != "hash_test_persist" {
+			t.Errorf("recovered session mismatch: %#v", recovered)
+		}
+
+		// Test findCustomOrderSession
+		found := findCustomOrderSession("user_test_persist", "hash_test_persist")
+		if found == nil || found.uuidStr != uuidStr {
+			t.Errorf("findCustomOrderSession failed: %#v", found)
+		}
+
+		// Test clearCustomOrderSession
+		clearCustomOrderSession(uuidStr)
+		if getCustomOrderSession(uuidStr) != nil {
+			t.Error("expected session to be cleared")
+		}
+	}
+}
+
+func sqlOpenMemory() (*sql.DB, error) {
+	return sql.Open("sqlite", ":memory:")
+}
+
+func TestCustomOrderBoostersRefreshedFromDB(t *testing.T) {
+	u1 := "test_ihr_user_1"
+	u2 := "test_ihr_user_2"
+
+	farmerstate.SetMiscSettingString(u1, "TE", "50")
+	farmerstate.SetMiscSettingString(u1, "chalice", "T4L")
+	farmerstate.SetMiscSettingString(u1, "monocle", "T4L")
+
+	farmerstate.SetMiscSettingString(u2, "TE", "10")
+	farmerstate.SetMiscSettingString(u2, "chalice", "T2C")
+
+	c := &Contract{
+		ContractHash: "test-ihr-refresh",
+		Order:        []string{u1, u2},
+		Boosters: map[string]*Booster{
+			u1: {UserID: u1, IHRRate: DefaultLeggyIHR, TECount: 0},
+			u2: {UserID: u2, IHRRate: DefaultLeggyIHR, TECount: 0},
+		},
+	}
+
+	refreshCustomBoosters(nil, c)
+
+	b1 := c.Boosters[u1]
+	b2 := c.Boosters[u2]
+
+	if b1.IHRRate <= DefaultLeggyIHR {
+		t.Errorf("expected b1.IHRRate > DefaultLeggyIHR, got %f", b1.IHRRate)
+	}
+	if b2.IHRRate <= DefaultLeggyIHR {
+		t.Errorf("expected b2.IHRRate > DefaultLeggyIHR, got %f", b2.IHRRate)
+	}
+	if b1.IHRRate <= b2.IHRRate {
+		t.Errorf("expected b1.IHRRate (%f) > b2.IHRRate (%f)", b1.IHRRate, b2.IHRRate)
+	}
+	if b1.TECount != 50 {
+		t.Errorf("expected b1.TECount == 50, got %d", b1.TECount)
+	}
+	if b2.TECount != 10 {
+		t.Errorf("expected b2.TECount == 10, got %d", b2.TECount)
+	}
+
+	// Verify custom order evaluation uses refreshed rates
+	sorted := sortCustomRemaining(c, c.Order, []string{"<IHR[12%]"}, false)
+	if len(sorted) != 2 || sorted[0] != u1 || sorted[1] != u2 {
+		t.Errorf("sortCustomRemaining(<IHR[12%%]) = %v, want [%s, %s]", sorted, u1, u2)
+	}
+}
+

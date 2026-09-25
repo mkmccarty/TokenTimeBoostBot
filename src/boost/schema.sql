@@ -22,3 +22,22 @@ CREATE TABLE IF NOT EXISTS missing_contracts (
     timestamp  INTEGER NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS custom_order_sessions (
+    uuid          text PRIMARY KEY NOT NULL,
+    contract_hash text NOT NULL,
+    channel_id    text NOT NULL,
+    user_id       text NOT NULL,
+    lines         text NOT NULL,
+    expires_at    INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS define_order_sessions (
+    uuid          text PRIMARY KEY NOT NULL,
+    contract_hash text NOT NULL,
+    channel_id    text NOT NULL,
+    user_id       text NOT NULL,
+    template_json text NOT NULL,
+    is_saved      INTEGER NOT NULL,
+    expires_at    INTEGER NOT NULL
+);
+

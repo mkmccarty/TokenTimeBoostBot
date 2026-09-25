@@ -139,6 +139,19 @@ func (m Message) disgoFlags() discord.MessageFlags {
 	return flags
 }
 
+// disgoUpdateFlags is the flag set allowed when editing an existing message.
+// Discord rejects MessageFlagEphemeral on edit payloads (HTTP 400 Invalid Form Body).
+func (m Message) disgoUpdateFlags() discord.MessageFlags {
+	var flags discord.MessageFlags
+	if m.SuppressEmbeds {
+		flags = flags.Add(discord.MessageFlagSuppressEmbeds)
+	}
+	if m.componentsV2() {
+		flags = flags.Add(discord.MessageFlagIsComponentsV2)
+	}
+	return flags
+}
+
 // disgoComponentList drops any component Discord does not accept at the top
 // level of a message, which disgoLayout reports by returning nil.
 func (m Message) disgoComponentList() []discord.LayoutComponent {
@@ -206,8 +219,9 @@ func (m Message) toMessageUpdate() discord.MessageUpdate {
 	if files := m.disgoFileList(); files != nil {
 		update.Files = files
 	}
-	if flags := m.disgoFlags(); flags != 0 {
+	if flags := m.disgoUpdateFlags(); flags != 0 {
 		update.Flags = &flags
 	}
 	return update
 }
+

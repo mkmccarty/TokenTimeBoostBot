@@ -1280,36 +1280,28 @@ func SendCustomBoostOrderModal(e *dc.ComponentEvent, contractHash string) {
 	row3Val := ""
 	row4Val := ""
 
-	if len(contract.CustomOrderLines) > 0 {
-		if len(contract.CustomOrderLines) > 0 && contract.CustomOrderLines[0] != "" {
-			row1Val = contract.CustomOrderLines[0]
-		}
-		if len(contract.CustomOrderLines) > 1 && contract.CustomOrderLines[1] != "" {
-			row2Val = contract.CustomOrderLines[1]
-		}
-		if len(contract.CustomOrderLines) > 2 && contract.CustomOrderLines[2] != "" {
-			row3Val = contract.CustomOrderLines[2]
-		}
-		if len(contract.CustomOrderLines) > 3 && contract.CustomOrderLines[3] != "" {
-			row4Val = contract.CustomOrderLines[3]
-		}
+	var lines []string
+	if session := findCustomOrderSession(e.UserID(), contractHash); session != nil && len(session.lines) > 0 {
+		lines = session.lines
+	} else if len(contract.CustomOrderLines) > 0 {
+		lines = contract.CustomOrderLines
 	} else {
 		saved := farmerstate.GetMiscSettingString(e.UserID(), "custom_boost_order")
 		if saved != "" {
-			parts := strings.Split(saved, "\n")
-			if len(parts) > 0 && parts[0] != "" {
-				row1Val = parts[0]
-			}
-			if len(parts) > 1 {
-				row2Val = parts[1]
-			}
-			if len(parts) > 2 {
-				row3Val = parts[2]
-			}
-			if len(parts) > 3 {
-				row4Val = parts[3]
-			}
+			lines = strings.Split(saved, "\n")
 		}
+	}
+	if len(lines) > 0 && lines[0] != "" {
+		row1Val = lines[0]
+	}
+	if len(lines) > 1 && lines[1] != "" {
+		row2Val = lines[1]
+	}
+	if len(lines) > 2 && lines[2] != "" {
+		row3Val = lines[2]
+	}
+	if len(lines) > 3 && lines[3] != "" {
+		row4Val = lines[3]
 	}
 
 	err := e.ShowModal(dc.Modal{
@@ -1395,9 +1387,14 @@ func HandleCustomOrderModalSubmit(client dc.Client, e *dc.ModalEvent) {
 	session := getOrCreateCustomOrderSession(e.UserID(), contractHash, lines)
 	session.channelID = e.ChannelID()
 	session.lines = lines
+	saveCustomOrderSessionDB(session)
+
+	refreshCustomBoosters(client, contract)
 
 	msg := BuildCustomOrderMessage(contract, session, "Review your custom boost order preview below. Use **EVAL** to refresh, or **SAVE & EXIT** to apply to the contract.")
-	_ = e.EditResponse(msg)
+	if err := e.EditResponse(msg); err != nil {
+		log.Printf("HandleCustomOrderModalSubmit EditResponse error: %v", err)
+	}
 }
 
 func refreshCustomBoosters(client dc.Client, contract *Contract) {
@@ -1410,6 +1407,13 @@ func refreshCustomBoosters(client dc.Client, contract *Contract) {
 	}
 	usersToRefresh := make([]userToRefresh, 0, len(contract.Boosters))
 	for userID, b := range contract.Boosters {
+		if b.TECount <= 0 {
+			if te := farmerstate.GetMiscSettingString(userID, "TE"); te != "" {
+				if n, err := strconv.Atoi(te); err == nil && n > 0 {
+					b.TECount = n
+				}
+			}
+		}
 		rate, logStr := CalculateIHRRateFromDB(userID)
 		if rate < DefaultLeggyIHR {
 			rate = DefaultLeggyIHR
@@ -1417,11 +1421,13 @@ func refreshCustomBoosters(client dc.Client, contract *Contract) {
 		b.IHRRate = rate
 		b.IHRCalcLog = logStr
 
-		if b.IHRRate <= DefaultLeggyIHR || b.TECount == 0 {
+		if b.IHRRate <= DefaultLeggyIHR || b.TECount <= 0 {
 			usersToRefresh = append(usersToRefresh, userToRefresh{userID: userID, booster: b})
 		}
 	}
-	for _, item := range usersToRefresh {
-		updateContractFarmerTE(client, item.userID, item.booster, contract)
+	if client != nil {
+		for _, item := range usersToRefresh {
+			updateContractFarmerTE(client, item.userID, item.booster, contract)
+		}
 	}
 }
