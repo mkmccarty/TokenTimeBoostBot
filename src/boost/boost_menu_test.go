@@ -225,6 +225,97 @@ func TestDrawBoostListCompactRange(t *testing.T) {
 	}
 }
 
+func TestDrawBoostListUncompacted(t *testing.T) {
+	contract := &Contract{
+		ContractHash: "test-hash-uncompacted",
+		ContractID:   "test-contract",
+		CoopID:       "test-coop",
+		State:        ContractStateWaiting,
+		Style:        ContractStyleFastrun,
+		CreatorID:    []string{"creator-id"},
+		Order:        make([]string, 35),
+		Boosters:     make(map[string]*Booster),
+		Location:     []*LocationData{{GuildID: "guild1", ChannelID: "channel1"}},
+	}
+
+	for i := 0; i < 35; i++ {
+		userID := fmt.Sprintf("user%d", i)
+		contract.Order[i] = userID
+		contract.Boosters[userID] = &Booster{
+			UserID:       userID,
+			Mention:      fmt.Sprintf("<@%d>", i),
+			TokensWanted: 6,
+			BoostState:   BoostStateUnboosted,
+		}
+	}
+
+	contract.CurrentBoosterUserID = "user20"
+	contract.BoostPosition = 20
+
+	compactComponents := DrawBoostList(contract)
+
+	// Verify compact components has compaction
+	hasCompaction := false
+	for _, comp := range compactComponents {
+		if textDisplay, ok := comp.(dc.TextDisplay); ok {
+			if strings.Contains(textDisplay.Content, "more)") {
+				hasCompaction = true
+			}
+		}
+	}
+	if !hasCompaction {
+		t.Fatalf("expected DrawBoostList to have compaction")
+	}
+
+	// Verify pure components has NO compaction indicators, NO headers, NO separators
+	pureComponents := DrawPureBoostList(contract)
+	for _, comp := range pureComponents {
+		switch c := comp.(type) {
+		case dc.TextDisplay:
+			if strings.Contains(c.Content, "more)") {
+				t.Errorf("expected DrawPureBoostList to not contain compaction, got: %s", c.Content)
+			}
+			if strings.Contains(c.Content, "CoopID:") {
+				t.Errorf("expected DrawPureBoostList to not contain header, got: %s", c.Content)
+			}
+			if strings.Contains(c.Content, "Coordinator:") {
+				t.Errorf("expected DrawPureBoostList to not contain coordinator, got: %s", c.Content)
+			}
+		default:
+			t.Errorf("expected DrawPureBoostList to only contain TextDisplay components, got: %T", comp)
+		}
+	}
+
+	// Verify all 35 players are rendered in uncompacted components
+	allContent := ""
+	for _, comp := range pureComponents {
+		if textDisplay, ok := comp.(dc.TextDisplay); ok {
+			allContent += textDisplay.Content + "\n"
+		}
+	}
+	if !strings.HasPrefix(allContent, "## Boost List\n") {
+		t.Errorf("expected allContent to start with '## Boost List\\n', got %q", allContent[:min(30, len(allContent))])
+	}
+	for i := 0; i < 35; i++ {
+		expectedPrefix := fmt.Sprintf("%2d -", i+1)
+		expectedMention := fmt.Sprintf("<@%d>", i)
+		if !strings.Contains(allContent, expectedPrefix) {
+			t.Errorf("expected allContent to contain prefix %q", expectedPrefix)
+		}
+		if !strings.Contains(allContent, expectedMention) {
+			t.Errorf("expected allContent to contain mention %q", expectedMention)
+		}
+	}
+
+	// Test HandleMenuReactions with "grange"
+	client := dctest.New()
+	Contracts[contract.ContractHash] = contract
+	defer delete(Contracts, contract.ContractHash)
+
+	ev := dctest.ComponentSelectEvent("menu#"+contract.ContractHash, "grange")
+	HandleMenuReactions(client, ev)
+}
+
 func TestToggleReactionLogPersistenceAndJoin(t *testing.T) {
 	testUserID := "4"
 	farmerstate.SetMiscSettingFlag(testUserID, "DisableEphemeralLog", true)

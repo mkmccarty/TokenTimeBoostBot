@@ -94,6 +94,54 @@ func hasRenderableBannerURL(bannerURL string) bool {
 
 // DrawBoostList will draw the boost list for the contract
 func DrawBoostList(contract *Contract) []dc.LayoutComponent {
+	return DrawBoostListCustom(contract, true)
+}
+
+// DrawBoostListUncompacted will draw the full boost list message without early and late compaction
+func DrawBoostListUncompacted(contract *Contract) []dc.LayoutComponent {
+	return DrawBoostListCustom(contract, false)
+}
+
+// DrawPureBoostList will draw only the pure boost list without headers, banners, compaction, or guidance
+func DrawPureBoostList(contract *Contract) []dc.LayoutComponent {
+	var components []dc.LayoutComponent
+	var builder strings.Builder
+	now := time.Now()
+	receivedByUser, sentByUser, tvalByUser, _ := buildTokenTotalsFromLog(contract)
+
+	if contract.State == ContractStateWaiting {
+		for _, element := range contract.Order {
+			if b, ok := contract.Boosters[element]; ok {
+				if b.BoostState == BoostStateUnboosted || b.BoostState == BoostStateTokenTime {
+					if contract.Style&ContractFlagBanker != 0 {
+						changeContractState(contract, ContractStateBanker)
+					} else if contract.Style&ContractFlagFastrun != 0 {
+						changeContractState(contract, ContractStateFastrun)
+					}
+					break
+				}
+			}
+		}
+	}
+
+	if contract.State == ContractStateSignup {
+		builder.WriteString("## Sign-up List\n")
+	} else {
+		builder.WriteString("## Boost List\n")
+	}
+
+	renderBoosterLines(contract, contract.Order, 1, receivedByUser, sentByUser, tvalByUser, now, &builder, &components)
+
+	if builder.Len() != 0 {
+		components = append(components, dc.TextDisplay{
+			Content: builder.String(),
+		})
+	}
+	return components
+}
+
+// DrawBoostListCustom will draw the boost list for the contract, optionally compacting early and late boosters
+func DrawBoostListCustom(contract *Contract, compact bool) []dc.LayoutComponent {
 	var components []dc.LayoutComponent
 	var header strings.Builder
 	var currentTval float64
@@ -364,99 +412,6 @@ func DrawBoostList(contract *Contract) []dc.LayoutComponent {
 
 	offset := 1
 
-	getSortRate := func(b *Booster, includeTokenAsk bool) string {
-		sortRate := ""
-		if contract.State == ContractStateSignup && contract.BoostOrder == ContractOrderELR {
-			sortRate = fmt.Sprintf(" **ELR:%2.3f** ", b.ArtifactSet.LayRate)
-		}
-		if includeTokenAsk && contract.State == ContractStateSignup && contract.BoostOrder == ContractOrderTokenAsk {
-			sortRate = fmt.Sprintf(" **Ask:%d** ", b.TokensWanted)
-		}
-		if contract.State == ContractStateSignup &&
-			(contract.BoostOrder == ContractOrderTE || contract.BoostOrder == ContractOrderTEFuzzy) {
-			if b.TECount == -1 {
-				if bottools.IsValidDiscordID(b.UserID) {
-					sortRate = " **TE:🛜** "
-				} else {
-					sortRate = " **TE:0** "
-				}
-			} else {
-				sortRate = fmt.Sprintf(" **TE:%d** ", b.TECount)
-			}
-		}
-		if contract.State == ContractStateSignup && (contract.BoostOrder == ContractOrderIHR || contract.BoostOrder == ContractOrderIHRFuzzy) {
-			if b.IHRRate == 0 {
-				if bottools.IsValidDiscordID(b.UserID) {
-					sortRate = " **IHR:🛜** "
-				} else {
-					sortRate = " **IHR:0** "
-				}
-			} else {
-				mult := strings.TrimRight(strings.TrimRight(fmt.Sprintf("%0.2f", b.IHRRate/DefaultLeggyIHR), "0"), ".")
-				sortRate = fmt.Sprintf(" **IHR:%sx** ", mult)
-			}
-		}
-		if (contract.State == ContractStateBanker || contract.State == ContractStateFastrun) && contract.PlayStyle != ContractPlaystyleChill {
-			sortRate = fmt.Sprintf(" *∆:%2.2f* ", tvalByUser[b.UserID])
-		}
-		return sortRate
-	}
-
-	formatCompactBooster := func(b *Booster, includeTokenAsk bool) string {
-		sortRate := getSortRate(b, includeTokenAsk)
-		sinkIcon := getSinkIcon(contract, b, receivedByUser[b.UserID]-sentByUser[b.UserID])
-		if b.BoostState == BoostStateBoosted {
-			return fmt.Sprintf("~~%s~~%s%s", b.Mention, sortRate, sinkIcon)
-		}
-		return fmt.Sprintf("%s(%d)%s%s", b.Mention, b.TokensWanted, sortRate, sinkIcon)
-	}
-
-	buildCompactRange := func(order []string, startNum int, endNum int, includeTokenAsk bool, keepLast bool, trailingNewline bool) string {
-		if len(order) == 0 {
-			return ""
-		}
-
-		parts := make([]string, 0, len(order))
-		for _, element := range order {
-			b, ok := contract.Boosters[element]
-			if !ok {
-				continue
-			}
-			parts = append(parts, formatCompactBooster(b, includeTokenAsk))
-		}
-		if len(parts) == 0 {
-			return ""
-		}
-
-		rangeLabel := fmt.Sprintf("%d", startNum)
-		if startNum != endNum {
-			rangeLabel = fmt.Sprintf("%d-%d", startNum, endNum)
-		}
-
-		var listStr string
-		if len(parts) > 10 {
-			if keepLast {
-				// Keep the last 3 elements (e.g. for Early List)
-				lastThree := parts[len(parts)-3:]
-				middleCount := len(parts) - 3
-				listStr = fmt.Sprintf("... (%d more) ..., %s", middleCount, strings.Join(lastThree, ", "))
-			} else {
-				// Keep the first 3 elements (e.g. for Late List)
-				firstThree := parts[:3]
-				middleCount := len(parts) - 3
-				listStr = fmt.Sprintf("%s, ... (%d more) ...", strings.Join(firstThree, ", "), middleCount)
-			}
-		} else {
-			listStr = strings.Join(parts, ", ")
-		}
-
-		output := fmt.Sprintf("%s: %s", rangeLabel, listStr)
-		if trailingNewline {
-			output += "\n"
-		}
-		return output
-	}
-
 	// Some actions result in an unboosted farmer with the contract state still unset
 
 	if contract.State == ContractStateWaiting {
@@ -505,7 +460,7 @@ func DrawBoostList(contract *Contract) []dc.LayoutComponent {
 		}
 
 		orderSubset := contract.Order
-		if contract.State != ContractStateSignup && len(contract.Order) >= (windowSize+2) {
+		if compact && contract.State != ContractStateSignup && len(contract.Order) >= (windowSize+2) {
 			currentIdx := contract.currentBoosterOrderIndex()
 			if currentIdx < 0 {
 				currentIdx = 0
@@ -532,8 +487,8 @@ func DrawBoostList(contract *Contract) []dc.LayoutComponent {
 				end = len(contract.Order)
 			}
 
-			earlyList.WriteString(buildCompactRange(contract.Order[0:start], 1, start, true, true, true))
-			lateList.WriteString(buildCompactRange(contract.Order[end:len(contract.Order)], end+1, len(contract.Order), false, false, false))
+			earlyList.WriteString(buildCompactRange(contract, contract.Order[0:start], 1, start, true, true, true, receivedByUser, sentByUser, tvalByUser))
+			lateList.WriteString(buildCompactRange(contract, contract.Order[end:len(contract.Order)], end+1, len(contract.Order), false, false, false, receivedByUser, sentByUser, tvalByUser))
 
 			orderSubset = contract.Order[start:end]
 			offset = start + 1
@@ -545,116 +500,7 @@ func DrawBoostList(contract *Contract) []dc.LayoutComponent {
 			})
 		}
 
-		activeBoosterID := contract.currentBoosterID()
-		diamond, _, _ := ei.GetBotEmoji("trophy_diamond")
-		habFull, _, _ := ei.GetBotEmoji("hab_full")
-
-		for i, element := range orderSubset {
-
-			var prefix = " - "
-			if contract.State != ContractStateSignup || contract.BoostOrder == ContractManualOrder {
-				prefix = fmt.Sprintf("%2d - ", i+offset)
-			}
-			var b, ok = contract.Boosters[element]
-			if ok {
-				var name = b.Mention
-				var einame = farmerstate.GetEggIncName(b.UserID)
-				if einame != "" {
-					name += " " + einame
-				}
-				var server = ""
-				var currentStartTime = fmt.Sprintf(" <t:%d:R> ", b.StartTime.Unix())
-				if len(contract.Location) > 1 {
-					server = fmt.Sprintf(" (%s) ", b.GuildName)
-				}
-				var chickenStr = ""
-				//if time.Since(b.RunChickensTime) < 10*time.Minute {
-				if !b.RunChickensTime.IsZero() {
-					chickenStr = fmt.Sprintf(" - <t:%d:R>%s", b.RunChickensTime.Unix(), ei.GetBotEmojiMarkdown("icon_chicken_run"))
-				}
-
-				b.TokensReceived = receivedByUser[b.UserID]
-
-				countStr, signupCountStr := getTokenCountString(tokenStr, b.TokensWanted, b.TokensReceived)
-				if b.UserID == contract.Banker.CurrentBanker {
-					b.TokensReceived = receivedByUser[b.UserID] - sentByUser[b.UserID]
-					if b.BoostState != BoostStateBoosted {
-						countStr, signupCountStr = getTokenCountString(tokenStr, b.TokensWanted, 0)
-					}
-				}
-
-				// Additions for contract state value display
-				sortRate := getSortRate(b, false)
-				sinkIcon := getSinkIcon(contract, b, receivedByUser[b.UserID]-sentByUser[b.UserID])
-				isActiveTokenBooster := b.BoostState == BoostStateTokenTime && b.UserID == activeBoosterID
-
-				deflStr := ""
-				if contract.State == ContractStateSignup &&
-					(contract.PlayStyle == ContractPlaystyleFastrun || contract.PlayStyle == ContractPlaystyleLeaderboard) {
-					for _, a := range b.ArtifactSet.Artifacts {
-						if a.Type == "Deflector" && a.Quality != "" && a.Quality != "NONE" {
-							deflStr = ei.GetBotEmojiMarkdown("defl_" + a.Quality)
-							break
-						}
-					}
-				}
-
-				if contract.State == ContractStateBanker {
-
-					switch b.BoostState {
-					case BoostStateUnboosted:
-						fmt.Fprintf(&builder, "%s %s%s%s%s%s%s\n", prefix, name, deflStr, signupCountStr, sortRate, sinkIcon, server)
-					case BoostStateTokenTime:
-						if isActiveTokenBooster {
-							fmt.Fprintf(&builder, "%s ➡️ **%s**%s %s%s%s%s%s\n", prefix, name, deflStr, signupCountStr, sortRate, currentStartTime, sinkIcon, server)
-						} else {
-							fmt.Fprintf(&builder, "%s **%s**%s %s%s%s%s%s\n", prefix, name, deflStr, signupCountStr, sortRate, currentStartTime, sinkIcon, server)
-						}
-					case BoostStateBoosted:
-						boostingString := ""
-						if now.Before(b.EstEndOfBoost) {
-							if b.RunChickensTime.IsZero() {
-								boostingString = fmt.Sprintf(" %s<t:%d:R> / ", diamond, b.EstRequestChickenRuns.Unix())
-							} else {
-								boostingString = fmt.Sprintf(" %s<t:%d:R>", habFull, b.EstEndOfBoost.Unix())
-							}
-						}
-						fmt.Fprintf(&builder, "%s ~~%s~~%s%s  %s %s%s%s%s\n", prefix, name, deflStr, sortRate, contract.Boosters[element].Duration.Round(time.Second), sinkIcon, boostingString, chickenStr, server)
-					}
-
-				} else {
-
-					switch b.BoostState {
-					case BoostStateUnboosted:
-						fmt.Fprintf(&builder, "%s %s%s%s%s%s\n", prefix, name, deflStr, signupCountStr, sortRate, server)
-					case BoostStateTokenTime:
-						if isActiveTokenBooster && b.UserID == b.Name && b.AltController == "" && contract.State != ContractStateBanker {
-							// Add a rocket for auto boosting
-							fmt.Fprintf(&builder, "%s ➡️ **%s**%s 🚀%s%s%s%s\n", prefix, name, deflStr, countStr, sortRate, currentStartTime, server)
-						} else {
-							if !b.BoostingTokenTimestamp.IsZero() {
-								currentStartTime = fmt.Sprintf(" <t:%d:R> since ️T-0️⃣ / votes:%d", b.BoostingTokenTimestamp.Unix(), len(b.VotingList))
-							}
-							if isActiveTokenBooster {
-								fmt.Fprintf(&builder, "%s ➡️ **%s**%s %s%s%s%s\n", prefix, name, deflStr, countStr, sortRate, currentStartTime, server)
-							} else {
-								fmt.Fprintf(&builder, "%s **%s**%s %s%s%s%s\n", prefix, name, deflStr, countStr, sortRate, currentStartTime, server)
-							}
-						}
-					case BoostStateBoosted:
-						boostingString := ""
-						if now.Before(b.EstEndOfBoost) {
-							if b.RunChickensTime.IsZero() {
-								boostingString = fmt.Sprintf(" %s<t:%d:R> / ", diamond, b.EstRequestChickenRuns.Unix())
-							} else {
-								boostingString = fmt.Sprintf(" %s<t:%d:R>", habFull, b.EstEndOfBoost.Unix())
-							}
-						}
-						fmt.Fprintf(&builder, "%s ~~%s~~%s%s  %s %s%s%s%s\n", prefix, name, deflStr, sortRate, contract.Boosters[element].Duration.Round(time.Second), sinkIcon, boostingString, chickenStr, server)
-					}
-				}
-			}
-		}
+		renderBoosterLines(contract, orderSubset, offset, receivedByUser, sentByUser, tvalByUser, now, &builder, &components)
 
 		if contract.State == ContractStateSignup && len(contract.WaitlistBoosters) > 0 {
 			// Loop through the waitlist and list waitlist folks
@@ -835,4 +681,211 @@ func DrawBoostList(contract *Contract) []dc.LayoutComponent {
 	}
 
 	return components
+}
+
+func getSortRate(contract *Contract, b *Booster, includeTokenAsk bool, tvalByUser map[string]float64) string {
+	sortRate := ""
+	if contract.State == ContractStateSignup && contract.BoostOrder == ContractOrderELR {
+		sortRate = fmt.Sprintf(" **ELR:%2.3f** ", b.ArtifactSet.LayRate)
+	}
+	if includeTokenAsk && contract.State == ContractStateSignup && contract.BoostOrder == ContractOrderTokenAsk {
+		sortRate = fmt.Sprintf(" **Ask:%d** ", b.TokensWanted)
+	}
+	if contract.State == ContractStateSignup &&
+		(contract.BoostOrder == ContractOrderTE || contract.BoostOrder == ContractOrderTEFuzzy) {
+		if b.TECount == -1 {
+			if bottools.IsValidDiscordID(b.UserID) {
+				sortRate = " **TE:🛜** "
+			} else {
+				sortRate = " **TE:0** "
+			}
+		} else {
+			sortRate = fmt.Sprintf(" **TE:%d** ", b.TECount)
+		}
+	}
+	if contract.State == ContractStateSignup && (contract.BoostOrder == ContractOrderIHR || contract.BoostOrder == ContractOrderIHRFuzzy) {
+		if b.IHRRate == 0 {
+			if bottools.IsValidDiscordID(b.UserID) {
+				sortRate = " **IHR:🛜** "
+			} else {
+				sortRate = " **IHR:0** "
+			}
+		} else {
+			mult := strings.TrimRight(strings.TrimRight(fmt.Sprintf("%0.2f", b.IHRRate/DefaultLeggyIHR), "0"), ".")
+			sortRate = fmt.Sprintf(" **IHR:%sx** ", mult)
+		}
+	}
+	if (contract.State == ContractStateBanker || contract.State == ContractStateFastrun) && contract.PlayStyle != ContractPlaystyleChill {
+		sortRate = fmt.Sprintf(" *∆:%2.2f* ", tvalByUser[b.UserID])
+	}
+	return sortRate
+}
+
+func formatCompactBooster(contract *Contract, b *Booster, includeTokenAsk bool, receivedByUser, sentByUser map[string]int, tvalByUser map[string]float64) string {
+	sortRate := getSortRate(contract, b, includeTokenAsk, tvalByUser)
+	sinkIcon := getSinkIcon(contract, b, receivedByUser[b.UserID]-sentByUser[b.UserID])
+	if b.BoostState == BoostStateBoosted {
+		return fmt.Sprintf("~~%s~~%s%s", b.Mention, sortRate, sinkIcon)
+	}
+	return fmt.Sprintf("%s(%d)%s%s", b.Mention, b.TokensWanted, sortRate, sinkIcon)
+}
+
+func buildCompactRange(contract *Contract, order []string, startNum int, endNum int, includeTokenAsk bool, keepLast bool, trailingNewline bool, receivedByUser, sentByUser map[string]int, tvalByUser map[string]float64) string {
+	if len(order) == 0 {
+		return ""
+	}
+
+	parts := make([]string, 0, len(order))
+	for _, element := range order {
+		b, ok := contract.Boosters[element]
+		if !ok {
+			continue
+		}
+		parts = append(parts, formatCompactBooster(contract, b, includeTokenAsk, receivedByUser, sentByUser, tvalByUser))
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+
+	rangeLabel := fmt.Sprintf("%d", startNum)
+	if startNum != endNum {
+		rangeLabel = fmt.Sprintf("%d-%d", startNum, endNum)
+	}
+
+	var listStr string
+	if len(parts) > 10 {
+		if keepLast {
+			// Keep the last 3 elements (e.g. for Early List)
+			lastThree := parts[len(parts)-3:]
+			middleCount := len(parts) - 3
+			listStr = fmt.Sprintf("... (%d more) ..., %s", middleCount, strings.Join(lastThree, ", "))
+		} else {
+			// Keep the first 3 elements (e.g. for Late List)
+			firstThree := parts[:3]
+			middleCount := len(parts) - 3
+			listStr = fmt.Sprintf("%s, ... (%d more) ...", strings.Join(firstThree, ", "), middleCount)
+		}
+	} else {
+		listStr = strings.Join(parts, ", ")
+	}
+
+	output := fmt.Sprintf("%s: %s", rangeLabel, listStr)
+	if trailingNewline {
+		output += "\n"
+	}
+	return output
+}
+
+func renderBoosterLines(contract *Contract, orderSubset []string, offset int, receivedByUser, sentByUser map[string]int, tvalByUser map[string]float64, now time.Time, builder *strings.Builder, components *[]dc.LayoutComponent) {
+	activeBoosterID := contract.currentBoosterID()
+	diamond, _, _ := ei.GetBotEmoji("trophy_diamond")
+	habFull, _, _ := ei.GetBotEmoji("hab_full")
+	tokenStr := contract.TokenStr
+
+	for i, element := range orderSubset {
+		var prefix = " - "
+		if contract.State != ContractStateSignup || contract.BoostOrder == ContractManualOrder {
+			prefix = fmt.Sprintf("%2d - ", i+offset)
+		}
+		var b, ok = contract.Boosters[element]
+		if ok {
+			var name = b.Mention
+			var einame = farmerstate.GetEggIncName(b.UserID)
+			if einame != "" {
+				name += " " + einame
+			}
+			var server = ""
+			var currentStartTime = fmt.Sprintf(" <t:%d:R> ", b.StartTime.Unix())
+			if len(contract.Location) > 1 {
+				server = fmt.Sprintf(" (%s) ", b.GuildName)
+			}
+			var chickenStr = ""
+			if !b.RunChickensTime.IsZero() {
+				chickenStr = fmt.Sprintf(" - <t:%d:R>%s", b.RunChickensTime.Unix(), ei.GetBotEmojiMarkdown("icon_chicken_run"))
+			}
+
+			b.TokensReceived = receivedByUser[b.UserID]
+
+			countStr, signupCountStr := getTokenCountString(tokenStr, b.TokensWanted, b.TokensReceived)
+			if b.UserID == contract.Banker.CurrentBanker {
+				b.TokensReceived = receivedByUser[b.UserID] - sentByUser[b.UserID]
+				if b.BoostState != BoostStateBoosted {
+					countStr, signupCountStr = getTokenCountString(tokenStr, b.TokensWanted, 0)
+				}
+			}
+
+			sortRate := getSortRate(contract, b, false, tvalByUser)
+			sinkIcon := getSinkIcon(contract, b, receivedByUser[b.UserID]-sentByUser[b.UserID])
+			isActiveTokenBooster := b.BoostState == BoostStateTokenTime && b.UserID == activeBoosterID
+
+			deflStr := ""
+			if contract.State == ContractStateSignup &&
+				(contract.PlayStyle == ContractPlaystyleFastrun || contract.PlayStyle == ContractPlaystyleLeaderboard) {
+				for _, a := range b.ArtifactSet.Artifacts {
+					if a.Type == "Deflector" && a.Quality != "" && a.Quality != "NONE" {
+						deflStr = ei.GetBotEmojiMarkdown("defl_" + a.Quality)
+						break
+					}
+				}
+			}
+
+			if contract.State == ContractStateBanker {
+				switch b.BoostState {
+				case BoostStateUnboosted:
+					fmt.Fprintf(builder, "%s %s%s%s%s%s%s\n", prefix, name, deflStr, signupCountStr, sortRate, sinkIcon, server)
+				case BoostStateTokenTime:
+					if isActiveTokenBooster {
+						fmt.Fprintf(builder, "%s ➡️ **%s**%s %s%s%s%s%s\n", prefix, name, deflStr, signupCountStr, sortRate, currentStartTime, sinkIcon, server)
+					} else {
+						fmt.Fprintf(builder, "%s **%s**%s %s%s%s%s%s\n", prefix, name, deflStr, signupCountStr, sortRate, currentStartTime, sinkIcon, server)
+					}
+				case BoostStateBoosted:
+					boostingString := ""
+					if now.Before(b.EstEndOfBoost) {
+						if b.RunChickensTime.IsZero() {
+							boostingString = fmt.Sprintf(" %s<t:%d:R> / ", diamond, b.EstRequestChickenRuns.Unix())
+						} else {
+							boostingString = fmt.Sprintf(" %s<t:%d:R>", habFull, b.EstEndOfBoost.Unix())
+						}
+					}
+					fmt.Fprintf(builder, "%s ~~%s~~%s%s  %s %s%s%s%s\n", prefix, name, deflStr, sortRate, contract.Boosters[element].Duration.Round(time.Second), sinkIcon, boostingString, chickenStr, server)
+				}
+			} else {
+				switch b.BoostState {
+				case BoostStateUnboosted:
+					fmt.Fprintf(builder, "%s %s%s%s%s%s\n", prefix, name, deflStr, signupCountStr, sortRate, server)
+				case BoostStateTokenTime:
+					if isActiveTokenBooster && b.UserID == b.Name && b.AltController == "" && contract.State != ContractStateBanker {
+						// Add a rocket for auto boosting
+						fmt.Fprintf(builder, "%s ➡️ **%s**%s 🚀%s%s%s%s\n", prefix, name, deflStr, countStr, sortRate, currentStartTime, server)
+					} else {
+						if !b.BoostingTokenTimestamp.IsZero() {
+							currentStartTime = fmt.Sprintf(" <t:%d:R> since ️T-0️⃣ / votes:%d", b.BoostingTokenTimestamp.Unix(), len(b.VotingList))
+						}
+						if isActiveTokenBooster {
+							fmt.Fprintf(builder, "%s ➡️ **%s**%s %s%s%s%s\n", prefix, name, deflStr, countStr, sortRate, currentStartTime, server)
+						} else {
+							fmt.Fprintf(builder, "%s **%s**%s %s%s%s%s\n", prefix, name, deflStr, countStr, sortRate, currentStartTime, server)
+						}
+					}
+				case BoostStateBoosted:
+					boostingString := ""
+					if now.Before(b.EstEndOfBoost) {
+						if b.RunChickensTime.IsZero() {
+							boostingString = fmt.Sprintf(" %s<t:%d:R> / ", diamond, b.EstRequestChickenRuns.Unix())
+						} else {
+							boostingString = fmt.Sprintf(" %s<t:%d:R>", habFull, b.EstEndOfBoost.Unix())
+						}
+					}
+					fmt.Fprintf(builder, "%s ~~%s~~%s%s  %s %s%s%s%s\n", prefix, name, deflStr, sortRate, contract.Boosters[element].Duration.Round(time.Second), sinkIcon, boostingString, chickenStr, server)
+				}
+			}
+		}
+		if builder.Len() > 3000 {
+			*components = append(*components, dc.TextDisplay{
+				Content: builder.String(),
+			})
+			builder.Reset()
+		}
+	}
 }
