@@ -114,6 +114,9 @@ const (
 	CritPrestige
 	CritDrone
 	CritEliteDrone
+	CritManual
+	CritFair
+	CritTime
 	CritUnknown
 )
 
@@ -137,6 +140,7 @@ type customCriterion struct {
 	effortN       int  // equivalence craft count for DEFL_EFFORT (default 50)
 	fuzzyPct      float64
 	fuzzySqrt     bool
+	fuzzyStr      string
 	isConditional bool
 	targetRole    customRoleCondition
 	thenCrit      *customCriterion
@@ -153,8 +157,8 @@ type customCriterion struct {
 
 var (
 	reDeflEffort  = regexp.MustCompile(`(?i)^(?:(?:DEFL|DEFLECTOR)_)?EFFORT(?:_?\[\s*(\d+)\s*\])?$|(?i)^DEFL_EFFORT(?:_?\[\s*(\d+)\s*\])?$`)
-	reFuzzyPct    = regexp.MustCompile(`\[(\d+(?:\.\d+)?)%\]`)
-	reFuzzySqrt   = regexp.MustCompile(`(?i)\[(?:sqrt|~)\]`)
+	reFuzzyPct    = regexp.MustCompile(`\[\s*(\d+(?:\.\d+)?)\s*%\s*\]`)
+	reFuzzySqrt   = regexp.MustCompile(`(?i)\[\s*(?:sqrt|~|√)\s*\]`)
 	reConditional = regexp.MustCompile(`(?i)^\s*IF\s+(?:(NOT)\s+)?(?:\(?\s*ROLE\s*(==|=|!=|<>|IS\s+NOT|IS|NOT)?\s*)?([A-Za-z"']+)\)?(?:\s*(?:THEN|:))?\s+(.+?)(?:\s+ELSE(?::)?\s+(.+))?$`)
 	reCraftExpr   = regexp.MustCompile(`(?i)^(?:CRAFTS?[\(\[]\s*([A-Za-z0-9_ -]+)\s*[\)\]]|CRAFTS?[:_ ]\s*([A-Za-z0-9_ -]+)|([A-Za-z0-9_ -]+)_CRAFTS?)$`)
 	reCountExpr   = regexp.MustCompile(`(?i)^(?:COUNTS?|QTY|QUANTITY)(?:[\(\[]\s*([A-Za-z0-9_ -]+)\s*[\)\]]|[:_ ]\s*([A-Za-z0-9_ -]+))$`)
@@ -615,10 +619,12 @@ func parseCustomCriterion(s string) customCriterion {
 		if pct, err := strconv.ParseFloat(m[1], 64); err == nil {
 			crit.fuzzyPct = pct / 100.0
 		}
+		crit.fuzzyStr = fmt.Sprintf("[%s%%]", m[1])
 		cur = strings.TrimSpace(reFuzzyPct.ReplaceAllString(cur, ""))
 	}
 	if reFuzzySqrt.MatchString(cur) {
 		crit.fuzzySqrt = true
+		crit.fuzzyStr = "[√]"
 		cur = strings.TrimSpace(reFuzzySqrt.ReplaceAllString(cur, ""))
 	}
 
@@ -673,9 +679,15 @@ func parseCustomCriterion(s string) customCriterion {
 		crit.critType = CritRandom
 	case strings.HasPrefix(norm, "ROLE"):
 		crit.critType = CritRole
-		if strings.Contains(norm, "HELP") || strings.Contains(norm, "ALT") {
-			crit.ascending = true
-		}
+	case strings.HasPrefix(norm, "MANUAL"):
+		crit.critType = CritManual
+		crit.ascending = true
+	case strings.HasPrefix(norm, "FAIR"):
+		crit.critType = CritFair
+		crit.ascending = true
+	case strings.HasPrefix(norm, "TIME"):
+		crit.critType = CritTime
+		crit.ascending = true
 	case norm == "MAIN" || norm == "MAINS":
 		crit.critType = CritRole
 		crit.ascending = false
@@ -1124,7 +1136,7 @@ type boosterEvalData struct {
 	tokensWanted    int
 	deflScore       int
 	deflSlotScore   int
-	delivScore      int
+	delivRate       float64
 	roleScore       float64
 	randomScore     float64
 	artifactScore   float64
@@ -1203,7 +1215,7 @@ func evaluateBoosterForCustom(contract *Contract, userID string, signupIdx int, 
 		data.tokensWanted = b.TokensWanted
 		data.deflScore = getArtifactQualityScore(b, "Deflector")
 		data.deflSlotScore = getBoosterDeflectorSlotScore(b)
-		data.delivScore = getArtifactQualityScore(b, "Metronome") + getArtifactQualityScore(b, "Compass") + getArtifactQualityScore(b, "Gusset")
+		data.delivRate = getBoosterDeliveryRate(b)
 	}
 
 	needsBackup := false
@@ -1283,11 +1295,11 @@ func getBoosterCriterionValue(contract *Contract, item *boosterEvalData, crit cu
 	case CritDeflSlot:
 		return float64(item.deflSlotScore)
 	case CritDeliv:
-		return float64(item.delivScore)
-	case CritSignup:
+		return item.delivRate
+	case CritSignup, CritManual, CritFair, CritTime:
 		return float64(item.signupIndex)
 	case CritReverse:
-		return -float64(item.signupIndex)
+		return float64(item.signupIndex)
 	case CritRandom:
 		return item.randomScore
 	case CritRole:
@@ -1444,6 +1456,19 @@ type customTableColDef struct {
 	evalCell func(b *Booster, signupIdx int) TableImageCell
 }
 
+func getFuzzyLabelSuffix(c customCriterion) string {
+	if c.fuzzySqrt {
+		return "[√]"
+	}
+	if c.fuzzyStr != "" {
+		return c.fuzzyStr
+	}
+	if c.fuzzyPct > 0 {
+		return fmt.Sprintf("[%g%%]", c.fuzzyPct*100)
+	}
+	return ""
+}
+
 func buildCustomOrderTableColDefs(contract *Contract, criteria [4]customCriterion) ([]customTableColDef, []TableImageColumn) {
 	var activeCols []customTableColDef
 	seenColIDs := make(map[string]bool)
@@ -1492,7 +1517,7 @@ func buildCustomOrderTableColDefs(contract *Contract, criteria [4]customCriterio
 				effortN := c.effortN
 				activeCols = append(activeCols, customTableColDef{
 					id:  id,
-					col: TableImageColumn{Label: fmt.Sprintf("Effort [N=%d]", effortN), Align: bottools.StringAlignCenter},
+					col: TableImageColumn{Label: fmt.Sprintf("Effort[N=%d]", effortN), Align: bottools.StringAlignCenter},
 					evalCell: func(b *Booster, _ int) TableImageCell {
 						effScore, craftCount, hasT4L := calculateBoosterDeflectorEffort(b, effortN)
 						effortDisplay := fmt.Sprintf("%d", effScore)
@@ -1563,11 +1588,13 @@ func buildCustomOrderTableColDefs(contract *Contract, criteria [4]customCriterio
 				})
 			}
 		case CritIHR:
-			if !seenColIDs["ihr"] {
-				seenColIDs["ihr"] = true
+			suffix := getFuzzyLabelSuffix(c)
+			id := "ihr" + suffix
+			if !seenColIDs[id] {
+				seenColIDs[id] = true
 				activeCols = append(activeCols, customTableColDef{
-					id:  "ihr",
-					col: TableImageColumn{Label: "IHR", Align: bottools.StringAlignRight},
+					id:  id,
+					col: TableImageColumn{Label: "IHR" + suffix, Align: bottools.StringAlignRight},
 					evalCell: func(b *Booster, _ int) TableImageCell {
 						ihrMult := fmt.Sprintf("%0.2fx", b.IHRRate/DefaultLeggyIHR)
 						return TableImageCell{Text: ihrMult, Color: ""}
@@ -1575,11 +1602,13 @@ func buildCustomOrderTableColDefs(contract *Contract, criteria [4]customCriterio
 				})
 			}
 		case CritELR:
-			if !seenColIDs["elr"] {
-				seenColIDs["elr"] = true
+			suffix := getFuzzyLabelSuffix(c)
+			id := "elr" + suffix
+			if !seenColIDs[id] {
+				seenColIDs[id] = true
 				activeCols = append(activeCols, customTableColDef{
-					id:  "elr",
-					col: TableImageColumn{Label: "ELR", Align: bottools.StringAlignRight},
+					id:  id,
+					col: TableImageColumn{Label: "ELR" + suffix, Align: bottools.StringAlignRight},
 					evalCell: func(b *Booster, _ int) TableImageCell {
 						elrStr := fmt.Sprintf("%0.2f", b.ArtifactSet.LayRate)
 						return TableImageCell{Text: elrStr, Color: ""}
@@ -1599,11 +1628,13 @@ func buildCustomOrderTableColDefs(contract *Contract, criteria [4]customCriterio
 				})
 			}
 		case CritTE:
-			if !seenColIDs["te"] {
-				seenColIDs["te"] = true
+			suffix := getFuzzyLabelSuffix(c)
+			id := "te" + suffix
+			if !seenColIDs[id] {
+				seenColIDs[id] = true
 				activeCols = append(activeCols, customTableColDef{
-					id:  "te",
-					col: TableImageColumn{Label: "TE", Align: bottools.StringAlignRight},
+					id:  id,
+					col: TableImageColumn{Label: "TE" + suffix, Align: bottools.StringAlignRight},
 					evalCell: func(b *Booster, _ int) TableImageCell {
 						teStr := fmt.Sprintf("%d", b.TECount)
 						return TableImageCell{Text: teStr, Color: ""}
@@ -1613,6 +1644,9 @@ func buildCustomOrderTableColDefs(contract *Contract, criteria [4]customCriterio
 		case CritTVal:
 			if !seenColIDs["tval"] {
 				seenColIDs["tval"] = true
+				if tvalByUser == nil && contract != nil {
+					_, _, tvalByUser, _ = buildTokenTotalsFromLog(contract)
+				}
 				activeCols = append(activeCols, customTableColDef{
 					id:  "tval",
 					col: TableImageColumn{Label: "TVal", Align: bottools.StringAlignRight},
@@ -1621,19 +1655,24 @@ func buildCustomOrderTableColDefs(contract *Contract, criteria [4]customCriterio
 						if tvalByUser != nil {
 							val = tvalByUser[b.UserID]
 						}
+						if val == 0 && b != nil && b.TokenValue != 0 {
+							val = b.TokenValue
+						}
 						return TableImageCell{Text: fmt.Sprintf("%0.1f", val), Color: ""}
 					},
 				})
 			}
 		case CritDeliv:
-			if !seenColIDs["deliv"] {
-				seenColIDs["deliv"] = true
+			suffix := getFuzzyLabelSuffix(c)
+			id := "deliv" + suffix
+			if !seenColIDs[id] {
+				seenColIDs[id] = true
 				activeCols = append(activeCols, customTableColDef{
-					id:  "deliv",
-					col: TableImageColumn{Label: "Delivery", Align: bottools.StringAlignRight},
+					id:  id,
+					col: TableImageColumn{Label: "Delivery" + suffix, Align: bottools.StringAlignRight},
 					evalCell: func(b *Booster, _ int) TableImageCell {
-						delivScore := getArtifactQualityScore(b, "Metronome") + getArtifactQualityScore(b, "Compass") + getArtifactQualityScore(b, "Gusset")
-						return TableImageCell{Text: fmt.Sprintf("%d", delivScore), Color: ""}
+						rate := getBoosterDeliveryRate(b)
+						return TableImageCell{Text: fmt.Sprintf("%0.2f", rate), Color: ""}
 					},
 				})
 			}
@@ -1644,7 +1683,7 @@ func buildCustomOrderTableColDefs(contract *Contract, criteria [4]customCriterio
 					id:  "signup",
 					col: TableImageColumn{Label: "Signup", Align: bottools.StringAlignRight},
 					evalCell: func(_ *Booster, signupIdx int) TableImageCell {
-						return TableImageCell{Text: fmt.Sprintf("#%d", signupIdx+1), Color: ""}
+						return TableImageCell{Text: fmt.Sprintf("%d", signupIdx+1), Color: ""}
 					},
 				})
 			}
@@ -1655,7 +1694,7 @@ func buildCustomOrderTableColDefs(contract *Contract, criteria [4]customCriterio
 					id:  "reverse",
 					col: TableImageColumn{Label: "Reverse", Align: bottools.StringAlignRight},
 					evalCell: func(_ *Booster, signupIdx int) TableImageCell {
-						return TableImageCell{Text: fmt.Sprintf("#%d", signupIdx+1), Color: ""}
+						return TableImageCell{Text: fmt.Sprintf("%d", signupIdx+1), Color: ""}
 					},
 				})
 			}
@@ -1666,7 +1705,40 @@ func buildCustomOrderTableColDefs(contract *Contract, criteria [4]customCriterio
 					id:  "random",
 					col: TableImageColumn{Label: "Random", Align: bottools.StringAlignCenter},
 					evalCell: func(_ *Booster, _ int) TableImageCell {
-						return TableImageCell{Text: "🎲", Color: ""}
+						return TableImageCell{Text: "RND", Color: ""}
+					},
+				})
+			}
+		case CritManual:
+			if !seenColIDs["manual"] {
+				seenColIDs["manual"] = true
+				activeCols = append(activeCols, customTableColDef{
+					id:  "manual",
+					col: TableImageColumn{Label: "Order", Align: bottools.StringAlignRight},
+					evalCell: func(_ *Booster, signupIdx int) TableImageCell {
+						return TableImageCell{Text: fmt.Sprintf("%d", signupIdx+1), Color: ""}
+					},
+				})
+			}
+		case CritFair:
+			if !seenColIDs["fair"] {
+				seenColIDs["fair"] = true
+				activeCols = append(activeCols, customTableColDef{
+					id:  "fair",
+					col: TableImageColumn{Label: "Fair", Align: bottools.StringAlignRight},
+					evalCell: func(_ *Booster, signupIdx int) TableImageCell {
+						return TableImageCell{Text: fmt.Sprintf("%d", signupIdx+1), Color: ""}
+					},
+				})
+			}
+		case CritTime:
+			if !seenColIDs["time"] {
+				seenColIDs["time"] = true
+				activeCols = append(activeCols, customTableColDef{
+					id:  "time",
+					col: TableImageColumn{Label: "Time", Align: bottools.StringAlignRight},
+					evalCell: func(_ *Booster, signupIdx int) TableImageCell {
+						return TableImageCell{Text: fmt.Sprintf("%d", signupIdx+1), Color: ""}
 					},
 				})
 			}
@@ -2097,6 +2169,7 @@ func HandleCustomOrderReactions(client dc.Client, e *dc.ComponentEvent) {
 		_ = e.DeferUpdate()
 		contract.mutex.Lock()
 		contract.CustomOrderLines = append([]string(nil), session.lines...)
+		contract.CustomOrderName = SuggestCustomOrderName(session.lines)
 		contract.BoostOrder = ContractOrderCustom
 		unselected := append([]string(nil), contract.Order...)
 		contract.Order = sortCustomRemaining(contract, unselected, contract.CustomOrderLines, false)
@@ -2152,9 +2225,48 @@ func GetContractBoostOrderLines(contract *Contract) []string {
 		return []string{"<TE[sqrt]", "SIGNUP"}
 	case ContractOrderTVal:
 		return []string{"<TVAL", ">TOKENS", "SIGNUP"}
+	case ContractManualOrder:
+		return []string{"MANUAL"}
+	case ContractOrderFair:
+		return []string{"FAIR"}
+	case ContractOrderTimeBased:
+		return []string{"TIME"}
 	default:
 		return []string{"SIGNUP"}
 	}
+}
+
+// GetContractCustomOrderName returns the human-readable name of a contract's custom boost order.
+func GetContractCustomOrderName(contract *Contract) string {
+	if contract == nil {
+		return "Custom Boost Order"
+	}
+	if contract.CustomOrderName != "" {
+		return contract.CustomOrderName
+	}
+
+	sig := strings.Join(contract.CustomOrderLines, "\n")
+	if strings.TrimSpace(sig) != "" {
+		for _, g := range GetGlobalCustomOrders() {
+			if strings.Join(g.Lines, "\n") == sig {
+				contract.CustomOrderName = g.Name
+				return g.Name
+			}
+		}
+		if len(contract.CreatorID) > 0 {
+			for _, u := range GetUserCustomOrders(contract.CreatorID[0]) {
+				if strings.Join(u.Lines, "\n") == sig {
+					contract.CustomOrderName = u.Name
+					return u.Name
+				}
+			}
+		}
+		if suggested := SuggestCustomOrderName(contract.CustomOrderLines); suggested != "" {
+			contract.CustomOrderName = suggested
+			return suggested
+		}
+	}
+	return "Custom Boost Order"
 }
 
 // BuildBoostOrderPreviewMessage creates the boost order image preview message with Keep and Dismiss buttons.
@@ -2170,21 +2282,7 @@ func BuildBoostOrderPreviewMessage(contract *Contract) (dc.Message, error) {
 			orderName = contractOrderNames[contract.BoostOrder]
 		}
 	} else {
-		sig := strings.Join(contract.CustomOrderLines, "\n")
-		for _, g := range GetGlobalCustomOrders() {
-			if strings.Join(g.Lines, "\n") == sig {
-				orderName = g.Name
-				break
-			}
-		}
-		if orderName == "Custom Boost Order" && len(contract.CreatorID) > 0 {
-			for _, u := range GetUserCustomOrders(contract.CreatorID[0]) {
-				if strings.Join(u.Lines, "\n") == sig {
-					orderName = u.Name
-					break
-				}
-			}
-		}
+		orderName = strings.TrimPrefix(GetContractCustomOrderName(contract), "CBO: ")
 	}
 
 	var headerSb strings.Builder
@@ -2298,7 +2396,7 @@ func criterionShortName(c customCriterion) string {
 	case CritELR:
 		return "ELR"
 	case CritTE:
-		if c.fuzzyPct > 0 {
+		if c.fuzzyPct > 0 || c.fuzzySqrt {
 			return "Fuzzy TE"
 		}
 		return "Truth Eggs"

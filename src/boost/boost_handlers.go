@@ -251,51 +251,6 @@ func getSignupContractSettings(channelID string, hashID string, thread bool) (st
 				},
 			}
 
-			// Add Global and Creator User custom orders to the dropdown
-			customMatched := false
-			contractCustomSig := strings.Join(contract.CustomOrderLines, "\n")
-			for _, g := range GetGlobalCustomOrders() {
-				if len(orderOptions) >= 25 {
-					break
-				}
-				isDef := contract.BoostOrder == ContractOrderCustom && contractCustomSig == strings.Join(g.Lines, "\n")
-				if isDef {
-					customMatched = true
-				}
-				orderOptions = append(orderOptions, dc.SelectOption{
-					Label:       fmt.Sprintf("⚙️ [Global] %s", g.Name),
-					Description: strings.Join(g.Lines, " > "),
-					Value:       "custom_g:" + g.Name,
-					Emoji: &dc.Emoji{
-						Name: "⚙️",
-					},
-					Default: isDef,
-				})
-			}
-			if len(contract.CreatorID) > 0 {
-				for _, u := range GetUserCustomOrders(contract.CreatorID[0]) {
-					if len(orderOptions) >= 25 {
-						break
-					}
-					isDef := contract.BoostOrder == ContractOrderCustom && contractCustomSig == strings.Join(u.Lines, "\n")
-					if isDef {
-						customMatched = true
-					}
-					orderOptions = append(orderOptions, dc.SelectOption{
-						Label:       fmt.Sprintf("👤 [User] %s", u.Name),
-						Description: strings.Join(u.Lines, " > "),
-						Value:       "custom_u:" + u.Name,
-						Emoji: &dc.Emoji{
-							Name: "👤",
-						},
-						Default: isDef,
-					})
-				}
-			}
-			if customMatched && len(orderOptions) > 12 {
-				orderOptions[12].Default = false
-			}
-
 			return dc.ActionRow{
 				Components: []dc.InteractiveComponent{
 					dc.SelectMenu{

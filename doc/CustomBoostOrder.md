@@ -197,7 +197,7 @@ If `ELSE` is omitted, **the sort rule does not apply to non-matching boosters**:
 | `TVAL` | Token Value | `<` (Highest) | Historical Token Value metric. |
 | `DEFL` | Deflector Quality | `<` (Highest) | Deflector rarity tier (T4L > T4E > T4R > T4C > T3 > ...). |
 | `DEFL_SLOT` | Deflector Stone Slots | `<` (Highest) | Number of stone slots available on the equipped deflector. |
-| `DELIV` | Delivery Capacity | `<` (Highest) | Estimated maximum shipping delivery rate. |
+| `DELIV` | Delivery Rate | `<` (Highest) | Effective delivery rate: $\min(\text{Egg Laying Rate}, \text{Shipping Rate})$ based on delivery artifacts and colleggtibles. |
 | `SIGNUP` | Sign-up Order | `<` (First-in) | Order in which players signed up in the contract thread. |
 | `RANDOM` | Deterministic Random | — | Stable pseudo-random tiebreaker. |
 | `T4L_ACTUATOR` / `<T4L_ACTUATOR` | Artifact Ownership (Boolean) | `<` (Has it) | Boolean check: players possessing $\ge 1$ of the item rank first; non-owners rank second. |

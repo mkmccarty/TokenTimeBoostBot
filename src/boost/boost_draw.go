@@ -195,7 +195,11 @@ func DrawBoostList(contract *Contract) []dc.LayoutComponent {
 
 	if contract.Description != "" {
 		if len(contract.Boosters) != contract.CoopSize || contract.State == ContractStateSignup {
-			fmt.Fprintf(&header, "### Boost ordering is %s\n", getBoostOrderString(contract))
+			if contract.BoostOrder == ContractOrderCustom {
+				fmt.Fprintf(&header, "### Custom Boost Ordering is %s\n", getBoostOrderString(contract))
+			} else {
+				fmt.Fprintf(&header, "### Boost ordering is %s\n", getBoostOrderString(contract))
+			}
 			if contract.Style&ContractFlag4Tokens != 0 {
 				fmt.Fprintf(&header, ">  4️⃣%s boosting for everyone!\n", contract.TokenStr)
 			} else if contract.Style&ContractFlag6Tokens != 0 {

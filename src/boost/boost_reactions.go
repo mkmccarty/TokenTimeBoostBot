@@ -29,6 +29,12 @@ func ReactionAdd(client dc.Client, e *dc.ReactionEvent) string {
 
 	defer saveData(contract.ContractHash)
 
+	if emojiName == "⚙️" || emojiName == "⚙" {
+		go displayBoostOrderImage(client, e.ChannelID(), contract)
+		go RemoveAddedReaction(client, e)
+		return ""
+	}
+
 	// If the user is not in the contract then they can join with a farmer reaction
 	if !UserInContract(contract, e.UserID()) {
 		var farmerSlice = []string{
@@ -218,10 +224,6 @@ func ReactionAdd(client dc.Client, e *dc.ReactionEvent) string {
 
 	if redraw {
 		refreshBoostListMessage(client, contract, false)
-	}
-
-	if e.EmojiName() == "⚙️" || e.EmojiName() == "⚙" {
-		go displayBoostOrderImage(client, e.ChannelID(), contract)
 	}
 
 	if e.EmojiName() == "❓" {

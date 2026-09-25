@@ -362,6 +362,7 @@ type Contract struct {
 	HelpGuidanceUntil          time.Time          // Show bottom guidance while now is before this timestamp
 	NewFeature                 int                // Used to slide in new features
 	CustomOrderLines           []string           // Custom boost order rules (up to 4 rows)
+	CustomOrderName            string             // Custom boost order name
 	DynamicData                *DynamicTokenData
 	LastSaveTime               time.Time // The last time the contract was saved
 	ThematicComplaints         []string  `json:"thematic_complaints,omitempty"`
