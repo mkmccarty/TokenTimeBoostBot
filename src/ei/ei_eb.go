@@ -188,3 +188,88 @@ func GetDressedEarningsBonus(backup *Backup, eov float64) float64 {
 	eb := soulEggsCount * currentSoulBonus * math.Pow(1+currentProphecyBonus, float64(prophecyEggsCount))
 	return eb * (math.Pow(1.01, eov)) * 100
 }
+
+// FarmerRole represents a player's rank role based on Earnings Bonus.
+type FarmerRole struct {
+	OOM   int
+	Name  string
+	Color string
+}
+
+// FarmerRoles contains the Discord farmer roles ordered by order of magnitude (OoM).
+var FarmerRoles = []FarmerRole{
+	{OOM: 0, Name: "Farmer", Color: "#d43500"},
+	{OOM: 1, Name: "Farmer II", Color: "#d14400"},
+	{OOM: 2, Name: "Farmer III", Color: "#cd5500"},
+	{OOM: 3, Name: "Kilofarmer", Color: "#ca6800"},
+	{OOM: 4, Name: "Kilofarmer II", Color: "#c77a00"},
+	{OOM: 5, Name: "Kilofarmer III", Color: "#c58a00"},
+	{OOM: 6, Name: "Megafarmer", Color: "#c49400"},
+	{OOM: 7, Name: "Megafarmer II", Color: "#c39f00"},
+	{OOM: 8, Name: "Megafarmer III", Color: "#c3a900"},
+	{OOM: 9, Name: "Gigafarmer", Color: "#c2b100"},
+	{OOM: 10, Name: "Gigafarmer II", Color: "#c2ba00"},
+	{OOM: 11, Name: "Gigafarmer III", Color: "#c2c200"},
+	{OOM: 12, Name: "Terafarmer", Color: "#aec300"},
+	{OOM: 13, Name: "Terafarmer II", Color: "#99c400"},
+	{OOM: 14, Name: "Terafarmer III", Color: "#85c600"},
+	{OOM: 15, Name: "Petafarmer", Color: "#51ce00"},
+	{OOM: 16, Name: "Petafarmer II", Color: "#16dc00"},
+	{OOM: 17, Name: "Petafarmer III", Color: "#00ec2e"},
+	{OOM: 18, Name: "Exafarmer", Color: "#00fa68"},
+	{OOM: 19, Name: "Exafarmer II", Color: "#0afc9c"},
+	{OOM: 20, Name: "Exafarmer III", Color: "#1cf7ca"},
+	{OOM: 21, Name: "Zettafarmer", Color: "#2af3eb"},
+	{OOM: 22, Name: "Zettafarmer II", Color: "#35d9f0"},
+	{OOM: 23, Name: "Zettafarmer III", Color: "#40bced"},
+	{OOM: 24, Name: "Yottafarmer", Color: "#46a8eb"},
+	{OOM: 25, Name: "Yottafarmer II", Color: "#4a9aea"},
+	{OOM: 26, Name: "Yottafarmer III", Color: "#4e8dea"},
+	{OOM: 27, Name: "Xennafarmer", Color: "#527ce9"},
+	{OOM: 28, Name: "Xennafarmer II", Color: "#5463e8"},
+	{OOM: 29, Name: "Xennafarmer III", Color: "#6155e8"},
+	{OOM: 30, Name: "Weccafarmer", Color: "#7952e9"},
+	{OOM: 31, Name: "Weccafarmer II", Color: "#8b4fe9"},
+	{OOM: 32, Name: "Weccafarmer III", Color: "#9d4aeb"},
+	{OOM: 33, Name: "Vendafarmer", Color: "#b343ec"},
+	{OOM: 34, Name: "Vendafarmer II", Color: "#d636ef"},
+	{OOM: 35, Name: "Vendafarmer III", Color: "#f327e5"},
+	{OOM: 36, Name: "Uadafarmer", Color: "#f915ba"},
+	{OOM: 37, Name: "Uadafarmer II", Color: "#fc0a9c"},
+	{OOM: 38, Name: "Uadafarmer III", Color: "#ff007d"},
+	{OOM: 39, Name: "Treidafarmer", Color: "#f7005d"},
+	{OOM: 40, Name: "Treidafarmer II", Color: "#f61fd2"},
+	{OOM: 41, Name: "Treidafarmer III", Color: "#9c4aea"},
+	{OOM: 42, Name: "Quadafarmer", Color: "#5559e8"},
+	{OOM: 43, Name: "Quadafarmer II", Color: "#4a9deb"},
+	{OOM: 44, Name: "Quadafarmer III", Color: "#2df0f2"},
+	{OOM: 45, Name: "Pendafarmer", Color: "#00f759"},
+	{OOM: 46, Name: "Pendafarmer II", Color: "#7ec700"},
+	{OOM: 47, Name: "Pendafarmer III", Color: "#c2bf00"},
+	{OOM: 48, Name: "Exedafarmer", Color: "#c3a000"},
+	{OOM: 49, Name: "Exedafarmer II", Color: "#c87200"},
+	{OOM: 50, Name: "Exedafarmer III", Color: "#d43500"},
+	{OOM: 51, Name: "Infinifarmer", Color: "#546e7a"},
+}
+
+// EarningBonusToFarmerRole calculates the farmer role from an earning bonus multiplier ratio (i.e. ebPercent / 100).
+func EarningBonusToFarmerRole(earningBonusRatio float64) FarmerRole {
+	if earningBonusRatio <= 0 || math.IsNaN(earningBonusRatio) {
+		return FarmerRoles[0]
+	}
+	soulPower := math.Log10(earningBonusRatio)
+	oom := int(math.Floor(math.Max(soulPower, 0)))
+	if oom >= len(FarmerRoles) {
+		return FarmerRole{
+			OOM:   oom,
+			Name:  FarmerRoles[len(FarmerRoles)-1].Name,
+			Color: FarmerRoles[len(FarmerRoles)-1].Color,
+		}
+	}
+	return FarmerRoles[oom]
+}
+
+// EarningBonusPercentToFarmerRole calculates the farmer role from an earning bonus percentage.
+func EarningBonusPercentToFarmerRole(ebPercent float64) FarmerRole {
+	return EarningBonusToFarmerRole(ebPercent / 100.0)
+}

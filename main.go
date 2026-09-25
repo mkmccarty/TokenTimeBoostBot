@@ -20,6 +20,7 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dashboard"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/eb"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/events"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
@@ -120,6 +121,7 @@ const slashPrivacy string = "privacy"
 const slashRerunEval string = "rerun-eval"
 const slashContractReport string = "contract-report"
 const slashVirtue string = "virtue"
+const slashEb string = "eb"
 const slashRegister string = "register"
 const slashRegisterAlt string = "register-alt"
 const slashHunt string = "hunt"
@@ -488,6 +490,12 @@ func setupCommands() {
 			Category: CmdCategoryGlobal,
 			Handler:  boost.HandleVirtue,
 		},
+		{
+			AppCmd:   eb.GetSlashEbCommand(slashEb),
+			Category: CmdCategoryGlobal,
+			Handler:  eb.HandleEb,
+		},
+
 		{
 			AppCmd:   boost.GetSlashRegisterCommand(slashRegister),
 			Category: CmdCategoryGlobal,

@@ -382,8 +382,9 @@ func LoadArtifactsData(dataFile string) error {
 
 // GetStones returns the number of stones for the given artifact
 func GetStones(afxName ArtifactSpec_Name, afxLevel ArtifactSpec_Level, afxRarity ArtifactSpec_Rarity) (int, error) {
-	//afxID := fmt.Sprintf("%s-%d", spec.Name, spec.GetLevel())
-	//familyAfxID := spec.Name
+	if data == nil || data.ArtifactFamilies == nil {
+		return 0, nil
+	}
 	for _, f := range data.ArtifactFamilies {
 		if f.AfxID != afxName {
 			continue

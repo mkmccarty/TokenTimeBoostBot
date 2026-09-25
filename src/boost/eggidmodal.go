@@ -13,9 +13,18 @@ import (
 )
 
 var (
-	optionMapCache      = make(map[string]dc.OptionValues)
-	optionMapCacheMutex sync.Mutex
+	optionMapCache                = make(map[string]dc.OptionValues)
+	optionMapCacheMutex           sync.Mutex
+	customEggIDModalHandlers      = make(map[string]func(e *dc.ModalEvent, options dc.OptionValues, encryptedID string, okayToSave bool))
+	customEggIDModalHandlersMutex sync.RWMutex
 )
+
+// RegisterEggIDModalAction registers a handler for an external action key in the EggID modal.
+func RegisterEggIDModalAction(action string, handler func(e *dc.ModalEvent, options dc.OptionValues, encryptedID string, okayToSave bool)) {
+	customEggIDModalHandlersMutex.Lock()
+	defer customEggIDModalHandlersMutex.Unlock()
+	customEggIDModalHandlers[action] = handler
+}
 
 // RequestEggIncIDModal sends a modal to the user requesting their Egg Inc ID
 func RequestEggIncIDModal(e *dc.CommandEvent, action string, options dc.OptionValues) {
@@ -159,6 +168,17 @@ func HandleEggIDModalSubmit(e *dc.ModalEvent) {
 		}
 		return
 	default:
+		customEggIDModalHandlersMutex.RLock()
+		handler, exists := customEggIDModalHandlers[parts[1]]
+		customEggIDModalHandlersMutex.RUnlock()
+		if exists {
+			if encryptedID == "" {
+				str = "You must provide a valid Egg Inc ID to proceed."
+				break
+			}
+			handler(e, options, encryptedID, okayToSave)
+			return
+		}
 	}
 
 	_ = e.Respond(dc.Message{Content: str, Ephemeral: true})
