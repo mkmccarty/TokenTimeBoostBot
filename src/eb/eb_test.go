@@ -1,6 +1,7 @@
 package eb
 
 import (
+	"fmt"
 	"math"
 	"strings"
 	"testing"
@@ -93,9 +94,10 @@ func TestBuildEbEmbedHome(t *testing.T) {
 	if strings.Contains(embed.Description, "pending") {
 		t.Errorf("pending TE should not be shown in Home view: %s", embed.Description)
 	}
-	if !strings.Contains(embed.Description, "**Naked EB**:") || !strings.Contains(embed.Description, "**Dressed EB**:") {
-		t.Errorf("expected Naked EB and Dressed EB in description: %s", embed.Description)
+	if !strings.Contains(embed.Description, "**Nekkid EB**:") || !strings.Contains(embed.Description, "**Dressed EB**:") {
+		t.Errorf("expected Nekkid EB and Dressed EB in description: %s", embed.Description)
 	}
+
 	if !strings.Contains(embed.Description, "**Role**:") {
 		t.Errorf("expected Role in description: %s", embed.Description)
 	}
@@ -113,6 +115,12 @@ func TestBuildEbEmbedVirtueNoPending(t *testing.T) {
 	}
 	if !strings.Contains(embed.Description, "### 🕊️ Virtue Farm") {
 		t.Errorf("missing Virtue Farm section in embed description: %s", embed.Description)
+	}
+	if !strings.Contains(embed.Description, "**CTE**:") {
+		t.Errorf("missing CTE in Virtue view: %s", embed.Description)
+	}
+	if strings.Contains(embed.Description, "**Pending CTE**:") {
+		t.Errorf("should not display Pending CTE when pendingTE == 0: %s", embed.Description)
 	}
 	if !strings.Contains(embed.Description, "**Actual EB**:") {
 		t.Errorf("missing Actual EB in Virtue view: %s", embed.Description)
@@ -139,6 +147,12 @@ func TestBuildEbEmbedVirtueWithPending(t *testing.T) {
 
 	embed := BuildEbEmbed(backup, FarmVirtue, "user-123")
 
+	if !strings.Contains(embed.Description, "**CTE**:") {
+		t.Errorf("missing CTE in Virtue view: %s", embed.Description)
+	}
+	if !strings.Contains(embed.Description, "**Pending CTE**:") {
+		t.Errorf("expected Pending CTE when pendingTE > 0: %s", embed.Description)
+	}
 	if !strings.Contains(embed.Description, "**Pending EB**:") {
 		t.Errorf("expected Pending EB when pendingTE > 0: %s", embed.Description)
 	}
@@ -158,6 +172,12 @@ func TestBuildEbEmbedHomeAndVirtueWithPending(t *testing.T) {
 	}
 	if !strings.Contains(embed.Description, "### 🕊️ Virtue Farm") {
 		t.Errorf("missing Virtue Farm section: %s", embed.Description)
+	}
+	if !strings.Contains(embed.Description, "**CTE**:") {
+		t.Errorf("missing CTE in Virtue section: %s", embed.Description)
+	}
+	if !strings.Contains(embed.Description, "**Pending CTE**:") {
+		t.Errorf("expected Pending CTE when pendingTE > 0: %s", embed.Description)
 	}
 	if !strings.Contains(embed.Description, "**Actual EB**:") {
 		t.Errorf("missing Actual EB in Virtue section: %s", embed.Description)
@@ -182,6 +202,12 @@ func TestBuildEbEmbedHomeAndVirtueNoPending(t *testing.T) {
 	}
 	if !strings.Contains(embed.Description, "### 🕊️ Virtue Farm") {
 		t.Errorf("missing Virtue Farm section: %s", embed.Description)
+	}
+	if !strings.Contains(embed.Description, "**CTE**:") {
+		t.Errorf("missing CTE in Virtue section: %s", embed.Description)
+	}
+	if strings.Contains(embed.Description, "**Pending CTE**:") {
+		t.Errorf("should not display Pending CTE when pendingTE == 0: %s", embed.Description)
 	}
 	if !strings.Contains(embed.Description, "**Actual EB**:") {
 		t.Errorf("missing Actual EB in Virtue section: %s", embed.Description)
@@ -213,4 +239,73 @@ func TestVirtueEBFormula(t *testing.T) {
 			t.Errorf("ratio for TE %d = %f, want %f", tc.te, ratio, tc.expected)
 		}
 	}
+}
+
+func TestDetermineFarmIcons(t *testing.T) {
+	if ei.EmoteMap == nil {
+		ei.EmoteMap = make(map[string]ei.Emotes)
+	}
+	ei.EmoteMap["egg_enlightenment"] = ei.Emotes{Name: "egg_enlightenment", ID: "1001"}
+	ei.EmoteMap["egg_curiosity"] = ei.Emotes{Name: "egg_curiosity", ID: "1002"}
+	ei.EmoteMap["egg_universe"] = ei.Emotes{Name: "egg_universe", ID: "1003"}
+	ei.EmoteMap["egg_truth"] = ei.Emotes{Name: "egg_truth", ID: "1004"}
+
+	// Case 1: Player on Virtue farm (Curiosity)
+	makerVirtue := ei.NewBackupMaker("EI1234567890123456", "VirtueFarmer")
+	bVirtue := makerVirtue.GetBackup()
+	curEgg := ei.Egg_CURIOSITY
+	bVirtue.Farms = []*ei.Backup_Simulation{{FarmType: ei.FarmType_HOME.Enum(), EggType: &curEgg}}
+
+	homeIcon, virtueIcon := determineFarmIcons(bVirtue)
+	if homeIcon != "<:egg_enlightenment:1001>" {
+		t.Errorf("expected homeIcon to be enlightenment emoji on virtue farm, got %s", homeIcon)
+	}
+	if virtueIcon != "<:egg_curiosity:1002>" {
+		t.Errorf("expected virtueIcon to be curiosity emoji on virtue farm, got %s", virtueIcon)
+	}
+
+	// Case 2: Player on Home farm (Universe)
+	makerHome := ei.NewBackupMaker("EI1234567890123456", "HomeFarmer")
+	bHome := makerHome.GetBackup()
+	uniEgg := ei.Egg_UNIVERSE
+	bHome.Farms = []*ei.Backup_Simulation{{FarmType: ei.FarmType_HOME.Enum(), EggType: &uniEgg}}
+
+	homeIcon2, virtueIcon2 := determineFarmIcons(bHome)
+	if homeIcon2 != "<:egg_universe:1003>" {
+		t.Errorf("expected homeIcon to be universe emoji on home farm, got %s", homeIcon2)
+	}
+	if virtueIcon2 != "<:egg_truth:1004>" {
+		t.Errorf("expected virtueIcon to be TE emoji when not on virtue farm, got %s", virtueIcon2)
+	}
+
+	// Case 3: Emojis not available (fallback to 🏠 and 🕊️)
+	oldMap := ei.EmoteMap
+	ei.EmoteMap = make(map[string]ei.Emotes)
+	homeIcon3, virtueIcon3 := determineFarmIcons(bHome)
+	if homeIcon3 != "🏠" {
+		t.Errorf("expected fallback 🏠, got %s", homeIcon3)
+	}
+	if virtueIcon3 != "🕊️" {
+		t.Errorf("expected fallback 🕊️, got %s", virtueIcon3)
+	}
+	ei.EmoteMap = oldMap
+}
+
+func TestBuildEbEmbedMaxEarningsCTE(t *testing.T) {
+	maker := ei.NewBackupMaker("EI1234567890123456", "MaxFarmer")
+	backup := maker.GetBackup()
+
+	// With default maker, inventory has lunar totem / artifacts
+	// Calculate active CTE vs max CTE
+	activeCTE := ei.CalculateClothedTE(backup)
+	maxResult := ei.CalculateMaxClothedTEWithSlotHint(backup, 0)
+
+	embed := BuildEbEmbed(backup, FarmVirtue, "user-123")
+
+	expectedCTEStr := fmt.Sprintf("**CTE**: %.0f", maxResult.ClothedTE)
+	if !strings.Contains(embed.Description, expectedCTEStr) {
+		t.Errorf("expected embed to contain %q (max CTE), got %s", expectedCTEStr, embed.Description)
+	}
+
+	_ = activeCTE
 }

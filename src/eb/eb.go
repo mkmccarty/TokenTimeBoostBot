@@ -76,6 +76,52 @@ func ExecuteEb(e dc.InteractionEvent, farmChoice string, eggIncID string, okayTo
 	})
 }
 
+// determineFarmIcons returns the icon to use for Home and Virtue farms based on the player's active farm.
+func determineFarmIcons(backup *ei.Backup) (homeIcon string, virtueIcon string) {
+	homeIcon = "🏠"
+	virtueIcon = "🕊️"
+
+	currentEgg := ei.Egg_UNKNOWN
+	for _, f := range backup.GetFarms() {
+		if f.GetFarmType() == ei.FarmType_HOME {
+			currentEgg = f.GetEggType()
+			break
+		}
+	}
+	if currentEgg == ei.Egg_UNKNOWN && len(backup.GetFarms()) > 0 {
+		currentEgg = backup.GetFarms()[0].GetEggType()
+	}
+	if currentEgg == ei.Egg_UNKNOWN && backup.GetSim() != nil {
+		currentEgg = backup.GetSim().GetEggType()
+	}
+
+	onVirtueFarm := currentEgg >= ei.Egg_CURIOSITY && currentEgg <= ei.Egg_KINDNESS
+
+	if onVirtueFarm {
+		// If the player is on a virtue farm then the home farm should show the enlightenment egg
+		if emoji, ok := ei.GetEggEmojiMarkdownIfExists(ei.Egg_ENLIGHTENMENT); ok {
+			homeIcon = emoji
+		}
+		// If the player's Home or Virtue farm is on an egg, use the emoji for that egg if it's available.
+		if emoji, ok := ei.GetEggEmojiMarkdownIfExists(currentEgg); ok {
+			virtueIcon = emoji
+		}
+	} else {
+		// If the player's Home or Virtue farm is on an egg, use the emoji for that egg if it's available.
+		if currentEgg != ei.Egg_UNKNOWN {
+			if emoji, ok := ei.GetEggEmojiMarkdownIfExists(currentEgg); ok {
+				homeIcon = emoji
+			}
+		}
+		// If the player isn't in the virtue farm then the icon should be the TE icon
+		if emoji, ok := ei.GetBotEmojiMarkdownIfExists("egg_truth"); ok {
+			virtueIcon = emoji
+		}
+	}
+
+	return homeIcon, virtueIcon
+}
+
 // BuildEbEmbed computes the earnings bonus values and generates the Discord embed.
 func BuildEbEmbed(backup *ei.Backup, farmChoice string, userID string) dc.Embed {
 	game := backup.GetGame()
@@ -125,11 +171,32 @@ func BuildEbEmbed(backup *ei.Backup, farmChoice string, userID string) dc.Embed 
 	virtueEBPercentPending := virtueRatioPending * 100.0
 	virtueRolePending := ei.EarningBonusToFarmerRole(virtueRatioPending)
 
+	inUseSlots := 0
+	if afxDB := backup.GetArtifactsDb(); afxDB != nil {
+		if virtueDB := afxDB.GetVirtueAfxDb(); virtueDB != nil {
+			if activeAfx := virtueDB.GetActiveArtifacts(); activeAfx != nil {
+				for _, slot := range activeAfx.GetSlots() {
+					if slot != nil && slot.GetOccupied() {
+						inUseSlots++
+					}
+				}
+			}
+		}
+	}
+	maxCTEResult := ei.CalculateMaxClothedTEWithSlotHint(backup, inUseSlots)
+	cte := maxCTEResult.ClothedTE
+	if cte < 0 {
+		cte = 0
+	}
+	pendingCTE := cte + float64(pendingTE)
+
 	// Home Farm with pending TE
 	homeNakedEBPending := ei.GetEarningsBonus(backup, float64(earnedTE+pendingTE))
 	homeNakedRolePending := ei.EarningBonusPercentToFarmerRole(homeNakedEBPending)
 	homeDressedEBPending := ei.GetDressedEarningsBonus(backup, float64(earnedTE+pendingTE))
 	homeDressedRolePending := ei.EarningBonusPercentToFarmerRole(homeDressedEBPending)
+
+	homeIcon, virtueIcon := determineFarmIcons(backup)
 
 	var desc strings.Builder
 	primaryColor := parseHexColor(homeDressedRole.Color)
@@ -138,13 +205,13 @@ func BuildEbEmbed(backup *ei.Backup, farmChoice string, userID string) dc.Embed 
 
 	switch farmChoice {
 	case FarmHome:
-		fmt.Fprintf(&desc, "### 🏠 Home Farm\n")
+		fmt.Fprintf(&desc, "### %s Home Farm\n", homeIcon)
 		fmt.Fprintf(&desc, "**PE**: %d · **SE**: %s · **TE**: %d\n",
 			pe,
 			ei.FormatEIValue(se, fmtFmt),
 			earnedTE,
 		)
-		fmt.Fprintf(&desc, "**Naked EB**: %s%% · **Role**: %s\n",
+		fmt.Fprintf(&desc, "**Nekkid EB**: %s%% · **Role**: %s\n",
 			ei.FormatEIValue(homeNakedEB, fmtFmt),
 			homeNakedRole.Name,
 		)
@@ -155,11 +222,11 @@ func BuildEbEmbed(backup *ei.Backup, farmChoice string, userID string) dc.Embed 
 
 	case FarmVirtue:
 		primaryColor = parseHexColor(virtueRole.Color)
-		fmt.Fprintf(&desc, "### 🕊️ Virtue Farm\n")
+		fmt.Fprintf(&desc, "### %s Virtue Farm\n", virtueIcon)
 		if pendingTE > 0 {
-			fmt.Fprintf(&desc, "**TE**: %d (+%d pending)\n", earnedTE, pendingTE)
+			fmt.Fprintf(&desc, "**TE**: %d (+%d pending) · **CTE**: %.0f · **Pending CTE**: %.0f\n", earnedTE, pendingTE, cte, pendingCTE)
 		} else {
-			fmt.Fprintf(&desc, "**TE**: %d\n", earnedTE)
+			fmt.Fprintf(&desc, "**TE**: %d · **CTE**: %.0f\n", earnedTE, cte)
 		}
 		fmt.Fprintf(&desc, "**Actual EB**: %s%% · **Role**: %s\n",
 			ei.FormatEIValue(virtueEBPercent, fmtFmt),
@@ -174,7 +241,7 @@ func BuildEbEmbed(backup *ei.Backup, farmChoice string, userID string) dc.Embed 
 		desc.WriteString("-# In Virtue farms, PE and SE do not count (EB is 1.10^TE)\n")
 
 		if pendingTE > 0 {
-			desc.WriteString("\n### 🏠 Home Farm (with pending TE)\n")
+			desc.WriteString(fmt.Sprintf("\n### %s Home Farm (with pending TE)\n", homeIcon))
 			fmt.Fprintf(&desc, "**PE**: %d · **SE**: %s · **TE**: %d (%d + %d pending)\n",
 				pe,
 				ei.FormatEIValue(se, fmtFmt),
@@ -182,7 +249,7 @@ func BuildEbEmbed(backup *ei.Backup, farmChoice string, userID string) dc.Embed 
 				earnedTE,
 				pendingTE,
 			)
-			fmt.Fprintf(&desc, "**Naked EB**: %s%% · **Role**: %s\n",
+			fmt.Fprintf(&desc, "**Nekkid EB**: %s%% · **Role**: %s\n",
 				ei.FormatEIValue(homeNakedEBPending, fmtFmt),
 				homeNakedRolePending.Name,
 			)
@@ -193,13 +260,13 @@ func BuildEbEmbed(backup *ei.Backup, farmChoice string, userID string) dc.Embed 
 		}
 
 	default: // FarmHomeAndVirtue
-		fmt.Fprintf(&desc, "### 🏠 Home Farm\n")
+		fmt.Fprintf(&desc, "### %s Home Farm\n", homeIcon)
 		fmt.Fprintf(&desc, "**PE**: %d · **SE**: %s · **TE**: %d\n",
 			pe,
 			ei.FormatEIValue(se, fmtFmt),
 			earnedTE,
 		)
-		fmt.Fprintf(&desc, "**Naked EB**: %s%% · **Role**: %s\n",
+		fmt.Fprintf(&desc, "**Nekkid EB**: %s%% · **Role**: %s\n",
 			ei.FormatEIValue(homeNakedEB, fmtFmt),
 			homeNakedRole.Name,
 		)
@@ -208,11 +275,11 @@ func BuildEbEmbed(backup *ei.Backup, farmChoice string, userID string) dc.Embed 
 			homeDressedRole.Name,
 		)
 
-		fmt.Fprintf(&desc, "### 🕊️ Virtue Farm\n")
+		fmt.Fprintf(&desc, "### %s Virtue Farm\n", virtueIcon)
 		if pendingTE > 0 {
-			fmt.Fprintf(&desc, "**TE**: %d (+%d pending)\n", earnedTE, pendingTE)
+			fmt.Fprintf(&desc, "**TE**: %d (+%d pending) · **CTE**: %.0f · **Pending CTE**: %.0f\n", earnedTE, pendingTE, cte, pendingCTE)
 		} else {
-			fmt.Fprintf(&desc, "**TE**: %d\n", earnedTE)
+			fmt.Fprintf(&desc, "**TE**: %d · **CTE**: %.0f\n", earnedTE, cte)
 		}
 		fmt.Fprintf(&desc, "**Actual EB**: %s%% · **Role**: %s\n",
 			ei.FormatEIValue(virtueEBPercent, fmtFmt),
@@ -227,7 +294,7 @@ func BuildEbEmbed(backup *ei.Backup, farmChoice string, userID string) dc.Embed 
 		desc.WriteString("-# In Virtue farms, PE and SE do not count (EB is 1.10^TE)\n")
 
 		if pendingTE > 0 {
-			desc.WriteString("\n### 🏠 Home Farm (with pending TE)\n")
+			desc.WriteString(fmt.Sprintf("\n### %s Home Farm (with pending TE)\n", homeIcon))
 			fmt.Fprintf(&desc, "**PE**: %d · **SE**: %s · **TE**: %d (%d + %d pending)\n",
 				pe,
 				ei.FormatEIValue(se, fmtFmt),
@@ -235,7 +302,7 @@ func BuildEbEmbed(backup *ei.Backup, farmChoice string, userID string) dc.Embed 
 				earnedTE,
 				pendingTE,
 			)
-			fmt.Fprintf(&desc, "**Naked EB**: %s%% · **Role**: %s\n",
+			fmt.Fprintf(&desc, "**Nekkid EB**: %s%% · **Role**: %s\n",
 				ei.FormatEIValue(homeNakedEBPending, fmtFmt),
 				homeNakedRolePending.Name,
 			)
