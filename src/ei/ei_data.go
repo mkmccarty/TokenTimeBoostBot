@@ -432,6 +432,38 @@ func GetBotEmojiMarkdown(name string) string {
 	return markdown
 }
 
+// GetBotEmojiMarkdownIfExists returns the markdown for the emoji if it is available.
+func GetBotEmojiMarkdownIfExists(name string) (string, bool) {
+	emoji, ok := getBotEmojiData(name)
+	if ok && emoji.ID != "" && emoji.ID != "0" {
+		animated := ""
+		if emoji.Animated {
+			animated = "a"
+		}
+		return fmt.Sprintf("<%s:%s:%s>", animated, emoji.Name, emoji.ID), true
+	}
+	return "", false
+}
+
+// GetEggEmojiMarkdownIfExists returns the markdown for an Egg emoji if available.
+func GetEggEmojiMarkdownIfExists(egg Egg) (string, bool) {
+	eggName, ok := Egg_name[int32(egg)]
+	if !ok {
+		return "", false
+	}
+	base := strings.ToLower(eggName)
+	if md, found := GetBotEmojiMarkdownIfExists("egg_" + base); found {
+		return md, true
+	}
+	noUnder := strings.ReplaceAll(base, "_", "")
+	if noUnder != base {
+		if md, found := GetBotEmojiMarkdownIfExists("egg_" + noUnder); found {
+			return md, true
+		}
+	}
+	return "", false
+}
+
 // GetContractGradeString returns the string representation of the Contract_PlayerGrade
 func GetContractGradeString(grade int) string {
 	str := Contract_PlayerGrade_name[int32(grade)]
