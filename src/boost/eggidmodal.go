@@ -149,13 +149,6 @@ func HandleEggIDModalSubmit(e *dc.ModalEvent) {
 		}
 		RerunEval(e, options, encryptedID, okayToSave)
 		return
-	case "virtue":
-		if encryptedID == "" {
-			str = "You must provide a valid Egg Inc ID to proceed."
-			break
-		}
-		Virtue(e, options, encryptedID, okayToSave)
-		return
 	case "contract-report":
 		if encryptedID == "" {
 			str = "You must provide a valid Egg Inc ID to proceed."

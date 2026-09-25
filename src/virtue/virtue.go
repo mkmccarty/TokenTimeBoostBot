@@ -1,7 +1,6 @@
-package boost
+package virtue
 
 import (
-	"encoding/base64"
 	"fmt"
 	"math"
 	"slices"
@@ -9,103 +8,33 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
-
-	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 )
 
-// GetSlashVirtueCommand returns the command for the /launch-helper command
-func GetSlashVirtueCommand(cmd string) *dc.Command {
-	teMin, teMax := 1, 98
-	command := anywhereCommand(cmd, "Evaluate virtue farm and provide detailed EoV overview.")
-	command.Options = []dc.Option{
-		dc.IntOption{
-			Name:        "simulate-shift",
-			Description: "What does a 0 pop shift look like for this egg?",
-			Choices: []dc.Choice[int]{
-				{Name: "Curiosity", Value: 50},
-				{Name: "Integrity", Value: 51},
-				{Name: "Humility", Value: 52},
-				{Name: "Resilience", Value: 53},
-				{Name: "Kindness", Value: 54},
-			},
-		},
-		dc.IntOption{
-			Name:        "simulate-shift-target-te",
-			Description: "Target Truth Eggs for simulated shift (requires simulate-shift).",
-			MinValue:    &teMin,
-			MaxValue:    &teMax,
-		},
-		dc.BoolOption{
-			Name:        "help",
-			Description: "Explain what this command reports",
-		},
-		dc.BoolOption{
-			Name:        "reset",
-			Description: "Reset stored EI number",
-		},
-		dc.BoolOption{
-			Name:        "compact",
-			Description: "Compact display (sticky)",
-		},
+// Virtue processes the virtue command with an encrypted or raw Egg Inc ID.
+func Virtue(e dc.InteractionEvent, options dc.OptionValues, eiID string, okayToSave bool) {
+	eggIncID := eiID
+	if len(eggIncID) != 18 || eggIncID[:2] != "EI" {
+		eggIncID = decryptEggIncID(eiID)
 	}
-	return &command
-}
-
-// HandleVirtue handles the /virtue command.
-func HandleVirtue(e *dc.CommandEvent) {
-	userID := e.UserID()
-
-	if opt, ok := e.OptBool("help"); ok && opt {
-		_ = e.Respond(dc.Message{Content: virtueHelpText(), Ephemeral: true})
+	if eggIncID == "" || len(eggIncID) != 18 || eggIncID[:2] != "EI" {
+		if cmd, ok := e.(*dc.CommandEvent); ok {
+			boost.RequestEggIncIDModal(cmd, "virtue", options)
+		}
 		return
 	}
-
-	if opt, ok := e.OptBool("reset"); ok && opt {
-		farmerstate.SetMiscSettingString(userID, "encrypted_ei_id", "")
-	}
-
-	eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
-
-	Virtue(e, e.Options(), eiID, true)
+	ExecuteVirtue(e, options, eggIncID, okayToSave)
 }
 
-func virtueHelpText() string {
-	return strings.TrimSpace(`
-# /virtue Help
-
-The /virtue command evaluates your Eggs of Virtue home farm and shows shift planning details.
-
-## What the output shows
-- Your virtue title line (Ascender or Prestiged One)
-- Current reset count and shift count
-- Current shift cost in Soul Eggs
-- Egg-by-egg status for Curiosity, Integrity, Humility, Resilience, and Kindness
-- Progress and estimates used to plan your next shift
-- Fleet, habitat, train, and other farm context needed for decision making
-- Notes for current farm state and possible simulated outcomes
-
-## Options
-- help (boolean): Show this explanation instead of running /virtue.
-- simulate-shift (Curiosity/Integrity/Humility/Resilience/Kindness): Simulate a 0-pop shift for the selected egg.
-- simulate-shift-target-te (1-98): Optional target Truth Eggs used with simulate-shift.
-- compact (boolean): Toggle compact output mode. This is sticky and remembered for future runs.
-- reset (boolean): Clear your stored Egg Inc ID so you can set it again.
-
-## Notes
-- /virtue uses your stored Egg Inc ID.
-- If your ID is missing or invalid, the bot asks you to provide it.
-- Best results come from being on an Egg of Virtue home farm.
-`)
-}
-
-// Virtue processes the virtue command
-func Virtue(e dc.InteractionEvent, options dc.OptionValues, eiID string, okayToSave bool) {
+// ExecuteVirtue executes the /virtue display logic and responds to the interaction event.
+func ExecuteVirtue(e dc.InteractionEvent, options dc.OptionValues, eggIncID string, okayToSave bool) {
 	userID := e.UserID()
 	simulatedEgg := ei.Egg(-1)
 	var components []dc.LayoutComponent
@@ -128,48 +57,33 @@ func Virtue(e dc.InteractionEvent, options dc.OptionValues, eiID string, okayToS
 		}
 	}
 
-	// Get the Egg Inc ID from the stored settings
-	eggIncID := ""
-	encryptionKey, err := base64.StdEncoding.DecodeString(config.Key)
-	if err == nil {
-		decodedData, err := base64.StdEncoding.DecodeString(eiID)
-		if err == nil {
-			decryptedData, err := config.DecryptCombined(encryptionKey, decodedData)
-			if err == nil {
-				eggIncID = string(decryptedData)
-			}
-		}
-	}
-	if eggIncID == "" || len(eggIncID) != 18 || eggIncID[:2] != "EI" {
-		// Only the command path reaches this: the modal path already checked
-		// that an ID came back, and Discord will not answer a modal with a
-		// modal.
-		if cmd, ok := e.(*dc.CommandEvent); ok {
-			RequestEggIncIDModal(cmd, "virtue", options)
-		}
-		return
-	}
-
 	// Quick reply to buy us some time
 	ephemeral := e.ChannelID() == "571836573243539476" // ACO- #bot-commands
 
 	_ = e.Defer(ephemeral)
 
 	backup, _ := ei.GetFirstContactFromAPI(eggIncID, userID, okayToSave)
-
-	if backup != nil {
-		farmerName := farmerstate.GetMiscSettingString(userID, "ei_ign")
-		if farmerName != backup.GetUserName() {
-			farmerName = backup.GetUserName()
-			farmerstate.SetMiscSettingString(userID, "ei_ign", farmerName)
-		}
+	if backup == nil {
+		_ = e.Followup(dc.Message{
+			Content:   "Unable to retrieve game data for this Egg Inc ID. Please verify your ID and try again.",
+			Ephemeral: true,
+		})
+		return
 	}
 
-	farm := backup.GetFarms()[0]
-	if farm != nil {
-		farmType := farm.GetFarmType()
-		if farmType == ei.FarmType_HOME {
-			components = printVirtue(userID, backup, simulatedEgg, targetTE, compact)
+	farmerName := farmerstate.GetMiscSettingString(userID, "ei_ign")
+	if farmerName != backup.GetUserName() {
+		farmerName = backup.GetUserName()
+		farmerstate.SetMiscSettingString(userID, "ei_ign", farmerName)
+	}
+
+	if len(backup.GetFarms()) > 0 {
+		farm := backup.GetFarms()[0]
+		if farm != nil {
+			farmType := farm.GetFarmType()
+			if farmType == ei.FarmType_HOME {
+				components = printVirtue(userID, backup, simulatedEgg, targetTE, compact)
+			}
 		}
 	}
 	if len(components) == 0 {
@@ -181,7 +95,6 @@ func Virtue(e dc.InteractionEvent, options dc.OptionValues, eiID string, okayToS
 		Ephemeral:  ephemeral,
 		Components: components,
 	})
-
 }
 
 func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE uint64, compact bool) []dc.LayoutComponent {
@@ -342,34 +255,17 @@ func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE
 
 	artifactDB := backup.GetArtifactsDb()
 
-	/*
-		if config.IsDevBot() {
-			artifacts := artifactDb.GetInventoryItems()
-			log.Println("All Artifacts:")
-			ei.ExamineArtifacts(artifacts)
-			log.Println("Virtue Artifacts:")
-			ei.ExamineArtifacts(virtueArtifacts)
-		}
-	*/
-
 	cte := ei.CalculateClothedTE(backup)
 	maxCTEResult := ei.CalculateMaxClothedTEWithSlotHint(backup, len(inUseArtifacts))
 	maxCTE := maxCTEResult.ClothedTE
 	cteDelta := maxCTE - cte
-	/*
-		if config.IsDevBot() {
-			log.Printf("Calculated Clothed TE: %f, Max Clothed TE: %f\n", cte, maxCTE)
-			for _, line := range ei.DescribeArtifactSetWithStones(maxCTEResult.Artifacts) {
-				log.Printf("Max CTE set: %s\n", line)
-			}
-		}*/
+
 	fmt.Fprintf(&header, "**CTE**: %.0f  **Max CTE**: %.0f **Pending:** %.0f\n", cte, maxCTE, maxCTE+float64(futureEov))
 	artifactIcons := ""
 	maxArtifactIcons := ""
 
 	for _, artifact := range virtueArtifacts {
 		artifactID := artifact.GetItemId()
-		// Ensure artifactIcons follow the order in inUseArtifacts
 		_ = artifactID
 		if len(artifactSetInUse) == 0 && len(inUseArtifacts) > 0 {
 			itemsByID := make(map[uint64]*ei.CompleteArtifact, len(virtueArtifacts))
@@ -413,7 +309,6 @@ func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE
 		}
 		eggLayingRate *= habPop // Reset to 0 for new egg
 	}
-	//deliveryRate := math.Min(eggLayingRate, shippingRate)
 	eggLayingRate *= artifactBuffs.ELR * colBuffs.ELR
 	shippingRate *= artifactBuffs.SR * colBuffs.SR
 	habCap *= artifactBuffs.Hab
@@ -558,13 +453,11 @@ func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE
 
 		if habPop >= habCap || habPercent >= 99.9 {
 			fmt.Fprintf(&stats, "%s %d%% %s ⚠️🔒\n",
-				//strings.Join(habArray, ""),
 				habArt,
 				int(habPercent),
 				ei.FormatEIValue(habPop, map[string]any{"decimals": 2, "trim": true}))
 		} else {
 			fmt.Fprintf(&stats, "%s %s %d%% 🔒<t:%d:R> or 💤<t:%d:R>\n",
-				//strings.Join(habArray, ""),
 				habArt,
 				ei.FormatEIValue(habPop, map[string]any{"decimals": 2, "trim": true}),
 				int(habPercent),
@@ -803,7 +696,6 @@ func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE
 	missions := artifactDB.GetMissionInfos()
 	for _, mission := range missions {
 		missionType := mission.GetType()
-		//missionStatus := mission.GetStatus()
 		if missionType == ei.MissionInfo_VIRTUE {
 			shipType := mission.GetShip()
 			craft := ei.MissionArt.Ships[shipType]
@@ -961,7 +853,6 @@ func getVirtueLaunchedShips(backup *ei.Backup) string {
 		}
 
 		missionStart := mi.GetStartTimeDerived()
-		//missionEnd := uint32(missionStart) + uint32(mi.GetDurationSeconds())
 		// Only want missions in the last month
 		if uint32(missionStart) < uint32(time.Now().AddDate(0, -1, 0).Unix()) {
 			continue

@@ -31,6 +31,7 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/server"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/tasks"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/version"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/virtue"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/watch"
 	"github.com/natefinch/lumberjack/v3"
 )
@@ -486,9 +487,9 @@ func setupCommands() {
 			Autocomplete: boost.HandleRerunEvalAutoComplete,
 		},
 		{
-			AppCmd:   boost.GetSlashVirtueCommand(slashVirtue),
+			AppCmd:   virtue.GetSlashVirtueCommand(slashVirtue),
 			Category: CmdCategoryGlobal,
-			Handler:  boost.HandleVirtue,
+			Handler:  virtue.HandleVirtue,
 		},
 		{
 			AppCmd:   eb.GetSlashEbCommand(slashEb),
