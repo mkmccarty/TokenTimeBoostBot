@@ -25,6 +25,25 @@ type ContractRole struct {
 	RoleName   string
 }
 
+type CustomOrderSession struct {
+	Uuid         string
+	ContractHash string
+	ChannelID    string
+	UserID       string
+	Lines        string
+	ExpiresAt    int64
+}
+
+type DefineOrderSession struct {
+	Uuid         string
+	ContractHash string
+	ChannelID    string
+	UserID       string
+	TemplateJson string
+	IsSaved      int64
+	ExpiresAt    int64
+}
+
 type MissingContract struct {
 	Contractid string
 	Timestamp  int64
