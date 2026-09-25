@@ -1,12 +1,64 @@
-package boost
+package virtue
 
 import (
 	"fmt"
 	"slices"
 	"testing"
 
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
+
+func TestGetSlashVirtueCommand(t *testing.T) {
+	cmd := GetSlashVirtueCommand("virtue")
+	if cmd.Name != "virtue" {
+		t.Errorf("cmd.Name = %q; want virtue", cmd.Name)
+	}
+	if len(cmd.Options) != 5 {
+		t.Fatalf("expected 5 options, got %d", len(cmd.Options))
+	}
+
+	expectedOptions := map[string]string{
+		"simulate-shift":           "int",
+		"simulate-shift-target-te": "int",
+		"help":                     "bool",
+		"reset":                    "bool",
+		"compact":                  "bool",
+	}
+
+	for _, opt := range cmd.Options {
+		switch o := opt.(type) {
+		case dc.IntOption:
+			if expectedOptions[o.Name] != "int" {
+				t.Errorf("unexpected int option: %s", o.Name)
+			}
+			if o.Name == "simulate-shift" && len(o.Choices) != 5 {
+				t.Errorf("expected 5 choices for simulate-shift, got %d", len(o.Choices))
+			}
+			if o.Name == "simulate-shift-target-te" {
+				if o.MinValue == nil || *o.MinValue != 1 {
+					t.Errorf("expected MinValue 1, got %v", o.MinValue)
+				}
+				if o.MaxValue == nil || *o.MaxValue != 98 {
+					t.Errorf("expected MaxValue 98, got %v", o.MaxValue)
+				}
+			}
+		case dc.BoolOption:
+			if expectedOptions[o.Name] != "bool" {
+				t.Errorf("unexpected bool option: %s", o.Name)
+			}
+		default:
+			t.Errorf("unexpected option type for %v", opt)
+		}
+	}
+
+	if len(cmd.IntegrationTypes) != 2 || cmd.IntegrationTypes[0] != dc.IntegrationGuildInstall || cmd.IntegrationTypes[1] != dc.IntegrationUserInstall {
+		t.Errorf("expected IntegrationTypes to have GuildInstall and UserInstall, got %v", cmd.IntegrationTypes)
+	}
+	if len(cmd.Contexts) != 3 {
+		t.Errorf("expected 3 Contexts, got %v", cmd.Contexts)
+	}
+}
 
 func TestGetHabIconStrings(t *testing.T) {
 	// Provide a mock GetBotEmojiMarkdown function

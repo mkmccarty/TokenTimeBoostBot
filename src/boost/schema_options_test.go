@@ -15,7 +15,6 @@ import (
 // a substitute for reading the handler, but it does mean the schema cannot
 // quietly lose one again.
 var optionsHandlersRead = map[string][]string{
-	"GetSlashVirtueCommand":         {"help", "reset", "compact", "simulate-shift"},
 	"GetSlashContractReportCommand": {"reset", "token-details", "missing-players", "as-image", "contract-id"},
 	"GetSlashRegisterCommand":       {"reset"},
 	"GetSlashRerunEvalCommand":      {"reset", "refresh", "mobile-friendly", "season"},
