@@ -953,7 +953,7 @@ func DownloadCoopStatusStones(channelID string, contractID string, coopID string
 		qStones := as.quantStones[ei.ArtifactSpec_INFERIOR] + as.quantStones[ei.ArtifactSpec_LESSER] + as.quantStones[ei.ArtifactSpec_NORMAL]
 		tStones := as.tachStones[ei.ArtifactSpec_INFERIOR] + as.tachStones[ei.ArtifactSpec_LESSER] + as.tachStones[ei.ArtifactSpec_NORMAL]
 		if as.quantWant != qStones || as.tachWant != tStones {
-			notes += fmt.Sprintf("🧩")
+			notes += "🧩"
 			addLegend("🧩")
 			setContractEstimate = false
 		}
