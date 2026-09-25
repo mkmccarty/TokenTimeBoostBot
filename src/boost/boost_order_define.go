@@ -295,7 +295,6 @@ func clearDefineSession(uuidStr string) {
 	deleteDefineSessionDB(uuidStr)
 }
 
-
 // Storage Helpers for User and Global Custom Orders
 
 // GetUserCustomOrders returns all custom boost order templates saved by a user.

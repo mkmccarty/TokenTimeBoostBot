@@ -224,4 +224,3 @@ func (m Message) toMessageUpdate() discord.MessageUpdate {
 	}
 	return update
 }
-

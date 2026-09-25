@@ -1936,4 +1936,3 @@ func TestCustomOrderBoostersRefreshedFromDB(t *testing.T) {
 		t.Errorf("sortCustomRemaining(<IHR[12%%]) = %v, want [%s, %s]", sorted, u1, u2)
 	}
 }
-

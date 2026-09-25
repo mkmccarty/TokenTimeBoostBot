@@ -119,9 +119,48 @@ func HandleContractCommand(client dc.Client, e *dc.CommandEvent) {
 	if opt, ok := e.OptInt("coop-size"); ok {
 		coopSize = opt
 	}
+	var customOrderLines []string
+	var customOrderName string
 	if opt, ok := e.OptString("boost-order"); ok {
 		if val, err := strconv.Atoi(opt); err == nil {
 			boostOrder = val
+			if boostOrder == ContractOrderCustom {
+				saved := farmerstate.GetMiscSettingString(e.UserID(), "custom_boost_order")
+				if saved != "" {
+					customOrderLines = strings.Split(saved, "\n")
+					customOrderName = SuggestCustomOrderName(customOrderLines)
+				}
+			}
+		} else if strings.HasPrefix(opt, "custom_u:") || strings.HasPrefix(opt, "user:") {
+			name := strings.TrimPrefix(strings.TrimPrefix(opt, "custom_u:"), "user:")
+			tmpl := FindCustomOrderTemplate(e.UserID(), "user:"+name)
+			if tmpl != nil {
+				boostOrder = ContractOrderCustom
+				customOrderLines = append([]string(nil), tmpl.Lines...)
+				customOrderName = tmpl.Name
+			}
+		} else if strings.HasPrefix(opt, "custom_g:") || strings.HasPrefix(opt, "global:") {
+			name := strings.TrimPrefix(strings.TrimPrefix(opt, "custom_g:"), "global:")
+			tmpl := FindCustomOrderTemplate("", "global:"+name)
+			if tmpl != nil {
+				boostOrder = ContractOrderCustom
+				customOrderLines = append([]string(nil), tmpl.Lines...)
+				customOrderName = tmpl.Name
+			}
+		} else if opt == "custom_p" || opt == "custom_personal" {
+			saved := farmerstate.GetMiscSettingString(e.UserID(), "custom_boost_order")
+			if saved != "" {
+				boostOrder = ContractOrderCustom
+				customOrderLines = strings.Split(saved, "\n")
+				customOrderName = SuggestCustomOrderName(customOrderLines)
+			}
+		} else {
+			tmpl := FindCustomOrderTemplate(e.UserID(), opt)
+			if tmpl != nil {
+				boostOrder = ContractOrderCustom
+				customOrderLines = append([]string(nil), tmpl.Lines...)
+				customOrderName = tmpl.Name
+			}
 		}
 	}
 	if opt, ok := e.OptString("progenitors"); ok {
@@ -360,6 +399,17 @@ func HandleContractCommand(client dc.Client, e *dc.CommandEvent) {
 			log.Printf("contract: failed to send create error followup to channel %s: %v", e.ChannelID(), ferr)
 		}
 		return
+	}
+
+	if len(customOrderLines) > 0 {
+		contract.mutex.Lock()
+		contract.BoostOrder = ContractOrderCustom
+		contract.CustomOrderLines = append([]string(nil), customOrderLines...)
+		contract.CustomOrderName = customOrderName
+		contract.Order = sortCustomRemaining(contract, contract.Order, contract.CustomOrderLines, false)
+		contract.mutex.Unlock()
+		refreshCustomBoosters(client, contract)
+		saveData(contract.ContractHash)
 	}
 
 	if len(contract.Location) == 1 {

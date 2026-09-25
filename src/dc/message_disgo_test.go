@@ -137,4 +137,3 @@ func TestDisgoMessageUpdateFlags(t *testing.T) {
 		t.Error("MessageUpdate should retain MessageFlagSuppressEmbeds")
 	}
 }
-
