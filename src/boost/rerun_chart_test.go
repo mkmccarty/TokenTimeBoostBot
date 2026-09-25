@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc/dctest"
 )
 
 func TestBuildSeasonNavButtons_UniqueCustomIDs(t *testing.T) {
@@ -163,5 +164,47 @@ func TestBuildSeasonNavButtons_Positions(t *testing.T) {
 		if !strings.HasSuffix(btn.CustomID, tag) {
 			t.Errorf("button index %d: expected suffix %s, got CustomID %s", i, tag, btn.CustomID)
 		}
+	}
+}
+
+func TestHandleChartReactions_Finish(t *testing.T) {
+	// 1. Expired session - Finish should not panic or fail, should succeed in removing components
+	expiredEv := dctest.ComponentButtonEvent("chart#finish#expired-uuid-1234")
+	HandleChartReactions(expiredEv)
+
+	// 2. Active session with matching user - Finish should delete session
+	chartSessionsMutex.Lock()
+	chartSessions["active-uuid-5678"] = &chartSession{
+		uuidStr: "active-uuid-5678",
+		userID:  "4", // Matches user in dctest.ComponentButtonEvent
+	}
+	chartSessionsMutex.Unlock()
+
+	activeEv := dctest.ComponentButtonEvent("chart#finish#active-uuid-5678")
+	HandleChartReactions(activeEv)
+
+	chartSessionsMutex.Lock()
+	_, exists := chartSessions["active-uuid-5678"]
+	chartSessionsMutex.Unlock()
+	if exists {
+		t.Errorf("expected active session to be deleted after finish")
+	}
+
+	// 3. Active session with different user - Finish should not delete session
+	chartSessionsMutex.Lock()
+	chartSessions["other-uuid-9999"] = &chartSession{
+		uuidStr: "other-uuid-9999",
+		userID:  "other-user",
+	}
+	chartSessionsMutex.Unlock()
+
+	otherEv := dctest.ComponentButtonEvent("chart#finish#other-uuid-9999")
+	HandleChartReactions(otherEv)
+
+	chartSessionsMutex.Lock()
+	_, stillExists := chartSessions["other-uuid-9999"]
+	chartSessionsMutex.Unlock()
+	if !stillExists {
+		t.Errorf("expected session with different user to remain")
 	}
 }
