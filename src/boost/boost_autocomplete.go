@@ -245,39 +245,135 @@ func handleCoopIDAutoComplete(e *dc.AutocompleteEvent, search string) {
 	_ = e.RespondChoices(choices)
 }
 
-// handleBoostOrderAutoComplete handles autocomplete for the boost-order option in /contract
-func handleBoostOrderAutoComplete(e *dc.AutocompleteEvent, searchString string) {
-	searchString = strings.ToLower(searchString)
+// getBoostOrderAutoCompleteChoices generates autocomplete choices for the boost-order option in /contract
+func getBoostOrderAutoCompleteChoices(userID string, searchString string) []dc.Choice[string] {
+	searchString = strings.ToLower(strings.TrimSpace(searchString))
 	choices := make([]dc.Choice[string], 0)
 
-	for orderVal, name := range contractOrderNames {
-		if orderVal == ContractOrderFair {
-			continue
-		}
-		var formattedName string
-		switch orderVal {
-		case ContractOrderSignup:
-			formattedName = "Sign-up Ordering"
-		case ContractOrderTimeBased:
-			formattedName = "Time Based Ordering"
-		case ContractOrderRandom:
-			formattedName = "Random Ordering"
-		case ContractOrderTEFuzzy:
-			formattedName = "Fuzzy TE Ordering"
-		case ContractOrderIHRFuzzy:
-			formattedName = "Fuzzy IHR Ordering"
-		default:
-			formattedName = name + " Ordering"
-		}
+	userTemplates := GetUserCustomOrders(userID)
+	personalPreset := farmerstate.GetMiscSettingString(userID, "custom_boost_order")
+	globalTemplates := GetGlobalCustomOrders()
 
-		if searchString == "" || strings.Contains(strings.ToLower(formattedName), searchString) {
-			choices = append(choices, dc.Choice[string]{
-				Name:  formattedName,
-				Value: fmt.Sprintf("%d", orderVal),
+	isUserOrCustomSearch := searchString != "" && (strings.HasPrefix("user", searchString) || strings.Contains(searchString, "user") ||
+		strings.HasPrefix("custom", searchString) || strings.Contains(searchString, "custom"))
+
+	seenValues := make(map[string]bool)
+	addChoice := func(name, value string) {
+		if seenValues[value] || len(choices) >= maxAutocompleteChoices {
+			return
+		}
+		seenValues[value] = true
+		if len(name) > 100 {
+			name = name[:100]
+		}
+		choices = append(choices, dc.Choice[string]{
+			Name:  name,
+			Value: value,
+		})
+	}
+
+	type customChoiceItem struct {
+		name  string
+		value string
+	}
+	var userChoices []customChoiceItem
+
+	for _, tmpl := range userTemplates {
+		userChoices = append(userChoices, customChoiceItem{
+			name:  fmt.Sprintf("User Custom: %s", tmpl.Name),
+			value: fmt.Sprintf("custom_u:%s", tmpl.Name),
+		})
+	}
+
+	if personalPreset != "" {
+		lines := strings.Split(personalPreset, "\n")
+		presetName := SuggestCustomOrderName(lines)
+		if presetName == "" {
+			presetName = "Personal Preset"
+		}
+		alreadyInTemplates := false
+		for _, tmpl := range userTemplates {
+			if strings.EqualFold(tmpl.Name, presetName) {
+				alreadyInTemplates = true
+				break
+			}
+		}
+		if !alreadyInTemplates {
+			userChoices = append(userChoices, customChoiceItem{
+				name:  fmt.Sprintf("User Custom: %s (Preset)", presetName),
+				value: "custom_p",
 			})
 		}
 	}
 
+	var globalChoices []customChoiceItem
+	for _, tmpl := range globalTemplates {
+		globalChoices = append(globalChoices, customChoiceItem{
+			name:  fmt.Sprintf("Global Custom: %s", tmpl.Name),
+			value: fmt.Sprintf("custom_g:%s", tmpl.Name),
+		})
+	}
+
+	if isUserOrCustomSearch {
+		// User specifically typing user or custom: show user defined orders first
+		for _, uc := range userChoices {
+			if searchString == "" || strings.Contains(strings.ToLower(uc.name), searchString) {
+				addChoice(uc.name, uc.value)
+			}
+		}
+		for _, gc := range globalChoices {
+			if searchString == "" || strings.Contains(strings.ToLower(gc.name), searchString) {
+				addChoice(gc.name, gc.value)
+			}
+		}
+		if searchString == "" || strings.Contains("custom ordering", searchString) {
+			addChoice("Custom Ordering", fmt.Sprintf("%d", ContractOrderCustom))
+		}
+	} else {
+		// General search or empty: show standard orders first, then custom orders
+		for orderVal, name := range contractOrderNames {
+			if orderVal == ContractOrderFair {
+				continue
+			}
+			var formattedName string
+			switch orderVal {
+			case ContractOrderSignup:
+				formattedName = "Sign-up Ordering"
+			case ContractOrderTimeBased:
+				formattedName = "Time Based Ordering"
+			case ContractOrderRandom:
+				formattedName = "Random Ordering"
+			case ContractOrderTEFuzzy:
+				formattedName = "Fuzzy TE Ordering"
+			case ContractOrderIHRFuzzy:
+				formattedName = "Fuzzy IHR Ordering"
+			default:
+				formattedName = name + " Ordering"
+			}
+
+			if searchString == "" || strings.Contains(strings.ToLower(formattedName), searchString) {
+				addChoice(formattedName, fmt.Sprintf("%d", orderVal))
+			}
+		}
+
+		for _, uc := range userChoices {
+			if searchString == "" || strings.Contains(strings.ToLower(uc.name), searchString) {
+				addChoice(uc.name, uc.value)
+			}
+		}
+		for _, gc := range globalChoices {
+			if searchString == "" || strings.Contains(strings.ToLower(gc.name), searchString) {
+				addChoice(gc.name, gc.value)
+			}
+		}
+	}
+
+	return choices
+}
+
+// handleBoostOrderAutoComplete handles autocomplete for the boost-order option in /contract
+func handleBoostOrderAutoComplete(e *dc.AutocompleteEvent, searchString string) {
+	choices := getBoostOrderAutoCompleteChoices(e.UserID(), searchString)
 	if err := e.RespondChoices(choices); err != nil {
 		log.Println("Error responding to boost order autocomplete:", err)
 	}

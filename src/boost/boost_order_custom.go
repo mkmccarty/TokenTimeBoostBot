@@ -208,7 +208,6 @@ func clearCustomOrderSession(uuidStr string) {
 	deleteCustomOrderSessionDB(uuidStr)
 }
 
-
 // CustomCriterionType enumerates the metric types in custom boost order rules.
 type CustomCriterionType int
 
