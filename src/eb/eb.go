@@ -241,7 +241,7 @@ func BuildEbEmbed(backup *ei.Backup, farmChoice string, userID string) dc.Embed 
 		desc.WriteString("-# In Virtue farms, PE and SE do not count (EB is 1.10^TE)\n")
 
 		if pendingTE > 0 {
-			desc.WriteString(fmt.Sprintf("\n### %s Home Farm (with pending TE)\n", homeIcon))
+			fmt.Fprintf(&desc, "\n### %s Home Farm (with pending TE)\n", homeIcon)
 			fmt.Fprintf(&desc, "**PE**: %d · **SE**: %s · **TE**: %d (%d + %d pending)\n",
 				pe,
 				ei.FormatEIValue(se, fmtFmt),
@@ -294,7 +294,7 @@ func BuildEbEmbed(backup *ei.Backup, farmChoice string, userID string) dc.Embed 
 		desc.WriteString("-# In Virtue farms, PE and SE do not count (EB is 1.10^TE)\n")
 
 		if pendingTE > 0 {
-			desc.WriteString(fmt.Sprintf("\n### %s Home Farm (with pending TE)\n", homeIcon))
+			fmt.Fprintf(&desc, "\n### %s Home Farm (with pending TE)\n", homeIcon)
 			fmt.Fprintf(&desc, "**PE**: %d · **SE**: %s · **TE**: %d (%d + %d pending)\n",
 				pe,
 				ei.FormatEIValue(se, fmtFmt),
