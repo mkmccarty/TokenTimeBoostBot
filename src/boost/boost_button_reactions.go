@@ -111,7 +111,7 @@ func HandleContractReactions(client dc.Client, e *dc.ComponentEvent) {
 	case "complain":
 		buttonReactionComplain(client, contract, userID)
 	case "notoken":
-		buttonReactionNonToken(client, e, contract, userID)
+		buttonReactionNonToken(e, contract, userID)
 	case "predmenu":
 		values := e.Values()
 		if b := contract.Boosters[userID]; b != nil {
@@ -1505,7 +1505,7 @@ func sendOrUpdateUserReactionSummary(e *dc.ComponentEvent, contract *Contract, u
 	}
 }
 
-func buttonReactionNonToken(client dc.Client, e *dc.ComponentEvent, contract *Contract, userID string) {
+func buttonReactionNonToken(e *dc.ComponentEvent, contract *Contract, userID string) {
 	if !UserInContract(contract, userID) {
 		return
 	}
