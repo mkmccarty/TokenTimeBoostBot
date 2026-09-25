@@ -198,3 +198,5 @@ eggcycle:
 	emoji/egg_waterballoon.png \
 	emoji/egg_wood.png \
 	collegg.gif
+
+-include bin/Makefile
