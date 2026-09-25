@@ -1022,6 +1022,30 @@ func HandleChartReactions(e *dc.ComponentEvent) {
 	uuidPart := parts[2]
 	userID := e.UserID()
 
+	if action == "finish" {
+		chartSessionsMutex.Lock()
+		session, ok := chartSessions[uuidPart]
+		if ok {
+			if session.userID != userID {
+				chartSessionsMutex.Unlock()
+				_ = e.Respond(dc.Message{
+					Content:   "This is restricted to the user that originally ran the command.",
+					Ephemeral: true,
+				})
+				return
+			}
+			delete(chartSessions, uuidPart)
+		}
+		chartSessionsMutex.Unlock()
+
+		_ = e.Update(dc.Message{
+			Ephemeral:       e.MessageIsEphemeral(),
+			ClearComponents: true,
+			Components:      e.MessageComponentsWithoutActionRows(),
+		})
+		return
+	}
+
 	chartSessionsMutex.Lock()
 	session, ok := chartSessions[uuidPart]
 	chartSessionsMutex.Unlock()
@@ -1139,13 +1163,7 @@ func HandleChartReactions(e *dc.ComponentEvent) {
 			Ephemeral: true,
 		})
 		return
-	case "finish":
-		// Remove interactive components, keeping the chart itself
-		_ = e.Update(dc.Message{Components: e.MessageComponentsWithoutActionRows()})
-		chartSessionsMutex.Lock()
-		delete(chartSessions, uuidPart) // Clean up session
-		chartSessionsMutex.Unlock()
-		return
+
 	case "seasonswitch":
 		// parts: chart # seasonswitch # uuid # newSeasonScope [# tag]
 		if len(parts) < 4 {
