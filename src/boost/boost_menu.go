@@ -339,32 +339,7 @@ func HandleMenuReactions(client dc.Client, e *dc.ComponentEvent) {
 		}
 		sendOrUpdateUserReactionSummary(e, contract, e.UserID())
 	case "grange":
-		// Create a list of the grange members from contract.BoostList, with each line formatted as "MemberName (UserID)" and the join timestamp
-		var grangeMembers []string
-		// Create a slice of booster entries to sort
-		type boosterEntry struct {
-			userID  string
-			booster *Booster
-		}
-
-		var entries []boosterEntry
-		for userID, booster := range contract.Boosters {
-			entries = append(entries, boosterEntry{userID: userID, booster: booster})
-		}
-
-		// Sort by Register time
-		sort.Slice(entries, func(i, j int) bool {
-			return entries[i].booster.Register.Before(entries[j].booster.Register)
-		})
-
-		// Build the sorted list
-		for _, entry := range entries {
-			grangeMembers = append(grangeMembers, fmt.Sprintf("`%s` joined: <t:%d:T>", entry.booster.Nick, entry.booster.Register.Unix()))
-		}
-		var components []dc.LayoutComponent
-		components = append(components, dc.TextDisplay{
-			Content: fmt.Sprintf("# %s Grange Members\n%s", contract.Location[0].GuildContractRole.Name, strings.Join(grangeMembers, "\n")),
-		})
+		components := DrawPureBoostList(contract)
 		_ = e.Respond(dc.Message{
 			Ephemeral:  true,
 			Components: components,
