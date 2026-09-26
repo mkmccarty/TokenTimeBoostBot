@@ -598,7 +598,7 @@ func CreateContract(client dc.Client, contractID string, coopID string, playStyl
 	if BoostOrder == -1 {
 		contract.BoostOrder = ContractOrderSignup
 		if playStyle == ContractPlaystyleLeaderboard {
-			contract.BoostOrder = ContractOrderTEFuzzy
+			contract.BoostOrder = ContractOrderIHRFuzzy
 		}
 	} else {
 		contract.BoostOrder = BoostOrder
