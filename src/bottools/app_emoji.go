@@ -2,6 +2,7 @@ package bottools
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -17,6 +18,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/google/go-github/v71/github"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
@@ -118,7 +120,12 @@ func EnsureEmojiFromLocalRepoWithClient(client dc.Client, name string) (ei.Emote
 	// If still missing after Discord fetch, look up image in local emoji/ directory
 	emojiPath, ok := findLocalEmojiPath(emojiName)
 	if !ok {
-		return ei.Emotes{}, false
+		// Attempt to download the missing image from git repository
+		emojiPath, ok = downloadEmojiFromGit(name, emojiName)
+		if !ok {
+			log.Printf("Emoji %s not found locally or in git repository", emojiName)
+			return ei.Emotes{}, false
+		}
 	}
 
 	createdEmoji, err := importSingleEmojiFromPath(client, emojiName, emojiPath)
@@ -133,13 +140,125 @@ func EnsureEmojiFromLocalRepoWithClient(client dc.Client, name string) (ei.Emote
 		ei.EmoteMap = refreshed
 		saveEmotesToFile(emoteFilePath, ei.EmoteMap)
 		if emoji, found := ei.EmoteMap[emojiName]; found {
+			ei.EmoteMap[strings.ToLower(name)] = emoji
 			return emoji, true
 		}
 	}
 
 	ei.EmoteMap[emojiName] = createdEmoji
+	ei.EmoteMap[strings.ToLower(name)] = createdEmoji
 	saveEmotesToFile(emoteFilePath, ei.EmoteMap)
 	return createdEmoji, true
+}
+
+func downloadEmojiFromGit(name, emojiName string) (string, bool) {
+	if err := os.MkdirAll("emoji", 0755); err != nil {
+		return "", false
+	}
+
+	rawBaseURL := "https://raw.githubusercontent.com/mkmccarty/TokenTimeBoostBot/main/emoji/"
+
+	candidates := []string{
+		emojiName + ".png",
+		emojiName + ".gif",
+		name + ".png",
+		name + ".gif",
+		strings.ToLower(name) + ".png",
+		strings.ToLower(name) + ".gif",
+		strings.ReplaceAll(strings.ToLower(name), "-", "_") + ".png",
+		strings.ReplaceAll(strings.ToLower(name), "-", "_") + ".gif",
+	}
+
+	httpClient := &http.Client{Timeout: 10 * time.Second}
+	seen := make(map[string]bool)
+
+	for _, cand := range candidates {
+		if seen[cand] {
+			continue
+		}
+		seen[cand] = true
+
+		url := rawBaseURL + cand
+		req, err := http.NewRequestWithContext(context.Background(), "GET", url, nil)
+		if err != nil {
+			continue
+		}
+		req.Header.Set("User-Agent", "TokenTimeBoostBot/1.0")
+
+		resp, err := httpClient.Do(req)
+		if err != nil {
+			continue
+		}
+
+		if resp.StatusCode == http.StatusOK {
+			data, err := io.ReadAll(resp.Body)
+			_ = resp.Body.Close()
+			if err != nil || len(data) == 0 {
+				continue
+			}
+
+			localPath := filepath.Join("emoji", cand)
+			if err := os.WriteFile(localPath, data, 0644); err != nil {
+				log.Printf("Failed to write downloaded emoji %s to %s: %v", cand, localPath, err)
+				return "", false
+			}
+
+			log.Printf("Downloaded missing emoji %s from git (%s)", emojiName, url)
+			return localPath, true
+		}
+		_ = resp.Body.Close()
+	}
+
+	// Fallback: query GitHub API directory listing for emoji/
+	client := github.NewClient(nil)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	_, directoryContents, _, err := client.Repositories.GetContents(ctx, "mkmccarty", "TokenTimeBoostBot", "emoji", &github.RepositoryContentGetOptions{
+		Ref: "main",
+	})
+	if err != nil {
+		return "", false
+	}
+
+	cleanTarget := strings.ReplaceAll(strings.ReplaceAll(strings.ToLower(name), "-", ""), "_", "")
+	for _, content := range directoryContents {
+		if content.GetType() != "file" || !isEmojiFile(content.GetName()) {
+			continue
+		}
+		candidateBase := strings.TrimSuffix(content.GetName(), filepath.Ext(content.GetName()))
+		cleanCandidate := strings.ReplaceAll(strings.ReplaceAll(strings.ToLower(candidateBase), "-", ""), "_", "")
+		if cleanCandidate == cleanTarget || strings.EqualFold(candidateBase, emojiName) || strings.EqualFold(candidateBase, name) {
+			downloadURL := content.GetDownloadURL()
+			if downloadURL == "" {
+				continue
+			}
+			req, err := http.NewRequestWithContext(ctx, "GET", downloadURL, nil)
+			if err != nil {
+				continue
+			}
+			resp, err := httpClient.Do(req)
+			if err != nil {
+				continue
+			}
+			if resp.StatusCode == http.StatusOK {
+				data, err := io.ReadAll(resp.Body)
+				_ = resp.Body.Close()
+				if err != nil || len(data) == 0 {
+					continue
+				}
+				localPath := filepath.Join("emoji", content.GetName())
+				if err := os.WriteFile(localPath, data, 0644); err != nil {
+					return "", false
+				}
+				log.Printf("Downloaded missing emoji %s from GitHub API (%s)", emojiName, downloadURL)
+				return localPath, true
+			}
+			_ = resp.Body.Close()
+		}
+	}
+
+	return "", false
 }
 
 func findLocalEmojiPath(emojiName string) (string, bool) {
