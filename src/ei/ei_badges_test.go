@@ -18,9 +18,9 @@ func TestBadgeNAHAndNAHLegacy(t *testing.T) {
 		expectNone    bool
 	}{
 		{
-			name:          "Below NAH Base Threshold",
-			habSize:       10000000000,
-			expectNone:    true,
+			name:       "Below NAH Base Threshold",
+			habSize:    10000000000,
+			expectNone: true,
 		},
 		{
 			name:          "Legacy NAH",
