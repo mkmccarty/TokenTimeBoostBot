@@ -301,7 +301,7 @@ func TestCreateContractPlaystyleBoostOrder(t *testing.T) {
 	creatorUserID := "user-456"
 
 	// Case 1: boostOrder is -1 (not specified) and PlayStyle is Leaderboard.
-	// It should default to ContractOrderTEFuzzy.
+	// It should default to ContractOrderIHRFuzzy.
 	channelID1 := "channel-123-1"
 	contract1, err := CreateContract(client, contractID, "coop-order-test-1", ContractPlaystyleLeaderboard, 10, -1, guildID, channelID1, []string{creatorUserID}, creatorUserID, time.Now(), time.Now())
 	if err != nil {
@@ -312,8 +312,8 @@ func TestCreateContractPlaystyleBoostOrder(t *testing.T) {
 		delete(Contracts, contract1.ContractHash)
 		ContractsMutex.Unlock()
 	}()
-	if contract1.BoostOrder != ContractOrderTEFuzzy {
-		t.Errorf("expected default boost order for Leaderboard playstyle to be ContractOrderTEFuzzy (%d), got %d", ContractOrderTEFuzzy, contract1.BoostOrder)
+	if contract1.BoostOrder != ContractOrderIHRFuzzy {
+		t.Errorf("expected default boost order for Leaderboard playstyle to be ContractOrderIHRFuzzy (%d), got %d", ContractOrderIHRFuzzy, contract1.BoostOrder)
 	}
 
 	// Case 2: boostOrder is explicitly ContractOrderRandom (2) and PlayStyle is Leaderboard.
