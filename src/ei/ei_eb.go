@@ -67,7 +67,12 @@ func GetDressedEarningsBonus(backup *Backup, eov float64) float64 {
 		}
 	}
 
-	// Find top 4 non-virtue artifacts with most slots
+	maxSlots := 4
+	if game.GetPermitLevel() != 1 {
+		maxSlots = 2
+	}
+
+	// Find non-virtue artifacts with most slots
 	type artifactSlot struct {
 		slots int
 		name  ArtifactSpec_Name
@@ -84,6 +89,9 @@ func GetDressedEarningsBonus(backup *Backup, eov float64) float64 {
 		}
 
 		slots, _ := GetStones(spec.GetName(), spec.GetLevel(), spec.GetRarity())
+		if slots <= 0 && item.GetArtifact() != nil {
+			slots = len(item.GetArtifact().GetStones())
+		}
 		nonVirtueArtifacts = append(nonVirtueArtifacts, artifactSlot{slots: slots, name: spec.GetName()})
 	}
 
@@ -91,29 +99,6 @@ func GetDressedEarningsBonus(backup *Backup, eov float64) float64 {
 	sort.Slice(nonVirtueArtifacts, func(i, j int) bool {
 		return nonVirtueArtifacts[i].slots > nonVirtueArtifacts[j].slots
 	})
-
-	totalSlots := 0
-	equippedCount := 0
-	bobEquipped := false
-	for _, a := range nonVirtueArtifacts {
-		if equippedCount >= 4 {
-			break
-		}
-		if a.name == ArtifactSpec_BOOK_OF_BASAN {
-			bobEquipped = true
-		}
-		totalSlots += a.slots
-		equippedCount++
-	}
-
-	// If BoB wasn't in top 4 (unlikely, but possible), we should consider it
-	if !bobEquipped && bestBoB != nil {
-		// Just for safety, add BoB slots if we have room or it's better than the 4th
-		bobSlots, _ := GetStones(ArtifactSpec_BOOK_OF_BASAN, bestBoB.GetArtifact().GetSpec().GetLevel(), bestBoB.GetArtifact().GetSpec().GetRarity())
-		if equippedCount < 4 {
-			totalSlots += bobSlots
-		}
-	}
 
 	// Calculate stone bonuses
 	var pStones []float64
@@ -147,6 +132,29 @@ func GetDressedEarningsBonus(backup *Backup, eov float64) float64 {
 
 	sort.Slice(pStones, func(i, j int) bool { return pStones[i] > pStones[j] })
 	sort.Slice(sStones, func(i, j int) bool { return sStones[i] > sStones[j] })
+
+	totalSlots := 0
+	equippedCount := 0
+	bobEquipped := false
+	for _, a := range nonVirtueArtifacts {
+		if equippedCount >= maxSlots {
+			break
+		}
+		if a.name == ArtifactSpec_BOOK_OF_BASAN {
+			bobEquipped = true
+		}
+		totalSlots += a.slots
+		equippedCount++
+	}
+
+	// If BoB wasn't in top artifacts (unlikely, but possible), we should consider it
+	if !bobEquipped && bestBoB != nil {
+		// Just for safety, add BoB slots if we have room
+		bobSlots, _ := GetStones(ArtifactSpec_BOOK_OF_BASAN, bestBoB.GetArtifact().GetSpec().GetLevel(), bestBoB.GetArtifact().GetSpec().GetRarity())
+		if equippedCount < maxSlots {
+			totalSlots += bobSlots
+		}
+	}
 
 	// Greedily fill slots
 	currentSoulBonus := soulBonus

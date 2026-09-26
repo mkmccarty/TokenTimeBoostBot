@@ -41,7 +41,7 @@ func TestLdflagsVersionRegex(t *testing.T) {
 }
 
 func TestAdminExitNoticeCycle(t *testing.T) {
-	defer os.Remove(adminExitNoticeFile)
+	defer func() { _ = os.Remove(adminExitNoticeFile) }()
 	_ = os.Remove(adminExitNoticeFile)
 
 	exitTime := time.Now()
@@ -97,7 +97,7 @@ func TestAdminExitNoticeCycle(t *testing.T) {
 }
 
 func TestAdminExitNoticeExpired(t *testing.T) {
-	defer os.Remove(adminExitNoticeFile)
+	defer func() { _ = os.Remove(adminExitNoticeFile) }()
 	_ = os.Remove(adminExitNoticeFile)
 
 	notice := AdminExitNotice{
