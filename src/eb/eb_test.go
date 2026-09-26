@@ -312,3 +312,37 @@ func TestBuildEbEmbedMaxEarningsCTE(t *testing.T) {
 
 	_ = activeCTE
 }
+
+func TestBuildEbEmbedWithBadges(t *testing.T) {
+	if ei.EmoteMap == nil {
+		ei.EmoteMap = make(map[string]ei.Emotes)
+	}
+	ei.EmoteMap["badge_nah"] = ei.Emotes{Name: "badge_nah", ID: "111"}
+	ei.EmoteMap["badge_good_job"] = ei.Emotes{Name: "badge_good_job", ID: "222"}
+
+	maker := ei.NewBackupMaker("EI1234567890123456", "BadgeFarmer")
+	backup := maker.GetBackup()
+
+	// Grant NAH
+	farmsize := make([]uint64, 19)
+	farmsize[18] = 21000000000
+	backup.Game.MaxFarmSizeReached = farmsize
+
+	// Grant Crafting Level 30 (Good Job)
+	xp := 5070943000.0 + 100.0
+	backup.Artifacts = &ei.Backup_Artifacts{
+		CraftingXp: &xp,
+	}
+
+	embed := BuildEbEmbed(backup, FarmHome, "user-123")
+
+	if embed.Title != "Earnings Bonus — BadgeFarmer" {
+		t.Errorf("unexpected embed title: %q", embed.Title)
+	}
+
+	// Badges should be at the start of the description
+	expectedBadgeRow := "<:badge_nah:111> <:badge_good_job:222>"
+	if !strings.HasPrefix(embed.Description, expectedBadgeRow) {
+		t.Errorf("expected embed description to start with %q, got:\n%s", expectedBadgeRow, embed.Description)
+	}
+}

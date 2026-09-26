@@ -72,6 +72,23 @@ func GetColleggtibleDimensionBuffs() DimensionBuffs {
 	return colleggtibleBuffs
 }
 
+// GetMaxColleggtibleHabModifier calculates the maximum theoretical Hab Capacity multiplier across all colleggtibles.
+func GetMaxColleggtibleHabModifier() float64 {
+	colleggtibleDatesMu.RLock()
+	defer colleggtibleDatesMu.RUnlock()
+
+	mod := 1.0
+	for _, egg := range CustomEggMap {
+		if egg != nil && egg.Dimension == GameModifier_HAB_CAPACITY && len(egg.DimensionValue) > 0 {
+			mod *= egg.DimensionValue[len(egg.DimensionValue)-1]
+		}
+	}
+	if mod == 1.0 {
+		return 1.05
+	}
+	return mod
+}
+
 func applyDimensionBuff(buffs *DimensionBuffs, dimension GameModifier_GameDimension, value float64) {
 	switch dimension {
 	case GameModifier_EGG_LAYING_RATE:

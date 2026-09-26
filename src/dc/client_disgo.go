@@ -3,6 +3,7 @@ package dc
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/disgoorg/disgo/bot"
 	"github.com/disgoorg/disgo/discord"
@@ -579,6 +580,33 @@ func (c *disgoClient) ApplicationEmojis(appID string) ([]Emoji, error) {
 	return emojis, nil
 }
 
+// parseDataURIIcon converts a data URI (e.g. "data:image/png;base64,...") into a discord.Icon.
+func parseDataURIIcon(dataURI string) discord.Icon {
+	if dataURI == "" {
+		return discord.Icon{}
+	}
+	parts := strings.SplitN(dataURI, ",", 2)
+	if len(parts) != 2 {
+		return discord.Icon{
+			Type: discord.IconTypePNG,
+			Data: []byte(dataURI),
+		}
+	}
+	header := parts[0]
+	data := []byte(parts[1])
+	mime := discord.IconTypePNG
+	if strings.HasPrefix(header, "data:") {
+		trimmed := strings.TrimPrefix(header, "data:")
+		if idx := strings.Index(trimmed, ";"); idx != -1 {
+			mime = discord.IconType(trimmed[:idx])
+		}
+	}
+	return discord.Icon{
+		Type: mime,
+		Data: data,
+	}
+}
+
 // ApplicationEmojiCreate uploads one emoji to an application.
 func (c *disgoClient) ApplicationEmojiCreate(appID string, params EmojiParams) (*Emoji, error) {
 	ids, err := parseIDs(appID)
@@ -587,7 +615,7 @@ func (c *disgoClient) ApplicationEmojiCreate(appID string, params EmojiParams) (
 	}
 	created, err := c.bot.Rest.CreateApplicationEmoji(ids[0], discord.EmojiCreate{
 		Name:  params.Name,
-		Image: discord.Icon{},
+		Image: parseDataURIIcon(params.Image),
 	})
 	if err != nil {
 		return nil, wrapAPIError(err)

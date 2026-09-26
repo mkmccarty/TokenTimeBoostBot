@@ -199,6 +199,11 @@ func BuildEbEmbed(backup *ei.Backup, farmChoice string, userID string) dc.Embed 
 	homeIcon, virtueIcon := determineFarmIcons(backup)
 
 	var desc strings.Builder
+	badgeRow := ei.GetBadgeMarkdownRow(backup)
+	if badgeRow != "" {
+		desc.WriteString(badgeRow)
+		desc.WriteString("\n")
+	}
 	primaryColor := parseHexColor(homeDressedRole.Color)
 
 	fmtFmt := map[string]any{"decimals": 3, "trim": true}
