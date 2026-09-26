@@ -114,6 +114,22 @@ func (e *CommandEvent) User() *User {
 	return userFrom(&user)
 }
 
+// Token returns the interaction's token.
+func (e *CommandEvent) Token() string {
+	if e.event == nil {
+		return ""
+	}
+	return e.event.Token()
+}
+
+// ApplicationID returns the interaction's application ID.
+func (e *CommandEvent) ApplicationID() string {
+	if e.event == nil {
+		return ""
+	}
+	return idString(e.event.ApplicationID())
+}
+
 // Subcommand is the name of the subcommand the user invoked, for commands
 // that group their behavior that way. The second return is false when the
 // command was invoked with no subcommand.
@@ -401,10 +417,26 @@ func (e *ComponentEvent) Member() *Member {
 	return resolvedMemberFrom(e.event.Member())
 }
 
-// User is the account that used the component.
+// User is the account that ran the component.
 func (e *ComponentEvent) User() *User {
 	user := e.event.User()
 	return userFrom(&user)
+}
+
+// Token returns the interaction's token.
+func (e *ComponentEvent) Token() string {
+	if e.event == nil {
+		return ""
+	}
+	return e.event.Token()
+}
+
+// ApplicationID returns the interaction's application ID.
+func (e *ComponentEvent) ApplicationID() string {
+	if e.event == nil {
+		return ""
+	}
+	return idString(e.event.ApplicationID())
 }
 
 // Respond answers with a new message rather than touching the one the

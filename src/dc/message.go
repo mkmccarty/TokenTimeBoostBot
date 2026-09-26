@@ -109,3 +109,17 @@ func (m Message) content() string {
 	}
 	return m.Content
 }
+
+// Text returns the message's primary text: Content for v1 messages, or the first
+// TextDisplay's content for v2 messages.
+func (m Message) Text() string {
+	if m.Content != "" {
+		return m.Content
+	}
+	for _, comp := range m.Components {
+		if td, ok := comp.(TextDisplay); ok {
+			return td.Content
+		}
+	}
+	return ""
+}

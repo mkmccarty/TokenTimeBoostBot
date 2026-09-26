@@ -96,6 +96,11 @@ type Client interface {
 	ApplicationEmojis(appID string) ([]Emoji, error)
 	// ApplicationEmojiCreate uploads one emoji to an application.
 	ApplicationEmojiCreate(appID string, params EmojiParams) (*Emoji, error)
+
+	// EditInteractionResponse replaces the interaction's original response or updated message.
+	EditInteractionResponse(appID, token string, m Message) error
+	// EditFollowupMessage replaces an interaction's followup message.
+	EditFollowupMessage(appID, token, messageID string, m Message) error
 }
 
 // EmojiParams is an emoji upload: a name and a data URI holding the image,

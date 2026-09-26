@@ -1056,6 +1056,10 @@ func main() {
 	}
 	syncCommands(botClient(), bot.UserID(), config.DiscordGuildID, commandSet)
 
+	safeGoMeta("admin-exit-restart", nil, func() {
+		boost.CheckAndNotifyAdminExitRestart(botClient())
+	})
+
 	defer func() {
 		if err := bot.Close(); err != nil {
 			// Handle the error appropriately, e.g., logging or taking corrective actions

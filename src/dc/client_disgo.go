@@ -626,5 +626,25 @@ func (c *disgoClient) ApplicationEmojiCreate(appID string, params EmojiParams) (
 	return &Emoji{Name: created.Name, ID: idString(created.ID), Animated: created.Animated}, nil
 }
 
+// EditInteractionResponse replaces the interaction's original response or updated message.
+func (c *disgoClient) EditInteractionResponse(appID, token string, m Message) error {
+	ids, err := parseIDs(appID)
+	if err != nil {
+		return err
+	}
+	_, err = c.bot.Rest.UpdateInteractionResponse(ids[0], token, m.toMessageUpdate())
+	return wrapAPIError(err)
+}
+
+// EditFollowupMessage replaces an interaction's followup message.
+func (c *disgoClient) EditFollowupMessage(appID, token, messageID string, m Message) error {
+	ids, err := parseIDs(appID, messageID)
+	if err != nil {
+		return err
+	}
+	_, err = c.bot.Rest.UpdateFollowupMessage(ids[0], token, ids[1], m.toMessageUpdate())
+	return wrapAPIError(err)
+}
+
 // compile-time assertion that disgoClient satisfies Client.
 var _ Client = (*disgoClient)(nil)

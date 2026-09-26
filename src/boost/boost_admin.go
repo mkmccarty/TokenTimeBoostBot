@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -1270,7 +1271,22 @@ func HandleAdminExitButton(client dc.Client, e *dc.ComponentEvent) {
 
 	switch action {
 	case "confirm":
-		respondAndClose("Bot is exiting gracefully for a restart...")
+		exitTime := time.Now()
+		exitTimestamp := bottools.WrapTimestamp(exitTime.Unix(), bottools.TimestampLongTime)
+		exitMsg := fmt.Sprintf("Bot is exiting gracefully for a restart... %s", exitTimestamp)
+		respondAndClose(exitMsg)
+
+		saveAdminExitNotice(AdminExitNotice{
+			ApplicationID:    e.ApplicationID(),
+			InteractionToken: e.Token(),
+			MessageID:        e.MessageID(),
+			ChannelID:        e.ChannelID(),
+			GuildID:          e.GuildID(),
+			UserID:           e.UserID(),
+			ExitTime:         exitTime,
+			InitialText:      exitMsg,
+		})
+
 		// Run graceful shutdown in a goroutine so that the response is fully sent and processed
 		go func() {
 			log.Println("Exit confirmed by administrator")
@@ -1283,6 +1299,7 @@ func HandleAdminExitButton(client dc.Client, e *dc.ComponentEvent) {
 		}()
 
 	case "cancel":
+		_ = os.Remove(adminExitNoticeFile)
 		respondAndClose("Restart cancelled. The bot remains active.")
 
 	case "page":
@@ -1297,6 +1314,136 @@ func HandleAdminExitButton(client dc.Client, e *dc.ComponentEvent) {
 			Components: buildAdminExitResponse(page),
 		})
 	}
+}
+
+// AdminExitNotice tracks metadata for an admin-requested exit to update the ephemeral message on startup.
+type AdminExitNotice struct {
+	ApplicationID    string    `json:"application_id"`
+	InteractionToken string    `json:"interaction_token"`
+	MessageID        string    `json:"message_id"`
+	ChannelID        string    `json:"channel_id"`
+	GuildID          string    `json:"guild_id"`
+	UserID           string    `json:"user_id"`
+	ExitTime         time.Time `json:"exit_time"`
+	InitialText      string    `json:"initial_text"`
+}
+
+const adminExitNoticeFile = "ttbb-data/admin_exit_restart.json"
+
+var (
+	botProcessStartTime  = time.Now()
+	adminExitNoticeMutex sync.Mutex
+)
+
+func saveAdminExitNotice(notice AdminExitNotice) {
+	adminExitNoticeMutex.Lock()
+	defer adminExitNoticeMutex.Unlock()
+
+	_ = os.MkdirAll("ttbb-data", 0755)
+	data, err := json.MarshalIndent(notice, "", "  ")
+	if err != nil {
+		log.Printf("Error marshalling admin exit notice: %v", err)
+		return
+	}
+	if err := os.WriteFile(adminExitNoticeFile, data, 0644); err != nil {
+		log.Printf("Error writing admin exit notice to %s: %v", adminExitNoticeFile, err)
+	}
+}
+
+// CheckAndNotifyAdminExitRestart checks if the bot was restarted via /admin-exit
+// and updates the original ephemeral message to notify that the bot is back online.
+func CheckAndNotifyAdminExitRestart(client dc.Client) {
+	adminExitNoticeMutex.Lock()
+	data, err := os.ReadFile(adminExitNoticeFile)
+	if err != nil {
+		adminExitNoticeMutex.Unlock()
+		return
+	}
+	_ = os.Remove(adminExitNoticeFile)
+	adminExitNoticeMutex.Unlock()
+
+	var notice AdminExitNotice
+	if err := json.Unmarshal(data, &notice); err != nil {
+		log.Printf("Error parsing admin exit notice: %v", err)
+		return
+	}
+
+	if time.Since(notice.ExitTime) > 15*time.Minute {
+		log.Printf("Admin exit notice expired (%v old), skipping edit", time.Since(notice.ExitTime))
+		return
+	}
+
+	var b strings.Builder
+	if notice.InitialText != "" {
+		b.WriteString(notice.InitialText)
+	} else {
+		b.WriteString("Bot is exiting gracefully for a restart...")
+	}
+	b.WriteString("\n")
+	fmt.Fprintf(&b, "• %s Bot process started\n", bottools.WrapTimestamp(botProcessStartTime.Unix(), bottools.TimestampLongTime))
+
+	runningVer, runningRev, _, _, _, _, _ := getVersionAndRevisionInfo()
+	readyTime := time.Now()
+	readyTimestamp := bottools.WrapTimestamp(readyTime.Unix(), bottools.TimestampLongTime)
+
+	var verStr string
+	if runningVer != "Unknown" && runningRev != "Unknown" {
+		verStr = fmt.Sprintf(" (Version `%s`, Commit `%s`)", runningVer, shortenRevision(runningRev))
+	} else if runningVer != "Unknown" {
+		verStr = fmt.Sprintf(" (Version `%s`)", runningVer)
+	} else if runningRev != "Unknown" {
+		verStr = fmt.Sprintf(" (Commit `%s`)", shortenRevision(runningRev))
+	}
+	fmt.Fprintf(&b, "• %s Bot is online and ready%s", readyTimestamp, verStr)
+
+	newContent := b.String()
+	if err := updateAdminExitMessage(client, notice, newContent); err != nil {
+		log.Printf("Error updating admin exit message: %v", err)
+	} else {
+		log.Printf("Successfully updated admin exit restart message for user %s", notice.UserID)
+	}
+}
+
+func updateAdminExitMessage(client dc.Client, notice AdminExitNotice, newContent string) error {
+	msg := dc.Message{
+		Components: []dc.LayoutComponent{
+			dc.TextDisplay{Content: newContent},
+		},
+	}
+
+	var firstErr error
+	if notice.ApplicationID != "" && notice.InteractionToken != "" {
+		// 1. Try editing original interaction response
+		if err := client.EditInteractionResponse(notice.ApplicationID, notice.InteractionToken, msg); err == nil {
+			return nil
+		} else {
+			firstErr = err
+			log.Printf("EditInteractionResponse error: %v", err)
+		}
+
+		// 2. Try editing as followup message
+		if notice.MessageID != "" && notice.MessageID != "@original" {
+			if err := client.EditFollowupMessage(notice.ApplicationID, notice.InteractionToken, notice.MessageID, msg); err == nil {
+				return nil
+			} else {
+				log.Printf("EditFollowupMessage error: %v", err)
+			}
+		}
+	}
+
+	// 3. Fallback: try editing regular channel message if channel ID and message ID exist
+	if notice.ChannelID != "" && notice.MessageID != "" && notice.MessageID != "@original" {
+		if _, err := client.EditMessage(notice.ChannelID, notice.MessageID, msg); err == nil {
+			return nil
+		} else {
+			log.Printf("EditMessage error: %v", err)
+		}
+	}
+
+	if firstErr != nil {
+		return firstErr
+	}
+	return errors.New("unable to edit admin exit message")
 }
 
 var (
