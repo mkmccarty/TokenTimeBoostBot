@@ -158,6 +158,19 @@ func findLocalEmojiPath(emojiName string) (string, bool) {
 		}
 	}
 
+	// Fallback: match after removing hyphens and underscores
+	cleanTarget := strings.ReplaceAll(strings.ReplaceAll(strings.ToLower(emojiName), "-", ""), "_", "")
+	for _, file := range files {
+		if file.IsDir() || !isEmojiFile(file.Name()) {
+			continue
+		}
+		candidate := strings.TrimSuffix(file.Name(), filepath.Ext(file.Name()))
+		cleanCandidate := strings.ReplaceAll(strings.ReplaceAll(strings.ToLower(candidate), "-", ""), "_", "")
+		if cleanCandidate == cleanTarget {
+			return filepath.Join("emoji", file.Name()), true
+		}
+	}
+
 	return "", false
 }
 
