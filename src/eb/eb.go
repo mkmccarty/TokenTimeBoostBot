@@ -180,6 +180,11 @@ func BuildEbEmbed(backup *ei.Backup, farmChoice string, userID string) dc.Embed 
 			}
 		}
 	}
+	if game := backup.GetGame(); game != nil && game.GetPermitLevel() != 1 {
+		if inUseSlots > 2 {
+			inUseSlots = 2
+		}
+	}
 	maxCTEResult := ei.CalculateMaxClothedTEWithSlotHint(backup, inUseSlots)
 	cte := maxCTEResult.ClothedTE
 	if cte < 0 {
@@ -196,10 +201,26 @@ func BuildEbEmbed(backup *ei.Backup, farmChoice string, userID string) dc.Embed 
 	homeIcon, virtueIcon := determineFarmIcons(backup)
 
 	var desc strings.Builder
+	permitEmoji := ""
+	if game := backup.GetGame(); game != nil && game.GetPermitLevel() == 1 {
+		if emoji, ok := ei.GetBotEmojiMarkdownIfExists("pro_permit"); ok {
+			permitEmoji = emoji
+		}
+	} else {
+		if emoji, ok := ei.GetBotEmojiMarkdownIfExists("free_permit"); ok {
+			permitEmoji = emoji
+		}
+	}
+
 	badgeRow := ei.GetBadgeMarkdownRow(backup)
-	if badgeRow != "" {
-		desc.WriteString(badgeRow)
-		desc.WriteString("\n")
+	if permitEmoji != "" || badgeRow != "" {
+		if permitEmoji != "" && badgeRow != "" {
+			desc.WriteString(permitEmoji + " " + badgeRow + "\n")
+		} else if permitEmoji != "" {
+			desc.WriteString(permitEmoji + "\n")
+		} else {
+			desc.WriteString(badgeRow + "\n")
+		}
 	}
 	primaryColor := parseHexColor(homeDressedRole.Color)
 

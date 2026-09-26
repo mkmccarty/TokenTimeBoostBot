@@ -346,3 +346,62 @@ func TestBuildEbEmbedWithBadges(t *testing.T) {
 		t.Errorf("expected embed description to start with %q, got:\n%s", expectedBadgeRow, embed.Description)
 	}
 }
+
+func TestBuildEbEmbedStandardPermit(t *testing.T) {
+	makerPro := ei.NewBackupMaker("EI1234567890123456", "ProFarmer")
+	makerPro.SetPermitLevel(1)
+	backupPro := makerPro.GetBackup()
+
+	makerStd := ei.NewBackupMaker("EI1234567890123456", "StdFarmer")
+	makerStd.SetPermitLevel(0)
+	backupStd := makerStd.GetBackup()
+
+	// Pro permit player with 4 artifact slots should have higher or equal Dressed EB than standard permit with 2 slots
+	proDressedEB := ei.GetDressedEarningsBonus(backupPro, 0)
+	stdDressedEB := ei.GetDressedEarningsBonus(backupStd, 0)
+
+	if stdDressedEB > proDressedEB {
+		t.Errorf("standard permit player Dressed EB (%e) should not exceed pro permit player Dressed EB (%e)", stdDressedEB, proDressedEB)
+	}
+
+	// Verify BuildEbEmbed works properly for standard permit
+	embedStd := BuildEbEmbed(backupStd, FarmHomeAndVirtue, "user-std")
+	homeIcon, virtueIcon := determineFarmIcons(backupStd)
+	if !strings.Contains(embedStd.Description, fmt.Sprintf("### %s Home Farm", homeIcon)) {
+		t.Errorf("missing Home Farm section for standard permit player")
+	}
+	if !strings.Contains(embedStd.Description, fmt.Sprintf("### %s Virtue Farm", virtueIcon)) {
+		t.Errorf("missing Virtue Farm section for standard permit player")
+	}
+
+	// Standard permit max CTE should use 2 slots
+	stdCTEResult := ei.CalculateMaxClothedTEWithSlotHint(backupStd, 0)
+	expectedCTEStr := fmt.Sprintf("**CTE**: %.0f", stdCTEResult.ClothedTE)
+	if !strings.Contains(embedStd.Description, expectedCTEStr) {
+		t.Errorf("expected standard permit embed to contain %q, got %s", expectedCTEStr, embedStd.Description)
+	}
+}
+
+func TestBuildEbEmbed_PermitEmojis(t *testing.T) {
+	oldMap := ei.EmoteMap
+	ei.EmoteMap = make(map[string]ei.Emotes)
+	ei.EmoteMap["pro_permit"] = ei.Emotes{Name: "pro_permit", ID: "3001"}
+	ei.EmoteMap["free_permit"] = ei.Emotes{Name: "free_permit", ID: "3002"}
+	defer func() {
+		ei.EmoteMap = oldMap
+	}()
+
+	makerPro := ei.NewBackupMaker("EI1234567890123456", "ProFarmer")
+	makerPro.SetPermitLevel(1)
+	embedPro := BuildEbEmbed(makerPro.GetBackup(), FarmHomeAndVirtue, "user-pro")
+	if !strings.HasPrefix(embedPro.Description, "<:pro_permit:3001>") {
+		t.Errorf("expected embedPro description to start with pro_permit emoji, got:\n%s", embedPro.Description)
+	}
+
+	makerStd := ei.NewBackupMaker("EI1234567890123456", "StdFarmer")
+	makerStd.SetPermitLevel(0)
+	embedStd := BuildEbEmbed(makerStd.GetBackup(), FarmHomeAndVirtue, "user-std")
+	if !strings.HasPrefix(embedStd.Description, "<:free_permit:3002>") {
+		t.Errorf("expected embedStd description to start with free_permit emoji, got:\n%s", embedStd.Description)
+	}
+}

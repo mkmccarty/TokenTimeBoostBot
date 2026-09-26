@@ -142,20 +142,22 @@ func GetMaxClothedTEArtifactsWithSlotHint(backup *Backup, slotHint int) []*Compl
 }
 
 func resolveCTEArtifactSlotCount(backup *Backup, slotHint int) int {
+	maxSlots := 4
+	if game := backup.GetGame(); game != nil && game.GetPermitLevel() != 1 {
+		maxSlots = 2
+	}
+
 	if slotHint > 0 {
+		if slotHint > maxSlots {
+			return maxSlots
+		}
 		if slotHint < 2 {
 			return 2
-		}
-		if slotHint > 4 {
-			return 4
 		}
 		return slotHint
 	}
 
-	if game := backup.GetGame(); game != nil && game.GetPermitLevel() != 1 {
-		return 2
-	}
-	return 4
+	return maxSlots
 }
 
 // CalculateClothedTEWithArtifacts calculates total player CTE with an explicit artifact setup.

@@ -89,3 +89,67 @@ func TestFarmerRoles(t *testing.T) {
 		t.Errorf("EarningBonusPercentToFarmerRole(100_000) = %s, want Kilofarmer", rolePct.Name)
 	}
 }
+
+func TestGetDressedEarningsBonus_PermitLevel(t *testing.T) {
+	// Standard permit players only have 2 artifact slots, whereas pro permit players have 4.
+	slot3 := uint32(3)
+	oldData := data
+	data = &Store{
+		ArtifactFamilies: []*Family{
+			{
+				CoreFamily: CoreFamily{AfxID: ArtifactSpec_TUNGSTEN_ANKH},
+				Tiers: []*Tier{
+					nil, nil, nil,
+					{Effects: []*Effect{{AfxRarity: ArtifactSpec_LEGENDARY, Slots: &slot3}}},
+				},
+			},
+			{
+				CoreFamily: CoreFamily{AfxID: ArtifactSpec_DEMETERS_NECKLACE},
+				Tiers: []*Tier{
+					nil, nil, nil,
+					{Effects: []*Effect{{AfxRarity: ArtifactSpec_LEGENDARY, Slots: &slot3}}},
+				},
+			},
+			{
+				CoreFamily: CoreFamily{AfxID: ArtifactSpec_THE_CHALICE},
+				Tiers: []*Tier{
+					nil, nil, nil,
+					{Effects: []*Effect{{AfxRarity: ArtifactSpec_LEGENDARY, Slots: &slot3}}},
+				},
+			},
+			{
+				CoreFamily: CoreFamily{AfxID: ArtifactSpec_AURELIAN_BROOCH},
+				Tiers: []*Tier{
+					nil, nil, nil,
+					{Effects: []*Effect{{AfxRarity: ArtifactSpec_LEGENDARY, Slots: &slot3}}},
+				},
+			},
+		},
+	}
+	defer func() { data = oldData }()
+
+	makerPro := NewBackupMaker("EI1234567890123456", "ProFarmer")
+	makerPro.SetPermitLevel(1)
+	makerPro.AddArtifact(ArtifactSpec_TUNGSTEN_ANKH, ArtifactSpec_GREATER, ArtifactSpec_LEGENDARY, 1, false)
+	makerPro.AddArtifact(ArtifactSpec_DEMETERS_NECKLACE, ArtifactSpec_GREATER, ArtifactSpec_LEGENDARY, 1, false)
+	makerPro.AddArtifact(ArtifactSpec_THE_CHALICE, ArtifactSpec_GREATER, ArtifactSpec_LEGENDARY, 1, false)
+	makerPro.AddArtifact(ArtifactSpec_AURELIAN_BROOCH, ArtifactSpec_GREATER, ArtifactSpec_LEGENDARY, 1, false)
+	makerPro.AddStone(ArtifactSpec_SOUL_STONE, ArtifactSpec_NORMAL, 10, false)
+	backupPro := makerPro.GetBackup()
+
+	makerStd := NewBackupMaker("EI1234567890123456", "StdFarmer")
+	makerStd.SetPermitLevel(0)
+	makerStd.AddArtifact(ArtifactSpec_TUNGSTEN_ANKH, ArtifactSpec_GREATER, ArtifactSpec_LEGENDARY, 1, false)
+	makerStd.AddArtifact(ArtifactSpec_DEMETERS_NECKLACE, ArtifactSpec_GREATER, ArtifactSpec_LEGENDARY, 1, false)
+	makerStd.AddArtifact(ArtifactSpec_THE_CHALICE, ArtifactSpec_GREATER, ArtifactSpec_LEGENDARY, 1, false)
+	makerStd.AddArtifact(ArtifactSpec_AURELIAN_BROOCH, ArtifactSpec_GREATER, ArtifactSpec_LEGENDARY, 1, false)
+	makerStd.AddStone(ArtifactSpec_SOUL_STONE, ArtifactSpec_NORMAL, 10, false)
+	backupStd := makerStd.GetBackup()
+
+	ebPro := GetDressedEarningsBonus(backupPro, 0)
+	ebStd := GetDressedEarningsBonus(backupStd, 0)
+
+	if ebStd >= ebPro {
+		t.Errorf("expected pro permit EB (%e) to be strictly greater than standard permit EB (%e) when 4 slots are available", ebPro, ebStd)
+	}
+}
