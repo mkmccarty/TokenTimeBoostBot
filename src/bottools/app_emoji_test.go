@@ -94,3 +94,24 @@ func TestImportSingleEmojiFromPathCreateError(t *testing.T) {
 		t.Fatal("expected error from client")
 	}
 }
+
+func TestDownloadEmojiFromGit(t *testing.T) {
+	t.Cleanup(func() {
+		_ = os.RemoveAll("emoji")
+	})
+
+	// Test nonexistent emoji
+	_, ok := downloadEmojiFromGit("nonexistent_test_emoji_xyz", "nonexistent_test_emoji_xyz")
+	if ok {
+		t.Error("expected ok=false for nonexistent emoji")
+	}
+
+	// Test real emoji from repo
+	path, ok := downloadEmojiFromGit("badge_nah", "badge_nah")
+	if !ok {
+		t.Skip("skipping network test if GitHub is unreachable")
+	}
+	if path == "" {
+		t.Errorf("expected non-empty path for badge_nah")
+	}
+}
