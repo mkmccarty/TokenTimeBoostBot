@@ -56,14 +56,12 @@ func parseHexColor(hex string) int {
 func ExecuteEb(e dc.InteractionEvent, farmChoice string, eggIncID string, okayToSave bool) {
 	userID := e.UserID()
 
-	ephemeral := e.ChannelID() == "571836573243539476" // ACO- #bot-commands
-	_ = e.Defer(ephemeral)
+	_ = e.Defer(false)
 
 	backup, _ := ei.GetFirstContactFromAPI(eggIncID, userID, okayToSave)
 	if backup == nil {
 		_ = e.Followup(dc.Message{
-			Content:   "Unable to retrieve game data for this Egg Inc ID. Please verify your ID and try again.",
-			Ephemeral: true,
+			Content: "Unable to retrieve game data for this Egg Inc ID. Please verify your ID and try again.",
 		})
 		return
 	}
@@ -71,8 +69,7 @@ func ExecuteEb(e dc.InteractionEvent, farmChoice string, eggIncID string, okayTo
 	embed := BuildEbEmbed(backup, farmChoice, userID)
 
 	_ = e.Followup(dc.Message{
-		Ephemeral: ephemeral,
-		Embeds:    []dc.Embed{embed},
+		Embeds: []dc.Embed{embed},
 	})
 }
 

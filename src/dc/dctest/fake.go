@@ -272,6 +272,24 @@ func (f *FakeClient) EditMessage(channelID, messageID string, m dc.Message) (*dc
 	return &dc.MessageRef{ID: messageID, ChannelID: channelID, Content: m.Content}, nil
 }
 
+// EditInteractionResponse records the interaction response edit.
+func (f *FakeClient) EditInteractionResponse(appID, token string, m dc.Message) error {
+	f.record("EditInteractionResponse", appID, token, m.Text())
+	if f.EditErr != nil {
+		return f.EditErr
+	}
+	return nil
+}
+
+// EditFollowupMessage records the followup message edit.
+func (f *FakeClient) EditFollowupMessage(appID, token, messageID string, m dc.Message) error {
+	f.record("EditFollowupMessage", appID, token, messageID, m.Text())
+	if f.EditErr != nil {
+		return f.EditErr
+	}
+	return nil
+}
+
 // EditChannel records the channel edit and updates the channel's name in the fake cache.
 func (f *FakeClient) EditChannel(channelID, name string) (*dc.Channel, error) {
 	f.record("EditChannel", channelID, name)
