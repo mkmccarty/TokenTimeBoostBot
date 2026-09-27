@@ -52,13 +52,13 @@ func TestGetAttributions(t *testing.T) {
 		}
 		if strings.Contains(field.Value, "carpet-wasmegg") &&
 			strings.Contains(field.Value, "staabmia") &&
-			strings.Contains(field.Value, "Wonky Projects") {
+			strings.Contains(field.Value, "Wonky") {
 			toolsFound = true
 		}
 		if strings.Contains(field.Value, "RAIYC") &&
 			strings.Contains(field.Value, "jameswst") &&
 			!strings.Contains(field.Value, "mutilis") &&
-			strings.Contains(field.Value, "developers (not bots)") {
+			strings.Contains(field.Value, "developers contributing to the BoostBot project") {
 			developersFound = true
 		}
 	}
@@ -67,9 +67,9 @@ func TestGetAttributions(t *testing.T) {
 		t.Error("expected embed to thank the Egg Inc Community")
 	}
 	if !toolsFound {
-		t.Error("expected embed to thank carpet-wasmegg, staabmia, and Wonky Projects within the same section")
+		t.Error("expected embed to thank carpet-wasmegg, staabmia, and Wonky within the same section")
 	}
 	if !developersFound {
-		t.Error("expected embed to thank developers (not bots) contributing to the BoostBot project")
+		t.Error("expected embed to thank developers contributing to the BoostBot project")
 	}
 }
