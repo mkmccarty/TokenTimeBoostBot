@@ -2,6 +2,7 @@ package boost
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
@@ -257,6 +258,11 @@ func updateFarmerInContracts(client dc.Client, userID string, subcommand string,
 				booster.IHRRate = max(DefaultLeggyIHR, float64(value))
 				booster.IHRCalcLog = fmt.Sprintf("IHR Calculation (Manual for %s): Final=%0.2f", userID, booster.IHRRate)
 			case "artifacts":
+				if te := farmerstate.GetMiscSettingString(userID, "TE"); te != "" {
+					if n, err := strconv.Atoi(te); err == nil && n > 0 {
+						booster.TECount = n
+					}
+				}
 				booster.ArtifactSet = getUserArtifacts(userID, nil)
 				rate, logStr := CalculateIHRRateFromDB(userID)
 				if rate < DefaultLeggyIHR {

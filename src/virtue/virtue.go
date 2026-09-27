@@ -71,11 +71,7 @@ func ExecuteVirtue(e dc.InteractionEvent, options dc.OptionValues, eggIncID stri
 		return
 	}
 
-	farmerName := farmerstate.GetMiscSettingString(userID, "ei_ign")
-	if farmerName != backup.GetUserName() {
-		farmerName = backup.GetUserName()
-		farmerstate.SetMiscSettingString(userID, "ei_ign", farmerName)
-	}
+	farmerstate.SetFarmerBackupDetails(userID, backup)
 
 	if len(backup.GetFarms()) > 0 {
 		farm := backup.GetFarms()[0]
@@ -207,7 +203,6 @@ func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE
 
 		allEov += max(eovEarned-eovPending, 0)
 		futureEov += eovPending
-		farmerstate.SetMiscSettingString(userID, "TE", fmt.Sprintf("%d", allEov))
 
 		lineStr := fmt.Sprintf("%s%s`%3s %5s %9s `%s%s",
 			bottools.AlignString(ei.GetBotEmojiMarkdown("egg_"+strings.ToLower(egg)), 1, bottools.StringAlignCenter),

@@ -303,6 +303,9 @@ func populateArtifactsFromBackup(client dc.Client, userID string) (string, strin
 	}
 
 	colleggtibles, colleggtiblesChanged := populateColleggtiblesFromBackup(userID, backup)
+	oldIGN := farmerstate.GetMiscSettingString(userID, "ei_ign")
+	oldTEStr := farmerstate.GetMiscSettingString(userID, "TE")
+	newIGN, ignChanged, te, teChanged := farmerstate.SetFarmerBackupDetails(userID, backup)
 
 	updatedContracts := 0
 	ContractsMutex.RLock()
@@ -319,6 +322,7 @@ func populateArtifactsFromBackup(client dc.Client, userID string) (string, strin
 		updated := false
 		contract.mutex.Lock()
 		if b := contract.Boosters[userID]; b != nil {
+			b.TECount = int(te)
 			b.ArtifactSet = getUserArtifacts(userID, nil)
 			rate, logStr := CalculateIHRRateFromDB(userID)
 			if rate < DefaultLeggyIHR {
@@ -358,6 +362,18 @@ func populateArtifactsFromBackup(client dc.Client, userID string) (string, strin
 	}
 	fmt.Fprintf(&summary, "\nColleggtibles discovered: %d\n", len(colleggtibles))
 	fmt.Fprintf(&summary, "Colleggtibles changed: %t\n", colleggtiblesChanged)
+	if ignChanged {
+		if oldIGN != "" {
+			fmt.Fprintf(&summary, "Player name: %s -> %s\n", oldIGN, newIGN)
+		} else {
+			fmt.Fprintf(&summary, "Player name: %s\n", newIGN)
+		}
+	}
+	if teChanged && oldTEStr != "" {
+		fmt.Fprintf(&summary, "Truth Eggs (TE): %s -> %d\n", oldTEStr, te)
+	} else {
+		fmt.Fprintf(&summary, "Truth Eggs (TE): %d\n", te)
+	}
 	fmt.Fprintf(&summary, "Running contracts refreshed: %d", updatedContracts)
 
 	return status, summary.String(), nil
