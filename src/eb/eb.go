@@ -215,11 +215,16 @@ func BuildEbEmbed(backup *ei.Backup, farmChoice string, userID string) dc.Embed 
 	badgeRow := ei.GetBadgeMarkdownRow(backup)
 	if permitEmoji != "" || badgeRow != "" {
 		if permitEmoji != "" && badgeRow != "" {
-			desc.WriteString(permitEmoji + " " + badgeRow + "\n")
+			desc.WriteString(permitEmoji)
+			desc.WriteString(" ")
+			desc.WriteString(badgeRow)
+			desc.WriteString("\n")
 		} else if permitEmoji != "" {
-			desc.WriteString(permitEmoji + "\n")
+			desc.WriteString(permitEmoji)
+			desc.WriteString("\n")
 		} else {
-			desc.WriteString(badgeRow + "\n")
+			desc.WriteString(badgeRow)
+			desc.WriteString("\n")
 		}
 	}
 	primaryColor := parseHexColor(homeDressedRole.Color)
