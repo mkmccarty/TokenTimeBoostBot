@@ -70,7 +70,7 @@ Install your bot into your discord server with this URL:
 * `/rename-thread` - Rename the current contract thread.
 * `/seteggincname` - Set or update a player's Egg, Inc. in-game name.
 * `/remove-dm-message` - Remove a DM tracking message.
-* `/help` - Show bot help.
+* `/help` - Show bot help and attributions.
 * `/privacy` - Show privacy information.
 
 ### Sinks and Volunteering

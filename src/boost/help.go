@@ -12,11 +12,30 @@ import (
 // GetSlashHelpCommand returns the command for the /help command
 func GetSlashHelpCommand(cmd string) *dc.Command {
 	command := anywhereCommand(cmd, "Help with Boost Bot commands.")
+	command.Options = []dc.Option{
+		dc.BoolOption{
+			Name:        "attributions",
+			Description: "Display a list of attributions for the bot.",
+			Required:    false,
+		},
+	}
 	return &command
 }
 
 // HandleHelpCommand will handle the help command
 func HandleHelpCommand(client dc.Client, e *dc.CommandEvent) {
+	if showAttributions, ok := e.OptBool("attributions"); ok && showAttributions {
+		embed := GetAttributions()
+		err := e.Respond(dc.Message{
+			Embeds:    []dc.Embed{*embed},
+			Ephemeral: true,
+		})
+		if err != nil {
+			log.Print(err)
+		}
+		return
+	}
+
 	embed := GetHelp(client, e.GuildID(), e.ChannelID(), e.UserID())
 	err := e.Respond(dc.Message{
 		Embeds:    []dc.Embed{*embed},
@@ -24,6 +43,48 @@ func HandleHelpCommand(client dc.Client, e *dc.CommandEvent) {
 	})
 	if err != nil {
 		log.Print(err)
+	}
+}
+
+// GetAttributions will return an embed listing attributions and acknowledgements.
+func GetAttributions() *dc.Embed {
+	var fields []dc.EmbedField
+
+	fields = append(fields, dc.EmbedField{
+		Name:   "Egg Inc Community",
+		Value:  "Thanks to the Egg Inc Community for their ongoing support, collaboration, and feedback.",
+		Inline: false,
+	})
+
+	var toolsBuilder strings.Builder
+	toolsBuilder.WriteString("• **carpet-wasmegg**: Thanks to the [carpet-wasmegg GitHub repository](https://github.com/carpetsage/egg) for contract data, schemas, and community tools.\n")
+	toolsBuilder.WriteString("• **staabmia**: Thanks to [staabmia's sites](https://srsandbox-staabmia.netlify.app/) for stone calculation and sandbox tools.\n")
+	toolsBuilder.WriteString("• **Wonky**: Thanks to the Wonky developers for their collaboration.")
+
+	fields = append(fields, dc.EmbedField{
+		Name:   "Community Tools & Projects",
+		Value:  toolsBuilder.String(),
+		Inline: false,
+	})
+
+	var devBuilder strings.Builder
+	devBuilder.WriteString("Thanks to the developers contributing to the BoostBot project:\n")
+	devBuilder.WriteString("• RAIYC\n")
+	devBuilder.WriteString("• jameswst\n")
+	devBuilder.WriteString("• Harsharoni\n")
+	devBuilder.WriteString("• renegadeEgg")
+
+	fields = append(fields, dc.EmbedField{
+		Name:   "BoostBot Contributors",
+		Value:  devBuilder.String(),
+		Inline: false,
+	})
+
+	return &dc.Embed{
+		Title:       "Boost Bot Attributions",
+		Description: "Special thanks to all the people and projects that make Boost Bot possible!",
+		Color:       0x888888,
+		Fields:      fields,
 	}
 }
 
