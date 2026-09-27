@@ -23,10 +23,14 @@ func (e *CommandEvent) Options() OptionValues {
 // option resolves a path-joined name onto disgo's flat option map, the same
 // way CommandEvent does.
 func (o OptionValues) option(name string) (discord.SlashCommandOption, bool) {
-	for _, prefix := range o.SubcommandPath() {
-		name = trimNamePrefix(name, prefix)
+	if opt, ok := o.data.Options[name]; ok {
+		return opt, true
 	}
-	opt, ok := o.data.Options[name]
+	trimmed := name
+	for _, prefix := range o.SubcommandPath() {
+		trimmed = trimNamePrefix(trimmed, prefix)
+	}
+	opt, ok := o.data.Options[trimmed]
 	return opt, ok
 }
 

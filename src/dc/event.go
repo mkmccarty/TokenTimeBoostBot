@@ -169,8 +169,15 @@ func (e *CommandEvent) SubcommandPath() []string {
 // here. The bare name is accepted too, since after flattening there is nothing
 // left for it to collide with.
 func (e *CommandEvent) optionName(name string) string {
+	if _, ok := e.data().Options[name]; ok {
+		return name
+	}
+	trimmed := name
 	for _, prefix := range e.SubcommandPath() {
-		name = strings.TrimPrefix(name, prefix+"-")
+		trimmed = strings.TrimPrefix(trimmed, prefix+"-")
+	}
+	if _, ok := e.data().Options[trimmed]; ok {
+		return trimmed
 	}
 	return name
 }
