@@ -57,144 +57,323 @@ func GetDressedEarningsBonus(backup *Backup, eov float64) float64 {
 	}
 	inventory := adb.GetInventoryItems()
 
-	// Find best BoB
-	bestBoB := findBestArtifact(inventory, ArtifactSpec_BOOK_OF_BASAN)
-	bobBonus := 0.0
-	if bestBoB != nil {
-		levels := []float64{0.0025, 0.005, 0.0075, 0.01}
-		if int(bestBoB.GetArtifact().GetSpec().GetLevel()) < len(levels) {
-			bobBonus = levels[bestBoB.GetArtifact().GetSpec().GetLevel()]
-		}
-	}
-
 	maxSlots := 4
 	if game.GetPermitLevel() != 1 {
 		maxSlots = 2
 	}
 
-	// Find non-virtue artifacts with most slots
-	type artifactSlot struct {
-		slots int
+	// Group non-BoB artifacts by family and find maximum slots for each family.
+	// In Egg Inc, duplicate artifacts of the same family cannot be equipped simultaneously.
+	type nonBobCandidate struct {
 		name  ArtifactSpec_Name
+		spec  *ArtifactSpec
+		slots int
 	}
-	var nonVirtueArtifacts []artifactSlot
+	nonBobMaxSlots := make(map[ArtifactSpec_Name]nonBobCandidate)
+	type bobCandidate struct {
+		spec  *ArtifactSpec
+		bonus float64
+		slots int
+	}
+	var bobCandidates []bobCandidate
+
 	for _, item := range inventory {
 		spec := item.GetArtifact().GetSpec()
 		if spec == nil || isStoneType(spec.GetName()) {
 			continue
 		}
-		// Check if virtue
-		if _, isVirtue := ArtifactTypeNameVirtue[int32(spec.GetName())]; isVirtue {
-			continue
-		}
 
-		slots, _ := GetStones(spec.GetName(), spec.GetLevel(), spec.GetRarity())
-		if slots <= 0 && item.GetArtifact() != nil {
-			slots = len(item.GetArtifact().GetStones())
+		if spec.GetName() == ArtifactSpec_BOOK_OF_BASAN {
+			bonus := GetBookOfBasanBonus(spec.GetLevel(), spec.GetRarity())
+			bobSlots := GetBookOfBasanSlots(spec.GetLevel(), spec.GetRarity())
+			bobCandidates = append(bobCandidates, bobCandidate{spec: spec, bonus: bonus, slots: bobSlots})
+		} else {
+			slots, _ := GetStones(spec.GetName(), spec.GetLevel(), spec.GetRarity())
+			if slots <= 0 && item.GetArtifact() != nil {
+				slots = len(item.GetArtifact().GetStones())
+			}
+			if slots <= 0 {
+				switch spec.GetRarity() {
+				case ArtifactSpec_LEGENDARY:
+					slots = 3
+				case ArtifactSpec_EPIC:
+					slots = 2
+				case ArtifactSpec_RARE:
+					slots = 1
+				}
+			}
+			if existing, ok := nonBobMaxSlots[spec.GetName()]; !ok || slots > existing.slots {
+				nonBobMaxSlots[spec.GetName()] = nonBobCandidate{name: spec.GetName(), spec: spec, slots: slots}
+			}
 		}
-		nonVirtueArtifacts = append(nonVirtueArtifacts, artifactSlot{slots: slots, name: spec.GetName()})
 	}
 
-	// Sort by slots desc
-	sort.Slice(nonVirtueArtifacts, func(i, j int) bool {
-		return nonVirtueArtifacts[i].slots > nonVirtueArtifacts[j].slots
+	var nonBobList []nonBobCandidate
+	for _, c := range nonBobMaxSlots {
+		nonBobList = append(nonBobList, c)
+	}
+	sort.Slice(nonBobList, func(i, j int) bool {
+		return nonBobList[i].slots > nonBobList[j].slots
 	})
 
-	// Calculate stone bonuses
+	// Calculate stone bonuses (both loose in inventory and socketed in artifacts)
+	// For Earnings Bonus, only Prophecy stones are considered.
 	var pStones []float64
-	var sStones []float64
+
+	addProphecyStone := func(spec *ArtifactSpec) {
+		if spec == nil || spec.GetName() != ArtifactSpec_PROPHECY_STONE {
+			return
+		}
+		// Prophecy Stones:
+		// Fragment (T1): not socketable (0%)
+		// Regular (T2, level 0): +0.05% (+0.0005)
+		// Eggsquisite (T3, level 1): +0.10% (+0.0010)
+		// Radiant (T4, level 2): +0.15% (+0.0015)
+		levels := []float64{0.0005, 0.0010, 0.0015}
+		lvl := int(spec.GetLevel())
+		if lvl >= len(levels) {
+			lvl = len(levels) - 1
+		}
+		if lvl >= 0 {
+			pStones = append(pStones, levels[lvl])
+		}
+	}
+
 	for _, item := range inventory {
-		spec := item.GetArtifact().GetSpec()
-		if spec == nil {
+		art := item.GetArtifact()
+		if art == nil {
 			continue
 		}
+		spec := art.GetSpec()
 		qty := int(item.GetQuantity())
-		if spec.GetName() == ArtifactSpec_PROPHECY_STONE {
-			levels := []float64{0.0005, 0.001, 0.0015} // T2-T4 (T1 is fragment)
-			bonus := 0.0
-			if int(spec.GetLevel()) < len(levels) {
-				bonus = levels[spec.GetLevel()]
-			}
+		if qty <= 0 {
+			qty = 1
+		}
+		if spec != nil && spec.GetName() == ArtifactSpec_PROPHECY_STONE {
 			for i := 0; i < qty; i++ {
-				pStones = append(pStones, bonus)
+				addProphecyStone(spec)
 			}
-		} else if spec.GetName() == ArtifactSpec_SOUL_STONE {
-			levels := []float64{0.05, 0.10, 0.25} // T2-T4
-			bonus := 0.0
-			if int(spec.GetLevel()) < len(levels) {
-				bonus = levels[spec.GetLevel()]
-			}
-			for i := 0; i < qty; i++ {
-				sStones = append(sStones, bonus)
+		}
+		for _, st := range art.GetStones() {
+			if st != nil && st.GetName() == ArtifactSpec_PROPHECY_STONE {
+				for i := 0; i < qty; i++ {
+					addProphecyStone(st)
+				}
 			}
 		}
 	}
 
 	sort.Slice(pStones, func(i, j int) bool { return pStones[i] > pStones[j] })
-	sort.Slice(sStones, func(i, j int) bool { return sStones[i] > sStones[j] })
 
-	totalSlots := 0
-	equippedCount := 0
-	bobEquipped := false
-	for _, a := range nonVirtueArtifacts {
-		if equippedCount >= maxSlots {
-			break
-		}
-		if a.name == ArtifactSpec_BOOK_OF_BASAN {
-			bobEquipped = true
-		}
-		totalSlots += a.slots
-		equippedCount++
+	fmtFmt := map[string]any{"decimals": 3, "trim": true}
+
+	nonBobSlotCount := maxSlots - 1
+	if nonBobSlotCount < 0 {
+		nonBobSlotCount = 0
 	}
 
-	// If BoB wasn't in top artifacts (unlikely, but possible), we should consider it
-	if !bobEquipped && bestBoB != nil {
-		// Just for safety, add BoB slots if we have room
-		bobSlots, _ := GetStones(ArtifactSpec_BOOK_OF_BASAN, bestBoB.GetArtifact().GetSpec().GetLevel(), bestBoB.GetArtifact().GetSpec().GetRarity())
-		if equippedCount < maxSlots {
-			totalSlots += bobSlots
+	// 1 BoB slot + nonBobSlotCount remaining slots (3 for pro permit, 1 for standard permit).
+	// If the player has no Book of Basan, the BoB slot is considered empty.
+	noBobSlots := 0
+	var noBobChosen []nonBobCandidate
+	for i := 0; i < nonBobSlotCount && i < len(nonBobList); i++ {
+		noBobSlots += nonBobList[i].slots
+		noBobChosen = append(noBobChosen, nonBobList[i])
+	}
+	noBobEB, noBobPUsed := calculateOptimalStoneEB(soulEggsCount, prophecyEggsCount, soulBonus, prophecyBonus, noBobSlots, pStones, eov)
+	bestEB := noBobEB
+	bestIsBoB := false
+	var bestBoB bobCandidate
+	bestNonBobChosen := noBobChosen
+	bestSlots := noBobSlots
+	bestPUsed := noBobPUsed
+
+	var candidateLogs []string
+
+	// If player has a Book of Basan, use the best of that (1 slot for BoB + remaining slots for distinct artifacts with most slots)
+	if len(bobCandidates) > 0 && maxSlots > 0 {
+		bestEB = 0 // Prioritize equipping the best BoB
+		for _, bob := range bobCandidates {
+			slots := bob.slots + noBobSlots
+			eb, pUsed := calculateOptimalStoneEB(soulEggsCount, prophecyEggsCount, soulBonus, prophecyBonus+bob.bonus, slots, pStones, eov)
+			bobLabel := formatArtifactNice(bob.spec)
+			candidateLogs = append(candidateLogs, fmt.Sprintf("%s (+%.2f%% PE, %d slots) -> %s%%", bobLabel, bob.bonus*100, slots, FormatEIValue(eb, fmtFmt)))
+			if eb > bestEB {
+				bestEB = eb
+				bestIsBoB = true
+				bestBoB = bob
+				bestNonBobChosen = noBobChosen
+				bestSlots = slots
+				bestPUsed = pUsed
+			}
 		}
 	}
 
-	// Greedily fill slots
-	currentSoulBonus := soulBonus
-	currentProphecyBonus := prophecyBonus + bobBonus
-	pIdx, sIdx := 0, 0
+	// Bot logging for artifact selection (especially for Standard Permit players)
+	dressedStr := FormatEIValue(bestEB, fmtFmt)
+	nakedEB := GetEarningsBonus(backup, eov)
+	nakedStr := FormatEIValue(nakedEB, fmtFmt)
+	userName := backup.GetUserName()
+	if userName == "" {
+		userName = "Unknown"
+	}
 
-	for i := 0; i < totalSlots; i++ {
-		pBonus := 0.0
-		if pIdx < len(pStones) {
-			pBonus = pStones[pIdx]
+	var selectedDesc strings.Builder
+	if bestIsBoB && bestBoB.spec != nil {
+		fmt.Fprintf(&selectedDesc, "%s (+%.2f%% PE)", formatArtifactNice(bestBoB.spec), bestBoB.bonus*100)
+		for _, art := range bestNonBobChosen {
+			fmt.Fprintf(&selectedDesc, " + %s (%d slots)", formatArtifactNice(art.spec), art.slots)
 		}
-		sBonus := 0.0
-		if sIdx < len(sStones) {
-			sBonus = sStones[sIdx]
+	} else {
+		var arts []string
+		for _, art := range bestNonBobChosen {
+			arts = append(arts, fmt.Sprintf("%s (%d slots)", formatArtifactNice(art.spec), art.slots))
 		}
-
-		if pBonus == 0 && sBonus == 0 {
-			break
-		}
-
-		// Try adding P stone
-		ebP := soulEggsCount * currentSoulBonus * math.Pow(1+currentProphecyBonus+pBonus, float64(prophecyEggsCount))
-		// Try adding S stone
-		ebS := soulEggsCount * (currentSoulBonus * (1 + sBonus)) * math.Pow(1+currentProphecyBonus, float64(prophecyEggsCount))
-
-		if ebP > ebS && pBonus > 0 {
-			currentProphecyBonus += pBonus
-			pIdx++
-		} else if sBonus > 0 {
-			currentSoulBonus *= (1 + sBonus)
-			sIdx++
+		if len(arts) > 0 {
+			fmt.Fprintf(&selectedDesc, "No BoB (empty slot) + %s", strings.Join(arts, " + "))
 		} else {
-			// fallback
-			currentProphecyBonus += pBonus
-			pIdx++
+			selectedDesc.WriteString("None")
 		}
 	}
+	stonesDesc := formatStonesSummary(bestPUsed)
+	fmt.Fprintf(&selectedDesc, " | Stones (%d/%d slots): %s", len(bestPUsed), bestSlots, stonesDesc)
 
-	eb := soulEggsCount * currentSoulBonus * math.Pow(1+currentProphecyBonus, float64(prophecyEggsCount))
-	return eb * (math.Pow(1.01, eov)) * 100
+	if game.GetPermitLevel() != 1 {
+		log.Printf("[EB Standard Permit] %q | Dressed: %s%% (Naked: %s%%) | Selected: %s | Options: [%s], No-BoB: %s%% (%d slots)",
+			userName, dressedStr, nakedStr, selectedDesc.String(), strings.Join(candidateLogs, "; "), FormatEIValue(noBobEB, fmtFmt), noBobSlots)
+	} else {
+		log.Printf("[EB Pro Permit] %q | Dressed: %s%% (Naked: %s%%) | Selected: %s",
+			userName, dressedStr, nakedStr, selectedDesc.String())
+	}
+
+	return bestEB
+}
+
+// formatArtifactNice formats an artifact spec into a concise human-readable string (e.g. "T4C BOOK", "T4L ANKH").
+func formatArtifactNice(spec *ArtifactSpec) string {
+	if spec == nil {
+		return "unknown"
+	}
+	tier := fmt.Sprintf("T%d", spec.GetLevel()+1)
+	rarity := "C"
+	switch spec.GetRarity() {
+	case ArtifactSpec_RARE:
+		rarity = "R"
+	case ArtifactSpec_EPIC:
+		rarity = "E"
+	case ArtifactSpec_LEGENDARY:
+		rarity = "L"
+	}
+	name := spec.GetName().String()
+	name = strings.TrimPrefix(name, "ArtifactSpec_")
+	if short, ok := ShortArtifactName[int32(spec.GetName())]; ok && short != "" {
+		name = strings.TrimSuffix(short, "_")
+	}
+	return fmt.Sprintf("%s%s %s", tier, rarity, name)
+}
+
+// formatStonesSummary formats a list of used prophecy stone bonuses into a readable string.
+func formatStonesSummary(pUsed []float64) string {
+	counts := make(map[string]int)
+	var order []string
+	for _, p := range pUsed {
+		var desc string
+		switch {
+		case math.Abs(p-0.0015) < 1e-5:
+			desc = "T4 Prophecy (+0.15%)"
+		case math.Abs(p-0.0010) < 1e-5:
+			desc = "T3 Prophecy (+0.10%)"
+		case math.Abs(p-0.0005) < 1e-5:
+			desc = "T2 Prophecy (+0.05%)"
+		default:
+			desc = fmt.Sprintf("Prophecy (+%.4f%%)", p*100)
+		}
+		if counts[desc] == 0 {
+			order = append(order, desc)
+		}
+		counts[desc]++
+	}
+	if len(order) == 0 {
+		return "none"
+	}
+	var parts []string
+	for _, desc := range order {
+		parts = append(parts, fmt.Sprintf("%dx %s", counts[desc], desc))
+	}
+	return strings.Join(parts, ", ")
+}
+
+// calculateOptimalStoneEB places available Prophecy stones into totalSlots and computes the final EB.
+func calculateOptimalStoneEB(soulEggsCount float64, prophecyEggsCount uint64, soulBonus, initialProphecyBonus float64, totalSlots int, pStones []float64, eov float64) (float64, []float64) {
+	currentProphecyBonus := initialProphecyBonus
+	var pUsed []float64
+
+	for i := 0; i < totalSlots && i < len(pStones); i++ {
+		currentProphecyBonus += pStones[i]
+		pUsed = append(pUsed, pStones[i])
+	}
+
+	eb := soulEggsCount * soulBonus * math.Pow(1+currentProphecyBonus, float64(prophecyEggsCount))
+	return eb * (math.Pow(1.01, eov)) * 100, pUsed
+}
+
+// GetBookOfBasanBonus returns the additive bonus per Prophecy Egg for a given Book of Basan level and rarity.
+func GetBookOfBasanBonus(level ArtifactSpec_Level, rarity ArtifactSpec_Rarity) float64 {
+	if data != nil && data.ArtifactFamilies != nil {
+		for _, f := range data.ArtifactFamilies {
+			if f.AfxID == ArtifactSpec_BOOK_OF_BASAN {
+				if int(level) < len(f.Tiers) && f.Tiers[level] != nil {
+					tier := f.Tiers[level]
+					for _, eff := range tier.Effects {
+						if eff.AfxRarity == rarity && eff.EffectDelta > 0 {
+							return eff.EffectDelta
+						}
+					}
+				}
+			}
+		}
+	}
+	// Fallback table for all Book of Basan tiers and rarities:
+	switch level {
+	case 0: // T1: Regular
+		return 0.0025
+	case 1: // T2: Collectors
+		return 0.005
+	case 2: // T3: Fortified
+		if rarity == ArtifactSpec_EPIC {
+			return 0.008
+		}
+		return 0.0075
+	case 3: // T4: Gilded
+		if rarity == ArtifactSpec_LEGENDARY {
+			return 0.012
+		} else if rarity == ArtifactSpec_EPIC {
+			return 0.011
+		}
+		return 0.010
+	}
+	return 0.0
+}
+
+// GetBookOfBasanSlots returns the number of slots for a Book of Basan given level and rarity.
+func GetBookOfBasanSlots(level ArtifactSpec_Level, rarity ArtifactSpec_Rarity) int {
+	slots, err := GetStones(ArtifactSpec_BOOK_OF_BASAN, level, rarity)
+	if err == nil && slots > 0 {
+		return slots
+	}
+	switch level {
+	case 2: // T3
+		if rarity == ArtifactSpec_EPIC {
+			return 1
+		}
+	case 3: // T4
+		if rarity == ArtifactSpec_LEGENDARY {
+			return 2
+		} else if rarity == ArtifactSpec_EPIC {
+			return 1
+		}
+	}
+	return 0
 }
 
 // FarmerRole represents a player's rank role based on Earnings Bonus.
