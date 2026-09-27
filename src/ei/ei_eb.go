@@ -65,15 +65,50 @@ func GetDressedEarningsBonus(backup *Backup, eov float64) float64 {
 		maxSlots = 2
 	}
 
+	// Helper to get prophecy stone bonus (+0.0005, +0.0010, +0.0015)
+	getProphecyStoneValue := func(spec *ArtifactSpec) float64 {
+		if spec == nil || spec.GetName() != ArtifactSpec_PROPHECY_STONE {
+			return 0
+		}
+		levels := []float64{0.0005, 0.0010, 0.0015}
+		lvl := int(spec.GetLevel())
+		if lvl >= len(levels) {
+			lvl = len(levels) - 1
+		}
+		if lvl >= 0 {
+			return levels[lvl]
+		}
+		return 0
+	}
+
+	getSocketedProphecyStones := func(art *CompleteArtifact) []float64 {
+		if art == nil {
+			return nil
+		}
+		var res []float64
+		for _, st := range art.GetStones() {
+			if st != nil && st.GetName() == ArtifactSpec_PROPHECY_STONE {
+				val := getProphecyStoneValue(st)
+				if val > 0 {
+					res = append(res, val)
+				}
+			}
+		}
+		return res
+	}
+
 	// Group non-BoB artifacts by family and find maximum slots for each family.
 	// In Egg Inc, duplicate artifacts of the same family cannot be equipped simultaneously.
 	type nonBobCandidate struct {
-		name  ArtifactSpec_Name
-		spec  *ArtifactSpec
-		slots int
+		name        ArtifactSpec_Name
+		item        *ArtifactInventoryItem
+		spec        *ArtifactSpec
+		slots       int
+		socketedSum float64
 	}
 	nonBobMaxSlots := make(map[ArtifactSpec_Name]nonBobCandidate)
 	type bobCandidate struct {
+		item  *ArtifactInventoryItem
 		spec  *ArtifactSpec
 		bonus float64
 		slots int
@@ -81,7 +116,11 @@ func GetDressedEarningsBonus(backup *Backup, eov float64) float64 {
 	var bobCandidates []bobCandidate
 
 	for _, item := range inventory {
-		spec := item.GetArtifact().GetSpec()
+		art := item.GetArtifact()
+		if art == nil {
+			continue
+		}
+		spec := art.GetSpec()
 		if spec == nil || isStoneType(spec.GetName()) {
 			continue
 		}
@@ -89,11 +128,11 @@ func GetDressedEarningsBonus(backup *Backup, eov float64) float64 {
 		if spec.GetName() == ArtifactSpec_BOOK_OF_BASAN {
 			bonus := GetBookOfBasanBonus(spec.GetLevel(), spec.GetRarity())
 			bobSlots := GetBookOfBasanSlots(spec.GetLevel(), spec.GetRarity())
-			bobCandidates = append(bobCandidates, bobCandidate{spec: spec, bonus: bonus, slots: bobSlots})
+			bobCandidates = append(bobCandidates, bobCandidate{item: item, spec: spec, bonus: bonus, slots: bobSlots})
 		} else {
 			slots, _ := GetStones(spec.GetName(), spec.GetLevel(), spec.GetRarity())
-			if slots <= 0 && item.GetArtifact() != nil {
-				slots = len(item.GetArtifact().GetStones())
+			if slots <= 0 {
+				slots = len(art.GetStones())
 			}
 			if slots <= 0 {
 				switch spec.GetRarity() {
@@ -105,8 +144,14 @@ func GetDressedEarningsBonus(backup *Backup, eov float64) float64 {
 					slots = 1
 				}
 			}
-			if existing, ok := nonBobMaxSlots[spec.GetName()]; !ok || slots > existing.slots {
-				nonBobMaxSlots[spec.GetName()] = nonBobCandidate{name: spec.GetName(), spec: spec, slots: slots}
+			socketed := getSocketedProphecyStones(art)
+			socketedSum := 0.0
+			for _, s := range socketed {
+				socketedSum += s
+			}
+			cand := nonBobCandidate{name: spec.GetName(), item: item, spec: spec, slots: slots, socketedSum: socketedSum}
+			if existing, ok := nonBobMaxSlots[spec.GetName()]; !ok || slots > existing.slots || (slots == existing.slots && socketedSum > existing.socketedSum) {
+				nonBobMaxSlots[spec.GetName()] = cand
 			}
 		}
 	}
@@ -116,57 +161,48 @@ func GetDressedEarningsBonus(backup *Backup, eov float64) float64 {
 		nonBobList = append(nonBobList, c)
 	}
 	sort.Slice(nonBobList, func(i, j int) bool {
-		return nonBobList[i].slots > nonBobList[j].slots
+		if nonBobList[i].slots != nonBobList[j].slots {
+			return nonBobList[i].slots > nonBobList[j].slots
+		}
+		return nonBobList[i].socketedSum > nonBobList[j].socketedSum
 	})
 
-	// Calculate stone bonuses (both loose in inventory and socketed in artifacts)
-	// For Earnings Bonus, only Prophecy stones are considered.
-	var pStones []float64
-
-	addProphecyStone := func(spec *ArtifactSpec) {
-		if spec == nil || spec.GetName() != ArtifactSpec_PROPHECY_STONE {
-			return
-		}
-		// Prophecy Stones:
-		// Fragment (T1): not socketable (0%)
-		// Regular (T2, level 0): +0.05% (+0.0005)
-		// Eggsquisite (T3, level 1): +0.10% (+0.0010)
-		// Radiant (T4, level 2): +0.15% (+0.0015)
-		levels := []float64{0.0005, 0.0010, 0.0015}
-		lvl := int(spec.GetLevel())
-		if lvl >= len(levels) {
-			lvl = len(levels) - 1
-		}
-		if lvl >= 0 {
-			pStones = append(pStones, levels[lvl])
-		}
-	}
-
+	// Collect loose unslotted Prophecy stones from the artifact database
+	var loosePStones []float64
 	for _, item := range inventory {
 		art := item.GetArtifact()
 		if art == nil {
 			continue
 		}
 		spec := art.GetSpec()
-		qty := int(item.GetQuantity())
-		if qty <= 0 {
-			qty = 1
-		}
 		if spec != nil && spec.GetName() == ArtifactSpec_PROPHECY_STONE {
-			for i := 0; i < qty; i++ {
-				addProphecyStone(spec)
-			}
-		}
-		for _, st := range art.GetStones() {
-			if st != nil && st.GetName() == ArtifactSpec_PROPHECY_STONE {
+			val := getProphecyStoneValue(spec)
+			if val > 0 {
+				qty := int(item.GetQuantity())
+				if qty <= 0 {
+					qty = 1
+				}
 				for i := 0; i < qty; i++ {
-					addProphecyStone(st)
+					loosePStones = append(loosePStones, val)
 				}
 			}
 		}
 	}
 
-	sort.Slice(pStones, func(i, j int) bool { return pStones[i] > pStones[j] })
+	buildAvailableStones := func(bob *bobCandidate, nonBobs []nonBobCandidate) []float64 {
+		avail := make([]float64, len(loosePStones))
+		copy(avail, loosePStones)
+		if bob != nil && bob.item != nil && bob.item.GetArtifact() != nil {
+			avail = append(avail, getSocketedProphecyStones(bob.item.GetArtifact())...)
+		}
+		for _, nb := range nonBobs {
+			if nb.item != nil && nb.item.GetArtifact() != nil {
+				avail = append(avail, getSocketedProphecyStones(nb.item.GetArtifact())...)
+			}
+		}
+		sort.Slice(avail, func(i, j int) bool { return avail[i] > avail[j] })
+		return avail
+	}
 
 	fmtFmt := map[string]any{"decimals": 3, "trim": true}
 
@@ -183,7 +219,8 @@ func GetDressedEarningsBonus(backup *Backup, eov float64) float64 {
 		noBobSlots += nonBobList[i].slots
 		noBobChosen = append(noBobChosen, nonBobList[i])
 	}
-	noBobEB, noBobPUsed := calculateOptimalStoneEB(soulEggsCount, prophecyEggsCount, soulBonus, prophecyBonus, noBobSlots, pStones, eov)
+	noBobStones := buildAvailableStones(nil, noBobChosen)
+	noBobEB, noBobPUsed := calculateOptimalStoneEB(soulEggsCount, prophecyEggsCount, soulBonus, prophecyBonus, noBobSlots, noBobStones, eov)
 	bestEB := noBobEB
 	bestIsBoB := false
 	var bestBoB bobCandidate
@@ -198,7 +235,8 @@ func GetDressedEarningsBonus(backup *Backup, eov float64) float64 {
 		bestEB = 0 // Prioritize equipping the best BoB
 		for _, bob := range bobCandidates {
 			slots := bob.slots + noBobSlots
-			eb, pUsed := calculateOptimalStoneEB(soulEggsCount, prophecyEggsCount, soulBonus, prophecyBonus+bob.bonus, slots, pStones, eov)
+			bobStones := buildAvailableStones(&bob, noBobChosen)
+			eb, pUsed := calculateOptimalStoneEB(soulEggsCount, prophecyEggsCount, soulBonus, prophecyBonus+bob.bonus, slots, bobStones, eov)
 			bobLabel := formatArtifactNice(bob.spec)
 			candidateLogs = append(candidateLogs, fmt.Sprintf("%s (+%.2f%% PE, %d slots) -> %s%%", bobLabel, bob.bonus*100, slots, FormatEIValue(eb, fmtFmt)))
 			if eb > bestEB {
