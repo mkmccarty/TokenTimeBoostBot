@@ -1,8 +1,11 @@
 package ei
 
 import (
+	"fmt"
+	"log"
 	"math"
 	"sort"
+	"strings"
 )
 
 const baseSoulEggBonus = 0.1
@@ -345,12 +348,14 @@ func GetBookOfBasanBonus(level ArtifactSpec_Level, rarity ArtifactSpec_Rarity) f
 		}
 		return 0.0075
 	case 3: // T4: Gilded
-		if rarity == ArtifactSpec_LEGENDARY {
+		switch rarity {
+		case ArtifactSpec_LEGENDARY:
 			return 0.012
-		} else if rarity == ArtifactSpec_EPIC {
+		case ArtifactSpec_EPIC:
 			return 0.011
+		default:
+			return 0.010
 		}
-		return 0.010
 	}
 	return 0.0
 }
@@ -367,9 +372,10 @@ func GetBookOfBasanSlots(level ArtifactSpec_Level, rarity ArtifactSpec_Rarity) i
 			return 1
 		}
 	case 3: // T4
-		if rarity == ArtifactSpec_LEGENDARY {
+		switch rarity {
+		case ArtifactSpec_LEGENDARY:
 			return 2
-		} else if rarity == ArtifactSpec_EPIC {
+		case ArtifactSpec_EPIC:
 			return 1
 		}
 	}

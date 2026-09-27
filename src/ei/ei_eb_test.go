@@ -269,6 +269,3 @@ func TestGetDressedEarningsBonus_StandardPermitSynthetic(t *testing.T) {
 		t.Errorf("expected dressed EB (%e) to be strictly greater than naked EB (%e)", ebDressed, ebNaked)
 	}
 }
-
-
-
