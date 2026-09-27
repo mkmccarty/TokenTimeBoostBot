@@ -121,6 +121,21 @@ func TestOptionLookupTraversesSubcommands(t *testing.T) {
 	}
 }
 
+// When an option name itself starts with the subcommand name (e.g. subcommand "contract"
+// and option "contract-id"), looking up by the option's registered name must not strip
+// the prefix into "id".
+func TestOptionSubcommandNamePrefix(t *testing.T) {
+	e := commandEventFrom(t, commandPayload("watch", `[
+		{"name": "contract", "type": 1, "options": [
+			{"name": "contract-id", "type": 3, "value": "space-boom"}
+		]}
+	]`))
+
+	if got, ok := e.OptString("contract-id"); !ok || got != "space-boom" {
+		t.Errorf("OptString = %q, %v, want %q, true", got, ok, "space-boom")
+	}
+}
+
 func TestCommandEventWithoutSubcommand(t *testing.T) {
 	e := commandEventFrom(t, commandPayload("contract", `[{"name": "id", "type": 3, "value": "x"}]`))
 	if path := e.SubcommandPath(); path != nil {

@@ -98,3 +98,15 @@ func TestOptionValuesTraversesSubcommands(t *testing.T) {
 		t.Errorf("path-joined lookup failed: %v, %v", got, ok)
 	}
 }
+
+func TestOptionValuesSubcommandNamePrefix(t *testing.T) {
+	options := commandEventFrom(t, commandPayload("watch", `[
+		{"name": "contract", "type": 1, "options": [
+			{"name": "contract-id", "type": 3, "value": "space-boom"}
+		]}
+	]`)).Options()
+
+	if got, ok := options.String("contract-id"); !ok || got != "space-boom" {
+		t.Errorf("String = %q, %v, want %q, true", got, ok, "space-boom")
+	}
+}
