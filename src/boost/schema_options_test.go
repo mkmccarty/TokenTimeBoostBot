@@ -19,6 +19,7 @@ var optionsHandlersRead = map[string][]string{
 	"GetSlashRegisterCommand":       {"reset"},
 	"GetSlashRerunEvalCommand":      {"reset", "refresh", "mobile-friendly", "season"},
 	"GetSlashEstimateTime":          {"contract-id", "include-leggy", "show-gg", "te-override"},
+	"GetSlashHelpCommand":           {"attributions"},
 }
 
 // declaresOption reports whether a command declares an option by this name,
