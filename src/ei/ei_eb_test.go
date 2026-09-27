@@ -253,18 +253,44 @@ func TestGetDressedEarningsBonus_StandardPermitSynthetic(t *testing.T) {
 	makerStd.backup.Game.EggsOfProphecy = &pe
 	makerStd.backup.Game.SoulEggsD = &se
 
-	// Add candidate BoBs: T4C (0 slots) and T3E (1 slot)
-	makerStd.AddArtifact(ArtifactSpec_BOOK_OF_BASAN, ArtifactSpec_GREATER, ArtifactSpec_COMMON, 4, false)
-	makerStd.AddArtifact(ArtifactSpec_BOOK_OF_BASAN, ArtifactSpec_NORMAL, ArtifactSpec_EPIC, 1, false)
-	// Add 3-slot legendary
-	makerStd.AddArtifact(ArtifactSpec_TUNGSTEN_ANKH, ArtifactSpec_GREATER, ArtifactSpec_LEGENDARY, 1, false)
-	// Add Prophecy stones (2x T4, 2x T3)
-	makerStd.AddStone(ArtifactSpec_PROPHECY_STONE, ArtifactSpec_NORMAL, 2, false)
-	makerStd.AddStone(ArtifactSpec_PROPHECY_STONE, ArtifactSpec_LESSER, 2, false)
+	// Add candidate BoB: T4C (level 3, common, 0 slots)
+	makerStd.AddArtifact(ArtifactSpec_BOOK_OF_BASAN, ArtifactSpec_GREATER, ArtifactSpec_COMMON, 1, false)
+
+	// Add 3-slot legendary Medallion
+	medallionID, _ := makerStd.AddArtifact(ArtifactSpec_NEODYMIUM_MEDALLION, ArtifactSpec_GREATER, ArtifactSpec_LEGENDARY, 1, false)
+	// Add 1-slot rare Phoenix Feather
+	featherID, _ := makerStd.AddArtifact(ArtifactSpec_PHOENIX_FEATHER, ArtifactSpec_GREATER, ArtifactSpec_RARE, 1, false)
+
+	// Add stones to socket into artifacts:
+	// Medallion gets 1x T4 and 2x T3
+	s1, _ := makerStd.AddStone(ArtifactSpec_PROPHECY_STONE, ArtifactSpec_NORMAL, 1, false)
+	s2, _ := makerStd.AddStone(ArtifactSpec_PROPHECY_STONE, ArtifactSpec_LESSER, 1, false)
+	s3, _ := makerStd.AddStone(ArtifactSpec_PROPHECY_STONE, ArtifactSpec_LESSER, 1, false)
+	_, _ = makerStd.AssignStonesToArtifact(medallionID, []uint64{s1, s2, s3}, false)
+
+	// Feather gets 1x T4 (should NOT be stolen because Feather is unequipped)
+	s4, _ := makerStd.AddStone(ArtifactSpec_PROPHECY_STONE, ArtifactSpec_NORMAL, 1, false)
+	_, _ = makerStd.AssignStonesToArtifact(featherID, []uint64{s4}, false)
+
+	// Add loose stones in DB: 16x T3, 0x T4
+	makerStd.AddStone(ArtifactSpec_PROPHECY_STONE, ArtifactSpec_LESSER, 16, false)
+
 	backup := makerStd.GetBackup()
 
 	ebNaked := GetEarningsBonus(backup, 58)
 	ebDressed := GetDressedEarningsBonus(backup, 58)
+
+	// Prophecy bonus:
+	// base 0.05 + ER 0.05 + BoB T4C 0.0100 + 1x T4 stone (0.0015) + 2x T3 stones (0.0020) = 0.1135
+	// If the feather's T4 stone was incorrectly stolen, prophecy bonus would be:
+	// 0.10 + 0.0100 + 2x T4 (0.0030) + 1x T3 (0.0010) = 0.1140
+	expectedProphecyBonus := 0.10 + 0.0100 + 0.0015 + 0.0020
+	expectedEB := se * 1.50 * math.Pow(1+expectedProphecyBonus, float64(pe)) * math.Pow(1.01, 58) * 100
+
+	if math.Abs(ebDressed-expectedEB)/expectedEB > 1e-6 {
+		t.Errorf("expected dressed EB with 1x T4 + 2x T3 to be %e (~26.665d%%), got %e", expectedEB, ebDressed)
+	}
+
 	if ebDressed <= ebNaked {
 		t.Errorf("expected dressed EB (%e) to be strictly greater than naked EB (%e)", ebDressed, ebNaked)
 	}
