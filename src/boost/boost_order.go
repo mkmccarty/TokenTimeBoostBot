@@ -465,8 +465,6 @@ func boostOrderNameButtons(contract *Contract, session *boostOrderSession, visib
 		}
 		sortRow2 := dc.ActionRow{
 			Components: []dc.InteractiveComponent{
-				dc.Button{Label: "Next ESC", Style: dc.ButtonSuccess, CustomID: fmt.Sprintf("%s#%s#%s#esc", boostOrderHandlerPrefix, session.uuidStr, sortAction)},
-				dc.Button{Label: "Next ESC-GG", Style: dc.ButtonSuccess, CustomID: fmt.Sprintf("%s#%s#%s#escgg", boostOrderHandlerPrefix, session.uuidStr, sortAction)},
 				dc.Button{Label: "Random", Style: dc.ButtonSuccess, CustomID: fmt.Sprintf("%s#%s#%s#random", boostOrderHandlerPrefix, session.uuidStr, sortAction)},
 				dc.Button{Label: modeLabel, Style: dc.ButtonSecondary, CustomID: fmt.Sprintf("%s#%s#%s", boostOrderHandlerPrefix, session.uuidStr, "mode")},
 			},

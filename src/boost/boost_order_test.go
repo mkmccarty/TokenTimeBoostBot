@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
@@ -630,5 +631,33 @@ func TestContractHelpersDesignationAndDefaulting(t *testing.T) {
 	// Now with all non-helpers, higher IHR (guest1: 3000, u2: 2000) should be ahead of u1: 1000
 	if sortedAfterClear[len(sortedAfterClear)-1] != "u1" {
 		t.Fatalf("expected lowest IHR u1 to be last among equal non-helpers, got %v", sortedAfterClear)
+	}
+}
+
+func TestBoostOrderNameButtonsNoESCOptions(t *testing.T) {
+	contract := &Contract{
+		Boosters: map[string]*Booster{
+			"u1": {UserID: "u1", Nick: "UserOne"},
+			"u2": {UserID: "u2", Nick: "UserTwo"},
+		},
+	}
+
+	for _, mode := range []int{0, 1, 2, 3} {
+		session := &boostOrderSession{
+			uuidStr:       "test-uuid",
+			selectionMode: mode,
+		}
+		components := boostOrderNameButtons(contract, session, []string{"u1", "u2"})
+		for _, comp := range components {
+			if row, ok := comp.(dc.ActionRow); ok {
+				for _, item := range row.Components {
+					if btn, isBtn := item.(dc.Button); isBtn {
+						if strings.Contains(btn.Label, "ESC") || strings.Contains(strings.ToLower(btn.CustomID), "esc") {
+							t.Fatalf("mode %d should not have ESC button, found label=%q customID=%q", mode, btn.Label, btn.CustomID)
+						}
+					}
+				}
+			}
+		}
 	}
 }
