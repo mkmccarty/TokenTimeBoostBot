@@ -304,12 +304,22 @@ func buildLobbyMismatchSection(contributors []*ei.ContractCoopStatusResponse_Con
 		eiIgn      string
 		eggIncName string
 		nick       string
+		userName   string
+		globalName string
+		name       string
 		mention    string
 	}
 	contract.mutex.Lock()
 	snapshots := make([]boosterSnapshot, 0, len(contract.Boosters))
 	for id, b := range contract.Boosters {
-		snapshots = append(snapshots, boosterSnapshot{discordID: id, nick: b.Nick, mention: b.Mention})
+		snapshots = append(snapshots, boosterSnapshot{
+			discordID:  id,
+			nick:       b.Nick,
+			userName:   b.UserName,
+			globalName: b.GlobalName,
+			name:       b.Name,
+			mention:    b.Mention,
+		})
 	}
 	contract.mutex.Unlock()
 
@@ -317,17 +327,6 @@ func buildLobbyMismatchSection(contributors []*ei.ContractCoopStatusResponse_Con
 	for i := range snapshots {
 		snapshots[i].eiIgn = farmerstate.GetMiscSettingString(snapshots[i].discordID, "ei_ign")
 		snapshots[i].eggIncName = farmerstate.GetEggIncName(snapshots[i].discordID)
-	}
-
-	// Build case-insensitive lookup map: lowercase ei_ign or eggincname -> discordID.
-	ignToID := make(map[string]string, len(snapshots))
-	for _, s := range snapshots {
-		if s.eiIgn != "" {
-			ignToID[strings.ToLower(s.eiIgn)] = s.discordID
-		}
-		if s.eggIncName != "" {
-			ignToID[strings.ToLower(s.eggIncName)] = s.discordID
-		}
 	}
 
 	matchedBoosterIDs := make(map[string]bool)
@@ -348,52 +347,110 @@ func buildLobbyMismatchSection(contributors []*ei.ContractCoopStatusResponse_Con
 			continue
 		}
 
+		coopTrimmed := strings.TrimSpace(coopName)
+		coopLower := strings.ToLower(coopTrimmed)
+		coopNorm := strings.ToLower(strings.TrimSpace(ei.NormalizePlayerNameForDisplay(coopName)))
+
 		matched := false
 
-		// 1. Exact database lookup by ei_ign.
-		if discordID, err := farmerstate.GetDiscordUserIDFromEiIgn(coopName); err == nil && discordID != "" {
+		// 1. Exact database lookup by ei_ign. Try exact match first, then collapse alts.
+		if discordID, err := farmerstate.GetDiscordUserIDFromEiIgnExact(coopTrimmed); err == nil && discordID != "" {
 			contract.mutex.Lock()
 			_, inContract := contract.Boosters[discordID]
 			contract.mutex.Unlock()
-			if inContract {
+			if inContract && !matchedBoosterIDs[discordID] {
 				matchedBoosterIDs[discordID] = true
 				matched = true
 			}
 		}
-
-		// 1b. Exact database lookup by eggincname.
 		if !matched {
-			if discordID, err := farmerstate.GetDiscordUserIDFromEggIncName(coopName); err == nil && discordID != "" {
+			if discordID, err := farmerstate.GetDiscordUserIDFromEiIgn(coopTrimmed); err == nil && discordID != "" {
 				contract.mutex.Lock()
 				_, inContract := contract.Boosters[discordID]
 				contract.mutex.Unlock()
-				if inContract {
+				if inContract && !matchedBoosterIDs[discordID] {
 					matchedBoosterIDs[discordID] = true
 					matched = true
 				}
 			}
 		}
 
-		// 2. Case-insensitive match on ei_ign or eggincname.
+		// 1b. Exact database lookup by eggincname.
 		if !matched {
-			coopLower := strings.ToLower(coopName)
-			if id, ok := ignToID[coopLower]; ok {
-				matchedBoosterIDs[id] = true
-				matched = true
+			if discordID, err := farmerstate.GetDiscordUserIDFromEggIncName(coopTrimmed); err == nil && discordID != "" {
+				contract.mutex.Lock()
+				_, inContract := contract.Boosters[discordID]
+				contract.mutex.Unlock()
+				if inContract && !matchedBoosterIDs[discordID] {
+					matchedBoosterIDs[discordID] = true
+					matched = true
+				}
 			}
 		}
 
-		// 3. Best-fit: substring match against ei_ign, eggincname, or Discord nick (requiring >= 3 characters).
+		// 2a. Case-insensitive exact match on configured Egg Inc names (ei_ign or eggincname).
 		if !matched {
-			coopLower := strings.ToLower(coopName)
+			for _, s := range snapshots {
+				if matchedBoosterIDs[s.discordID] {
+					continue
+				}
+				ignLower := strings.ToLower(strings.TrimSpace(s.eiIgn))
+				eggLower := strings.ToLower(strings.TrimSpace(s.eggIncName))
+				ignNorm := strings.ToLower(strings.TrimSpace(ei.NormalizePlayerNameForDisplay(s.eiIgn)))
+				eggNorm := strings.ToLower(strings.TrimSpace(ei.NormalizePlayerNameForDisplay(s.eggIncName)))
+
+				if (ignLower != "" && (ignLower == coopLower || ignLower == coopNorm || ignNorm == coopNorm)) ||
+					(eggLower != "" && (eggLower == coopLower || eggLower == coopNorm || eggNorm == coopNorm)) {
+					matchedBoosterIDs[s.discordID] = true
+					matched = true
+					break
+				}
+			}
+		}
+
+		// 2b. Case-insensitive exact match on Discord names (nick, username, global name, or name).
+		if !matched {
+			for _, s := range snapshots {
+				if matchedBoosterIDs[s.discordID] {
+					continue
+				}
+				nickLower := strings.ToLower(strings.TrimSpace(s.nick))
+				userLower := strings.ToLower(strings.TrimSpace(s.userName))
+				globalLower := strings.ToLower(strings.TrimSpace(s.globalName))
+				nameLower := strings.ToLower(strings.TrimSpace(s.name))
+				nickNorm := strings.ToLower(strings.TrimSpace(ei.NormalizePlayerNameForDisplay(s.nick)))
+				nameNorm := strings.ToLower(strings.TrimSpace(ei.NormalizePlayerNameForDisplay(s.name)))
+
+				if (nickLower != "" && (nickLower == coopLower || nickLower == coopNorm || nickNorm == coopNorm)) ||
+					(userLower != "" && (userLower == coopLower || userLower == coopNorm)) ||
+					(globalLower != "" && (globalLower == coopLower || globalLower == coopNorm)) ||
+					(nameLower != "" && (nameLower == coopLower || nameLower == coopNorm || nameNorm == coopNorm)) {
+					matchedBoosterIDs[s.discordID] = true
+					matched = true
+					break
+				}
+			}
+		}
+
+		// 3. Best-fit: substring match against ei_ign, eggincname, or Discord names (requiring >= 3 characters).
+		if !matched {
 			if len([]rune(coopLower)) >= 3 {
 				for _, s := range snapshots {
-					ignLower := strings.ToLower(s.eiIgn)
-					eggLower := strings.ToLower(s.eggIncName)
-					nickLower := strings.ToLower(s.nick)
-					if (len([]rune(ignLower)) >= 3 && (strings.Contains(ignLower, coopLower) || strings.Contains(coopLower, ignLower))) ||
-						(len([]rune(eggLower)) >= 3 && (strings.Contains(eggLower, coopLower) || strings.Contains(coopLower, eggLower))) ||
-						(len([]rune(nickLower)) >= 3 && (strings.Contains(nickLower, coopLower) || strings.Contains(coopLower, nickLower))) {
+					if matchedBoosterIDs[s.discordID] {
+						continue
+					}
+					checkSub := func(candidate string) bool {
+						c := strings.ToLower(strings.TrimSpace(candidate))
+						if len([]rune(c)) < 3 {
+							return false
+						}
+						cNorm := strings.ToLower(strings.TrimSpace(ei.NormalizePlayerNameForDisplay(candidate)))
+						return strings.Contains(c, coopLower) || strings.Contains(coopLower, c) ||
+							strings.Contains(cNorm, coopNorm) || strings.Contains(coopNorm, cNorm)
+					}
+
+					if checkSub(s.eiIgn) || checkSub(s.eggIncName) || checkSub(s.nick) ||
+						checkSub(s.userName) || checkSub(s.globalName) || checkSub(s.name) {
 						matchedBoosterIDs[s.discordID] = true
 						display := boosterDisplayName(s.mention, s.nick, s.discordID)
 						bestFitGuesses = append(bestFitGuesses, guessEntry{coopName: ei.NormalizePlayerNameForDisplay(coopName), contractDisplay: display})

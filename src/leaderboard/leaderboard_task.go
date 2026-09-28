@@ -96,7 +96,7 @@ func RunLeaderboardCollection(client dc.Client, dryRun bool, guildID string, tar
 	}()
 
 	if target == "group_egg_day" || target == LBEggDaySEGain || target == LBEggDaySEPct {
-		CollectEggDayManual(client, target, dryRun, onProgress)
+		CollectEggDayManual(client, target, dryRun, guildID, onProgress)
 		return
 	}
 
@@ -116,6 +116,25 @@ func RunLeaderboardCollection(client dc.Client, dryRun bool, guildID string, tar
 					userIDs = append(userIDs, o.UserID)
 				}
 			}
+		}
+
+		if client != nil {
+			var activeUserIDs []string
+			prunedCount := 0
+			for _, uid := range userIDs {
+				if _, err := client.GuildMember(guildID, uid); err != nil && dc.IsUnknownMember(err) {
+					prunedCount++
+					_ = farmerstate.DeleteAllLeaderboardOptInsForUserInGuild(guildID, uid)
+					_ = farmerstate.DeleteAllLeaderboardExclusionsForUserInGuild(guildID, uid)
+					farmerstate.RemoveGuildMembership(uid, guildID)
+					continue
+				}
+				activeUserIDs = append(activeUserIDs, uid)
+			}
+			if prunedCount > 0 {
+				log.Printf("leaderboard: pruned %d departed member(s) from guild %s opt-in list", prunedCount, guildID)
+			}
+			userIDs = activeUserIDs
 		}
 	} else {
 		userIDs = GetAllOptInUserIDs()

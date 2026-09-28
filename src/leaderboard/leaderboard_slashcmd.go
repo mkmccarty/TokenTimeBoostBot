@@ -307,8 +307,8 @@ func handleAdminBackfillEggDay(client dc.Client, e *dc.CommandEvent) {
 		updated = append(updated, fmt.Sprintf("pct=%.2f", pct))
 	}
 
-	// Redraw Egg Day leaderboards for everyone
-	go PostLeaderboards(client, yearStr, "", "group_egg_day", "update", nil)
+	// Redraw Egg Day leaderboards for this guild
+	go PostLeaderboards(client, yearStr, e.GuildID(), "group_egg_day", "update", nil)
 
 	respondEphemeral(e, fmt.Sprintf("Backfill complete for <@%s>: %s", userID, strings.Join(updated, ", ")))
 }
@@ -422,13 +422,16 @@ func handlePlayerOptIn(client dc.Client, e *dc.CommandEvent) {
 
 	guildID := e.GuildID()
 	go func() {
-		snapDate := GetLatestSnapDate(LBContractExp)
+		snapDate := GetLatestSnapDateForGuild(guildID, LBContractExp)
+		if snapDate == "" {
+			snapDate = GetLatestSnapDate(LBContractExp)
+		}
 		if snapDate == "" {
 			snapDate = SnapDateNow()
 		}
-		log.Printf("leaderboard: pulling stats for newly opted-in user %s in guild %s with snapDate %s", userID, guildID, snapDate)
+		log.Printf("leaderboard: pulling stats for newly opted-in user in guild %s with snapDate %s", guildID, snapDate)
 		if err := CollectSinglePlayer(userID, snapDate); err != nil {
-			log.Printf("leaderboard: failed to collect stats for user %s on opt-in: %v", userID, err)
+			log.Printf("leaderboard: failed to collect stats on opt-in: %v", err)
 			return
 		}
 		log.Printf("leaderboard: refreshing leaderboard messages for guild %s with snapDate %s", guildID, snapDate)

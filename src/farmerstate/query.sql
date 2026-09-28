@@ -199,6 +199,15 @@ SELECT DISTINCT snap_date FROM leaderboard_stats
 WHERE lb_type = ?
 ORDER BY snap_date DESC;
 
+-- name: GetLeaderboardSnapDatesForGuild :many
+-- Returns distinct snap_dates and player counts for a given lb_type and guild_id, newest first.
+SELECT s.snap_date, count(DISTINCT s.player) AS player_count
+FROM leaderboard_stats s
+JOIN leaderboard_optin o ON s.player = o.user_id AND (o.lb_type = s.lb_type OR o.lb_type = 'all')
+WHERE o.guild_id = ? AND s.lb_type = ?
+GROUP BY s.snap_date
+ORDER BY s.snap_date DESC;
+
 -- name: GetStatsForPlayer :many
 -- Returns all leaderboard stats for a specific player across all types, newest first.
 SELECT lb_type, player, game_name, snap_date, value, details

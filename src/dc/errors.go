@@ -12,6 +12,8 @@ import (
 const (
 	// ErrCodeUnknownChannel means the channel no longer exists.
 	ErrCodeUnknownChannel = 10003
+	// ErrCodeUnknownMember means the user is not a member of the guild.
+	ErrCodeUnknownMember = 10007
 	// ErrCodeUnknownMessage means the message no longer exists.
 	ErrCodeUnknownMessage = 10008
 	// ErrCodeMissingAccess means the bot cannot see the channel at all.
@@ -119,4 +121,14 @@ func IsMissingAccess(err error) bool {
 func IsMissingPermissions(err error) bool {
 	apiErr, ok := AsAPIError(err)
 	return ok && apiErr.Code == ErrCodeMissingPermissions
+}
+
+// IsUnknownMember reports whether err is Discord refusing a call because the
+// user is not in the guild. A 404 status code or code 10007 counts.
+func IsUnknownMember(err error) bool {
+	apiErr, ok := AsAPIError(err)
+	if !ok {
+		return false
+	}
+	return apiErr.Code == ErrCodeUnknownMember || apiErr.StatusCode == 404
 }

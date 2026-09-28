@@ -187,6 +187,17 @@ func GetLeaderboardSnapDates(lbType string) ([]string, error) {
 	return queries.GetLeaderboardSnapDates(ctx, lbType)
 }
 
+// GetLeaderboardSnapDatesForGuild returns all distinct snap_dates and player counts for a given lb_type and guild_id, newest first.
+func GetLeaderboardSnapDatesForGuild(guildID, lbType string) ([]GetLeaderboardSnapDatesForGuildRow, error) {
+	if queries == nil {
+		return nil, nil
+	}
+	return queries.GetLeaderboardSnapDatesForGuild(ctx, GetLeaderboardSnapDatesForGuildParams{
+		GuildID: guildID,
+		LbType:  lbType,
+	})
+}
+
 // GetStatsForPlayer returns all leaderboard stats for a specific player across all types.
 func GetStatsForPlayer(player string) ([]LeaderboardStat, error) {
 	if queries == nil {
