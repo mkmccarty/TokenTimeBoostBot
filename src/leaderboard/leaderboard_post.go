@@ -313,7 +313,10 @@ func getGuildRows(lbType string, snapDate string, guildID string) ([]LBEntry, ma
 	if lbType == LBCXPWeeklyDelta {
 		guildRows = buildWeeklyCSRows(snapDate, guildID)
 	}
-	prevSnapDate := GetPreviousSnapDate(lbType, snapDate)
+	prevSnapDate := GetPreviousSnapDateForGuild(guildID, lbType, snapDate)
+	if prevSnapDate == "" {
+		prevSnapDate = GetPreviousSnapDate(lbType, snapDate)
+	}
 	prevMap := make(map[string]float64)
 	if prevSnapDate != "" {
 		prevRows := GetLeaderboardRows(lbType, prevSnapDate, guildID)
@@ -384,6 +387,16 @@ func buildWeeklyCSRows(snapDate string, guildID string) []LBEntry {
 
 func findLookbackValueMap(lbType string, snapDate string, guildID string) (map[string]float64, bool) {
 	out := make(map[string]float64)
+	if prevSnapDate := GetPreviousSnapDateForGuild(guildID, lbType, snapDate); prevSnapDate != "" {
+		rows := GetLeaderboardRows(lbType, prevSnapDate, guildID)
+		if len(rows) > 0 {
+			for _, r := range rows {
+				out[r.Player] = r.Value
+			}
+			return out, true
+		}
+	}
+
 	snapTime, err := time.Parse("2006-01-02", snapDate)
 	if err != nil {
 		return out, false

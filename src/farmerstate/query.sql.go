@@ -754,6 +754,49 @@ func (q *Queries) GetLeaderboardSnapDates(ctx context.Context, lbType string) ([
 	return items, nil
 }
 
+const getLeaderboardSnapDatesForGuild = `-- name: GetLeaderboardSnapDatesForGuild :many
+SELECT s.snap_date, count(DISTINCT s.player) AS player_count
+FROM leaderboard_stats s
+JOIN leaderboard_optin o ON s.player = o.user_id AND (o.lb_type = s.lb_type OR o.lb_type = 'all')
+WHERE o.guild_id = ? AND s.lb_type = ?
+GROUP BY s.snap_date
+ORDER BY s.snap_date DESC
+`
+
+type GetLeaderboardSnapDatesForGuildParams struct {
+	GuildID string
+	LbType  string
+}
+
+type GetLeaderboardSnapDatesForGuildRow struct {
+	SnapDate    string
+	PlayerCount int64
+}
+
+// Returns distinct snap_dates and player counts for a given lb_type and guild_id, newest first.
+func (q *Queries) GetLeaderboardSnapDatesForGuild(ctx context.Context, arg GetLeaderboardSnapDatesForGuildParams) ([]GetLeaderboardSnapDatesForGuildRow, error) {
+	rows, err := q.db.QueryContext(ctx, getLeaderboardSnapDatesForGuild, arg.GuildID, arg.LbType)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetLeaderboardSnapDatesForGuildRow
+	for rows.Next() {
+		var i GetLeaderboardSnapDatesForGuildRow
+		if err := rows.Scan(&i.SnapDate, &i.PlayerCount); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getLeaderboardStatForPlayer = `-- name: GetLeaderboardStatForPlayer :one
 SELECT player, game_name, snap_date, value, details
 FROM leaderboard_stats

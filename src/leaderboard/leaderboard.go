@@ -667,6 +667,60 @@ func GetLatestSnapDate(lbType string) string {
 	return date
 }
 
+// GetLatestSnapDateForGuild returns the most recent valid snap_date for a given guild and lb_type.
+// It skips dates that only contain partial runs from other guilds (where player count is below half the maximum).
+func GetLatestSnapDateForGuild(guildID, lbType string) string {
+	if guildID == "" {
+		return GetLatestSnapDate(lbType)
+	}
+	rows, err := farmerstate.GetLeaderboardSnapDatesForGuild(guildID, lbType)
+	if err != nil || len(rows) == 0 {
+		return ""
+	}
+
+	var maxCount int64
+	for _, r := range rows {
+		if r.PlayerCount > maxCount {
+			maxCount = r.PlayerCount
+		}
+	}
+	threshold := (maxCount + 1) / 2
+
+	for _, r := range rows {
+		if r.PlayerCount >= threshold {
+			return r.SnapDate
+		}
+	}
+	return rows[0].SnapDate
+}
+
+// GetPreviousSnapDateForGuild returns the snap_date immediately before the given one for a guild,
+// skipping dates with partial runs from other guilds.
+func GetPreviousSnapDateForGuild(guildID, lbType, snapDate string) string {
+	if guildID == "" {
+		return GetPreviousSnapDate(lbType, snapDate)
+	}
+	rows, err := farmerstate.GetLeaderboardSnapDatesForGuild(guildID, lbType)
+	if err != nil || len(rows) == 0 {
+		return ""
+	}
+
+	var maxCount int64
+	for _, r := range rows {
+		if r.PlayerCount > maxCount {
+			maxCount = r.PlayerCount
+		}
+	}
+	threshold := (maxCount + 1) / 2
+
+	for _, r := range rows {
+		if r.SnapDate < snapDate && r.PlayerCount >= threshold {
+			return r.SnapDate
+		}
+	}
+	return ""
+}
+
 // GetPriorStatForPlayer returns the most recent stored stat for a player+lbType.
 func GetPriorStatForPlayer(lbType, playerID string) *LBEntry {
 	row, err := farmerstate.GetLeaderboardStatForPlayer(lbType, playerID)

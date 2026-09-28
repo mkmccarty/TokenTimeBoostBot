@@ -60,7 +60,7 @@ func StartEggDayScheduler(client dc.Client) {
 				// We are past start time, but start stats have not been collected.
 				// Run start collection now.
 				log.Printf("eggday: catch-up: running start collection for %d", year)
-				CollectEggDayStart(year)
+				CollectEggDayStart(year, "")
 				hasStart = true
 
 				// Sleep 10 mins to let periodicals update, then fall through to end collection.
@@ -77,7 +77,7 @@ func StartEggDayScheduler(client dc.Client) {
 					time.Sleep(sleepUntilEnd)
 				}
 				log.Printf("eggday: catch-up: running end collection and calculations for %d", year)
-				CollectEggDayEndAndCalculate(client, year, false)
+				CollectEggDayEndAndCalculate(client, year, false, "")
 			}
 		}
 
@@ -103,7 +103,7 @@ func StartEggDayScheduler(client dc.Client) {
 			log.Printf("eggday: starting Egg Day collection for year %d", runYear)
 
 			// 1. Run start collection
-			CollectEggDayStart(runYear)
+			CollectEggDayStart(runYear, "")
 
 			// 2. Wait 10 minutes (until 9:05 AM PT) to let periodicals update, then determine event end time
 			time.Sleep(10 * time.Minute)
@@ -119,7 +119,7 @@ func StartEggDayScheduler(client dc.Client) {
 			}
 
 			// 3. Run end collection, calculate gains/pct, and post leaderboards
-			CollectEggDayEndAndCalculate(client, runYear, false)
+			CollectEggDayEndAndCalculate(client, runYear, false, "")
 		}
 	}()
 }
@@ -173,7 +173,7 @@ func determineEggDayEndTime(client dc.Client, year int, loc *time.Location) time
 
 // CollectEggDayManual runs the manual collection flow. It determines whether to perform starting collection
 // or ending collection/calculation based on current date & database presence.
-func CollectEggDayManual(client dc.Client, target string, dryRun bool, onProgress func(string)) {
+func CollectEggDayManual(client dc.Client, target string, dryRun bool, guildID string, onProgress func(string)) {
 	loc, err := time.LoadLocation("America/Los_Angeles")
 	if err != nil {
 		if onProgress != nil {
@@ -194,7 +194,7 @@ func CollectEggDayManual(client dc.Client, target string, dryRun bool, onProgres
 		if onProgress != nil {
 			onProgress("🚀 Running Egg Day START collection (saving baseline SE counts)...")
 		}
-		CollectEggDayStart(year)
+		CollectEggDayStart(year, guildID)
 		if onProgress != nil {
 			onProgress("✅ Egg Day START collection complete. Baseline SE counts saved.")
 		}
@@ -202,7 +202,7 @@ func CollectEggDayManual(client dc.Client, target string, dryRun bool, onProgres
 		if onProgress != nil {
 			onProgress("🏁 Running Egg Day END collection & calculating gains...")
 		}
-		CollectEggDayEndAndCalculate(client, year, dryRun)
+		CollectEggDayEndAndCalculate(client, year, dryRun, guildID)
 		if onProgress != nil {
 			onProgress("✅ Egg Day END collection and calculations complete.")
 		}
@@ -210,9 +210,23 @@ func CollectEggDayManual(client dc.Client, target string, dryRun bool, onProgres
 }
 
 // CollectEggDayStart records the initial SE count for all opted-in players.
-func CollectEggDayStart(year int) {
-	log.Printf("eggday: collecting start stats for year %d", year)
-	userIDs := GetAllOptInUserIDs()
+func CollectEggDayStart(year int, guildID string) {
+	log.Printf("eggday: collecting start stats for year %d (guild=%s)", year, guildID)
+	var userIDs []string
+	if guildID != "" {
+		optins, err := farmerstate.GetLeaderboardOptInsForGuild(guildID)
+		if err == nil {
+			seen := make(map[string]bool)
+			for _, o := range optins {
+				if !seen[o.UserID] {
+					seen[o.UserID] = true
+					userIDs = append(userIDs, o.UserID)
+				}
+			}
+		}
+	} else {
+		userIDs = GetAllOptInUserIDs()
+	}
 	if len(userIDs) == 0 {
 		log.Println("eggday: no opted-in users found")
 		return
@@ -257,9 +271,23 @@ func CollectEggDayStart(year int) {
 }
 
 // CollectEggDayEndAndCalculate records the ending SE count, calculates gains, and posts leaderboards.
-func CollectEggDayEndAndCalculate(client dc.Client, year int, dryRun bool) {
-	log.Printf("eggday: collecting end stats for year %d", year)
-	userIDs := GetAllOptInUserIDs()
+func CollectEggDayEndAndCalculate(client dc.Client, year int, dryRun bool, guildID string) {
+	log.Printf("eggday: collecting end stats for year %d (guild=%s)", year, guildID)
+	var userIDs []string
+	if guildID != "" {
+		optins, err := farmerstate.GetLeaderboardOptInsForGuild(guildID)
+		if err == nil {
+			seen := make(map[string]bool)
+			for _, o := range optins {
+				if !seen[o.UserID] {
+					seen[o.UserID] = true
+					userIDs = append(userIDs, o.UserID)
+				}
+			}
+		}
+	} else {
+		userIDs = GetAllOptInUserIDs()
+	}
 	if len(userIDs) == 0 {
 		log.Println("eggday: no opted-in users found")
 		return
@@ -335,8 +363,8 @@ func CollectEggDayEndAndCalculate(client dc.Client, year int, dryRun bool) {
 
 	// Post the new leaderboards if not a dry run
 	if !dryRun {
-		log.Printf("eggday: posting Egg Day leaderboards for year %s", yearStr)
-		PostLeaderboards(client, yearStr, "", "group_egg_day", "update", nil)
+		log.Printf("eggday: posting Egg Day leaderboards for year %s (guild=%s)", yearStr, guildID)
+		PostLeaderboards(client, yearStr, guildID, "group_egg_day", "update", nil)
 	} else {
 		log.Printf("eggday: dry run — skipping Discord post for Egg Day leaderboards")
 	}
