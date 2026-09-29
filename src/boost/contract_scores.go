@@ -163,6 +163,7 @@ func calculateContractScore(cxpversion int, grade int, coopSize int, targetGoal 
 func getPredictedTeamwork(cxpVersion int, B float64, CR float64, T float64) float64 {
 	if cxpVersion == ei.SeasonalScoringNerfed {
 		// Sept 22, 2025 and newer contracts don't have teamwork
+		// See https://discord.com/channels/455380663013736479/455385744274620416/1420635105902198866
 		return (5.0 / 19.0 * (B + CR))
 	}
 	return (5.0*B + CR + T) / 19.0
