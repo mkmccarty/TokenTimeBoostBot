@@ -242,3 +242,40 @@ func TestGetCoopStatusForCompletedContracts_DoesNotRetryOn500EOP(t *testing.T) {
 		t.Fatalf("unexpected request paths: %v", paths)
 	}
 }
+
+func TestGetCoopStatus_SavesSingleCopyWithoutTimestamp(t *testing.T) {
+	setTestCwd(t)
+	resetCoopStatusCache(t)
+
+	validBody := coopStatusSuccessBody(t)
+	setAuxbrainServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(validBody)
+	})
+
+	_, _, _, err := GetCoopStatusUncached("contract-x", "coop-x", "EI1234567890123456")
+	if err != nil {
+		t.Fatalf("first GetCoopStatusUncached failed: %v", err)
+	}
+
+	_, _, _, err = GetCoopStatusUncached("contract-x", "coop-x", "EI1234567890123456")
+	if err != nil {
+		t.Fatalf("second GetCoopStatusUncached failed: %v", err)
+	}
+
+	expectedFile := "ttbb-data/pb/contract-x-coop-x.pb"
+	if _, err := os.Stat(expectedFile); err != nil {
+		t.Fatalf("expected file %s to exist, err: %v", expectedFile, err)
+	}
+
+	entries, err := os.ReadDir("ttbb-data/pb")
+	if err != nil {
+		t.Fatalf("read ttbb-data/pb dir: %v", err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("expected exactly 1 file in ttbb-data/pb, got %d", len(entries))
+	}
+	if entries[0].Name() != "contract-x-coop-x.pb" {
+		t.Fatalf("expected file name contract-x-coop-x.pb, got %s", entries[0].Name())
+	}
+}
