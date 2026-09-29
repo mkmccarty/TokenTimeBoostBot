@@ -54,9 +54,13 @@ func isThreadFullAndMatched(contract *Contract) bool {
 	return true
 }
 
-// AutoUpdateThreadName will automatically update a thread's name to the current contract state
+// AutoUpdateThreadName will automatically update a thread's name to the current contract state.
+// Prediction signups do not auto-rename the thread.
 func AutoUpdateThreadName(client dc.Client, contract *Contract) {
 	if contract == nil || client == nil {
+		return
+	}
+	if contract.PredictionSignup {
 		return
 	}
 	UpdateThreadName(client, contract)

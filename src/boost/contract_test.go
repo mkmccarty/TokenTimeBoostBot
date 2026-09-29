@@ -1533,8 +1533,9 @@ func TestStartContractBoosting_TriggersThreadRename(t *testing.T) {
 
 func TestAutoUpdateThreadName_PredictedContracts(t *testing.T) {
 	testCases := []struct {
-		name     string
-		contract *Contract
+		name         string
+		contract     *Contract
+		shouldRename bool
 	}{
 		{
 			name: "active prediction signup",
@@ -1548,6 +1549,7 @@ func TestAutoUpdateThreadName_PredictedContracts(t *testing.T) {
 				Location:         []*LocationData{{GuildID: "guild1", ChannelID: "thread-pred-1"}},
 				Boosters:         map[string]*Booster{"u1": {UserID: "u1"}},
 			},
+			shouldRename: false,
 		},
 		{
 			name: "was predicted contract",
@@ -1562,6 +1564,7 @@ func TestAutoUpdateThreadName_PredictedContracts(t *testing.T) {
 				Location:             []*LocationData{{GuildID: "guild1", ChannelID: "thread-pred-2"}},
 				Boosters:             map[string]*Booster{"u1": {UserID: "u1"}},
 			},
+			shouldRename: true,
 		},
 		{
 			name: "predictions list populated",
@@ -1575,6 +1578,7 @@ func TestAutoUpdateThreadName_PredictedContracts(t *testing.T) {
 				Location:        []*LocationData{{GuildID: "guild1", ChannelID: "thread-pred-3"}},
 				Boosters:        map[string]*Booster{"u1": {UserID: "u1"}},
 			},
+			shouldRename: true,
 		},
 	}
 
@@ -1585,14 +1589,20 @@ func TestAutoUpdateThreadName_PredictedContracts(t *testing.T) {
 				WithThread(tc.contract.Location[0].ChannelID, "guild1", "parent1", "Original Thread Name")
 
 			AutoUpdateThreadName(client, tc.contract)
-			if !client.Called("EditChannel") {
-				t.Errorf("expected AutoUpdateThreadName to call EditChannel for %s", tc.name)
+			if tc.shouldRename {
+				if !client.Called("EditChannel") {
+					t.Errorf("expected AutoUpdateThreadName to call EditChannel for %s", tc.name)
+				}
+			} else {
+				if client.Called("EditChannel") {
+					t.Errorf("expected AutoUpdateThreadName NOT to call EditChannel for %s", tc.name)
+				}
 			}
 		})
 	}
 }
 
-func TestJoinContract_PredictedContractAutoRenames(t *testing.T) {
+func TestJoinContract_PredictedContractDoesNotAutoRename(t *testing.T) {
 	contract := &Contract{
 		ContractHash:     "test-hash-join-pred",
 		ContractID:       "monday-2026-09-23",
@@ -1627,8 +1637,8 @@ func TestJoinContract_PredictedContractAutoRenames(t *testing.T) {
 		t.Fatalf("unexpected JoinContract error: %v", err)
 	}
 
-	if !client.Called("EditChannel") {
-		t.Errorf("expected EditChannel to be called when predicted contract is joined")
+	if client.Called("EditChannel") {
+		t.Errorf("expected EditChannel NOT to be called when predicted contract is joined")
 	}
 }
 
