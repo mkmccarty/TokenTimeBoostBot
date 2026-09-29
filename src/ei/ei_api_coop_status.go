@@ -183,7 +183,7 @@ func getCoopStatus(contractID string, coopID string, eeidOverride string, bypass
 		eiDatasMutex.Unlock()
 
 		// Save protoData into a file
-		fileName := fmt.Sprintf("ttbb-data/pb/%s-%s-%s.pb", contractID, coopID, timestamp.Format("20060102150405"))
+		fileName := fmt.Sprintf("ttbb-data/pb/%s-%s.pb", contractID, coopID)
 		// make sure the directory exists
 		if err := os.MkdirAll("ttbb-data/pb", 0755); err != nil {
 			log.Print(err)
