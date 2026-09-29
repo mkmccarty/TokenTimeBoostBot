@@ -902,6 +902,45 @@ func AddFarmerToContract(client dc.Client, contract *Contract, guildID string, c
 
 		if !UserInContract(contract, b.UserID) {
 			contract.Boosters[b.UserID] = b
+
+			// Auto-link alternate accounts if AltController is established in farmerstate
+			parentID := farmerstate.GetMiscSettingString(b.UserID, "AltController")
+			if parentID == "" && b.Name != "" && b.Name != b.UserID {
+				parentID = farmerstate.GetMiscSettingString(b.Name, "AltController")
+			}
+			if parentID != "" && parentID != b.UserID {
+				if parentBooster, ok := contract.Boosters[parentID]; ok && parentBooster != nil {
+					b.AltController = parentID
+					if !slices.Contains(parentBooster.Alts, b.UserID) {
+						parentBooster.Alts = append(parentBooster.Alts, b.UserID)
+					}
+					contract.buttonComponents = nil
+				}
+			}
+
+			// If this booster is an AltController for any alts already in the contract, link them
+			for _, altID := range farmerstate.GetAltControllerByMiscString("AltController", b.UserID) {
+				if altID == "" || altID == b.UserID {
+					continue
+				}
+				altBooster := contract.Boosters[altID]
+				if altBooster == nil {
+					for _, cand := range contract.Boosters {
+						if cand != nil && cand.Name == altID {
+							altBooster = cand
+							break
+						}
+					}
+				}
+				if altBooster != nil {
+					altBooster.AltController = b.UserID
+					if !slices.Contains(b.Alts, altBooster.UserID) {
+						b.Alts = append(b.Alts, altBooster.UserID)
+					}
+					contract.buttonComponents = nil
+				}
+			}
+
 			if contract.Ultra {
 				contract.UltraCount++
 			}

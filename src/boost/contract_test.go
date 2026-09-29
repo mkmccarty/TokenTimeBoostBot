@@ -10,6 +10,7 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc/dctest"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
 func TestMain(m *testing.M) {
@@ -1992,5 +1993,103 @@ func TestDrawBoostList_BoosterTValCalculation(t *testing.T) {
 	}
 	if tvalByUser["100000000000000001"] <= 0 {
 		t.Errorf("expected positive delta tval for farmer1 who sent more tokens than received, got %f", tvalByUser["100000000000000001"])
+	}
+}
+
+func TestAddFarmerToContract_AutoLinkAlts(t *testing.T) {
+	client := dctest.New().
+		WithGuild("guild1", "Guild 1").
+		WithChannel("channel1", "guild1", "contract-channel").
+		WithUser("userMain", "mainUser", "Main User").
+		WithUser("userAlt", "altUser", "Alt User")
+
+	mainID := "userMain"
+	altID := "userAlt"
+	guestAlt := "GuestAlt"
+
+	farmerstate.SetMiscSettingString(altID, "AltController", mainID)
+	farmerstate.SetMiscSettingString(guestAlt, "AltController", mainID)
+
+	contract := &Contract{
+		ContractHash: "test-hash-autolink",
+		ContractID:   "test-contract",
+		CoopID:       "test-coop",
+		CoopSize:     10,
+		State:        ContractStateSignup,
+		CreatorID:    []string{mainID},
+		Order:        make([]string, 0),
+		Boosters:     make(map[string]*Booster),
+		Location:     []*LocationData{{GuildID: "guild1", ChannelID: "channel1"}},
+	}
+	Contracts[contract.ContractHash] = contract
+	defer delete(Contracts, contract.ContractHash)
+
+	// 1. Add main user first
+	mainB, err := AddFarmerToContract(client, contract, "guild1", "channel1", mainID, ContractOrderSignup, true, false)
+	if err != nil || mainB == nil {
+		t.Fatalf("failed to add main user: %v", err)
+	}
+
+	// 2. Add alt user when main user is already in contract
+	altB, err := AddFarmerToContract(client, contract, "guild1", "channel1", altID, ContractOrderSignup, false, false)
+	if err != nil || altB == nil {
+		t.Fatalf("failed to add alt user: %v", err)
+	}
+
+	if altB.AltController != mainID {
+		t.Errorf("altB.AltController = %q, want %q", altB.AltController, mainID)
+	}
+	if !slices.Contains(mainB.Alts, altID) {
+		t.Errorf("mainB.Alts %v does not contain %q", mainB.Alts, altID)
+	}
+
+	// 3. Add guest alt by name when main user is in contract
+	guestB, err := AddFarmerToContract(client, contract, "guild1", "channel1", guestAlt, ContractOrderSignup, false, false)
+	if err != nil || guestB == nil {
+		t.Fatalf("failed to add guest alt: %v", err)
+	}
+
+	if guestB.AltController != mainID {
+		t.Errorf("guestB.AltController = %q, want %q", guestB.AltController, mainID)
+	}
+	if !slices.Contains(mainB.Alts, guestAlt) {
+		t.Errorf("mainB.Alts %v does not contain %q", mainB.Alts, guestAlt)
+	}
+
+	// 4. Test reverse order: alt joins first, then main joins
+	contractReverse := &Contract{
+		ContractHash: "test-hash-autolink-reverse",
+		ContractID:   "test-contract-rev",
+		CoopID:       "test-coop-rev",
+		CoopSize:     10,
+		State:        ContractStateSignup,
+		CreatorID:    []string{"creatorX"},
+		Order:        make([]string, 0),
+		Boosters:     make(map[string]*Booster),
+		Location:     []*LocationData{{GuildID: "guild1", ChannelID: "channel1"}},
+	}
+	Contracts[contractReverse.ContractHash] = contractReverse
+	defer delete(Contracts, contractReverse.ContractHash)
+
+	// Add alt first
+	altFirst, err := AddFarmerToContract(client, contractReverse, "guild1", "channel1", altID, ContractOrderSignup, false, false)
+	if err != nil || altFirst == nil {
+		t.Fatalf("failed to add alt user first: %v", err)
+	}
+	if altFirst.AltController != "" {
+		t.Errorf("altFirst.AltController should be empty before main joins, got %q", altFirst.AltController)
+	}
+
+	// Now add main
+	mainSecond, err := AddFarmerToContract(client, contractReverse, "guild1", "channel1", mainID, ContractOrderSignup, false, false)
+	if err != nil || mainSecond == nil {
+		t.Fatalf("failed to add main user second: %v", err)
+	}
+
+	if altFirst.AltController != mainID {
+		t.Errorf("after main joined, altFirst.AltController = %q, want %q", altFirst.AltController, mainID)
+	}
+	if !slices.Contains(mainSecond.Alts, altID) {
+		t.Errorf("mainSecond.Alts %v does not contain %q", mainSecond.Alts, altID)
 	}
 }
