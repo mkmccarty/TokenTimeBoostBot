@@ -1061,7 +1061,7 @@ func HandleContractSettingsReactions(client dc.Client, e *dc.ComponentEvent) {
 		}
 
 		// Need to rename the thread if it exists
-		UpdateThreadName(client, contract)
+		AutoUpdateThreadName(client, contract)
 		UpdateBannerURL(contract)
 	}
 
