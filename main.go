@@ -313,7 +313,7 @@ var (
 		"fd_signupBell":           func(e *dc.ComponentEvent) { boost.HandleSignupBell(botClient(), e) },
 		"fd_signupLeave":          func(e *dc.ComponentEvent) { boost.HandleSignupLeave(botClient(), e) },
 		"csestimate":              boost.HandleCsEstimateButtons,
-		"lobby":                   boost.HandleLobbyButtons,
+		"lobby":                   func(e *dc.ComponentEvent) { boost.HandleLobbyButtons(botClient(), e) },
 		"coop_status":             boost.HandleCoopStatusPermissionButton,
 		"leaderboard_perm":        boost.HandleLeaderboardPermissionButton,
 		"timer_btn":               func(e *dc.ComponentEvent) { dashboard.HandleTimerInteraction(botClient(), e) },
