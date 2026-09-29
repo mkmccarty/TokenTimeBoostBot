@@ -337,6 +337,7 @@ type Contract struct {
 	ThreadRenameTime          time.Time
 	ThreadRenameFinalized     bool
 	EstimateUpdateTime        time.Time
+	LastLobbyPingTime         time.Time
 	TimeBoosting              time.Time // When the contract boost started
 
 	CoopSize                   int

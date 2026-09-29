@@ -5,6 +5,7 @@ import (
 	"log"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
@@ -97,8 +98,8 @@ func HandleLobbyCommand(e *dc.CommandEvent) {
 	}
 }
 
-// HandleLobbyButtons handles refresh and close button interactions for /lobby.
-func HandleLobbyButtons(e *dc.ComponentEvent) {
+// HandleLobbyButtons handles refresh, ping, and close button interactions for /lobby.
+func HandleLobbyButtons(client dc.Client, e *dc.ComponentEvent) {
 	respondUsage := func(msg string) {
 		_ = e.Respond(dc.Message{
 			Content:   msg,
@@ -108,7 +109,7 @@ func HandleLobbyButtons(e *dc.ComponentEvent) {
 
 	parts := strings.Split(e.CustomID(), "#")
 	if len(parts) < 2 {
-		respondUsage("Invalid lobby action. Use the Refresh or Close buttons from a /lobby response.")
+		respondUsage("Invalid lobby action. Use the Refresh, Ping, or Close buttons from a /lobby response.")
 		return
 	}
 
@@ -149,9 +150,182 @@ func HandleLobbyButtons(e *dc.ComponentEvent) {
 			}
 		}
 
+	case "ping":
+		if len(parts) < 4 {
+			respondUsage("Invalid ping action. Use the Ping button from a /lobby response.")
+			return
+		}
+		contractID := parts[2]
+		coopID := parts[3]
+
+		_ = e.DeferUpdate()
+
+		handleLobbyPing(client, e, contractID, coopID)
+
 	default:
-		respondUsage("Unknown lobby action. Use the Refresh or Close buttons from a /lobby response.")
+		respondUsage("Unknown lobby action. Use the Refresh, Ping, or Close buttons from a /lobby response.")
 	}
+}
+
+var getLobbyCoopStatus = func(contractID, coopID, eiID string) (*ei.ContractCoopStatusResponse, error) {
+	coopStatus, _, _, err := ei.GetCoopStatusUncached(contractID, coopID, eiID)
+	if err != nil {
+		coopStatus, _, _, err = ei.GetCoopStatus(contractID, coopID, eiID)
+	}
+	return coopStatus, err
+}
+
+func handleLobbyPing(client dc.Client, e *dc.ComponentEvent, contractID string, coopID string) {
+	contract := FindContractByIDs(e.ChannelID(), contractID, coopID)
+	if contract == nil {
+		contract = FindContract(e.ChannelID())
+	}
+	if contract == nil {
+		_ = e.Followup(dc.Message{
+			Ephemeral: true,
+			Content:   "No active contract found in this channel to determine who is missing from the lobby.",
+		})
+		return
+	}
+
+	userID := e.UserID()
+	isMember := UserInContract(contract, userID)
+	if !isMember {
+		contract.mutex.Lock()
+		for _, b := range contract.Boosters {
+			if b.AltController == userID {
+				isMember = true
+				break
+			}
+		}
+		contract.mutex.Unlock()
+	}
+	if !isMember && !creatorOfContract(client, contract, userID) {
+		_ = e.Followup(dc.Message{
+			Ephemeral: true,
+			Content:   "Only contract members or coordinators can ping players.",
+		})
+		return
+	}
+
+	contract.mutex.Lock()
+	if !contract.LastLobbyPingTime.IsZero() && time.Since(contract.LastLobbyPingTime) < 1*time.Minute {
+		cooldownExpiry := contract.LastLobbyPingTime.Add(1 * time.Minute).Unix()
+		contract.mutex.Unlock()
+		_ = e.Followup(dc.Message{
+			Ephemeral: true,
+			Content:   fmt.Sprintf("A lobby ping was already sent recently. Please wait <t:%d:R> before pinging again.", cooldownExpiry),
+		})
+		return
+	}
+	contract.mutex.Unlock()
+
+	eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
+	coopStatus, err := getLobbyCoopStatus(contractID, coopID, eiID)
+	if err != nil {
+		_ = e.Followup(dc.Message{
+			Ephemeral: true,
+			Content:   fmt.Sprintf("Unable to fetch coop status: %v", err),
+		})
+		return
+	}
+	if coopStatus.GetResponseStatus() != ei.ContractCoopStatusResponse_NO_ERROR {
+		_ = e.Followup(dc.Message{
+			Ephemeral: true,
+			Content:   fmt.Sprintf("Coop status error: %s", ei.ContractCoopStatusResponse_ResponseStatus_name[int32(coopStatus.GetResponseStatus())]),
+		})
+		return
+	}
+
+	mismatch := computeLobbyMismatch(coopStatus.GetContributors(), contract)
+	if len(mismatch.contractNotInCoop) == 0 {
+		_ = e.Followup(dc.Message{
+			Ephemeral: true,
+			Content:   "All contract members are already in the lobby!",
+		})
+		return
+	}
+
+	pingItems := make([]string, 0, len(mismatch.contractNotInCoop))
+	for _, s := range mismatch.contractNotInCoop {
+		var item string
+		if s.altController != "" {
+			altName := s.nick
+			if altName == "" {
+				altName = s.name
+			}
+			if altName == "" {
+				altName = s.userName
+			}
+			if altName != "" {
+				item = fmt.Sprintf("<@%s> (%s)", s.altController, altName)
+			} else {
+				item = fmt.Sprintf("<@%s>", s.altController)
+			}
+		} else if strings.HasPrefix(s.mention, "<@") {
+			item = s.mention
+		} else if s.discordID != "" {
+			item = fmt.Sprintf("<@%s>", s.discordID)
+		} else if s.nick != "" {
+			item = s.nick
+		} else {
+			item = s.mention
+		}
+		if item != "" {
+			pingItems = append(pingItems, item)
+		}
+	}
+	sort.Strings(pingItems)
+
+	contractName := contract.Name
+	if contractName == "" {
+		contractName = contract.ContractID
+	}
+	coopCode := coopStatus.GetCoopIdentifier()
+	if coopCode == "" {
+		coopCode = coopID
+	}
+	requesterMention := "<@" + userID + ">"
+	contract.mutex.Lock()
+	if b := contract.Boosters[userID]; b != nil && b.Mention != "" {
+		requesterMention = b.Mention
+	}
+	contract.mutex.Unlock()
+
+	content := fmt.Sprintf(
+		"Hey %s! Please join the coop for **%s**!\nCoop Code: `%s`\n-# Ping requested by %s",
+		strings.Join(pingItems, ", "),
+		contractName,
+		coopCode,
+		requesterMention,
+	)
+
+	msg := dc.Message{
+		Content: content,
+		AllowedMentions: &dc.AllowedMentions{
+			Parse: []dc.MentionType{dc.MentionUsers},
+		},
+	}
+
+	var sendErr error
+	if client != nil {
+		_, sendErr = client.SendMessage(e.ChannelID(), msg)
+	} else {
+		sendErr = e.Followup(msg)
+	}
+
+	if sendErr != nil {
+		log.Printf("lobby ping error (channel: %s): %v", e.ChannelID(), sendErr)
+		_ = e.Followup(dc.Message{
+			Ephemeral: true,
+			Content:   "Unable to send ping message. Please check bot permissions.",
+		})
+		return
+	}
+
+	contract.mutex.Lock()
+	contract.LastLobbyPingTime = time.Now()
+	contract.mutex.Unlock()
 }
 
 func resolveLobbyRequest(channelID string, contractID string, coopID string) (string, string, string) {
@@ -293,32 +467,45 @@ func boosterDisplayName(mention, nick, discordID string) string {
 	return "`Unknown`"
 }
 
-func buildLobbyMismatchSection(contributors []*ei.ContractCoopStatusResponse_ContributionInfo, contract *Contract) string {
+type boosterSnapshot struct {
+	discordID     string
+	eiIgn         string
+	eggIncName    string
+	nick          string
+	userName      string
+	globalName    string
+	name          string
+	mention       string
+	altController string
+}
+
+type guessEntry struct {
+	coopName        string
+	contractDisplay string
+}
+
+type lobbyMismatchResult struct {
+	bestFitGuesses    []guessEntry
+	coopNotInContract []string
+	contractNotInCoop []boosterSnapshot
+}
+
+func computeLobbyMismatch(contributors []*ei.ContractCoopStatusResponse_ContributionInfo, contract *Contract) lobbyMismatchResult {
 	if contract == nil {
-		return ""
+		return lobbyMismatchResult{}
 	}
 
-	// Snapshot booster info to avoid holding the contract mutex across farmerstate calls.
-	type boosterSnapshot struct {
-		discordID  string
-		eiIgn      string
-		eggIncName string
-		nick       string
-		userName   string
-		globalName string
-		name       string
-		mention    string
-	}
 	contract.mutex.Lock()
 	snapshots := make([]boosterSnapshot, 0, len(contract.Boosters))
 	for id, b := range contract.Boosters {
 		snapshots = append(snapshots, boosterSnapshot{
-			discordID:  id,
-			nick:       b.Nick,
-			userName:   b.UserName,
-			globalName: b.GlobalName,
-			name:       b.Name,
-			mention:    b.Mention,
+			discordID:     id,
+			nick:          b.Nick,
+			userName:      b.UserName,
+			globalName:    b.GlobalName,
+			name:          b.Name,
+			mention:       b.Mention,
+			altController: b.AltController,
 		})
 	}
 	contract.mutex.Unlock()
@@ -330,11 +517,6 @@ func buildLobbyMismatchSection(contributors []*ei.ContractCoopStatusResponse_Con
 	}
 
 	matchedBoosterIDs := make(map[string]bool)
-
-	type guessEntry struct {
-		coopName        string
-		contractDisplay string
-	}
 	var bestFitGuesses []guessEntry
 	var coopNotInContract []string
 
@@ -466,40 +648,56 @@ func buildLobbyMismatchSection(contributors []*ei.ContractCoopStatusResponse_Con
 		}
 	}
 
-	// Find contract members with no matching coop contributor.
-	var contractNotInCoop []string
+	var contractNotInCoop []boosterSnapshot
 	for _, s := range snapshots {
 		if !matchedBoosterIDs[s.discordID] {
-			display := boosterDisplayName(s.mention, s.nick, s.discordID)
-			contractNotInCoop = append(contractNotInCoop, display)
+			contractNotInCoop = append(contractNotInCoop, s)
 		}
 	}
 
-	if len(bestFitGuesses) == 0 && len(coopNotInContract) == 0 && len(contractNotInCoop) == 0 {
+	return lobbyMismatchResult{
+		bestFitGuesses:    bestFitGuesses,
+		coopNotInContract: coopNotInContract,
+		contractNotInCoop: contractNotInCoop,
+	}
+}
+
+func buildLobbyMismatchSection(contributors []*ei.ContractCoopStatusResponse_ContributionInfo, contract *Contract) string {
+	if contract == nil {
 		return ""
 	}
 
-	sort.Strings(coopNotInContract)
-	sort.Strings(contractNotInCoop)
+	mismatch := computeLobbyMismatch(contributors, contract)
+	if len(mismatch.bestFitGuesses) == 0 && len(mismatch.coopNotInContract) == 0 && len(mismatch.contractNotInCoop) == 0 {
+		return ""
+	}
+
+	contractNotInCoopDisplays := make([]string, 0, len(mismatch.contractNotInCoop))
+	for _, s := range mismatch.contractNotInCoop {
+		contractNotInCoopDisplays = append(contractNotInCoopDisplays, boosterDisplayName(s.mention, s.nick, s.discordID))
+	}
+
+	sort.Strings(mismatch.coopNotInContract)
+	sort.Strings(contractNotInCoopDisplays)
 
 	var sb strings.Builder
 	sb.WriteString("**Roster Mismatches**\n")
 
-	if len(bestFitGuesses) > 0 {
+	if len(mismatch.bestFitGuesses) > 0 {
 		sb.WriteString("Possible matches (unverified):\n")
-		for _, g := range bestFitGuesses {
+		for _, g := range mismatch.bestFitGuesses {
 			fmt.Fprintf(&sb, "- `%s` (coop) ≈ %s (contract)\n", g.coopName, g.contractDisplay)
 		}
 	}
-	if len(coopNotInContract) > 0 {
+	if len(mismatch.coopNotInContract) > 0 {
 		sb.WriteString("In coop but not in bot contract:\n")
-		for _, name := range coopNotInContract {
+		for _, name := range mismatch.coopNotInContract {
 			fmt.Fprintf(&sb, "- `%s`\n", name)
 		}
 	}
-	if len(contractNotInCoop) > 0 {
+	if len(contractNotInCoopDisplays) > 0 {
 		sb.WriteString("In bot contract but not in coop:\n")
-		for _, display := range contractNotInCoop {
+		for _, display := range contractNotInCoopDisplays {
 			fmt.Fprintf(&sb, "- %s\n", display)
 		}
 	}
@@ -515,6 +713,12 @@ func lobbyButtons(contractID string, coopID string) dc.ActionRow {
 				Style:    dc.ButtonSecondary,
 				CustomID: fmt.Sprintf("lobby#refresh#%s#%s", contractID, coopID),
 				Emoji:    &dc.Emoji{Name: "🔄"},
+			},
+			dc.Button{
+				Label:    "Ping",
+				Style:    dc.ButtonPrimary,
+				CustomID: fmt.Sprintf("lobby#ping#%s#%s", contractID, coopID),
+				Emoji:    &dc.Emoji{Name: "🔔"},
 			},
 			dc.Button{
 				Label:    "Close",
