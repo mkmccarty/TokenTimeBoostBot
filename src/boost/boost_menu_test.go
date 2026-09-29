@@ -243,6 +243,7 @@ func TestDrawBoostListUncompacted(t *testing.T) {
 		contract.Order[i] = userID
 		contract.Boosters[userID] = &Booster{
 			UserID:       userID,
+			Nick:         fmt.Sprintf("Farmer%d", i),
 			Mention:      fmt.Sprintf("<@%d>", i),
 			TokensWanted: 6,
 			BoostState:   BoostStateUnboosted,
@@ -286,7 +287,7 @@ func TestDrawBoostListUncompacted(t *testing.T) {
 		}
 	}
 
-	// Verify all 35 players are rendered in uncompacted components
+	// Verify all 35 players are rendered in uncompacted components without mentions
 	allContent := ""
 	for _, comp := range pureComponents {
 		if textDisplay, ok := comp.(dc.TextDisplay); ok {
@@ -296,14 +297,17 @@ func TestDrawBoostListUncompacted(t *testing.T) {
 	if !strings.HasPrefix(allContent, "## Boost List\n") {
 		t.Errorf("expected allContent to start with '## Boost List\\n', got %q", allContent[:min(30, len(allContent))])
 	}
+	if strings.Contains(allContent, "<@") {
+		t.Errorf("expected DrawPureBoostList to not contain mentions, got: %s", allContent)
+	}
 	for i := 0; i < 35; i++ {
 		expectedPrefix := fmt.Sprintf("%2d -", i+1)
-		expectedMention := fmt.Sprintf("<@%d>", i)
+		expectedName := fmt.Sprintf("Farmer%d", i)
 		if !strings.Contains(allContent, expectedPrefix) {
 			t.Errorf("expected allContent to contain prefix %q", expectedPrefix)
 		}
-		if !strings.Contains(allContent, expectedMention) {
-			t.Errorf("expected allContent to contain mention %q", expectedMention)
+		if !strings.Contains(allContent, expectedName) {
+			t.Errorf("expected allContent to contain name %q", expectedName)
 		}
 	}
 
