@@ -311,13 +311,17 @@ func applyIdealStoneMix(as *artifactSet, layingRate, shippingRate, everyoneDefle
 
 // DownloadCoopStatusStones will download the coop status for a given contract and coop ID
 func DownloadCoopStatusStones(channelID string, contractID string, coopID string, details bool, soloName string, useBuffHistory bool, eeidOverride string) (string, string, []dc.EmbedField) {
+	coopStatus, _, dataTimestampStr, err := ei.GetCoopStatus(contractID, coopID, eeidOverride)
+	if err != nil {
+		return err.Error(), "", nil
+	}
+	return renderCoopStatusStones(channelID, contractID, coopStatus, details, soloName, useBuffHistory, dataTimestampStr)
+}
+
+func renderCoopStatusStones(channelID string, contractID string, coopStatus *ei.ContractCoopStatusResponse, details bool, soloName string, useBuffHistory bool, dataTimestampStr string) (string, string, []dc.EmbedField) {
 	var builderURL strings.Builder
 	var field []dc.EmbedField
 
-	coopStatus, _, dataTimestampStr, err := ei.GetCoopStatus(contractID, coopID, eeidOverride)
-	if err != nil {
-		return err.Error(), "", field
-	}
 	var builder strings.Builder
 	eiContract, _ := ei.GetEggIncContract(contractID)
 	dimension := ei.GameModifier_INVALID
@@ -340,7 +344,7 @@ func DownloadCoopStatusStones(channelID string, contractID string, coopID string
 		return ei.ContractCoopStatusResponse_ResponseStatus_name[int32(coopStatus.GetResponseStatus())], "", nil
 	}
 
-	coopID = coopStatus.GetCoopIdentifier()
+	coopID := coopStatus.GetCoopIdentifier()
 	trackedContract := FindContractByIDs(channelID, contractID, coopID)
 
 	levels := []string{"T1", "T2", "T3", "T4", "T5"}
@@ -793,6 +797,7 @@ func DownloadCoopStatusStones(channelID string, contractID string, coopID string
 		if soloName != "" && strings.ToLower(as.nameRaw) != soloName {
 			continue
 		}
+		isDeparted := as.name == "[departed]" || as.nameRaw == "[departed]"
 		// need to reduce the farm population by the gusset percent
 		unmodifiedPop := as.farmPopulation / (1 + as.gusset.percent/100.0)
 		as.baseLayingRate = as.userLayRate * min(unmodifiedPop, as.baseHab) * 3600.0 / 1e15
@@ -818,7 +823,7 @@ func DownloadCoopStatusStones(channelID string, contractID string, coopID string
 				val := formatCollegg("🛖", (as.colleggBuffs.Hab-1.0)*100.0)
 				as.collegg = append(as.collegg, val)
 				anyColleggtibles = true
-			} else if as.colleggBuffs.Hab <= 1.0 {
+			} else if as.colleggBuffs.Hab <= 1.0 && !isDeparted {
 				as.collegg = append(as.collegg, "🛖")
 				//anyColleggtiblesToShow = true
 			}
@@ -853,7 +858,7 @@ func DownloadCoopStatusStones(channelID string, contractID string, coopID string
 				val := formatCollegg("📦", (roundedCollegELR-1.0)*100.0)
 				as.collegg = append(as.collegg, val)
 				anyColleggtibles = true
-			} else if as.colleggBuffs.ELR == 1.0 {
+			} else if as.colleggBuffs.ELR == 1.0 && !isDeparted {
 				as.collegg = append(as.collegg, "📦")
 				//anyColleggtiblesToShow = true
 			}
@@ -885,7 +890,7 @@ func DownloadCoopStatusStones(channelID string, contractID string, coopID string
 				val := formatCollegg("🚚", (roundedCollegShip-1.0)*100.0)
 				as.collegg = append(as.collegg, val)
 				anyColleggtibles = true
-			} else if as.colleggBuffs.SR == 1.0 {
+			} else if as.colleggBuffs.SR == 1.0 && !isDeparted {
 				as.collegg = append(as.collegg, "🚚")
 			}
 		}
@@ -1063,7 +1068,7 @@ func DownloadCoopStatusStones(channelID string, contractID string, coopID string
 
 			tableData = append(tableData, strings.Join(statsLine, " "))
 
-			if as.name != "[departed]" {
+			if !isDeparted {
 				url := bottools.GetStaabmiaLink(true, dimension, rate, int(everyoneDeflectorPercent), as.staabArtifacts, as.colleggBuffs.SR, as.colleggBuffs.ELR, as.colleggBuffs.Hab)
 				fmt.Fprintf(&builderURL, "🔗[%s](%s)\n", as.nameRaw, url)
 				fmt.Fprintf(&tileBuilder, "[%sCalc](%s)", ei.GetBotEmojiMarkdown("staab"), url)
