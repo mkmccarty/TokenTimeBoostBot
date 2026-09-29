@@ -235,6 +235,26 @@ type Booster struct {
 	DisableEphemeralLog    bool                 // Toggle for user ephemeral reaction summary log
 }
 
+// DisplayName returns the booster's display name, falling back through Nick, Name, UserName, GlobalName, and UserID.
+func (b *Booster) DisplayName() string {
+	if b == nil {
+		return ""
+	}
+	if b.Nick != "" {
+		return b.Nick
+	}
+	if b.Name != "" {
+		return b.Name
+	}
+	if b.UserName != "" {
+		return b.UserName
+	}
+	if b.GlobalName != "" {
+		return b.GlobalName
+	}
+	return b.UserID
+}
+
 // GuildRole identifies the Discord role used for contract pings.
 //
 // Only the ID and Name of a role are ever needed, so this holds those directly

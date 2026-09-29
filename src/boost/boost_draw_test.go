@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
 func TestDrawBoostListOutputScenarios(t *testing.T) {
@@ -326,5 +327,159 @@ func TestDrawBoostList_CustomBoostOrderName(t *testing.T) {
 	}
 	if strings.Contains(outStr2, "### Custom Boost Ordering is Custom\n") || strings.Contains(outStr2, "### Boost ordering is Custom\n") {
 		t.Errorf("boost_draw should not just say 'Custom', got: %s", outStr2)
+	}
+}
+
+func TestBooster_DisplayName(t *testing.T) {
+	var nilBooster *Booster
+	if got := nilBooster.DisplayName(); got != "" {
+		t.Errorf("expected empty string for nil booster, got %q", got)
+	}
+
+	b := &Booster{UserID: "dummy-user"}
+	if got := b.DisplayName(); got != "dummy-user" {
+		t.Errorf("expected UserID fallback %q, got %q", "dummy-user", got)
+	}
+
+	b.GlobalName = "GlobalName"
+	if got := b.DisplayName(); got != "GlobalName" {
+		t.Errorf("expected GlobalName %q, got %q", "GlobalName", got)
+	}
+
+	b.UserName = "username"
+	if got := b.DisplayName(); got != "username" {
+		t.Errorf("expected UserName %q, got %q", "username", got)
+	}
+
+	b.Name = "MemberName"
+	if got := b.DisplayName(); got != "MemberName" {
+		t.Errorf("expected Name %q, got %q", "MemberName", got)
+	}
+
+	b.Nick = "ServerNick"
+	if got := b.DisplayName(); got != "ServerNick" {
+		t.Errorf("expected Nick %q, got %q", "ServerNick", got)
+	}
+}
+
+func TestDrawBoostList_NoBoosterMentions(t *testing.T) {
+	contract := &Contract{
+		ContractHash: "no-mention-hash",
+		ContractID:   "test-no-mention",
+		CoopID:       "test-coop",
+		State:        ContractStateBanker,
+		Style:        ContractStyleFastrun | ContractFlagBanker,
+		CreatorID:    []string{"creator-id"},
+		Order:        []string{"user1", "user2"},
+		Banker: BankerInfo{
+			CurrentBanker:      "user2",
+			BoostingSinkUserID: "user2",
+			PostSinkUserID:     "user2",
+		},
+		Boosters: map[string]*Booster{
+			"user1": {
+				UserID:       "user1",
+				Mention:      "<@user1>",
+				Nick:         "FarmerAlpha",
+				TokensWanted: 6,
+				BoostState:   BoostStateTokenTime,
+			},
+			"user2": {
+				UserID:       "user2",
+				Mention:      "<@user2>",
+				Nick:         "FarmerBeta",
+				TokensWanted: 6,
+				BoostState:   BoostStateUnboosted,
+			},
+		},
+		Location: []*LocationData{{GuildID: "g1", ChannelID: "c1"}},
+	}
+
+	components := DrawBoostList(contract)
+	var output strings.Builder
+	for _, comp := range components {
+		if td, ok := comp.(dc.TextDisplay); ok {
+			output.WriteString(td.Content)
+		}
+	}
+	content := output.String()
+
+	// Boosters must appear by Nick/Name, never by mention
+	if strings.Contains(content, "<@user1>") || strings.Contains(content, "<@user2>") {
+		t.Errorf("expected DrawBoostList in active state to not contain booster mentions, got:\n%s", content)
+	}
+	if !strings.Contains(content, "FarmerAlpha") {
+		t.Errorf("expected content to contain %q", "FarmerAlpha")
+	}
+	if !strings.Contains(content, "FarmerBeta") {
+		t.Errorf("expected content to contain %q", "FarmerBeta")
+	}
+
+	// Verify that in signup state, DrawBoostList DOES use mentions to bring users into channels
+	contract.State = ContractStateSignup
+	signupComps := DrawBoostList(contract)
+	var signupOutput strings.Builder
+	for _, comp := range signupComps {
+		if td, ok := comp.(dc.TextDisplay); ok {
+			signupOutput.WriteString(td.Content)
+		}
+	}
+	signupContent := signupOutput.String()
+	if !strings.Contains(signupContent, "<@user1>") || !strings.Contains(signupContent, "<@user2>") {
+		t.Errorf("expected DrawBoostList in signup state to contain booster mentions, got:\n%s", signupContent)
+	}
+
+	// Verify that DrawPureBoostList (Grange) does NOT contain booster mentions even during signup
+	pureComps := DrawPureBoostList(contract)
+	var pureOutput strings.Builder
+	for _, comp := range pureComps {
+		if td, ok := comp.(dc.TextDisplay); ok {
+			pureOutput.WriteString(td.Content)
+		}
+	}
+	pureContent := pureOutput.String()
+	if strings.Contains(pureContent, "<@user1>") || strings.Contains(pureContent, "<@user2>") {
+		t.Errorf("expected DrawPureBoostList (Grange) to not contain booster mentions, got:\n%s", pureContent)
+	}
+}
+
+func TestDrawBoostList_EggIncNameSlashSeparator(t *testing.T) {
+	farmerstate.SetEggIncName("user1", "EggFarmerOne")
+	defer farmerstate.SetEggIncName("user1", "")
+
+	contract := &Contract{
+		ContractHash: "slash-test-hash",
+		ContractID:   "test-slash",
+		CoopID:       "test-coop",
+		State:        ContractStateWaiting,
+		Style:        ContractStyleFastrun,
+		CreatorID:    []string{"creator-id"},
+		Order:        []string{"user1"},
+		Boosters: map[string]*Booster{
+			"user1": {
+				UserID:       "user1",
+				Mention:      "<@user1>",
+				Nick:         "FarmerAlpha",
+				TokensWanted: 6,
+				BoostState:   BoostStateUnboosted,
+			},
+		},
+		Location: []*LocationData{{GuildID: "g1", ChannelID: "c1"}},
+	}
+
+	components := DrawBoostList(contract)
+	var output strings.Builder
+	for _, comp := range components {
+		if td, ok := comp.(dc.TextDisplay); ok {
+			output.WriteString(td.Content)
+		}
+	}
+	content := output.String()
+
+	if !strings.Contains(content, "FarmerAlpha/EggFarmerOne") {
+		t.Errorf("expected 'FarmerAlpha/EggFarmerOne' in boost list, got:\n%s", content)
+	}
+	if strings.Contains(content, "FarmerAlpha /") || strings.Contains(content, "/ EggFarmerOne") || strings.Contains(content, "FarmerAlpha EggFarmerOne") {
+		t.Errorf("expected no space around slash, got:\n%s", content)
 	}
 }

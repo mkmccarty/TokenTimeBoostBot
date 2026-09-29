@@ -130,7 +130,7 @@ func DrawPureBoostList(contract *Contract) []dc.LayoutComponent {
 		builder.WriteString("## Boost List\n")
 	}
 
-	renderBoosterLines(contract, contract.Order, 1, receivedByUser, sentByUser, tvalByUser, now, &builder, &components)
+	renderBoosterLines(contract, contract.Order, 1, receivedByUser, sentByUser, tvalByUser, now, false, &builder, &components)
 
 	if builder.Len() != 0 {
 		components = append(components, dc.TextDisplay{
@@ -281,7 +281,11 @@ func DrawBoostListCustom(contract *Contract, compact bool) []dc.LayoutComponent 
 		}
 		if contract.Style&ContractFlagBanker != 0 {
 			if contract.Banker.BoostingSinkUserID != "" {
-				fmt.Fprintf(&header, "> * During boosting send all tokens to **%s**\n", contract.Boosters[contract.Banker.BoostingSinkUserID].Mention)
+				sinkName := contract.Banker.BoostingSinkUserID
+				if b := contract.Boosters[contract.Banker.BoostingSinkUserID]; b != nil {
+					sinkName = b.Mention
+				}
+				fmt.Fprintf(&header, "> * During boosting send all tokens to **%s**\n", sinkName)
 				switch contract.Banker.SinkBoostPosition {
 				case SinkBoostFirst:
 					fmt.Fprint(&header, ">  * Banker boosts **First**\n")
@@ -296,12 +300,16 @@ func DrawBoostListCustom(contract *Contract, compact bool) []dc.LayoutComponent 
 			}
 		}
 		if contract.Banker.PostSinkUserID != "" {
-			fmt.Fprintf(&header, "> * After contract boosting send all tokens to **%s**\n", contract.Boosters[contract.Banker.PostSinkUserID].Mention)
+			sinkName := contract.Banker.PostSinkUserID
+			if b := contract.Boosters[contract.Banker.PostSinkUserID]; b != nil {
+				sinkName = b.Mention
+			}
+			fmt.Fprintf(&header, "> * After contract boosting send all tokens to **%s**\n", sinkName)
 		}
 	}
 	if contract.Style&ContractStyleFastrun != 0 && contract.Banker.PostSinkUserID != "" {
 		if contract.State != ContractStateSignup && contract.Boosters[contract.Banker.PostSinkUserID] != nil {
-			fmt.Fprintf(&header, "> Post Contract Sink: **%s**\n", contract.Boosters[contract.Banker.PostSinkUserID].Mention)
+			fmt.Fprintf(&header, "> Post Contract Sink: **%s**\n", contract.Boosters[contract.Banker.PostSinkUserID].DisplayName())
 		}
 	}
 
@@ -367,7 +375,11 @@ func DrawBoostListCustom(contract *Contract, compact bool) []dc.LayoutComponent 
 			}
 		}
 		if contract.Banker.CurrentBanker != "" {
-			fmt.Fprintf(&afterListStr, "\n## Send all tokens to %s\n", contract.Boosters[contract.Banker.CurrentBanker].Mention)
+			sinkName := contract.Banker.CurrentBanker
+			if b := contract.Boosters[contract.Banker.CurrentBanker]; b != nil {
+				sinkName = b.DisplayName()
+			}
+			fmt.Fprintf(&afterListStr, "\n## Send all tokens to %s\n", sinkName)
 		}
 
 	default:
@@ -443,10 +455,10 @@ func DrawBoostListCustom(contract *Contract, compact bool) []dc.LayoutComponent 
 			builder.WriteString("\nNo volunteer sink for this contract, hold your tokens.\n")
 		} else {
 			b := contract.Boosters[contract.Banker.CurrentBanker]
-			var name = b.Mention
+			var name = b.DisplayName()
 			var einame = farmerstate.GetEggIncName(b.UserID)
 			if einame != "" {
-				name += " " + einame
+				name += "/" + einame
 			}
 
 			sinkIcon := getSinkIcon(contract, b, receivedByUser[b.UserID]-sentByUser[b.UserID])
@@ -500,7 +512,7 @@ func DrawBoostListCustom(contract *Contract, compact bool) []dc.LayoutComponent 
 			})
 		}
 
-		renderBoosterLines(contract, orderSubset, offset, receivedByUser, sentByUser, tvalByUser, now, &builder, &components)
+		renderBoosterLines(contract, orderSubset, offset, receivedByUser, sentByUser, tvalByUser, now, contract.State == ContractStateSignup, &builder, &components)
 
 		if contract.State == ContractStateSignup && len(contract.WaitlistBoosters) > 0 {
 			// Loop through the waitlist and list waitlist folks
@@ -660,10 +672,10 @@ func DrawBoostListCustom(contract *Contract, compact bool) []dc.LayoutComponent 
 		sinkID := contract.Banker.CurrentBanker
 		if sinkID != "" {
 			b := contract.Boosters[sinkID]
-			var sinkName = b.Mention
+			var sinkName = b.DisplayName()
 			var sinkEIName = farmerstate.GetEggIncName(b.UserID)
 			if sinkEIName != "" {
-				sinkName += " " + sinkEIName
+				sinkName += "/" + sinkEIName
 			}
 			builder.WriteString("##  Send every ")
 			builder.WriteString(tokenStr)
@@ -724,10 +736,11 @@ func getSortRate(contract *Contract, b *Booster, includeTokenAsk bool, tvalByUse
 func formatCompactBooster(contract *Contract, b *Booster, includeTokenAsk bool, receivedByUser, sentByUser map[string]int, tvalByUser map[string]float64) string {
 	sortRate := getSortRate(contract, b, includeTokenAsk, tvalByUser)
 	sinkIcon := getSinkIcon(contract, b, receivedByUser[b.UserID]-sentByUser[b.UserID])
+	name := b.DisplayName()
 	if b.BoostState == BoostStateBoosted {
-		return fmt.Sprintf("~~%s~~%s%s", b.Mention, sortRate, sinkIcon)
+		return fmt.Sprintf("~~%s~~%s%s", name, sortRate, sinkIcon)
 	}
-	return fmt.Sprintf("%s(%d)%s%s", b.Mention, b.TokensWanted, sortRate, sinkIcon)
+	return fmt.Sprintf("%s(%d)%s%s", name, b.TokensWanted, sortRate, sinkIcon)
 }
 
 func buildCompactRange(contract *Contract, order []string, startNum int, endNum int, includeTokenAsk bool, keepLast bool, trailingNewline bool, receivedByUser, sentByUser map[string]int, tvalByUser map[string]float64) string {
@@ -776,7 +789,7 @@ func buildCompactRange(contract *Contract, order []string, startNum int, endNum 
 	return output
 }
 
-func renderBoosterLines(contract *Contract, orderSubset []string, offset int, receivedByUser, sentByUser map[string]int, tvalByUser map[string]float64, now time.Time, builder *strings.Builder, components *[]dc.LayoutComponent) {
+func renderBoosterLines(contract *Contract, orderSubset []string, offset int, receivedByUser, sentByUser map[string]int, tvalByUser map[string]float64, now time.Time, useMentions bool, builder *strings.Builder, components *[]dc.LayoutComponent) {
 	activeBoosterID := contract.currentBoosterID()
 	diamond, _, _ := ei.GetBotEmoji("trophy_diamond")
 	habFull, _, _ := ei.GetBotEmoji("hab_full")
@@ -789,10 +802,13 @@ func renderBoosterLines(contract *Contract, orderSubset []string, offset int, re
 		}
 		var b, ok = contract.Boosters[element]
 		if ok {
-			var name = b.Mention
+			var name = b.DisplayName()
+			if useMentions && b.Mention != "" {
+				name = b.Mention
+			}
 			var einame = farmerstate.GetEggIncName(b.UserID)
 			if einame != "" {
-				name += " " + einame
+				name += "/" + einame
 			}
 			var server = ""
 			var currentStartTime = fmt.Sprintf(" <t:%d:R> ", b.StartTime.Unix())
