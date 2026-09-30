@@ -453,6 +453,146 @@ func TestMultipleTBDContracts(t *testing.T) {
 	}
 }
 
+func TestIsTBDCoopID(t *testing.T) {
+	tests := []struct {
+		coopID   string
+		expected bool
+	}{
+		{"tbd", true},
+		{"TBD", true},
+		{"tbd+3", true},
+		{"tbd-fast", true},
+		{"+2", true},
+		{"+2.5", true},
+		{"+chill", true},
+		{"+", true},
+		{"-1", true},
+		{"-chill", true},
+		{"-", true},
+		{"  +5  ", true},
+		{"  -3  ", true},
+		{"  tbd  ", true},
+		{"regular-coop", false},
+		{"chill-coop", false},
+		{"egg123", false},
+		{"", false},
+	}
+
+	for _, tt := range tests {
+		got := isTBDCoopID(tt.coopID)
+		if got != tt.expected {
+			t.Errorf("isTBDCoopID(%q) = %v, expected %v", tt.coopID, got, tt.expected)
+		}
+	}
+}
+
+func TestPlusAndMinusCoopContracts(t *testing.T) {
+	client := newTestClient()
+	contractID := "plus-minus-test-contract"
+	guildID := "guild-123"
+	creatorUserID := "user-456"
+
+	// Create first +2 contract in channel-plus-1
+	channelID1 := "channel-plus-1"
+	contract1, err := CreateContract(client, contractID, "+2", ContractPlaystyleChill, 10, -1, guildID, channelID1, []string{creatorUserID}, creatorUserID, time.Now(), time.Now())
+	if err != nil {
+		t.Fatalf("Failed to create first +2 contract: %v", err)
+	}
+	defer func() {
+		ContractsMutex.Lock()
+		delete(Contracts, contract1.ContractHash)
+		ContractsMutex.Unlock()
+	}()
+
+	// Create duplicate +2 contract in channel-plus-2 (duplicate bypass should allow this)
+	channelID2 := "channel-plus-2"
+	contract2, err := CreateContract(client, contractID, "+2", ContractPlaystyleChill, 10, -1, guildID, channelID2, []string{creatorUserID}, creatorUserID, time.Now(), time.Now())
+	if err != nil {
+		t.Fatalf("Failed to create duplicate +2 contract: %v", err)
+	}
+	defer func() {
+		ContractsMutex.Lock()
+		delete(Contracts, contract2.ContractHash)
+		ContractsMutex.Unlock()
+	}()
+
+	// Create -1 contract in channel-minus-1
+	channelID3 := "channel-minus-1"
+	contract3, err := CreateContract(client, contractID, "-1", ContractPlaystyleChill, 10, -1, guildID, channelID3, []string{creatorUserID}, creatorUserID, time.Now(), time.Now())
+	if err != nil {
+		t.Fatalf("Failed to create -1 contract: %v", err)
+	}
+	defer func() {
+		ContractsMutex.Lock()
+		delete(Contracts, contract3.ContractHash)
+		ContractsMutex.Unlock()
+	}()
+
+	// Verify lookups by coopID and channelID
+	found1 := FindContractByIDs(channelID1, contractID, "+2")
+	if found1 == nil || found1.ContractHash != contract1.ContractHash {
+		t.Errorf("Lookup for channel-plus-1 / +2 returned %v, expected hash %s", found1, contract1.ContractHash)
+	}
+
+	found2 := FindContractByIDs(channelID2, contractID, "+2")
+	if found2 == nil || found2.ContractHash != contract2.ContractHash {
+		t.Errorf("Lookup for channel-plus-2 / +2 returned %v, expected hash %s", found2, contract2.ContractHash)
+	}
+
+	found3 := FindContractByIDs(channelID3, contractID, "-1")
+	if found3 == nil || found3.ContractHash != contract3.ContractHash {
+		t.Errorf("Lookup for channel-minus-1 / -1 returned %v, expected hash %s", found3, contract3.ContractHash)
+	}
+
+	// Verify DrawBoostList adds guidance warning text for +2 contract
+	boostComponents := DrawBoostList(contract1)
+	foundWarning := false
+	for _, comp := range boostComponents {
+		if td, ok := comp.(dc.TextDisplay); ok {
+			if strings.Contains(td.Content, "Coop ID is set to TBD") {
+				foundWarning = true
+				break
+			}
+		}
+	}
+	if !foundWarning {
+		t.Errorf("expected DrawBoostList output to contain TBD warning for +2 contract")
+	}
+
+	// Verify GetSignupComponents disables start button for +2 contract
+	_, components1 := GetSignupComponents(contract1)
+	foundStartBtn := false
+	for _, row := range components1 {
+		if actionRow, ok := row.(dc.ActionRow); ok {
+			for _, comp := range actionRow.Components {
+				if btn, ok := comp.(dc.Button); ok && btn.CustomID == "fd_signupStart" {
+					foundStartBtn = true
+					if !btn.Disabled {
+						t.Errorf("expected start button to be disabled for +2 contract")
+					}
+				}
+			}
+		}
+	}
+	if !foundStartBtn {
+		t.Errorf("start button not found in signup components for +2 contract")
+	}
+
+	// Verify GetSignupComponents disables start button for -1 contract
+	_, components3 := GetSignupComponents(contract3)
+	for _, row := range components3 {
+		if actionRow, ok := row.(dc.ActionRow); ok {
+			for _, comp := range actionRow.Components {
+				if btn, ok := comp.(dc.Button); ok && btn.CustomID == "fd_signupStart" {
+					if !btn.Disabled {
+						t.Errorf("expected start button to be disabled for -1 contract")
+					}
+				}
+			}
+		}
+	}
+}
+
 func TestRenderContractReportImage(t *testing.T) {
 	p := contractReportParameters{
 		contractID:  "test-contract",
@@ -1250,28 +1390,30 @@ func TestUpdateThreadName_FinalizedWhenFullAndMatched(t *testing.T) {
 }
 
 func TestUpdateThreadName_NotFinalizedIfTBD(t *testing.T) {
-	contract := &Contract{
-		ContractHash: "test-contract-tbd",
-		ContractID:   "test-contract",
-		CoopID:       "tbd",
-		CoopSize:     2,
-		State:        ContractStateSignup,
-		Location: []*LocationData{{
-			GuildID:   "guild1",
-			ChannelID: "thread1",
-		}},
-		Boosters: map[string]*Booster{
-			"u1": {UserID: "u1"},
-			"u2": {UserID: "u2"},
-		},
-	}
-	client := dctest.New().
-		WithGuild("guild1", "Guild 1").
-		WithThread("thread1", "guild1", "parent1", "Old Thread Name")
+	for _, coopID := range []string{"tbd", "+2", "-1"} {
+		contract := &Contract{
+			ContractHash: "test-contract-" + coopID,
+			ContractID:   "test-contract",
+			CoopID:       coopID,
+			CoopSize:     2,
+			State:        ContractStateSignup,
+			Location: []*LocationData{{
+				GuildID:   "guild1",
+				ChannelID: "thread1",
+			}},
+			Boosters: map[string]*Booster{
+				"u1": {UserID: "u1"},
+				"u2": {UserID: "u2"},
+			},
+		}
+		client := dctest.New().
+			WithGuild("guild1", "Guild 1").
+			WithThread("thread1", "guild1", "parent1", "Old Thread Name")
 
-	UpdateThreadName(client, contract)
-	if contract.ThreadRenameFinalized {
-		t.Errorf("expected contract.ThreadRenameFinalized to be false when CoopID is TBD")
+		UpdateThreadName(client, contract)
+		if contract.ThreadRenameFinalized {
+			t.Errorf("expected contract.ThreadRenameFinalized to be false when CoopID is %q", coopID)
+		}
 	}
 }
 
@@ -2103,3 +2245,222 @@ func TestAddFarmerToContract_AutoLinkAlts(t *testing.T) {
 		t.Errorf("mainSecond.Alts %v does not contain %q", mainSecond.Alts, altID)
 	}
 }
+
+func TestRemoveFarmerByMention_CurrentBoosterLeavesPicksNext(t *testing.T) {
+	client := dctest.New().
+		WithGuild("guild1", "Guild 1").
+		WithChannel("channel1", "guild1", "contract-channel").
+		WithUser("100000000000000001", "farmer1", "Farmer One").
+		WithUser("100000000000000002", "farmer2", "Farmer Two").
+		WithUser("100000000000000003", "farmer3", "Farmer Three")
+
+	contract := &Contract{
+		ContractHash:         "test-hash-current-booster-leaves",
+		ContractID:           "test-contract",
+		CoopID:               "test-coop",
+		CoopSize:             3,
+		State:                ContractStateFastrun,
+		BoostOrder:           ContractOrderSignup,
+		CreatorID:            []string{"100000000000000001"},
+		CurrentBoosterUserID: "100000000000000002",
+		BoostPosition:        1,
+		Order:                []string{"100000000000000001", "100000000000000002", "100000000000000003"},
+		Boosters: map[string]*Booster{
+			"100000000000000001": {UserID: "100000000000000001", Name: "Farmer One", Nick: "farmer1", Mention: "<@100000000000000001>", BoostState: BoostStateBoosted},
+			"100000000000000002": {UserID: "100000000000000002", Name: "Farmer Two", Nick: "farmer2", Mention: "<@100000000000000002>", BoostState: BoostStateTokenTime},
+			"100000000000000003": {UserID: "100000000000000003", Name: "Farmer Three", Nick: "farmer3", Mention: "<@100000000000000003>", BoostState: BoostStateUnboosted},
+		},
+		Location: []*LocationData{
+			{GuildID: "guild1", ChannelID: "channel1", ListMsgID: "msg-list-1"},
+		},
+	}
+	ContractsMutex.Lock()
+	Contracts[contract.ContractHash] = contract
+	ContractsMutex.Unlock()
+	defer func() {
+		ContractsMutex.Lock()
+		delete(Contracts, contract.ContractHash)
+		ContractsMutex.Unlock()
+	}()
+
+	err := RemoveFarmerByMention(client, "guild1", "channel1", "100000000000000002", "<@100000000000000002>")
+	if err != nil {
+		t.Fatalf("unexpected error removing farmer: %v", err)
+	}
+
+	if slices.Contains(contract.Order, "100000000000000002") {
+		t.Errorf("expected user2 to be removed from Order")
+	}
+	if contract.Boosters["100000000000000002"] != nil {
+		t.Errorf("expected user2 to be removed from Boosters map")
+	}
+
+	// Next booster (user3) should now be active booster
+	if got := contract.currentBoosterID(); got != "100000000000000003" {
+		t.Errorf("currentBoosterID = %q, want %q", got, "100000000000000003")
+	}
+	if contract.Boosters["100000000000000003"].BoostState != BoostStateTokenTime {
+		t.Errorf("user3 BoostState = %v, want BoostStateTokenTime", contract.Boosters["100000000000000003"].BoostState)
+	}
+	if contract.State != ContractStateFastrun {
+		t.Errorf("contract.State = %v, want ContractStateFastrun", contract.State)
+	}
+}
+
+func TestRemoveFarmerByMention_CurrentBoosterLeavesNoNextBooster(t *testing.T) {
+	client := dctest.New().
+		WithGuild("guild1", "Guild 1").
+		WithChannel("channel1", "guild1", "contract-channel").
+		WithUser("100000000000000001", "farmer1", "Farmer One").
+		WithUser("100000000000000002", "farmer2", "Farmer Two")
+
+	contract := &Contract{
+		ContractHash:         "test-hash-current-booster-leaves-nonext",
+		ContractID:           "test-contract",
+		CoopID:               "test-coop",
+		CoopSize:             3,
+		State:                ContractStateFastrun,
+		BoostOrder:           ContractOrderSignup,
+		CreatorID:            []string{"100000000000000001"},
+		CurrentBoosterUserID: "100000000000000002",
+		BoostPosition:        1,
+		Order:                []string{"100000000000000001", "100000000000000002"},
+		Boosters: map[string]*Booster{
+			"100000000000000001": {UserID: "100000000000000001", Name: "Farmer One", Nick: "farmer1", Mention: "<@100000000000000001>", BoostState: BoostStateBoosted},
+			"100000000000000002": {UserID: "100000000000000002", Name: "Farmer Two", Nick: "farmer2", Mention: "<@100000000000000002>", BoostState: BoostStateTokenTime},
+		},
+		Location: []*LocationData{
+			{GuildID: "guild1", ChannelID: "channel1", ListMsgID: "msg-list-1"},
+		},
+	}
+	ContractsMutex.Lock()
+	Contracts[contract.ContractHash] = contract
+	ContractsMutex.Unlock()
+	defer func() {
+		ContractsMutex.Lock()
+		delete(Contracts, contract.ContractHash)
+		ContractsMutex.Unlock()
+	}()
+
+	err := RemoveFarmerByMention(client, "guild1", "channel1", "100000000000000002", "<@100000000000000002>")
+	if err != nil {
+		t.Fatalf("unexpected error removing farmer: %v", err)
+	}
+
+	if got := contract.currentBoosterID(); got != "" {
+		t.Errorf("currentBoosterID = %q, want empty string", got)
+	}
+	// Since CoopSize is 3 but len(Order) is 1, state should be ContractStateWaiting
+	if contract.State != ContractStateWaiting {
+		t.Errorf("contract.State = %v, want ContractStateWaiting", contract.State)
+	}
+}
+
+func TestRemoveFarmerByMention_CurrentBoosterLeavesCompletesWhenFull(t *testing.T) {
+	client := dctest.New().
+		WithGuild("guild1", "Guild 1").
+		WithChannel("channel1", "guild1", "contract-channel").
+		WithUser("100000000000000001", "farmer1", "Farmer One").
+		WithUser("100000000000000002", "farmer2", "Farmer Two")
+
+	contract := &Contract{
+		ContractHash:         "test-hash-current-booster-leaves-complete",
+		ContractID:           "test-contract",
+		CoopID:               "test-coop",
+		CoopSize:             1,
+		State:                ContractStateFastrun,
+		BoostOrder:           ContractOrderSignup,
+		CreatorID:            []string{"100000000000000001"},
+		CurrentBoosterUserID: "100000000000000002",
+		BoostPosition:        1,
+		Order:                []string{"100000000000000001", "100000000000000002"},
+		Boosters: map[string]*Booster{
+			"100000000000000001": {UserID: "100000000000000001", Name: "Farmer One", Nick: "farmer1", Mention: "<@100000000000000001>", BoostState: BoostStateBoosted},
+			"100000000000000002": {UserID: "100000000000000002", Name: "Farmer Two", Nick: "farmer2", Mention: "<@100000000000000002>", BoostState: BoostStateTokenTime},
+		},
+		Location: []*LocationData{
+			{GuildID: "guild1", ChannelID: "channel1", ListMsgID: "msg-list-1"},
+		},
+	}
+	ContractsMutex.Lock()
+	Contracts[contract.ContractHash] = contract
+	ContractsMutex.Unlock()
+	defer func() {
+		ContractsMutex.Lock()
+		delete(Contracts, contract.ContractHash)
+		ContractsMutex.Unlock()
+	}()
+
+	err := RemoveFarmerByMention(client, "guild1", "channel1", "100000000000000002", "<@100000000000000002>")
+	if err != nil {
+		t.Fatalf("unexpected error removing farmer: %v", err)
+	}
+
+	if got := contract.currentBoosterID(); got != "" {
+		t.Errorf("currentBoosterID = %q, want empty string", got)
+	}
+	// Since CoopSize is 1 and len(Order) is 1 (user1 is boosted), state should be ContractStateCompleted
+	if contract.State != ContractStateCompleted {
+		t.Errorf("contract.State = %v, want ContractStateCompleted", contract.State)
+	}
+}
+
+func TestRemoveFarmerByMention_NonActiveBoosterLeavesDoesNotAffectCurrent(t *testing.T) {
+	client := dctest.New().
+		WithGuild("guild1", "Guild 1").
+		WithChannel("channel1", "guild1", "contract-channel").
+		WithUser("100000000000000001", "farmer1", "Farmer One").
+		WithUser("100000000000000002", "farmer2", "Farmer Two").
+		WithUser("100000000000000003", "farmer3", "Farmer Three")
+
+	contract := &Contract{
+		ContractHash:         "test-hash-nonactive-booster-leaves",
+		ContractID:           "test-contract",
+		CoopID:               "test-coop",
+		CoopSize:             3,
+		State:                ContractStateFastrun,
+		BoostOrder:           ContractOrderSignup,
+		CreatorID:            []string{"100000000000000001"},
+		CurrentBoosterUserID: "100000000000000002",
+		BoostPosition:        1,
+		Order:                []string{"100000000000000001", "100000000000000002", "100000000000000003"},
+		Boosters: map[string]*Booster{
+			"100000000000000001": {UserID: "100000000000000001", Name: "Farmer One", Nick: "farmer1", Mention: "<@100000000000000001>", BoostState: BoostStateBoosted},
+			"100000000000000002": {UserID: "100000000000000002", Name: "Farmer Two", Nick: "farmer2", Mention: "<@100000000000000002>", BoostState: BoostStateTokenTime},
+			"100000000000000003": {UserID: "100000000000000003", Name: "Farmer Three", Nick: "farmer3", Mention: "<@100000000000000003>", BoostState: BoostStateUnboosted},
+		},
+		Location: []*LocationData{
+			{GuildID: "guild1", ChannelID: "channel1", ListMsgID: "msg-list-1"},
+		},
+	}
+	ContractsMutex.Lock()
+	Contracts[contract.ContractHash] = contract
+	ContractsMutex.Unlock()
+	defer func() {
+		ContractsMutex.Lock()
+		delete(Contracts, contract.ContractHash)
+		ContractsMutex.Unlock()
+	}()
+
+	// User 3 (unboosted, not currently boosting) leaves
+	err := RemoveFarmerByMention(client, "guild1", "channel1", "100000000000000003", "<@100000000000000003>")
+	if err != nil {
+		t.Fatalf("unexpected error removing farmer: %v", err)
+	}
+
+	if slices.Contains(contract.Order, "100000000000000003") {
+		t.Errorf("expected user3 to be removed from Order")
+	}
+
+	// Current booster should still be user2
+	if got := contract.currentBoosterID(); got != "100000000000000002" {
+		t.Errorf("currentBoosterID = %q, want %q", got, "100000000000000002")
+	}
+	if contract.Boosters["100000000000000002"].BoostState != BoostStateTokenTime {
+		t.Errorf("user2 BoostState = %v, want BoostStateTokenTime", contract.Boosters["100000000000000002"].BoostState)
+	}
+	if contract.State != ContractStateFastrun {
+		t.Errorf("contract.State = %v, want ContractStateFastrun", contract.State)
+	}
+}
+

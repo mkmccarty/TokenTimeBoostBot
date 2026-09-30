@@ -562,7 +562,8 @@ func FindContractByMessageID(channelID string, messageID string) *Contract {
 }
 
 func isTBDCoopID(coopID string) bool {
-	return strings.HasPrefix(strings.ToLower(coopID), "tbd")
+	lower := strings.ToLower(strings.TrimSpace(coopID))
+	return strings.HasPrefix(lower, "tbd") || strings.HasPrefix(lower, "+") || strings.HasPrefix(lower, "-")
 }
 
 // FindContractByIDs will find the contract by the contractID and coopID, optionally filtering by channelID if it is a TBD coop
@@ -1528,6 +1529,7 @@ func RemoveFarmerByMention(client dc.Client, guildID string, channelID string, o
 	defer func() {
 		contract.ThreadRenameFinalized = false
 		AutoUpdateThreadName(client, contract)
+		saveData(contract.ContractHash)
 	}()
 	userID := normalizeUserIDInput(mention)
 
@@ -1615,7 +1617,11 @@ func RemoveFarmerByMention(client dc.Client, guildID string, channelID string, o
 
 			contract.buttonComponents = nil
 		}
+		contract.buttonComponents = nil
 		contract.Order = removeIndex(contract.Order, removalIndex)
+		if boostedIdx := slices.Index(contract.BoostedOrder, userID); boostedIdx != -1 {
+			contract.BoostedOrder = removeIndex(contract.BoostedOrder, boostedIdx)
+		}
 		contract.OrderRevision++
 		delete(contract.Boosters, userID)
 		contract.RegisteredNum = len(contract.Boosters)
@@ -1659,24 +1665,42 @@ func RemoveFarmerByMention(client dc.Client, guildID string, channelID string, o
 					sendNextNotification(client, contract, true)
 					CheckAndPublishAMQPBoosterChange(contract, userID, boosterNick, "booster_remove")
 					return nil
-				} else if (contract.State == ContractStateFastrun || contract.State == ContractStateBanker) && contract.currentBoosterID() == "" {
-					// set contract to waiting
-					changeContractState(contract, ContractStateWaiting)
-					sendNextNotification(client, contract, true)
-					CheckAndPublishAMQPBoosterChange(contract, userID, boosterNick, "booster_remove")
-					return nil
 				} else {
 					nextID := findNextBoosterID(contract)
 					if nextID != "" {
 						contract.setCurrentBoosterByUserID(nextID)
 						contract.Boosters[nextID].BoostState = BoostStateTokenTime
 						contract.Boosters[nextID].StartTime = time.Now()
+						if nextID == contract.Banker.BoostingSinkUserID {
+							contract.Boosters[nextID].TokensReceived = 0 // reset these
+						}
+						if contract.BoostOrder == ContractOrderTVal {
+							reorderBoosters(contract)
+						}
+						contract.enforceOnlyOneTokenTimeBooster()
 						sendNextNotification(client, contract, true)
 						CheckAndPublishAMQPBoosterChange(contract, userID, boosterNick, "booster_remove")
 						// Returning here since we're actively boosting and will send a new message
 						return nil
 					}
+
 					contract.clearCurrentBooster()
+					allBoosted := len(contract.Order) > 0
+					for _, id := range contract.Order {
+						if b := contract.Boosters[id]; b != nil && b.BoostState != BoostStateBoosted {
+							allBoosted = false
+							break
+						}
+					}
+					if allBoosted && len(contract.Order) == contract.CoopSize {
+						changeContractState(contract, ContractStateCompleted)
+						contract.EndTime = time.Now()
+					} else {
+						changeContractState(contract, ContractStateWaiting)
+					}
+					sendNextNotification(client, contract, true)
+					CheckAndPublishAMQPBoosterChange(contract, userID, boosterNick, "booster_remove")
+					return nil
 				}
 			}
 		} else {
