@@ -20,6 +20,7 @@ var optionsHandlersRead = map[string][]string{
 	"GetSlashRerunEvalCommand":      {"reset", "refresh", "mobile-friendly", "season"},
 	"GetSlashEstimateTime":          {"contract-id", "include-leggy", "show-gg", "te-override"},
 	"GetSlashHelpCommand":           {"attributions"},
+	"GetSlashCsEstimates":           {"contract-id", "coop-id", "sr-mode", "as-image", "private-reply"},
 }
 
 // declaresOption reports whether a command declares an option by this name,

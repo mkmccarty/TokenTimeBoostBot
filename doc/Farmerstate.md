@@ -41,6 +41,8 @@ Farmerstate stores sticky per-user values in:
 | `SuppressContractPings` | Per user | Whether contract-role pings should be suppressed for this user.            | `src/boost/boost_slashcmd.go`                          |
 | `stone-details`         | Per user | Sticky preference to show detailed stones report output.                   | `src/boost/stones.go`                                  |
 | `stone-tiled`           | Per user | Sticky preference to render stones output in tiled mode.                   | `src/boost/stones.go`                                  |
+| `as-image`              | Per user | Sticky preference to render table as an image instead of text.             | `src/boost/contract_report.go`, `src/boost/estimate_scores.go` |
+| `sr-mode`               | Per user | Sticky preference for speedrun predictions score breakdown in cs-estimate. | `src/boost/estimate_scores.go`                         |
 
 ## Dynamic Keys
 
