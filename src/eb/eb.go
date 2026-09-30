@@ -367,7 +367,7 @@ func BuildEbComponents(backup *ei.Backup, farmChoice string, userID string, avat
 	primaryColor, userName, permitEmoji, badgeRow, farmDesc := calculateEbData(backup, farmChoice, userID)
 
 	var header strings.Builder
-	fmt.Fprintf(&header, "## Earnings Bonus — %s\n", userName)
+	fmt.Fprintf(&header, "## %s\n", userName)
 	if permitEmoji != "" || badgeRow != "" {
 		if permitEmoji != "" && badgeRow != "" {
 			header.WriteString(permitEmoji)
