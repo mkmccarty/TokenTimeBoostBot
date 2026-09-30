@@ -405,3 +405,90 @@ func TestBuildEbEmbed_PermitEmojis(t *testing.T) {
 		t.Errorf("expected embedStd description to start with free_permit emoji, got:\n%s", embedStd.Description)
 	}
 }
+
+func TestBuildEbComponents_WithAvatar(t *testing.T) {
+	maker := ei.NewBackupMaker("EI1234567890123456", "FarmerBob")
+	backup := maker.GetBackup()
+	avatarURL := "https://cdn.discordapp.com/avatars/123/abc.png"
+
+	components := BuildEbComponents(backup, FarmHomeAndVirtue, "user-123", avatarURL)
+	if len(components) != 1 {
+		t.Fatalf("expected 1 layout component, got %d", len(components))
+	}
+
+	container, ok := components[0].(dc.Container)
+	if !ok {
+		t.Fatalf("expected dc.Container, got %T", components[0])
+	}
+
+	if container.AccentColor == 0 {
+		t.Errorf("expected non-zero container accent color")
+	}
+
+	if len(container.Components) < 3 {
+		t.Fatalf("expected at least 3 container sub-components, got %d", len(container.Components))
+	}
+
+	// First component should be a Section with the Thumbnail accessory
+	section, ok := container.Components[0].(dc.Section)
+	if !ok {
+		t.Fatalf("expected first sub-component to be dc.Section, got %T", container.Components[0])
+	}
+
+	if len(section.Components) != 1 {
+		t.Fatalf("expected 1 TextDisplay in section, got %d", len(section.Components))
+	}
+	if !strings.Contains(section.Components[0].Content, "## Earnings Bonus — FarmerBob") {
+		t.Errorf("expected section content to contain title, got: %s", section.Components[0].Content)
+	}
+
+	thumb, ok := section.Accessory.(dc.Thumbnail)
+	if !ok {
+		t.Fatalf("expected section accessory to be dc.Thumbnail, got %T", section.Accessory)
+	}
+	if thumb.URL != avatarURL {
+		t.Errorf("expected thumbnail URL %q, got %q", avatarURL, thumb.URL)
+	}
+
+	// Second component should be a Separator
+	separator, ok := container.Components[1].(dc.Separator)
+	if !ok {
+		t.Fatalf("expected second sub-component to be dc.Separator, got %T", container.Components[1])
+	}
+	if !separator.Divider {
+		t.Errorf("expected separator to have Divider = true")
+	}
+
+	// Third component should be a TextDisplay with farm details
+	farmDisplay, ok := container.Components[2].(dc.TextDisplay)
+	if !ok {
+		t.Fatalf("expected third sub-component to be dc.TextDisplay, got %T", container.Components[2])
+	}
+	if !strings.Contains(farmDisplay.Content, "Home Farm") {
+		t.Errorf("expected farm display to contain Home Farm, got: %s", farmDisplay.Content)
+	}
+}
+
+func TestBuildEbComponents_WithoutAvatar(t *testing.T) {
+	maker := ei.NewBackupMaker("EI1234567890123456", "FarmerBob")
+	backup := maker.GetBackup()
+
+	components := BuildEbComponents(backup, FarmHomeAndVirtue, "user-123", "")
+	if len(components) != 1 {
+		t.Fatalf("expected 1 layout component, got %d", len(components))
+	}
+
+	container, ok := components[0].(dc.Container)
+	if !ok {
+		t.Fatalf("expected dc.Container, got %T", components[0])
+	}
+
+	// When no avatar is provided, the first component should be a TextDisplay instead of Section
+	headerDisplay, ok := container.Components[0].(dc.TextDisplay)
+	if !ok {
+		t.Fatalf("expected first sub-component to be dc.TextDisplay when no avatar, got %T", container.Components[0])
+	}
+	if !strings.Contains(headerDisplay.Content, "## Earnings Bonus — FarmerBob") {
+		t.Errorf("expected header content to contain title, got: %s", headerDisplay.Content)
+	}
+}

@@ -66,10 +66,10 @@ func ExecuteEb(e dc.InteractionEvent, farmChoice string, eggIncID string, okayTo
 		return
 	}
 
-	embed := BuildEbEmbed(backup, farmChoice, userID)
+	components := BuildEbComponents(backup, farmChoice, userID, e.AvatarURL())
 
 	_ = e.Followup(dc.Message{
-		Embeds: []dc.Embed{embed},
+		Components: components,
 	})
 }
 
@@ -119,13 +119,13 @@ func determineFarmIcons(backup *ei.Backup) (homeIcon string, virtueIcon string) 
 	return homeIcon, virtueIcon
 }
 
-// BuildEbEmbed computes the earnings bonus values and generates the Discord embed.
-func BuildEbEmbed(backup *ei.Backup, farmChoice string, userID string) dc.Embed {
+// calculateEbData computes the earnings bonus values, roles, badges, and farm descriptions.
+func calculateEbData(backup *ei.Backup, farmChoice string, userID string) (primaryColor int, userName string, permitEmoji string, badgeRow string, farmDesc string) {
 	game := backup.GetGame()
 	pe := game.GetEggsOfProphecy()
 	se := game.GetSoulEggsD()
 
-	userName := ei.NormalizePlayerNameForDisplay(backup.GetUserName())
+	userName = ei.NormalizePlayerNameForDisplay(backup.GetUserName())
 	if userName == "" {
 		userName = "Farmer"
 	}
@@ -200,8 +200,6 @@ func BuildEbEmbed(backup *ei.Backup, farmChoice string, userID string) dc.Embed 
 
 	homeIcon, virtueIcon := determineFarmIcons(backup)
 
-	var desc strings.Builder
-	permitEmoji := ""
 	if game := backup.GetGame(); game != nil && game.GetPermitLevel() == 1 {
 		if emoji, ok := ei.GetBotEmojiMarkdownIfExists("pro_permit"); ok {
 			permitEmoji = emoji
@@ -212,25 +210,12 @@ func BuildEbEmbed(backup *ei.Backup, farmChoice string, userID string) dc.Embed 
 		}
 	}
 
-	badgeRow := ei.GetBadgeMarkdownRow(backup)
-	if permitEmoji != "" || badgeRow != "" {
-		if permitEmoji != "" && badgeRow != "" {
-			desc.WriteString(permitEmoji)
-			desc.WriteString(" ")
-			desc.WriteString(badgeRow)
-			desc.WriteString("\n")
-		} else if permitEmoji != "" {
-			desc.WriteString(permitEmoji)
-			desc.WriteString("\n")
-		} else {
-			desc.WriteString(badgeRow)
-			desc.WriteString("\n")
-		}
-	}
-	primaryColor := parseHexColor(homeDressedRole.Color)
+	badgeRow = ei.GetBadgeMarkdownRow(backup)
+	primaryColor = parseHexColor(homeDressedRole.Color)
 
 	fmtFmt := map[string]any{"decimals": 3, "trim": true}
 
+	var desc strings.Builder
 	switch farmChoice {
 	case FarmHome:
 		fmt.Fprintf(&desc, "### %s Home Farm\n", homeIcon)
@@ -339,12 +324,93 @@ func BuildEbEmbed(backup *ei.Backup, farmChoice string, userID string) dc.Embed 
 				homeDressedRolePending.Name,
 			)
 		}
-
 	}
+
+	farmDesc = desc.String()
+	return
+}
+
+// BuildEbEmbed computes the earnings bonus values and generates the Discord embed.
+func BuildEbEmbed(backup *ei.Backup, farmChoice string, userID string) dc.Embed {
+	primaryColor, userName, permitEmoji, badgeRow, farmDesc := calculateEbData(backup, farmChoice, userID)
+
+	var desc strings.Builder
+	if permitEmoji != "" || badgeRow != "" {
+		if permitEmoji != "" && badgeRow != "" {
+			desc.WriteString(permitEmoji)
+			desc.WriteString(" ")
+			desc.WriteString(badgeRow)
+			desc.WriteString("\n")
+		} else if permitEmoji != "" {
+			desc.WriteString(permitEmoji)
+			desc.WriteString("\n")
+		} else {
+			desc.WriteString(badgeRow)
+			desc.WriteString("\n")
+		}
+	}
+	desc.WriteString(farmDesc)
 
 	return dc.Embed{
 		Title:       fmt.Sprintf("Earnings Bonus — %s", userName),
 		Description: strings.TrimSpace(desc.String()),
 		Color:       primaryColor,
+	}
+}
+
+// BuildEbComponents computes the earnings bonus values and generates the Components V2 container.
+func BuildEbComponents(backup *ei.Backup, farmChoice string, userID string, avatarURL string) []dc.LayoutComponent {
+	primaryColor, userName, permitEmoji, badgeRow, farmDesc := calculateEbData(backup, farmChoice, userID)
+
+	var header strings.Builder
+	fmt.Fprintf(&header, "## Earnings Bonus — %s\n", userName)
+	if permitEmoji != "" || badgeRow != "" {
+		if permitEmoji != "" && badgeRow != "" {
+			header.WriteString(permitEmoji)
+			header.WriteString(" ")
+			header.WriteString(badgeRow)
+			header.WriteString("\n")
+		} else if permitEmoji != "" {
+			header.WriteString(permitEmoji)
+			header.WriteString("\n")
+		} else {
+			header.WriteString(badgeRow)
+			header.WriteString("\n")
+		}
+	}
+
+	var containerSub []dc.ContainerSubComponent
+	trimmedHeader := strings.TrimSpace(header.String())
+	if avatarURL != "" {
+		containerSub = append(containerSub, dc.Section{
+			Components: []dc.TextDisplay{
+				{Content: trimmedHeader},
+			},
+			Accessory: dc.Thumbnail{
+				URL: avatarURL,
+			},
+		})
+	} else {
+		containerSub = append(containerSub, dc.TextDisplay{
+			Content: trimmedHeader,
+		})
+	}
+
+	trimmedFarmDesc := strings.TrimSpace(farmDesc)
+	if trimmedFarmDesc != "" {
+		containerSub = append(containerSub, dc.Separator{
+			Divider: true,
+			Spacing: dc.SeparatorSpacingSmall,
+		})
+		containerSub = append(containerSub, dc.TextDisplay{
+			Content: trimmedFarmDesc,
+		})
+	}
+
+	return []dc.LayoutComponent{
+		dc.Container{
+			AccentColor: primaryColor,
+			Components:  containerSub,
+		},
 	}
 }

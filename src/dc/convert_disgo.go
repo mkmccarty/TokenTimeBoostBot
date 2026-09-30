@@ -38,6 +38,7 @@ func userFrom(u *discord.User) *User {
 		GlobalName:    globalName,
 		Bot:           u.Bot,
 		Discriminator: u.Discriminator,
+		AvatarURL:     u.EffectiveAvatarURL(discord.WithSize(128)),
 	}
 }
 
@@ -90,6 +91,7 @@ func memberFrom(m *discord.Member) *Member {
 		UserID:       idString(m.User.ID),
 		User:         userFrom(&m.User),
 		PremiumSince: m.PremiumSince,
+		AvatarURL:    m.EffectiveAvatarURL(discord.WithSize(128)),
 	}
 	if m.Nick != nil {
 		member.Nick = *m.Nick

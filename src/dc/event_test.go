@@ -492,3 +492,24 @@ func TestModalEventEditFollowupNilClient(t *testing.T) {
 		t.Errorf("EditFollowup with @original returned err: %v", err)
 	}
 }
+
+func TestInteractionEventAvatarURL(t *testing.T) {
+	cmd := commandEventFrom(t, commandPayload("contract", ""))
+	if cmd.AvatarURL() == "" {
+		t.Error("expected non-empty AvatarURL on CommandEvent")
+	}
+
+	comp := componentEventFrom(t, componentPayload("btn_test", "2", ""))
+	if comp.AvatarURL() == "" {
+		t.Error("expected non-empty AvatarURL on ComponentEvent")
+	}
+
+	modal := modalEventFrom(t, `{
+		"id": "100", "application_id": "200", "type": 5, "token": "tok", "version": 1,
+		`+testChannel+`, `+testMember+`, `+testGuild+`,
+		"data": {"custom_id": "md_settings", "components": []}
+	}`)
+	if modal.AvatarURL() == "" {
+		t.Error("expected non-empty AvatarURL on ModalEvent")
+	}
+}
