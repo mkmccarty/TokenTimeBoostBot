@@ -8,6 +8,7 @@ import (
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
 func TestNormalizeFarmChoice(t *testing.T) {
@@ -42,12 +43,12 @@ func TestGetSlashEbCommand(t *testing.T) {
 	if cmd.Name != "eb" {
 		t.Errorf("cmd.Name = %q; want eb", cmd.Name)
 	}
-	if len(cmd.Options) != 1 {
-		t.Fatalf("expected 1 option, got %d", len(cmd.Options))
+	if len(cmd.Options) != 2 {
+		t.Fatalf("expected 2 options, got %d", len(cmd.Options))
 	}
 	strOpt, ok := cmd.Options[0].(dc.StringOption)
 	if !ok {
-		t.Fatalf("expected option to be dc.StringOption, got %T", cmd.Options[0])
+		t.Fatalf("expected option 0 to be dc.StringOption, got %T", cmd.Options[0])
 	}
 	if strOpt.Name != "farm" {
 		t.Errorf("option Name = %q; want farm", strOpt.Name)
@@ -60,6 +61,16 @@ func TestGetSlashEbCommand(t *testing.T) {
 		if strOpt.Choices[i].Name != exp || strOpt.Choices[i].Value != exp {
 			t.Errorf("choice %d = %v; want %s", i, strOpt.Choices[i], exp)
 		}
+	}
+	boolOpt, ok := cmd.Options[1].(dc.BoolOption)
+	if !ok {
+		t.Fatalf("expected option 1 to be dc.BoolOption, got %T", cmd.Options[1])
+	}
+	if boolOpt.Name != "show-avatar" {
+		t.Errorf("option Name = %q; want show-avatar", boolOpt.Name)
+	}
+	if boolOpt.Required {
+		t.Errorf("expected show-avatar option to not be required")
 	}
 	if len(cmd.IntegrationTypes) != 2 || cmd.IntegrationTypes[0] != dc.IntegrationGuildInstall || cmd.IntegrationTypes[1] != dc.IntegrationUserInstall {
 
@@ -490,5 +501,26 @@ func TestBuildEbComponents_WithoutAvatar(t *testing.T) {
 	}
 	if !strings.Contains(headerDisplay.Content, "## Earnings Bonus — FarmerBob") {
 		t.Errorf("expected header content to contain title, got: %s", headerDisplay.Content)
+	}
+}
+
+func TestEbStickyShowAvatar(t *testing.T) {
+	testUser := "user-test-avatar"
+	// Verify default is false
+	defaultVal := farmerstate.GetMiscSettingFlag(testUser, StickySettingEbShowAvatar)
+	if defaultVal {
+		t.Errorf("expected default show-avatar to be false, got true")
+	}
+
+	// Set to true and verify it persists
+	farmerstate.SetMiscSettingFlag(testUser, StickySettingEbShowAvatar, true)
+	if !farmerstate.GetMiscSettingFlag(testUser, StickySettingEbShowAvatar) {
+		t.Errorf("expected show-avatar to be true after setting")
+	}
+
+	// Set back to false and verify it persists
+	farmerstate.SetMiscSettingFlag(testUser, StickySettingEbShowAvatar, false)
+	if farmerstate.GetMiscSettingFlag(testUser, StickySettingEbShowAvatar) {
+		t.Errorf("expected show-avatar to be false after setting")
 	}
 }

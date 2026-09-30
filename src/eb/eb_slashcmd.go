@@ -9,11 +9,12 @@ import (
 )
 
 const (
-	FarmHome            = "Home"
-	FarmVirtue          = "Virtue"
-	FarmHomeAndVirtue   = "Home & Virtue"
-	DefaultFarmChoice   = FarmHomeAndVirtue
-	StickySettingEbFarm = "eb-farm"
+	FarmHome                  = "Home"
+	FarmVirtue                = "Virtue"
+	FarmHomeAndVirtue         = "Home & Virtue"
+	DefaultFarmChoice         = FarmHomeAndVirtue
+	StickySettingEbFarm       = "eb-farm"
+	StickySettingEbShowAvatar = "eb-show-avatar"
 )
 
 func init() {
@@ -46,6 +47,11 @@ func GetSlashEbCommand(cmd string) *dc.Command {
 					{Name: FarmHome, Value: FarmHome},
 					{Name: FarmVirtue, Value: FarmVirtue},
 				},
+			},
+			dc.BoolOption{
+				Name:        "show-avatar",
+				Description: "Show player's avatar image. Default is false. (sticky)",
+				Required:    false,
 			},
 		},
 	}
@@ -81,13 +87,21 @@ func HandleEb(e *dc.CommandEvent) {
 		}
 	}
 
+	showAvatar := false
+	if opt, ok := e.OptBool("show-avatar"); ok {
+		showAvatar = opt
+		farmerstate.SetMiscSettingFlag(userID, StickySettingEbShowAvatar, showAvatar)
+	} else {
+		showAvatar = farmerstate.GetMiscSettingFlag(userID, StickySettingEbShowAvatar)
+	}
+
 	eggIncID := getEggIncID(userID)
 	if eggIncID == "" {
 		boost.RequestEggIncIDModal(e, "eb", e.Options())
 		return
 	}
 
-	ExecuteEb(e, farmChoice, eggIncID, true)
+	ExecuteEb(e, farmChoice, eggIncID, showAvatar, true)
 }
 
 // HandleEbModal handles the modal submission when a user provides their Egg Inc ID.
@@ -105,6 +119,14 @@ func HandleEbModal(e *dc.ModalEvent, options dc.OptionValues, encryptedID string
 		}
 	}
 
+	showAvatar := false
+	if opt, ok := options.Bool("show-avatar"); ok {
+		showAvatar = opt
+		farmerstate.SetMiscSettingFlag(userID, StickySettingEbShowAvatar, showAvatar)
+	} else {
+		showAvatar = farmerstate.GetMiscSettingFlag(userID, StickySettingEbShowAvatar)
+	}
+
 	eggIncID := decryptEggIncID(encryptedID)
 	if eggIncID == "" {
 		_ = e.Respond(dc.Message{
@@ -114,5 +136,5 @@ func HandleEbModal(e *dc.ModalEvent, options dc.OptionValues, encryptedID string
 		return
 	}
 
-	ExecuteEb(e, farmChoice, eggIncID, okayToSave)
+	ExecuteEb(e, farmChoice, eggIncID, showAvatar, okayToSave)
 }
