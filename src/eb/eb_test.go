@@ -90,7 +90,7 @@ func TestBuildEbEmbedHome(t *testing.T) {
 
 	embed := BuildEbEmbed(backup, FarmHome, "user-123")
 
-	if embed.Title != "Earnings Bonus — FarmerBob" {
+	if embed.Title != "FarmerBob" {
 		t.Errorf("unexpected embed title: %q", embed.Title)
 	}
 	if embed.Color == 0 {
@@ -347,7 +347,7 @@ func TestBuildEbEmbedWithBadges(t *testing.T) {
 
 	embed := BuildEbEmbed(backup, FarmHome, "user-123")
 
-	if embed.Title != "Earnings Bonus — BadgeFarmer" {
+	if embed.Title != "BadgeFarmer" {
 		t.Errorf("unexpected embed title: %q", embed.Title)
 	}
 
@@ -449,7 +449,7 @@ func TestBuildEbComponents_WithAvatar(t *testing.T) {
 	if len(section.Components) != 1 {
 		t.Fatalf("expected 1 TextDisplay in section, got %d", len(section.Components))
 	}
-	if !strings.Contains(section.Components[0].Content, "## Earnings Bonus — FarmerBob") {
+	if !strings.Contains(section.Components[0].Content, "## FarmerBob") {
 		t.Errorf("expected section content to contain title, got: %s", section.Components[0].Content)
 	}
 
@@ -499,7 +499,7 @@ func TestBuildEbComponents_WithoutAvatar(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected first sub-component to be dc.TextDisplay when no avatar, got %T", container.Components[0])
 	}
-	if !strings.Contains(headerDisplay.Content, "## Earnings Bonus — FarmerBob") {
+	if !strings.Contains(headerDisplay.Content, "## FarmerBob") {
 		t.Errorf("expected header content to contain title, got: %s", headerDisplay.Content)
 	}
 }
