@@ -196,7 +196,7 @@ If `ELSE` is omitted, **the sort rule does not apply to non-matching boosters**:
 | `TOKENS` | Tokens Requested | `>` (Lowest) | Tokens requested for boosting. Use `>TOKENS` for lowest-first. |
 | `TVAL` | Token Value | `<` (Highest) | Historical Token Value metric. |
 | `DEFL` | Deflector Quality | `<` (Highest) | Deflector rarity tier (T4L > T4E > T4R > T4C > T3 > ...). |
-| `DEFL_SLOT` | Deflector Stone Slots | `<` (Highest) | Number of stone slots available on the equipped deflector. |
+| `DEFL_SLOT` | Deflector Stone Slots | `<` (Highest) | Number of stone slots available on the equipped deflector (2 slots for `T4L`/`T4E`, 1 slot for `T4R`/`T3R`, 0 for others). |
 | `DELIV` | Delivery Rate | `<` (Highest) | Effective delivery rate: $\min(\text{Egg Laying Rate}, \text{Shipping Rate})$ based on delivery artifacts and colleggtibles. |
 | `SIGNUP` | Sign-up Order | `<` (First-in) | Order in which players signed up in the contract thread. |
 | `RANDOM` | Deterministic Random | — | Stable pseudo-random tiebreaker. |
@@ -378,7 +378,7 @@ Every built-in boost order in BoostBot can be reproduced using the Custom Boost 
 ### Recipes & Adaptations
 
 #### 1. Role Tiered Order (Standard)
-* **Custom Configuration**: Tiers roles (`SIAB > Gusset > Quant > Main > Helper`), prioritizes 2-slot deflectors (`T4L`, `T4E`) over 1-slot deflectors (`T4R`), applies 6% fuzzy banding to IHR, and uses tokens requested as the final tiebreaker.
+* **Custom Configuration**: Tiers roles (`SIAB > Gusset > Quant > Main > Helper`), prioritizes 2-slot deflectors (`T4L`, `T4E`) over 1-slot deflectors (`T4R`, `T3R`), applies 6% fuzzy banding to IHR, and uses tokens requested as the final tiebreaker.
 * **Custom Syntax**:
   ```text
   Level 1: <ROLE
