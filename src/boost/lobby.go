@@ -3,6 +3,7 @@ package boost
 import (
 	"fmt"
 	"log"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -247,9 +248,12 @@ func handleLobbyPing(client dc.Client, e *dc.ComponentEvent, contractID string, 
 	}
 
 	pingItems := make([]string, 0, len(mismatch.contractNotInCoop))
+	var pingIDs []string
 	for _, s := range mismatch.contractNotInCoop {
 		var item string
+		var targetID string
 		if s.altController != "" {
+			targetID = s.altController
 			altName := s.nick
 			if altName == "" {
 				altName = s.name
@@ -264,8 +268,12 @@ func handleLobbyPing(client dc.Client, e *dc.ComponentEvent, contractID string, 
 			}
 		} else if strings.HasPrefix(s.mention, "<@") {
 			item = s.mention
+			raw := strings.TrimPrefix(s.mention, "<@")
+			raw = strings.TrimPrefix(raw, "!")
+			targetID = strings.TrimSuffix(raw, ">")
 		} else if s.discordID != "" {
 			item = fmt.Sprintf("<@%s>", s.discordID)
+			targetID = s.discordID
 		} else if s.nick != "" {
 			item = s.nick
 		} else {
@@ -273,6 +281,9 @@ func handleLobbyPing(client dc.Client, e *dc.ComponentEvent, contractID string, 
 		}
 		if item != "" {
 			pingItems = append(pingItems, item)
+		}
+		if targetID != "" && !slices.Contains(pingIDs, targetID) {
+			pingIDs = append(pingIDs, targetID)
 		}
 	}
 	sort.Strings(pingItems)
@@ -300,11 +311,16 @@ func handleLobbyPing(client dc.Client, e *dc.ComponentEvent, contractID string, 
 		requesterMention,
 	)
 
+	allowedMentions := &dc.AllowedMentions{
+		Users: pingIDs,
+	}
+	if len(pingIDs) == 0 {
+		allowedMentions.Parse = []dc.MentionType{dc.MentionUsers}
+	}
+
 	msg := dc.Message{
-		Content: content,
-		AllowedMentions: &dc.AllowedMentions{
-			Parse: []dc.MentionType{dc.MentionUsers},
-		},
+		Content:         content,
+		AllowedMentions: allowedMentions,
 	}
 
 	var sendErr error

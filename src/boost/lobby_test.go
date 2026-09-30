@@ -1,6 +1,7 @@
 package boost
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -373,6 +374,20 @@ func TestHandleLobbyButtons_Ping_SuccessAndAlt(t *testing.T) {
 	}
 	if !strings.Contains(msgContent, "Ping requested by <@4>") {
 		t.Errorf("expected requester mention in content, got: %s", msgContent)
+	}
+
+	if len(client.SentMessages) == 0 {
+		t.Fatalf("expected client.SentMessages to contain sent message")
+	}
+	sentMsg := client.SentMessages[0]
+	if sentMsg.AllowedMentions == nil {
+		t.Fatalf("expected AllowedMentions to be non-nil")
+	}
+	if !slices.Contains(sentMsg.AllowedMentions.Users, "1002") {
+		t.Errorf("expected AllowedMentions.Users to contain 1002, got: %v", sentMsg.AllowedMentions.Users)
+	}
+	if !slices.Contains(sentMsg.AllowedMentions.Users, "4") {
+		t.Errorf("expected AllowedMentions.Users to contain alt controller 4, got: %v", sentMsg.AllowedMentions.Users)
 	}
 
 	// Immediate second click should hit cooldown
