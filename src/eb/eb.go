@@ -356,7 +356,7 @@ func BuildEbEmbed(backup *ei.Backup, farmChoice string, userID string) dc.Embed 
 	desc.WriteString(farmDesc)
 
 	return dc.Embed{
-		Title:       fmt.Sprintf("Earnings Bonus — %s", userName),
+		Title:       fmt.Sprintf("%s", userName),
 		Description: strings.TrimSpace(desc.String()),
 		Color:       primaryColor,
 	}
