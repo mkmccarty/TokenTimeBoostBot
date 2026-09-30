@@ -46,6 +46,10 @@ type Member struct {
 	// User is the account behind the membership. It is nil when Discord sent
 	// the membership without one.
 	User *User
+
+	// AvatarURL is the member's effective avatar URL within the guild, falling
+	// back to their account avatar URL if no guild-specific avatar is set.
+	AvatarURL string
 }
 
 // Role is a guild role.
@@ -81,6 +85,9 @@ type User struct {
 	// Discriminator is the four-digit tag from the legacy username system,
 	// and "0" for an account migrated to the new one.
 	Discriminator string
+
+	// AvatarURL is the user's account avatar URL.
+	AvatarURL string
 }
 
 // Mention formats the user as a Discord mention string.

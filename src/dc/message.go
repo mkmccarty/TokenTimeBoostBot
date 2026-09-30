@@ -120,6 +120,19 @@ func (m Message) Text() string {
 		if td, ok := comp.(TextDisplay); ok {
 			return td.Content
 		}
+		if s, ok := comp.(Section); ok && len(s.Components) > 0 {
+			return s.Components[0].Content
+		}
+		if c, ok := comp.(Container); ok {
+			for _, sub := range c.Components {
+				if td, ok := sub.(TextDisplay); ok {
+					return td.Content
+				}
+				if s, ok := sub.(Section); ok && len(s.Components) > 0 {
+					return s.Components[0].Content
+				}
+			}
+		}
 	}
 	return ""
 }

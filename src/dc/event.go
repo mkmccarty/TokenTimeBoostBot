@@ -22,6 +22,7 @@ type InteractionEvent interface {
 	GuildID() string
 	Member() *Member
 	User() *User
+	AvatarURL() string
 	Respond(m Message) error
 	Defer(ephemeral bool) error
 	Followup(m Message) error
@@ -112,6 +113,18 @@ func (e *CommandEvent) Member() *Member {
 func (e *CommandEvent) User() *User {
 	user := e.event.User()
 	return userFrom(&user)
+}
+
+// AvatarURL returns the user's effective avatar URL, preferring their guild
+// member avatar when invoked within a guild, and falling back to their account avatar.
+func (e *CommandEvent) AvatarURL() string {
+	if m := e.Member(); m != nil && m.AvatarURL != "" {
+		return m.AvatarURL
+	}
+	if u := e.User(); u != nil {
+		return u.AvatarURL
+	}
+	return ""
 }
 
 // Token returns the interaction's token.
@@ -430,6 +443,18 @@ func (e *ComponentEvent) User() *User {
 	return userFrom(&user)
 }
 
+// AvatarURL returns the user's effective avatar URL, preferring their guild
+// member avatar when invoked within a guild, and falling back to their account avatar.
+func (e *ComponentEvent) AvatarURL() string {
+	if m := e.Member(); m != nil && m.AvatarURL != "" {
+		return m.AvatarURL
+	}
+	if u := e.User(); u != nil {
+		return u.AvatarURL
+	}
+	return ""
+}
+
 // Token returns the interaction's token.
 func (e *ComponentEvent) Token() string {
 	if e.event == nil {
@@ -601,6 +626,18 @@ func (e *ModalEvent) Member() *Member {
 func (e *ModalEvent) User() *User {
 	user := e.event.User()
 	return userFrom(&user)
+}
+
+// AvatarURL returns the user's effective avatar URL, preferring their guild
+// member avatar when invoked within a guild, and falling back to their account avatar.
+func (e *ModalEvent) AvatarURL() string {
+	if m := e.Member(); m != nil && m.AvatarURL != "" {
+		return m.AvatarURL
+	}
+	if u := e.User(); u != nil {
+		return u.AvatarURL
+	}
+	return ""
 }
 
 // MessageID is the message the modal was opened from, empty when the modal
