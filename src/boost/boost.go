@@ -2212,16 +2212,50 @@ func reorderBoosters(contract *Contract) {
 
 	switch contract.BoostOrder {
 	case ContractOrderSignup:
-		// Join Order
-	case ContractOrderReverse:
-		// Reverse Order
-		for i, j := 0, len(contract.Order)-1; i < j; i, j = i+1, j-1 {
-			contract.Order[i], contract.Order[j] = contract.Order[j], contract.Order[i] //reverse the slice
+		// Join Order: Mains first, then Helpers
+		var mains []string
+		var helpers []string
+		for _, name := range contract.Order {
+			b := contract.Boosters[name]
+			if isBoosterHelper(b) {
+				helpers = append(helpers, name)
+			} else {
+				mains = append(mains, name)
+			}
 		}
+		contract.Order = append(mains, helpers...)
+	case ContractOrderReverse:
+		// Reverse Order: Mains first (reversed), then Helpers (reversed)
+		var mains []string
+		var helpers []string
+		for i := len(contract.Order) - 1; i >= 0; i-- {
+			name := contract.Order[i]
+			b := contract.Boosters[name]
+			if isBoosterHelper(b) {
+				helpers = append(helpers, name)
+			} else {
+				mains = append(mains, name)
+			}
+		}
+		contract.Order = append(mains, helpers...)
 	case ContractOrderRandom:
-		rand.Shuffle(len(contract.Order), func(i, j int) {
-			contract.Order[i], contract.Order[j] = contract.Order[j], contract.Order[i]
+		var mains []string
+		var helpers []string
+		for _, name := range contract.Order {
+			b := contract.Boosters[name]
+			if isBoosterHelper(b) {
+				helpers = append(helpers, name)
+			} else {
+				mains = append(mains, name)
+			}
+		}
+		rand.Shuffle(len(mains), func(i, j int) {
+			mains[i], mains[j] = mains[j], mains[i]
 		})
+		rand.Shuffle(len(helpers), func(i, j int) {
+			helpers[i], helpers[j] = helpers[j], helpers[i]
+		})
+		contract.Order = append(mains, helpers...)
 	case ContractOrderELR:
 		type ELRPair struct {
 			Name string
@@ -2236,7 +2270,12 @@ func reorderBoosters(contract *Contract) {
 			})
 		}
 
-		sort.Slice(elrPairs, func(i, j int) bool {
+		sort.SliceStable(elrPairs, func(i, j int) bool {
+			hI := isBoosterHelper(contract.Boosters[elrPairs[i].Name])
+			hJ := isBoosterHelper(contract.Boosters[elrPairs[j].Name])
+			if hI != hJ {
+				return !hI
+			}
 			return elrPairs[i].ELR > elrPairs[j].ELR
 		})
 
@@ -2261,7 +2300,12 @@ func reorderBoosters(contract *Contract) {
 			})
 		}
 
-		sort.Slice(tokenPairs, func(i, j int) bool {
+		sort.SliceStable(tokenPairs, func(i, j int) bool {
+			hI := isBoosterHelper(contract.Boosters[tokenPairs[i].Name])
+			hJ := isBoosterHelper(contract.Boosters[tokenPairs[j].Name])
+			if hI != hJ {
+				return !hI
+			}
 			return tokenPairs[i].Ask < tokenPairs[j].Ask
 		})
 
@@ -2346,6 +2390,12 @@ func reorderBoosters(contract *Contract) {
 			//	return tvalPairs[i].tokenWant > tvalPairs[j].tokenWant
 			//}
 
+			hI := isBoosterHelper(contract.Boosters[tvalPairs[i].name])
+			hJ := isBoosterHelper(contract.Boosters[tvalPairs[j].name])
+			if hI != hJ {
+				return !hI
+			}
+
 			return tvalPairs[i].val > tvalPairs[j].val
 		})
 
@@ -2393,7 +2443,12 @@ func reorderBoosters(contract *Contract) {
 			pairs[i] = teOrderPair{name: name, te: sortTE}
 		}
 
-		sort.Slice(pairs, func(i, j int) bool {
+		sort.SliceStable(pairs, func(i, j int) bool {
+			hI := isBoosterHelper(contract.Boosters[pairs[i].name])
+			hJ := isBoosterHelper(contract.Boosters[pairs[j].name])
+			if hI != hJ {
+				return !hI
+			}
 			return pairs[i].te > pairs[j].te
 		})
 
@@ -2435,7 +2490,12 @@ func reorderBoosters(contract *Contract) {
 			pairs[i] = ihrOrderPair{name: name, ihr: sortIHR, tokensWanted: b.TokensWanted, deflQual: deflQ, delivRate: delRate, te: b.TECount}
 		}
 
-		sort.Slice(pairs, func(i, j int) bool {
+		sort.SliceStable(pairs, func(i, j int) bool {
+			hI := isBoosterHelper(contract.Boosters[pairs[i].name])
+			hJ := isBoosterHelper(contract.Boosters[pairs[j].name])
+			if hI != hJ {
+				return !hI
+			}
 			if pairs[i].ihr != pairs[j].ihr {
 				return pairs[i].ihr > pairs[j].ihr
 			}

@@ -661,3 +661,243 @@ func TestBoostOrderNameButtonsNoESCOptions(t *testing.T) {
 		}
 	}
 }
+
+func TestReorderBoosters_IHR_HelperSortsAfterMains(t *testing.T) {
+	contract := &Contract{
+		State:      ContractStateSignup,
+		BoostOrder: ContractOrderIHR,
+		Order:      []string{"h1", "m1", "h2", "m2"},
+		Boosters: map[string]*Booster{
+			"m1": {UserID: "m1", Nick: "Main1", IHRRate: 10000.0, IsAlt: false},
+			"m2": {UserID: "m2", Nick: "Main2", IHRRate: 50000.0, IsAlt: false},
+			"h1": {UserID: "h1", Nick: "Helper1", IHRRate: 100000.0, IsAlt: true}, // Highest IHR, but helper
+			"h2": {UserID: "h2", Nick: "Helper2", IHRRate: 20000.0, IsAlt: true},
+		},
+	}
+
+	reorderBoosters(contract)
+
+	// Mains sort first by IHR: m2 (50k) > m1 (10k)
+	// Helpers sort after mains by IHR: h1 (100k) > h2 (20k)
+	expected := []string{"m2", "m1", "h1", "h2"}
+	if !slices.Equal(contract.Order, expected) {
+		t.Fatalf("reorderBoosters(ContractOrderIHR) = %v, want %v", contract.Order, expected)
+	}
+}
+
+func TestReorderBoosters_FuzzyIHR_HelperSortsAfterMains(t *testing.T) {
+	contract := &Contract{
+		State:      ContractStateSignup,
+		BoostOrder: ContractOrderIHRFuzzy,
+		Order:      []string{"h1", "m1", "h2", "m2"},
+		Boosters: map[string]*Booster{
+			"m1": {UserID: "m1", Nick: "Main1", IHRRate: 10000.0, IsAlt: false},
+			"m2": {UserID: "m2", Nick: "Main2", IHRRate: 50000.0, IsAlt: false},
+			"h1": {UserID: "h1", Nick: "Helper1", IHRRate: 100000.0, IsAlt: true}, // Highest IHR, but helper
+			"h2": {UserID: "h2", Nick: "Helper2", IHRRate: 20000.0, IsAlt: true},
+		},
+	}
+
+	reorderBoosters(contract)
+
+	// In 6% fuzzy offset:
+	// m2 (50k +- 3k) is always > m1 (10k +- 600)
+	// h1 (100k +- 6k) is always > h2 (20k +- 1.2k)
+	// Helpers must sort after Mains despite h1 having higher IHR than m1 and m2
+	expected := []string{"m2", "m1", "h1", "h2"}
+	if !slices.Equal(contract.Order, expected) {
+		t.Fatalf("reorderBoosters(ContractOrderIHRFuzzy) = %v, want %v", contract.Order, expected)
+	}
+}
+
+func TestReorderBoosters_TE_HelperSortsAfterMains(t *testing.T) {
+	contract := &Contract{
+		State:      ContractStateSignup,
+		BoostOrder: ContractOrderTE,
+		Order:      []string{"h1", "m1", "h2", "m2"},
+		Boosters: map[string]*Booster{
+			"m1": {UserID: "m1", TECount: 10, IsAlt: false},
+			"m2": {UserID: "m2", TECount: 50, IsAlt: false},
+			"h1": {UserID: "h1", TECount: 100, IsAlt: true},
+			"h2": {UserID: "h2", TECount: 20, IsAlt: true},
+		},
+	}
+
+	reorderBoosters(contract)
+
+	expected := []string{"m2", "m1", "h1", "h2"}
+	if !slices.Equal(contract.Order, expected) {
+		t.Fatalf("reorderBoosters(ContractOrderTE) = %v, want %v", contract.Order, expected)
+	}
+}
+
+func TestReorderBoosters_TEFuzzy_HelperSortsAfterMains(t *testing.T) {
+	contract := &Contract{
+		State:      ContractStateSignup,
+		BoostOrder: ContractOrderTEFuzzy,
+		Order:      []string{"h1", "m1", "h2", "m2"},
+		Boosters: map[string]*Booster{
+			"m1": {UserID: "m1", TECount: 10, IsAlt: false},
+			"m2": {UserID: "m2", TECount: 150, IsAlt: false},
+			"h1": {UserID: "h1", TECount: 500, IsAlt: true},
+			"h2": {UserID: "h2", TECount: 30, IsAlt: true},
+		},
+	}
+
+	reorderBoosters(contract)
+
+	expected := []string{"m2", "m1", "h1", "h2"}
+	if !slices.Equal(contract.Order, expected) {
+		t.Fatalf("reorderBoosters(ContractOrderTEFuzzy) = %v, want %v", contract.Order, expected)
+	}
+}
+
+func TestReorderBoosters_ELR_HelperSortsAfterMains(t *testing.T) {
+	contract := &Contract{
+		State:      ContractStateSignup,
+		BoostOrder: ContractOrderELR,
+		Order:      []string{"h1", "m1", "m2"},
+		Boosters: map[string]*Booster{
+			"m1": {UserID: "m1", ArtifactSet: ArtifactSet{LayRate: 10.0}, IsAlt: false},
+			"m2": {UserID: "m2", ArtifactSet: ArtifactSet{LayRate: 20.0}, IsAlt: false},
+			"h1": {UserID: "h1", ArtifactSet: ArtifactSet{LayRate: 50.0}, IsAlt: true},
+		},
+	}
+
+	reorderBoosters(contract)
+
+	expected := []string{"m2", "m1", "h1"}
+	if !slices.Equal(contract.Order, expected) {
+		t.Fatalf("reorderBoosters(ContractOrderELR) = %v, want %v", contract.Order, expected)
+	}
+}
+
+func TestReorderBoosters_TokenAsk_HelperSortsAfterMains(t *testing.T) {
+	contract := &Contract{
+		State:      ContractStateSignup,
+		BoostOrder: ContractOrderTokenAsk,
+		Order:      []string{"h1", "m1", "m2"},
+		Boosters: map[string]*Booster{
+			"m1": {UserID: "m1", TokensWanted: 8, IsAlt: false},
+			"m2": {UserID: "m2", TokensWanted: 4, IsAlt: false},
+			"h1": {UserID: "h1", TokensWanted: 2, IsAlt: true},
+		},
+	}
+
+	reorderBoosters(contract)
+
+	// Lowest tokens wanted among mains first, helper last despite wanting 2 tokens
+	expected := []string{"m2", "m1", "h1"}
+	if !slices.Equal(contract.Order, expected) {
+		t.Fatalf("reorderBoosters(ContractOrderTokenAsk) = %v, want %v", contract.Order, expected)
+	}
+}
+
+func TestReorderBoosters_SignupAndReverse_Helpers(t *testing.T) {
+	// Signup order
+	contractSignup := &Contract{
+		State:      ContractStateSignup,
+		BoostOrder: ContractOrderSignup,
+		Order:      []string{"m1", "h1", "m2", "h2"},
+		Boosters: map[string]*Booster{
+			"m1": {UserID: "m1", IsAlt: false},
+			"m2": {UserID: "m2", IsAlt: false},
+			"h1": {UserID: "h1", IsAlt: true},
+			"h2": {UserID: "h2", IsAlt: true},
+		},
+	}
+	reorderBoosters(contractSignup)
+	expectedSignup := []string{"m1", "m2", "h1", "h2"}
+	if !slices.Equal(contractSignup.Order, expectedSignup) {
+		t.Fatalf("reorderBoosters(Signup) = %v, want %v", contractSignup.Order, expectedSignup)
+	}
+
+	// Reverse order
+	contractReverse := &Contract{
+		State:      ContractStateSignup,
+		BoostOrder: ContractOrderReverse,
+		Order:      []string{"m1", "h1", "m2", "h2"},
+		Boosters: map[string]*Booster{
+			"m1": {UserID: "m1", IsAlt: false},
+			"m2": {UserID: "m2", IsAlt: false},
+			"h1": {UserID: "h1", IsAlt: true},
+			"h2": {UserID: "h2", IsAlt: true},
+		},
+	}
+	reorderBoosters(contractReverse)
+	expectedReverse := []string{"m2", "m1", "h2", "h1"}
+	if !slices.Equal(contractReverse.Order, expectedReverse) {
+		t.Fatalf("reorderBoosters(Reverse) = %v, want %v", contractReverse.Order, expectedReverse)
+	}
+}
+
+func TestBoostOrderSortRemaining_HelperSortsAfterMains(t *testing.T) {
+	contract := &Contract{
+		Boosters: map[string]*Booster{
+			"m1": {UserID: "m1", IHRRate: 1000.0, TECount: 10, ArtifactSet: ArtifactSet{LayRate: 10.0}, IsAlt: false},
+			"m2": {UserID: "m2", IHRRate: 5000.0, TECount: 50, ArtifactSet: ArtifactSet{LayRate: 50.0}, IsAlt: false},
+			"h1": {UserID: "h1", IHRRate: 9000.0, TECount: 90, ArtifactSet: ArtifactSet{LayRate: 90.0}, IsAlt: true},
+			"h2": {UserID: "h2", IHRRate: 2000.0, TECount: 20, ArtifactSet: ArtifactSet{LayRate: 20.0}, IsAlt: true},
+		},
+	}
+
+	unselected := []string{"h1", "m1", "h2", "m2"}
+
+	sortedIHR := boostOrderSortRemaining(contract, unselected, "ihr")
+	expected := []string{"m2", "m1", "h1", "h2"}
+	if !slices.Equal(sortedIHR, expected) {
+		t.Errorf("boostOrderSortRemaining(ihr) = %v, want %v", sortedIHR, expected)
+	}
+
+	sortedFuzzyIHR := boostOrderSortRemaining(contract, unselected, "fuzzyihr")
+	if !slices.Equal(sortedFuzzyIHR, expected) {
+		t.Errorf("boostOrderSortRemaining(fuzzyihr) = %v, want %v", sortedFuzzyIHR, expected)
+	}
+
+	sortedTE := boostOrderSortRemaining(contract, unselected, "te")
+	if !slices.Equal(sortedTE, expected) {
+		t.Errorf("boostOrderSortRemaining(te) = %v, want %v", sortedTE, expected)
+	}
+
+	sortedELR := boostOrderSortRemaining(contract, unselected, "elr")
+	if !slices.Equal(sortedELR, expected) {
+		t.Errorf("boostOrderSortRemaining(elr) = %v, want %v", sortedELR, expected)
+	}
+}
+
+func TestReorderBoosters_FuzzyIHR_SetAndClearHelper(t *testing.T) {
+	contract := &Contract{
+		State:      ContractStateSignup,
+		BoostOrder: ContractOrderIHR, // Deterministic for exact testing
+		Order:      []string{"u1", "u2", "u3"},
+		Boosters: map[string]*Booster{
+			"u1": {UserID: "u1", Nick: "Player1", IHRRate: 1000.0, IsAlt: false},
+			"u2": {UserID: "u2", Nick: "Player2", IHRRate: 2000.0, IsAlt: false},
+			"u3": {UserID: "u3", Nick: "Player3", IHRRate: 3000.0, IsAlt: false},
+		},
+	}
+
+	// 1. Initial sort without helpers: 3000 > 2000 > 1000 -> [u3, u2, u1]
+	reorderBoosters(contract)
+	if !slices.Equal(contract.Order, []string{"u3", "u2", "u1"}) {
+		t.Fatalf("expected [u3, u2, u1], got %v", contract.Order)
+	}
+
+	// 2. Mark u3 and u2 as helpers. Now u1 is the only main.
+	// u1 should sort first despite having the lowest IHR (1000).
+	// Helpers u3 and u2 sort after u1, with u3 (3000) > u2 (2000).
+	contract.Boosters["u3"].IsAlt = true
+	contract.Boosters["u2"].IsAlt = true
+	reorderBoosters(contract)
+	if !slices.Equal(contract.Order, []string{"u1", "u3", "u2"}) {
+		t.Fatalf("expected [u1, u3, u2], got %v", contract.Order)
+	}
+
+	// 3. Clear helper status for all.
+	contract.Boosters["u3"].IsAlt = false
+	contract.Boosters["u2"].IsAlt = false
+	reorderBoosters(contract)
+	if !slices.Equal(contract.Order, []string{"u3", "u2", "u1"}) {
+		t.Fatalf("expected [u3, u2, u1] after clearing helpers, got %v", contract.Order)
+	}
+}
