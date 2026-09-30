@@ -197,3 +197,44 @@ func TestGetVehicleIconStrings(t *testing.T) {
 		})
 	}
 }
+
+func TestPrintVirtue_AvatarAccessory(t *testing.T) {
+	maker := ei.NewBackupMaker("EI123456", "TestUser")
+	backup := maker.GetBackup()
+	avatarURL := "https://cdn.discordapp.com/avatars/123/avatar.png"
+
+	comps := printVirtue("user-test", backup, ei.Egg(-1), 0, true, avatarURL)
+	if len(comps) == 0 {
+		t.Fatalf("expected components, got empty")
+	}
+
+	section, ok := comps[0].(dc.Section)
+	if !ok {
+		t.Fatalf("expected first component to be dc.Section, got %T", comps[0])
+	}
+
+	thumb, ok := section.Accessory.(dc.Thumbnail)
+	if !ok {
+		t.Fatalf("expected section accessory to be dc.Thumbnail, got %T", section.Accessory)
+	}
+	if thumb.URL != avatarURL {
+		t.Errorf("expected thumbnail URL %q, got %q", avatarURL, thumb.URL)
+	}
+
+	// Test fallback when avatar URL is empty
+	compsFallback := printVirtue("user-test", backup, ei.Egg(-1), 0, true, "")
+	if len(compsFallback) == 0 {
+		t.Fatalf("expected components on fallback, got empty")
+	}
+	sectionFallback, ok := compsFallback[0].(dc.Section)
+	if !ok {
+		t.Fatalf("expected first component to be dc.Section on fallback, got %T", compsFallback[0])
+	}
+	thumbFallback, ok := sectionFallback.Accessory.(dc.Thumbnail)
+	if !ok {
+		t.Fatalf("expected section accessory to be dc.Thumbnail on fallback, got %T", sectionFallback.Accessory)
+	}
+	if thumbFallback.URL == "" {
+		t.Errorf("expected non-empty thumbnail URL on fallback")
+	}
+}

@@ -78,7 +78,7 @@ func ExecuteVirtue(e dc.InteractionEvent, options dc.OptionValues, eggIncID stri
 		if farm != nil {
 			farmType := farm.GetFarmType()
 			if farmType == ei.FarmType_HOME {
-				components = printVirtue(userID, backup, simulatedEgg, targetTE, compact)
+				components = printVirtue(userID, backup, simulatedEgg, targetTE, compact, e.AvatarURL())
 			}
 		}
 	}
@@ -93,7 +93,7 @@ func ExecuteVirtue(e dc.InteractionEvent, options dc.OptionValues, eggIncID stri
 	})
 }
 
-func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE uint64, compact bool) []dc.LayoutComponent {
+func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE uint64, compact bool, avatarURL string) []dc.LayoutComponent {
 	var components []dc.LayoutComponent
 	divider := true
 	spacing := dc.SeparatorSpacingSmall
@@ -747,12 +747,16 @@ func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE
 		}
 	}
 
+	avatar := avatarURL
+	if avatar == "" {
+		avatar = "https://cdn.discordapp.com/emojis/1418022084205875210.webp?size=128"
+	}
 	components = append(components, dc.Section{
 		Components: []dc.TextDisplay{
 			{Content: header.String()},
 		},
 		Accessory: dc.Thumbnail{
-			URL: "https://cdn.discordapp.com/emojis/1418022084205875210.webp?size=128",
+			URL: avatar,
 		},
 	})
 	components = append(components, dc.Separator{
