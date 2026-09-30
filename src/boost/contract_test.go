@@ -2463,4 +2463,3 @@ func TestRemoveFarmerByMention_NonActiveBoosterLeavesDoesNotAffectCurrent(t *tes
 		t.Errorf("contract.State = %v, want ContractStateFastrun", contract.State)
 	}
 }
-

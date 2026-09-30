@@ -934,11 +934,30 @@ func boostOrderSortRemaining(contract *Contract, unselected []string, sortType s
 	sorted := append([]string(nil), unselected...)
 	switch sortType {
 	case "random":
-		rand.Shuffle(len(sorted), func(i, j int) {
-			sorted[i], sorted[j] = sorted[j], sorted[i]
+		var mains []string
+		var helpers []string
+		for _, name := range sorted {
+			b := contract.Boosters[name]
+			if isBoosterHelper(b) {
+				helpers = append(helpers, name)
+			} else {
+				mains = append(mains, name)
+			}
+		}
+		rand.Shuffle(len(mains), func(i, j int) {
+			mains[i], mains[j] = mains[j], mains[i]
 		})
+		rand.Shuffle(len(helpers), func(i, j int) {
+			helpers[i], helpers[j] = helpers[j], helpers[i]
+		})
+		return append(mains, helpers...)
 	case "elr":
 		sort.SliceStable(sorted, func(i, j int) bool {
+			hI := isBoosterHelper(contract.Boosters[sorted[i]])
+			hJ := isBoosterHelper(contract.Boosters[sorted[j]])
+			if hI != hJ {
+				return !hI
+			}
 			elrI, elrJ := 0.0, 0.0
 			if b := contract.Boosters[sorted[i]]; b != nil {
 				elrI = b.ArtifactSet.LayRate
@@ -996,6 +1015,11 @@ func boostOrderSortRemaining(contract *Contract, unselected []string, sortType s
 			}
 		}
 		sort.SliceStable(pairs, func(i, j int) bool {
+			hI := isBoosterHelper(contract.Boosters[pairs[i].name])
+			hJ := isBoosterHelper(contract.Boosters[pairs[j].name])
+			if hI != hJ {
+				return !hI
+			}
 			if pairs[i].ihr != pairs[j].ihr {
 				return pairs[i].ihr > pairs[j].ihr
 			}
@@ -1033,6 +1057,11 @@ func boostOrderSortRemaining(contract *Contract, unselected []string, sortType s
 			pairs[i] = tePair{name: name, te: sortTE}
 		}
 		sort.SliceStable(pairs, func(i, j int) bool {
+			hI := isBoosterHelper(contract.Boosters[pairs[i].name])
+			hJ := isBoosterHelper(contract.Boosters[pairs[j].name])
+			if hI != hJ {
+				return !hI
+			}
 			return pairs[i].te > pairs[j].te
 		})
 		for i, p := range pairs {

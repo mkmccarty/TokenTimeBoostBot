@@ -988,13 +988,13 @@ func TestGetContractBoostOrderLines(t *testing.T) {
 	}
 
 	c1 := &Contract{BoostOrder: ContractOrderIHR}
-	if lines := GetContractBoostOrderLines(c1); len(lines) != 4 || lines[0] != "<IHR" {
-		t.Errorf("expected IHR lines, got %v", lines)
+	if lines := GetContractBoostOrderLines(c1); len(lines) != 4 || lines[0] != "<ROLE" || lines[1] != "<IHR" {
+		t.Errorf("expected IHR lines starting with <ROLE and <IHR, got %v", lines)
 	}
 
 	c2 := &Contract{BoostOrder: ContractOrderIHRFuzzy}
-	if lines := GetContractBoostOrderLines(c2); len(lines) != 4 || lines[0] != "<IHR[6%]" {
-		t.Errorf("expected Fuzzy IHR lines, got %v", lines)
+	if lines := GetContractBoostOrderLines(c2); len(lines) != 4 || lines[0] != "<ROLE" || lines[1] != "<IHR[6%]" {
+		t.Errorf("expected Fuzzy IHR lines starting with <ROLE and <IHR[6%%], got %v", lines)
 	}
 
 	cCustom := &Contract{
@@ -1025,8 +1025,16 @@ func TestGetContractBoostOrderLines(t *testing.T) {
 	for _, tt := range orderTests {
 		c := &Contract{BoostOrder: tt.order}
 		lines := GetContractBoostOrderLines(c)
-		if len(lines) == 0 || lines[0] != tt.want {
-			t.Errorf("GetContractBoostOrderLines(order=%d) = %v, want starting with %s", tt.order, lines, tt.want)
+		expectedLine := tt.want
+		idx := 0
+		if tt.order != ContractManualOrder {
+			if len(lines) == 0 || lines[0] != "<ROLE" {
+				t.Errorf("GetContractBoostOrderLines(order=%d) = %v, want starting with <ROLE", tt.order, lines)
+			}
+			idx = 1
+		}
+		if len(lines) <= idx || lines[idx] != expectedLine {
+			t.Errorf("GetContractBoostOrderLines(order=%d) = %v, want line[%d] = %s", tt.order, lines, idx, expectedLine)
 		}
 	}
 }

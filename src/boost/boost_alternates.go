@@ -106,9 +106,7 @@ func HandleBoostOrderHelpersCommand(client dc.Client, e *dc.CommandEvent) {
 		}
 		contract.mutex.Unlock()
 
-		if contract.BoostOrder == ContractOrderCustom || (len(contract.CustomOrderLines) > 0 && contract.CustomOrderLines[0] != "") {
-			reorderBoosters(contract)
-		}
+		reorderBoosters(contract)
 		saveData(contract.ContractHash)
 		refreshBoostListMessage(client, contract, false)
 
@@ -156,9 +154,7 @@ func HandleBoostOrderHelpersCommand(client dc.Client, e *dc.CommandEvent) {
 		}
 		contract.mutex.Unlock()
 
-		if contract.BoostOrder == ContractOrderCustom || (len(contract.CustomOrderLines) > 0 && contract.CustomOrderLines[0] != "") {
-			reorderBoosters(contract)
-		}
+		reorderBoosters(contract)
 		saveData(contract.ContractHash)
 		refreshBoostListMessage(client, contract, false)
 

@@ -2423,31 +2423,31 @@ func GetContractBoostOrderLines(contract *Contract) []string {
 	}
 	switch contract.BoostOrder {
 	case ContractOrderSignup:
-		return []string{"SIGNUP"}
+		return []string{"<ROLE", "SIGNUP"}
 	case ContractOrderReverse:
-		return []string{"REVERSE"}
+		return []string{"<ROLE", "REVERSE"}
 	case ContractOrderRandom:
-		return []string{"RANDOM", "SIGNUP"}
+		return []string{"<ROLE", "RANDOM", "SIGNUP"}
 	case ContractOrderIHR:
-		return []string{"<IHR", "<DEFL", "<DELIV", "<TE"}
+		return []string{"<ROLE", "<IHR", "<DEFL", "<DELIV"}
 	case ContractOrderIHRFuzzy:
-		return []string{"<IHR[6%]", "<DEFL", "<DELIV", "<TE"}
+		return []string{"<ROLE", "<IHR[6%]", "<DEFL", "<DELIV"}
 	case ContractOrderELR:
-		return []string{"<ELR", "SIGNUP"}
+		return []string{"<ROLE", "<ELR", "SIGNUP"}
 	case ContractOrderTokenAsk:
-		return []string{">TOKENS", "SIGNUP"}
+		return []string{"<ROLE", ">TOKENS", "SIGNUP"}
 	case ContractOrderTE:
-		return []string{"<TE", "SIGNUP"}
+		return []string{"<ROLE", "<TE", "SIGNUP"}
 	case ContractOrderTEFuzzy:
-		return []string{"<TE[sqrt]", "SIGNUP"}
+		return []string{"<ROLE", "<TE[sqrt]", "SIGNUP"}
 	case ContractOrderTVal:
-		return []string{"<TVAL", ">TOKENS", "SIGNUP"}
+		return []string{"<ROLE", "<TVAL", ">TOKENS", "SIGNUP"}
 	case ContractManualOrder:
 		return []string{"MANUAL"}
 	case ContractOrderFair:
-		return []string{"FAIR"}
+		return []string{"<ROLE", "FAIR"}
 	case ContractOrderTimeBased:
-		return []string{"TIME"}
+		return []string{"<ROLE", "TIME"}
 	default:
 		return []string{"SIGNUP"}
 	}
