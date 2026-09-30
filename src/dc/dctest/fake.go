@@ -53,6 +53,9 @@ type FakeClient struct {
 	// ThreadMembers answers ThreadMember, keyed "threadID:userID".
 	ThreadMembers map[string]*dc.ThreadMember
 
+	// SentMessages records the full dc.Message payloads passed to SendMessage.
+	SentMessages []dc.Message
+
 	// SendErr, EditErr, DeleteErr and ChannelEditErr are returned by the respective client methods.
 	SendErr        error
 	EditErr        error
@@ -256,6 +259,9 @@ func (f *FakeClient) GuildMemberWithColor(guildID, userID, channelID string) (*d
 
 // SendMessage records the send and returns a reference with a fresh ID.
 func (f *FakeClient) SendMessage(channelID string, m dc.Message) (*dc.MessageRef, error) {
+	f.mu.Lock()
+	f.SentMessages = append(f.SentMessages, m)
+	f.mu.Unlock()
 	f.record("SendMessage", channelID, m.Content)
 	if f.SendErr != nil {
 		return nil, f.SendErr
