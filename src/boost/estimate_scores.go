@@ -64,7 +64,7 @@ func GetSlashCsEstimates(cmd string) *dc.Command {
 		},
 		dc.BoolOption{
 			Name:        "sr-mode",
-			Description: "Display detailed score breakdown for Speedrun Predictions, default is false",
+			Description: "Display detailed score breakdown for Speedrun Predictions, default is false (sticky).",
 		},
 		dc.BoolOption{
 			Name:        "as-image",
@@ -94,11 +94,12 @@ func parseCsEstimateParams(e *dc.CommandEvent) csEstimateParams {
 	if opt, ok := e.OptBool("private-reply"); ok && opt {
 		ephemeral = true
 	}
-	srMode := false
+	userID := e.UserID()
+	srMode := farmerstate.GetMiscSettingFlag(userID, "sr-mode")
 	if opt, ok := e.OptBool("sr-mode"); ok {
 		srMode = opt
+		farmerstate.SetMiscSettingFlag(userID, "sr-mode", srMode)
 	}
-	userID := e.UserID()
 	imageTable := farmerstate.GetMiscSettingFlag(userID, "as-image")
 	if opt, ok := e.OptBool("as-image"); ok {
 		imageTable = opt
