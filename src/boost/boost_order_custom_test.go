@@ -1944,3 +1944,150 @@ func TestCustomOrderBoostersRefreshedFromDB(t *testing.T) {
 		t.Errorf("sortCustomRemaining(<IHR[12%%]) = %v, want [%s, %s]", sorted, u1, u2)
 	}
 }
+
+func TestBoosterDeflectorSlotScoreAndColumn(t *testing.T) {
+	// Test slot score calculation
+	tests := []struct {
+		name      string
+		booster   *Booster
+		wantSlots int
+		wantCell  string
+	}{
+		{
+			name: "T4L deflector has 2 slots",
+			booster: &Booster{
+				UserID:      "test-u-t4l",
+				ArtifactSet: ArtifactSet{Artifacts: []ei.Artifact{{Type: "Deflector", Quality: "T4L"}}},
+			},
+			wantSlots: 2,
+			wantCell:  "T4L (2)",
+		},
+		{
+			name: "T4E deflector has 2 slots",
+			booster: &Booster{
+				UserID:      "test-u-t4e",
+				ArtifactSet: ArtifactSet{Artifacts: []ei.Artifact{{Type: "Deflector", Quality: "T4E"}}},
+			},
+			wantSlots: 2,
+			wantCell:  "T4E (2)",
+		},
+		{
+			name: "T4R deflector has 1 slot",
+			booster: &Booster{
+				UserID:      "test-u-t4r",
+				ArtifactSet: ArtifactSet{Artifacts: []ei.Artifact{{Type: "Deflector", Quality: "T4R"}}},
+			},
+			wantSlots: 1,
+			wantCell:  "T4R (1)",
+		},
+		{
+			name: "T3R deflector has 1 slot",
+			booster: &Booster{
+				UserID:      "test-u-t3r",
+				ArtifactSet: ArtifactSet{Artifacts: []ei.Artifact{{Type: "Deflector", Quality: "T3R"}}},
+			},
+			wantSlots: 1,
+			wantCell:  "T3R (1)",
+		},
+		{
+			name: "T4C deflector has 0 slots",
+			booster: &Booster{
+				UserID:      "test-u-t4c",
+				ArtifactSet: ArtifactSet{Artifacts: []ei.Artifact{{Type: "Deflector", Quality: "T4C"}}},
+			},
+			wantSlots: 0,
+			wantCell:  "T4C (0)",
+		},
+		{
+			name: "No deflector equipped",
+			booster: &Booster{
+				UserID:      "test-u-none",
+				ArtifactSet: ArtifactSet{Artifacts: []ei.Artifact{}},
+			},
+			wantSlots: 0,
+			wantCell:  "-",
+		},
+		{
+			name:      "Nil booster",
+			booster:   nil,
+			wantSlots: 0,
+			wantCell:  "-",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotSlots := getBoosterDeflectorSlotScore(tt.booster)
+			if gotSlots != tt.wantSlots {
+				t.Errorf("getBoosterDeflectorSlotScore() = %d, want %d", gotSlots, tt.wantSlots)
+			}
+		})
+	}
+
+	// Test table column rendering for CritDeflSlot
+	var criteria [4]customCriterion
+	for i := 0; i < 4; i++ {
+		line := ""
+		if i == 0 {
+			line = "<DEFL_SLOT"
+		}
+		criteria[i] = parseCustomCriterion(line)
+	}
+	colDefs, _ := buildCustomOrderTableColDefs(nil, criteria)
+	if len(colDefs) != 1 {
+		t.Fatalf("expected 1 column for DEFL_SLOT, got %d", len(colDefs))
+	}
+	if colDefs[0].id != "defl_slot" {
+		t.Errorf("column id = %s, want defl_slot", colDefs[0].id)
+	}
+
+	for _, tt := range tests {
+		t.Run("Cell_"+tt.name, func(t *testing.T) {
+			cell := colDefs[0].evalCell(tt.booster, 0)
+			if cell.Text != tt.wantCell {
+				t.Errorf("evalCell().Text = %q, want %q", cell.Text, tt.wantCell)
+			}
+		})
+	}
+
+	// Test sorting by <DEFL_SLOT with >TOKENS tiebreaker
+	c := &Contract{
+		ContractHash: "test-defl-slot-sort",
+		Order:        []string{"u-t4c", "u-t4r", "u-t4e", "u-t4l"},
+		Boosters: map[string]*Booster{
+			"u-t4l": {
+				UserID:       "u-t4l",
+				TokensWanted: 6,
+				ArtifactSet:  ArtifactSet{Artifacts: []ei.Artifact{{Type: "Deflector", Quality: "T4L"}}},
+			},
+			"u-t4e": {
+				UserID:       "u-t4e",
+				TokensWanted: 4,
+				ArtifactSet:  ArtifactSet{Artifacts: []ei.Artifact{{Type: "Deflector", Quality: "T4E"}}},
+			},
+			"u-t4r": {
+				UserID:       "u-t4r",
+				TokensWanted: 2,
+				ArtifactSet:  ArtifactSet{Artifacts: []ei.Artifact{{Type: "Deflector", Quality: "T4R"}}},
+			},
+			"u-t4c": {
+				UserID:       "u-t4c",
+				TokensWanted: 2,
+				ArtifactSet:  ArtifactSet{Artifacts: []ei.Artifact{{Type: "Deflector", Quality: "T4C"}}},
+			},
+		},
+	}
+
+	// Both T4L and T4E have 2 slots, so >TOKENS breaks tie: u-t4e (4 tokens) before u-t4l (6 tokens).
+	// Next is u-t4r (1 slot), then u-t4c (0 slots).
+	sorted := sortCustomRemaining(c, c.Order, []string{"<DEFL_SLOT", ">TOKENS"}, false)
+	expected := []string{"u-t4e", "u-t4l", "u-t4r", "u-t4c"}
+	if len(sorted) != len(expected) {
+		t.Fatalf("sorted len %d, want %d", len(sorted), len(expected))
+	}
+	for i, id := range sorted {
+		if id != expected[i] {
+			t.Errorf("at index %d: got %s, want %s (full order: %v)", i, id, expected[i], sorted)
+		}
+	}
+}

@@ -605,6 +605,9 @@ func getBoosterDeflectorSlotScore(b *Booster) int {
 	quality := ""
 	for _, a := range b.ArtifactSet.Artifacts {
 		if a.Type == "Deflector" || a.Type == "IHR Deflector" {
+			if a.Stones > 0 {
+				return a.Stones
+			}
 			quality = a.Quality
 			break
 		}
@@ -617,17 +620,21 @@ func getBoosterDeflectorSlotScore(b *Booster) int {
 	}
 
 	quality = strings.ToUpper(strings.TrimSpace(quality))
+	quality = strings.TrimPrefix(quality, "D-")
+	quality = strings.TrimPrefix(quality, "ID-")
 	quality = strings.TrimSuffix(quality, "_L")
 
-	// 2-slot (T4L, T4E) > 1-slot (T4R) > T3R > 0-slot / Other
+	// Deflector stone slots:
+	// 2-slot (T4L, T4E), 1-slot (T4R, T3R), 0-slot (T4C, T3C, etc.)
 	switch quality {
 	case "T4L", "T4E":
-		return 3
-	case "T4R":
 		return 2
-	case "T3R":
+	case "T4R", "T3R":
 		return 1
 	default:
+		if art := ei.GetArtifactByKey("D-" + quality); art != nil {
+			return art.Stones
+		}
 		return 0
 	}
 }
