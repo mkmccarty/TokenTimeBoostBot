@@ -53,7 +53,7 @@ func parseHexColor(hex string) int {
 }
 
 // ExecuteEb executes the EB display logic and responds to the interaction event.
-func ExecuteEb(e dc.InteractionEvent, farmChoice string, eggIncID string, okayToSave bool) {
+func ExecuteEb(e dc.InteractionEvent, farmChoice string, eggIncID string, showAvatar bool, okayToSave bool) {
 	userID := e.UserID()
 
 	_ = e.Defer(false)
@@ -66,7 +66,11 @@ func ExecuteEb(e dc.InteractionEvent, farmChoice string, eggIncID string, okayTo
 		return
 	}
 
-	components := BuildEbComponents(backup, farmChoice, userID, e.AvatarURL())
+	avatarURL := ""
+	if showAvatar {
+		avatarURL = e.AvatarURL()
+	}
+	components := BuildEbComponents(backup, farmChoice, userID, avatarURL)
 
 	_ = e.Followup(dc.Message{
 		Components: components,
