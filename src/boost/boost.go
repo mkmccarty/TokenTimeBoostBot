@@ -348,7 +348,7 @@ func UpdateBannerURL(contract *Contract) {
 func getBoostOrderString(contract *Contract) string {
 	var thresholdStartTime = contract.StartTime.Add(time.Minute * time.Duration(BoostOrderTimeThreshold))
 	if contract.State != ContractStateSignup {
-		if contract.BoostOrder == ContractOrderFair || contract.BoostOrder == ContractOrderRandom {
+		if contract.BoostOrder == ContractOrderRandom {
 			var timeSinceStart = time.Since(contract.StartTime)
 			var minutesSinceStart = int(timeSinceStart.Minutes())
 			if minutesSinceStart > BoostOrderTimeThreshold {
@@ -370,11 +370,6 @@ func getBoostOrderString(contract *Contract) string {
 			return "Random order"
 		}
 		return fmt.Sprintf("Random -> Sign-up <t:%d:R> ", thresholdStartTime.Unix())
-	case ContractOrderFair:
-		if contract.StartTime.IsZero() || contract.State == ContractStateSignup {
-			return "Fair order"
-		}
-		return fmt.Sprintf("Fair -> Sign-up <t:%d:R> ", thresholdStartTime.Unix())
 	case ContractOrderELR:
 		return fmt.Sprintf("Egg Lay Rate order (%s)", bottools.GetFormattedCommand("artifact"))
 	case ContractOrderCustom:
@@ -889,7 +884,7 @@ func AddFarmerToContract(client dc.Client, contract *Contract, guildID string, c
 
 		// Check if within the start period of a contract
 		if contract.State != ContractStateSignup {
-			if order == ContractOrderTimeBased || order == ContractOrderFair || order == ContractOrderRandom {
+			if order == ContractOrderTimeBased || order == ContractOrderRandom {
 				var timeSinceStart = time.Since(contract.StartTime)
 				var minutesSinceStart = int(timeSinceStart.Minutes())
 				if minutesSinceStart <= BoostOrderTimeThreshold {

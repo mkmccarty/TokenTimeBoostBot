@@ -195,7 +195,6 @@ func setSpeedrunOptions(client dc.Client, channelID string, sinkBoosting string,
 	contract.Banker.BoostingSinkUserID = sinkBoosting
 	contract.Banker.PostSinkUserID = sinkPost
 	contract.Banker.SinkBoostPosition = sinkPosition
-	contract.BoostOrder = ContractOrderFair
 
 	contract.Style = ContractStyleFastrunBanker
 

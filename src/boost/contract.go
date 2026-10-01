@@ -835,8 +835,6 @@ func HandleContractSettingsReactions(client dc.Client, e *dc.ComponentEvent) {
 			contract.BoostOrder = ContractOrderSignup
 		case "reverse":
 			contract.BoostOrder = ContractOrderReverse
-		case "fair":
-			contract.BoostOrder = ContractOrderFair
 		case "random":
 			contract.BoostOrder = ContractOrderRandom
 		case "elr":

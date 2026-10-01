@@ -707,7 +707,7 @@ func TestRestartContractRestoresState(t *testing.T) {
 	creatorUserID := "coordinator-user"
 	progenitors := []string{"farmer-1", "farmer-2", "farmer-3"}
 
-	contract, err := CreateContract(client, contractID, "coop-restart-test", ContractPlaystyleChill, 10, ContractOrderFair, guildID, channelID, progenitors, creatorUserID, time.Now(), time.Now())
+	contract, err := CreateContract(client, contractID, "coop-restart-test", ContractPlaystyleChill, 10, ContractOrderSignup, guildID, channelID, progenitors, creatorUserID, time.Now(), time.Now())
 	if err != nil {
 		t.Fatalf("Failed to create contract: %v", err)
 	}
@@ -717,7 +717,7 @@ func TestRestartContractRestoresState(t *testing.T) {
 	contract.ThresholdTokensX = 6
 	contract.ThresholdTokensY = 8
 	contract.ThresholdTokensA = 80
-	contract.BoostOrder = ContractOrderFair
+	contract.BoostOrder = ContractOrderSignup
 	contract.PlannedStartTime = time.Now().Add(2 * time.Hour)
 
 	// Simulate contract starting state
