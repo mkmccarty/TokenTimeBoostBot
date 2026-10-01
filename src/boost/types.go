@@ -57,7 +57,7 @@ var contractOrderNames = []string{
 	"Signup",       // ContractOrderSignup
 	"Reverse",      // ContractOrderReverse
 	"Random",       // ContractOrderRandom
-	"Fair",         // ContractOrderFair
+	"",             // 3 (deprecated)
 	"Time-Based",   // ContractOrderTimeBased
 	"ELR",          // ContractOrderELR
 	"TVal",         // ContractOrderTVal
@@ -87,7 +87,6 @@ const (
 	ContractOrderSignup    = 0  // Signup order
 	ContractOrderReverse   = 1  // Reverse order
 	ContractOrderRandom    = 2  // Randomized when the contract starts. After 20 minutes the order changes to Sign-up.
-	ContractOrderFair      = 3  // Fair based on position percentile of each farmers last 5 contracts. Those with no history use 50th percentile
 	ContractOrderTimeBased = 4  // Time based order
 	ContractOrderELR       = 5  // ELR based order
 	ContractOrderTVal      = 6  // Token Value based order

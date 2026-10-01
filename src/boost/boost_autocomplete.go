@@ -332,7 +332,7 @@ func getBoostOrderAutoCompleteChoices(userID string, searchString string) []dc.C
 	} else {
 		// General search or empty: show standard orders first, then custom orders
 		for orderVal, name := range contractOrderNames {
-			if orderVal == ContractOrderFair {
+			if name == "" {
 				continue
 			}
 			var formattedName string

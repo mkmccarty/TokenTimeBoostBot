@@ -240,7 +240,6 @@ const (
 	CritDrone
 	CritEliteDrone
 	CritManual
-	CritFair
 	CritTime
 	CritUnknown
 )
@@ -813,9 +812,6 @@ func parseCustomCriterion(s string) customCriterion {
 		crit.critType = CritRole
 	case strings.HasPrefix(norm, "MANUAL"):
 		crit.critType = CritManual
-		crit.ascending = true
-	case strings.HasPrefix(norm, "FAIR"):
-		crit.critType = CritFair
 		crit.ascending = true
 	case strings.HasPrefix(norm, "TIME"):
 		crit.critType = CritTime
@@ -1446,7 +1442,7 @@ func getBoosterCriterionValue(contract *Contract, item *boosterEvalData, crit cu
 		return float64(item.deflSlotScore)
 	case CritDeliv:
 		return item.delivRate
-	case CritSignup, CritManual, CritFair, CritTime:
+	case CritSignup, CritManual, CritTime:
 		return float64(item.signupIndex)
 	case CritReverse:
 		return float64(item.signupIndex)
@@ -1865,17 +1861,6 @@ func buildCustomOrderTableColDefs(contract *Contract, criteria [4]customCriterio
 				activeCols = append(activeCols, customTableColDef{
 					id:  "manual",
 					col: TableImageColumn{Label: "Order", Align: bottools.StringAlignRight},
-					evalCell: func(_ *Booster, signupIdx int) TableImageCell {
-						return TableImageCell{Text: fmt.Sprintf("%d", signupIdx+1), Color: ""}
-					},
-				})
-			}
-		case CritFair:
-			if !seenColIDs["fair"] {
-				seenColIDs["fair"] = true
-				activeCols = append(activeCols, customTableColDef{
-					id:  "fair",
-					col: TableImageColumn{Label: "Fair", Align: bottools.StringAlignRight},
 					evalCell: func(_ *Booster, signupIdx int) TableImageCell {
 						return TableImageCell{Text: fmt.Sprintf("%d", signupIdx+1), Color: ""}
 					},
@@ -2451,8 +2436,6 @@ func GetContractBoostOrderLines(contract *Contract) []string {
 		return []string{"<ROLE", "<TVAL", ">TOKENS", "SIGNUP"}
 	case ContractManualOrder:
 		return []string{"MANUAL"}
-	case ContractOrderFair:
-		return []string{"<ROLE", "FAIR"}
 	case ContractOrderTimeBased:
 		return []string{"<ROLE", "TIME"}
 	default:

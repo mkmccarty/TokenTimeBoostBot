@@ -26,7 +26,7 @@ func TestArtifactCommandClearsManualIHROverride(t *testing.T) {
 	contractID := "contract-art-test"
 	guildID := "987654321098765432"
 	channelID := "555555555555555555"
-	contract, err := CreateContract(client, contractID, "coop-art-test", ContractPlaystyleChill, 10, ContractOrderFair, guildID, channelID, []string{userID}, userID, time.Now(), time.Now())
+	contract, err := CreateContract(client, contractID, "coop-art-test", ContractPlaystyleChill, 10, ContractOrderSignup, guildID, channelID, []string{userID}, userID, time.Now(), time.Now())
 	if err != nil {
 		t.Fatalf("CreateContract failed: %v", err)
 	}
@@ -128,7 +128,7 @@ func TestArtifactCommandSyncsBoosterTE(t *testing.T) {
 	contractID := "contract-sync-te"
 	guildID := "987654321098765432"
 	channelID := "555555555555555556"
-	contract, err := CreateContract(client, contractID, "coop-sync-te", ContractPlaystyleChill, 10, ContractOrderFair, guildID, channelID, []string{userID}, userID, time.Now(), time.Now())
+	contract, err := CreateContract(client, contractID, "coop-sync-te", ContractPlaystyleChill, 10, ContractOrderSignup, guildID, channelID, []string{userID}, userID, time.Now(), time.Now())
 	if err != nil {
 		t.Fatalf("CreateContract failed: %v", err)
 	}
