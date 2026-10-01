@@ -2493,6 +2493,36 @@ func GetContractCustomOrderName(contract *Contract) string {
 	return "Custom Boost Order"
 }
 
+// getFuzzyExplanation returns a human-readable explanation for fuzzy criteria, or empty string if not fuzzy.
+func getFuzzyExplanation(crit customCriterion) string {
+	if crit.isConditional {
+		var exps []string
+		if crit.thenCrit != nil {
+			if s := getFuzzyExplanation(*crit.thenCrit); s != "" {
+				exps = append(exps, s)
+			}
+		}
+		if crit.elseCrit != nil {
+			if s := getFuzzyExplanation(*crit.elseCrit); s != "" {
+				exps = append(exps, s)
+			}
+		}
+		if len(exps) > 0 {
+			return strings.Join(exps, "; ")
+		}
+		return ""
+	}
+
+	if crit.fuzzySqrt {
+		return "square-root tolerance window groups close values as ties to fall through to the next level"
+	}
+	if crit.fuzzyPct > 0 {
+		pctStr := fmt.Sprintf("%g%%", crit.fuzzyPct*100)
+		return fmt.Sprintf("values within %s tie and fall through to the next level", pctStr)
+	}
+	return ""
+}
+
 // BuildBoostOrderPreviewMessage creates the boost order image preview message with Keep and Dismiss buttons.
 func BuildBoostOrderPreviewMessage(contract *Contract) (dc.Message, error) {
 	if contract == nil {
@@ -2516,8 +2546,14 @@ func BuildBoostOrderPreviewMessage(contract *Contract) (dc.Message, error) {
 	if len(lines) > 0 {
 		headerSb.WriteString("**Hierarchy:**\n")
 		for i, l := range lines {
-			if strings.TrimSpace(l) != "" {
-				fmt.Fprintf(&headerSb, "-# **(%d)** `%s`\n", i+1, l)
+			trimmed := strings.TrimSpace(l)
+			if trimmed != "" {
+				crit := parseCustomCriterion(trimmed)
+				if exp := getFuzzyExplanation(crit); exp != "" {
+					fmt.Fprintf(&headerSb, "-# **(%d)** `%s` — *Fuzzy: %s*\n", i+1, trimmed, exp)
+				} else {
+					fmt.Fprintf(&headerSb, "-# **(%d)** `%s`\n", i+1, trimmed)
+				}
 			}
 		}
 	}
