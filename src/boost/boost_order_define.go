@@ -1127,7 +1127,14 @@ func BuildDefineCustomOrderMessage(contract *Contract, tmpl CustomBoostOrderTemp
 	for i := 0; i < 4; i++ {
 		line := "-"
 		if i < len(tmpl.Lines) && strings.TrimSpace(tmpl.Lines[i]) != "" {
-			line = tmpl.Lines[i]
+			line = strings.TrimSpace(tmpl.Lines[i])
+		}
+		if line != "-" {
+			crit := parseCustomCriterion(line)
+			if exp := getFuzzyExplanation(crit); exp != "" {
+				fmt.Fprintf(&headerSb, "-# **(%d)** `%s` — *Fuzzy: %s*\n", i+1, line, exp)
+				continue
+			}
 		}
 		fmt.Fprintf(&headerSb, "-# **(%d)** `%s`\n", i+1, line)
 	}

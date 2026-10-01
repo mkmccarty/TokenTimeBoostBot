@@ -2091,3 +2091,100 @@ func TestBoosterDeflectorSlotScoreAndColumn(t *testing.T) {
 		}
 	}
 }
+
+func TestBuildBoostOrderPreviewMessage_FuzzyHierarchyExplanation(t *testing.T) {
+	// Test helper function getFuzzyExplanation
+	ihrCrit := parseCustomCriterion("<IHR[6%]")
+	if exp := getFuzzyExplanation(ihrCrit); exp != "values within 6% tie and fall through to the next level" {
+		t.Errorf("getFuzzyExplanation(<IHR[6%%]) = %q", exp)
+	}
+
+	teSqrtCrit := parseCustomCriterion("<TE[sqrt]")
+	if exp := getFuzzyExplanation(teSqrtCrit); exp != "square-root tolerance window groups close values as ties to fall through to the next level" {
+		t.Errorf("getFuzzyExplanation(<TE[sqrt]) = %q", exp)
+	}
+
+	teTildeCrit := parseCustomCriterion("<TE[~]")
+	if exp := getFuzzyExplanation(teTildeCrit); exp != "square-root tolerance window groups close values as ties to fall through to the next level" {
+		t.Errorf("getFuzzyExplanation(<TE[~]) = %q", exp)
+	}
+
+	nonFuzzyCrit := parseCustomCriterion("<ROLE")
+	if exp := getFuzzyExplanation(nonFuzzyCrit); exp != "" {
+		t.Errorf("getFuzzyExplanation(<ROLE) = %q, want empty", exp)
+	}
+
+	condFuzzyCrit := parseCustomCriterion("IF MAIN <IHR[6%] ELSE >TOKENS")
+	if exp := getFuzzyExplanation(condFuzzyCrit); exp != "values within 6% tie and fall through to the next level" {
+		t.Errorf("getFuzzyExplanation(cond) = %q", exp)
+	}
+
+	// Test preview message for ContractOrderIHRFuzzy
+	contractIHR := &Contract{
+		ContractID:   "preview-test-contract",
+		CoopID:       "preview-coop",
+		ContractHash: "preview-hash-ihrfuzzy",
+		BoostOrder:   ContractOrderIHRFuzzy,
+		Boosters:     make(map[string]*Booster),
+		Order:        []string{"test-u1", "test-u2"},
+	}
+	contractIHR.Boosters["test-u1"] = &Booster{UserID: "test-u1", Nick: "Farmer 1", IHRRate: 5e9}
+	contractIHR.Boosters["test-u2"] = &Booster{UserID: "test-u2", Nick: "Farmer 2", IHRRate: 10e9}
+
+	msgIHR, err := BuildBoostOrderPreviewMessage(contractIHR)
+	if err != nil {
+		t.Fatalf("BuildBoostOrderPreviewMessage failed: %v", err)
+	}
+	textCompIHR := msgIHR.Components[0].(dc.TextDisplay).Content
+	expectedIHRFuzzyLine := "-# **(2)** `<IHR[6%]` — *Fuzzy: values within 6% tie and fall through to the next level*"
+	if !strings.Contains(textCompIHR, expectedIHRFuzzyLine) {
+		t.Errorf("expected preview header to contain %q, got:\n%s", expectedIHRFuzzyLine, textCompIHR)
+	}
+	// Verify non-fuzzy items don't have explanation
+	if strings.Contains(textCompIHR, "-# **(1)** `<ROLE` — *Fuzzy:") {
+		t.Errorf("non-fuzzy line should not have fuzzy explanation: %s", textCompIHR)
+	}
+
+	// Test preview message for ContractOrderTEFuzzy
+	contractTE := &Contract{
+		ContractID:   "preview-test-contract",
+		CoopID:       "preview-coop",
+		ContractHash: "preview-hash-tefuzzy",
+		BoostOrder:   ContractOrderTEFuzzy,
+		Boosters:     make(map[string]*Booster),
+		Order:        []string{"test-u1"},
+	}
+	contractTE.Boosters["test-u1"] = &Booster{UserID: "test-u1", Nick: "Farmer 1", TECount: 50}
+
+	msgTE, err := BuildBoostOrderPreviewMessage(contractTE)
+	if err != nil {
+		t.Fatalf("BuildBoostOrderPreviewMessage failed: %v", err)
+	}
+	textCompTE := msgTE.Components[0].(dc.TextDisplay).Content
+	expectedTEFuzzyLine := "-# **(2)** `<TE[sqrt]` — *Fuzzy: square-root tolerance window groups close values as ties to fall through to the next level*"
+	if !strings.Contains(textCompTE, expectedTEFuzzyLine) {
+		t.Errorf("expected preview header to contain %q, got:\n%s", expectedTEFuzzyLine, textCompTE)
+	}
+
+	// Test custom boost order lines
+	contractCustom := &Contract{
+		ContractID:       "preview-test-contract",
+		CoopID:           "preview-coop",
+		ContractHash:     "preview-hash-custom",
+		BoostOrder:       ContractOrderCustom,
+		CustomOrderLines: []string{"<ROLE", "<IHR[10%]", ">TOKENS"},
+		Boosters:         make(map[string]*Booster),
+		Order:            []string{"test-u1"},
+	}
+	contractCustom.Boosters["test-u1"] = &Booster{UserID: "test-u1", Nick: "Farmer 1"}
+
+	msgCustom, err := BuildBoostOrderPreviewMessage(contractCustom)
+	if err != nil {
+		t.Fatalf("BuildBoostOrderPreviewMessage failed: %v", err)
+	}
+	textCompCustom := msgCustom.Components[0].(dc.TextDisplay).Content
+	expectedCustomLine := "-# **(2)** `<IHR[10%]` — *Fuzzy: values within 10% tie and fall through to the next level*"
+	if !strings.Contains(textCompCustom, expectedCustomLine) {
+		t.Errorf("expected preview header to contain %q, got:\n%s", expectedCustomLine, textCompCustom)
+	}
+}
