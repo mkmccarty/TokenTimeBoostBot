@@ -11,7 +11,7 @@ import (
 
 // GetSlashBoostOrderHelpersCommand returns the definition of the /boost-order-helpers command.
 func GetSlashBoostOrderHelpersCommand(cmd string) *dc.Command {
-	command := guildOnlyCommand(cmd, "Organizer command to designate helper status for boost ordering")
+	command := guildOnlyCommand(cmd, "Manage helper status for boost ordering")
 	command.Options = []dc.Option{
 		dc.SubCommand{
 			Name:        "set",
@@ -19,8 +19,8 @@ func GetSlashBoostOrderHelpersCommand(cmd string) *dc.Command {
 			Options: []dc.Option{
 				dc.StringOption{
 					Name:        "farmers",
-					Description: "List, mentions, or boost numbers of farmers to mark as helpers (e.g. 1 3 5, @Player, Guest1)",
-					Required:    true,
+					Description: "List, mentions, or boost numbers of farmers to mark as helpers (leave blank for yourself)",
+					Required:    false,
 				},
 			},
 		},
@@ -30,8 +30,8 @@ func GetSlashBoostOrderHelpersCommand(cmd string) *dc.Command {
 			Options: []dc.Option{
 				dc.StringOption{
 					Name:        "farmers",
-					Description: "List, mentions, or boost numbers of farmers to remove helper status from, or 'all'",
-					Required:    true,
+					Description: "List, mentions, or boost numbers of farmers to remove helper status from, 'all', or leave blank for yourself and alts",
+					Required:    false,
 				},
 			},
 		},
@@ -41,6 +41,23 @@ func GetSlashBoostOrderHelpersCommand(cmd string) *dc.Command {
 		},
 	}
 	return &command
+}
+
+// canManageBooster returns true if callerID is authorized to manage targetID's helper status.
+func canManageBooster(client dc.Client, contract *Contract, callerID string, targetID string) bool {
+	if creatorOfContract(client, contract, callerID) {
+		return true
+	}
+	if callerID == targetID {
+		return true
+	}
+	if b := contract.Boosters[targetID]; b != nil && b.AltController == callerID {
+		return true
+	}
+	if pb := contract.Boosters[callerID]; pb != nil && slices.Contains(pb.Alts, targetID) {
+		return true
+	}
+	return false
 }
 
 // HandleBoostOrderHelpersCommand handles the /boost-order-helpers command.
@@ -63,13 +80,7 @@ func HandleBoostOrderHelpersCommand(client dc.Client, e *dc.CommandEvent) {
 	}
 
 	userID := e.UserID()
-	if !creatorOfContract(client, contract, userID) {
-		_ = e.Respond(dc.Message{
-			Content:   "Only contract coordinators or channel admins can manage contract helpers.",
-			Ephemeral: true,
-		})
-		return
-	}
+	isCoord := creatorOfContract(client, contract, userID)
 
 	subcommand := ""
 	if path := e.SubcommandPath(); len(path) > 0 {
@@ -79,7 +90,31 @@ func HandleBoostOrderHelpersCommand(client dc.Client, e *dc.CommandEvent) {
 	switch subcommand {
 	case "set":
 		farmersInput, _ := e.OptString("farmers")
-		matchedIDs, notFound := parseContractFarmerList(contract, farmersInput)
+		farmersInput = strings.TrimSpace(farmersInput)
+
+		var matchedIDs []string
+		var notFound []string
+
+		if farmersInput == "" {
+			if contract.Boosters[userID] != nil {
+				matchedIDs = []string{userID}
+			} else {
+				if isCoord {
+					_ = e.Respond(dc.Message{
+						Content:   "Please specify one or more farmers to mark as helpers.",
+						Ephemeral: true,
+					})
+				} else {
+					_ = e.Respond(dc.Message{
+						Content:   "You are not in this contract.",
+						Ephemeral: true,
+					})
+				}
+				return
+			}
+		} else {
+			matchedIDs, notFound = parseContractFarmerList(contract, farmersInput)
+		}
 
 		if len(matchedIDs) == 0 && len(notFound) > 0 {
 			_ = e.Respond(dc.Message{
@@ -87,6 +122,26 @@ func HandleBoostOrderHelpersCommand(client dc.Client, e *dc.CommandEvent) {
 				Ephemeral: true,
 			})
 			return
+		}
+
+		if len(matchedIDs) == 0 {
+			_ = e.Respond(dc.Message{
+				Content:   "No farmers specified to mark as helpers.",
+				Ephemeral: true,
+			})
+			return
+		}
+
+		if !isCoord {
+			for _, targetID := range matchedIDs {
+				if !canManageBooster(client, contract, userID, targetID) {
+					_ = e.Respond(dc.Message{
+						Content:   "Only contract coordinators or channel admins can manage helper status for other farmers.",
+						Ephemeral: true,
+					})
+					return
+				}
+			}
 		}
 
 		contract.mutex.Lock()
@@ -110,7 +165,12 @@ func HandleBoostOrderHelpersCommand(client dc.Client, e *dc.CommandEvent) {
 		saveData(contract.ContractHash)
 		refreshBoostListMessage(client, contract, false)
 
-		msg := fmt.Sprintf("✅ Designated as helpers for boost ordering: **%s**", strings.Join(assignedNames, ", "))
+		var msg string
+		if len(assignedNames) == 1 {
+			msg = fmt.Sprintf("✅ Designated as helper for boost ordering: **%s**", assignedNames[0])
+		} else {
+			msg = fmt.Sprintf("✅ Designated as helpers for boost ordering: **%s**", strings.Join(assignedNames, ", "))
+		}
 		if len(notFound) > 0 {
 			msg += fmt.Sprintf("\n-# Not found in contract: %s", strings.Join(notFound, ", "))
 		}
@@ -120,9 +180,78 @@ func HandleBoostOrderHelpersCommand(client dc.Client, e *dc.CommandEvent) {
 		farmersInput, _ := e.OptString("farmers")
 		trimmed := strings.TrimSpace(strings.ToLower(farmersInput))
 
+		var matchedIDs []string
+		var notFound []string
+		isAll := false
+
+		if trimmed == "" {
+			if contract.Boosters[userID] != nil {
+				matchedIDs = []string{userID}
+				for altID, b := range contract.Boosters {
+					if altID == userID {
+						continue
+					}
+					if b.AltController == userID || slices.Contains(contract.Boosters[userID].Alts, altID) {
+						if !slices.Contains(matchedIDs, altID) {
+							matchedIDs = append(matchedIDs, altID)
+						}
+					}
+				}
+			} else {
+				if isCoord {
+					_ = e.Respond(dc.Message{
+						Content:   "Please specify one or more farmers to remove helper status from, or 'all'.",
+						Ephemeral: true,
+					})
+				} else {
+					_ = e.Respond(dc.Message{
+						Content:   "You are not in this contract.",
+						Ephemeral: true,
+					})
+				}
+				return
+			}
+		} else if trimmed == "all" {
+			if !isCoord {
+				_ = e.Respond(dc.Message{
+					Content:   "Only contract coordinators or channel admins can clear all helpers.",
+					Ephemeral: true,
+				})
+				return
+			}
+			isAll = true
+		} else {
+			matchedIDs, notFound = parseContractFarmerList(contract, farmersInput)
+			if len(matchedIDs) == 0 && len(notFound) > 0 {
+				_ = e.Respond(dc.Message{
+					Content:   fmt.Sprintf("Could not find the following farmers in this contract: %s", strings.Join(notFound, ", ")),
+					Ephemeral: true,
+				})
+				return
+			}
+			if len(matchedIDs) == 0 {
+				_ = e.Respond(dc.Message{
+					Content:   "No matching farmers found in this contract to clear.",
+					Ephemeral: true,
+				})
+				return
+			}
+			if !isCoord {
+				for _, targetID := range matchedIDs {
+					if !canManageBooster(client, contract, userID, targetID) {
+						_ = e.Respond(dc.Message{
+							Content:   "Only contract coordinators or channel admins can manage helper status for other farmers.",
+							Ephemeral: true,
+						})
+						return
+					}
+				}
+			}
+		}
+
 		contract.mutex.Lock()
 		var clearedNames []string
-		if trimmed == "all" {
+		if isAll {
 			for _, b := range contract.Boosters {
 				if b.IsAlt {
 					b.IsAlt = false
@@ -137,37 +266,56 @@ func HandleBoostOrderHelpersCommand(client dc.Client, e *dc.CommandEvent) {
 				}
 			}
 		} else {
-			matchedIDs, _ := parseContractFarmerList(contract, farmersInput)
 			for _, uID := range matchedIDs {
 				if b := contract.Boosters[uID]; b != nil {
-					b.IsAlt = false
-					name := b.Nick
-					if name == "" {
-						name = b.Name
+					if b.IsAlt {
+						b.IsAlt = false
+						name := b.Nick
+						if name == "" {
+							name = b.Name
+						}
+						if name == "" {
+							name = uID
+						}
+						clearedNames = append(clearedNames, name)
 					}
-					if name == "" {
-						name = uID
-					}
-					clearedNames = append(clearedNames, name)
 				}
 			}
 		}
 		contract.mutex.Unlock()
 
+		if len(clearedNames) == 0 {
+			if trimmed == "" {
+				if len(matchedIDs) > 1 {
+					_ = e.Respond(dc.Message{
+						Content:   "Neither you nor your linked alts are currently designated as helpers.",
+						Ephemeral: true,
+					})
+				} else {
+					_ = e.Respond(dc.Message{
+						Content:   "You are not currently designated as a helper.",
+						Ephemeral: true,
+					})
+				}
+			} else {
+				_ = e.Respond(dc.Message{
+					Content:   "No matching helpers to clear.",
+					Ephemeral: true,
+				})
+			}
+			return
+		}
+
 		reorderBoosters(contract)
 		saveData(contract.ContractHash)
 		refreshBoostListMessage(client, contract, false)
 
-		if len(clearedNames) == 0 {
-			_ = e.Respond(dc.Message{
-				Content:   "No matching helpers to clear.",
-				Ephemeral: true,
-			})
-			return
+		msg := fmt.Sprintf("Cleared helper designation for: **%s**", strings.Join(clearedNames, ", "))
+		if len(notFound) > 0 {
+			msg += fmt.Sprintf("\n-# Not found in contract: %s", strings.Join(notFound, ", "))
 		}
-
 		_ = e.Respond(dc.Message{
-			Content:   fmt.Sprintf("Cleared helper designation for: **%s**", strings.Join(clearedNames, ", ")),
+			Content:   msg,
 			Ephemeral: true,
 		})
 
