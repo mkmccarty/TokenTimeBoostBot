@@ -870,7 +870,7 @@ func (e *MessageEvent) Attachments() []Attachment {
 	return attachments
 }
 
-// LastChoices records choices passed to RespondChoices (useful in tests).
+// AutocompleteEvent wraps an autocomplete interaction event and records choices.
 type AutocompleteEvent struct {
 	event       *events.AutocompleteInteractionCreate
 	LastChoices []Choice[string]
