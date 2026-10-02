@@ -212,8 +212,10 @@ func UpdatePredictedSignupContracts(client dc.Client, liveContracts []ei.EggIncC
 			}
 
 			isMatch := false
+			isKnownContractID := false
 			if contract.ContractID == live.ID {
 				isMatch = true
+				isKnownContractID = true
 			} else {
 				// Predicted IDs look like "monday-2024-05-13", "wednesday-2024-05-15", or "ultra-2024-05-17"
 				parts := strings.Split(contract.ContractID, "-")
@@ -250,17 +252,21 @@ func UpdatePredictedSignupContracts(client dc.Client, liveContracts []ei.EggIncC
 				contract.ContractID = live.ID
 				updateContractWithEggIncData(client, contract)
 
-				movedLabels := moveOverflowBoostersToWaitlist(contract)
-				if len(movedLabels) > 0 {
-					for _, loc := range contract.Location {
-						if loc != nil && loc.ChannelID != "" {
-							channelMsg := fmt.Sprintf("⚠️ Contract is live and coop size is %d. Moved %d booster(s) to waitlist: %s",
-								contract.CoopSize,
-								len(movedLabels),
-								strings.Join(movedLabels, ", "),
-							)
-							if _, err := client.SendMessage(loc.ChannelID, dc.Message{Content: channelMsg}); err != nil {
-								log.Println("Error sending waitlist movement message:", err)
+				// For predicted known contract-id contracts, move overflow boosters to waitlist.
+				// Dated predicted contracts (wednesday, friday, ultra, monday) preserve all players in the contract.
+				if isKnownContractID {
+					movedLabels := moveOverflowBoostersToWaitlist(contract)
+					if len(movedLabels) > 0 {
+						for _, loc := range contract.Location {
+							if loc != nil && loc.ChannelID != "" {
+								channelMsg := fmt.Sprintf("⚠️ Contract is live and coop size is %d. Moved %d booster(s) to waitlist: %s",
+									contract.CoopSize,
+									len(movedLabels),
+									strings.Join(movedLabels, ", "),
+								)
+								if _, err := client.SendMessage(loc.ChannelID, dc.Message{Content: channelMsg}); err != nil {
+									log.Println("Error sending waitlist movement message:", err)
+								}
 							}
 						}
 					}
