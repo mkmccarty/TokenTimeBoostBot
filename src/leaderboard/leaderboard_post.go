@@ -18,8 +18,8 @@ import (
 
 const discordMessageCharLimit = 1900
 const leaderboardUpdateConfirmationTTL = 1 * time.Minute
-const rateLimitDelay = 1000 * time.Millisecond
-const maxConcurrentChannels = 5
+const rateLimitDelay = 2000 * time.Millisecond
+const maxConcurrentChannels = 2
 
 // PostProgress tracks the progress of posting multiple leaderboards, allowing for ETA estimation and progress reporting.
 type PostProgress struct {
@@ -255,7 +255,11 @@ func postOneLeaderboard(client dc.Client, cfg LBConfig, snapDate string, targetS
 				posted, total, avg := prog.snapshot()
 				if posted > 0 && total > posted {
 					rem := total - posted
-					eta := time.Duration(rem) * avg
+					workers := maxConcurrentChannels
+					if workers < 1 {
+						workers = 1
+					}
+					eta := (time.Duration(rem) * avg) / time.Duration(workers)
 					finishTime := bottools.WrapTimestamp(time.Now().Add(eta).Unix(), bottools.TimestampLongTime)
 					statusStr += fmt.Sprintf("\n-# ⏳ Estimating %ds remaining (~%d leaderboards left to post, finishing around %s).", int(eta.Seconds()), rem, finishTime)
 				}

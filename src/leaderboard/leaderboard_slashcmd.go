@@ -7,6 +7,7 @@ import (
 	"log"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/mattn/go-runewidth"
@@ -605,8 +606,11 @@ func handleRun(client dc.Client, e *dc.CommandEvent) {
 	}
 	respondEphemeral(e, msg)
 
+	var progressMu sync.Mutex
 	var lastProgress time.Time
 	onProgress := func(status string) {
+		progressMu.Lock()
+		defer progressMu.Unlock()
 		now := time.Now()
 		if now.Sub(lastProgress) < 2*time.Second && !strings.HasPrefix(status, "✅") && !strings.HasPrefix(status, "🏁") && !strings.HasPrefix(status, "❌") && !strings.HasPrefix(status, "⚠️") {
 			return
