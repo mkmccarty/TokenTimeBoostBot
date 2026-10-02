@@ -210,7 +210,7 @@ func generateThreadName(c *Contract) string {
 		if c.PlayStyle != ContractPlaystyleUnset && c.PlayStyle < len(contractPlaystyleNames) {
 			playStyleStr = fmt.Sprintf("%s ", contractPlaystyleNames[c.PlayStyle])
 		}
-		if !c.PredictionSignup {
+		if !c.PredictionSignup || isPredictedPastContract(c) {
 			if len(c.Boosters) != c.CoopSize {
 				statusStr = fmt.Sprintf("(%s%d/%d)", playStyleStr, len(c.Boosters), c.CoopSize)
 			} else {

@@ -96,8 +96,8 @@ func TestPredictedPastContractLifecycle(t *testing.T) {
 	if contract.PredictionInfo[0].ContractID != pastContractID || contract.PredictionInfo[0].Name != "Past Super Contract" {
 		t.Errorf("unexpected PredictionInfo: %+v", contract.PredictionInfo[0])
 	}
-	if contract.CoopSize != 100 {
-		t.Errorf("expected CoopSize 100 for prediction signup, got %d", contract.CoopSize)
+	if contract.CoopSize != 5 {
+		t.Errorf("expected CoopSize 5 for predicted past contract, got %d", contract.CoopSize)
 	}
 
 	// 4. Verify initial creator has availability set for this single predicted contract
@@ -125,24 +125,73 @@ func TestPredictedPastContractLifecycle(t *testing.T) {
 		t.Errorf("expected DrawBoostList to include 'Past Super Contract', got: %s", output)
 	}
 
-	// 6. Verify thread name has 🔮 leading during prediction signup
+	// 6. Verify thread name has 🔮 leading during prediction signup and displays (1/5)
 	predThreadName := generateThreadName(contract)
 	if !strings.HasPrefix(predThreadName, "🔮 ") {
 		t.Errorf("expected predicted past contract thread name to start with '🔮 ', got: %s", predThreadName)
 	}
+	if !strings.Contains(predThreadName, "1/5") {
+		t.Errorf("expected predicted past contract thread name to contain '1/5', got: %s", predThreadName)
+	}
 	client.WithGuild(guildID, "Test Guild").
 		WithThread(channelID, guildID, "parent-1", predThreadName)
 
-	// 7. Add more boosters to exceed the original past contract's MaxCoopSize (5)
-	extraUsers := []string{"userB", "userC", "userD", "userE", "userF", "userG"}
-	for _, u := range extraUsers {
+	// 7. Add 4 more boosters to reach MaxCoopSize (5)
+	fillUsers := []string{"userB", "userC", "userD", "userE"}
+	for _, u := range fillUsers {
 		_, err := AddFarmerToContract(client, contract, guildID, channelID, u, ContractOrderSignup, false, false)
 		if err != nil {
 			t.Fatalf("failed to add booster %s: %v", u, err)
 		}
 	}
-	if len(contract.Boosters) != 7 {
-		t.Fatalf("expected 7 boosters in prediction signup, got %d", len(contract.Boosters))
+	if len(contract.Boosters) != 5 {
+		t.Fatalf("expected 5 boosters in contract, got %d", len(contract.Boosters))
+	}
+
+	// Verify the contract thread name shows (FULL)
+	fullThreadName := generateThreadName(contract)
+	if !strings.Contains(fullThreadName, "(FULL)") {
+		t.Errorf("expected thread name to indicate (FULL), got: %s", fullThreadName)
+	}
+	if !strings.HasPrefix(fullThreadName, "🔮 ") {
+		t.Errorf("expected (FULL) thread name to retain '🔮 ', got: %s", fullThreadName)
+	}
+
+	// Verify signup components show Join (Backup)
+	_, signupComps := GetSignupComponents(contract)
+	foundBackupButton := false
+	for _, comp := range signupComps {
+		if row, ok := comp.(dc.ActionRow); ok {
+			for _, ic := range row.Components {
+				if btn, ok := ic.(dc.Button); ok && btn.Label == "Join (Backup)" {
+					foundBackupButton = true
+				}
+			}
+		}
+	}
+	if !foundBackupButton {
+		t.Errorf("expected signup components to offer 'Join (Backup)' when full")
+	}
+
+	// 7b. Add extra users beyond CoopSize (5) -> should be added to WaitlistBoosters
+	extraUsers := []string{"userF", "userG"}
+	for _, u := range extraUsers {
+		_, err := AddFarmerToContract(client, contract, guildID, channelID, u, ContractOrderSignup, false, false)
+		if err != nil {
+			t.Fatalf("failed to add backup booster %s: %v", u, err)
+		}
+	}
+	if len(contract.Boosters) != 5 {
+		t.Errorf("expected Boosters to remain 5, got %d", len(contract.Boosters))
+	}
+	if len(contract.WaitlistBoosters) != 2 {
+		t.Errorf("expected 2 waitlist boosters, got %d", len(contract.WaitlistBoosters))
+	}
+
+	// Adding userG again should return contract is full error
+	_, dupErr := AddFarmerToContract(client, contract, guildID, channelID, "userG", ContractOrderSignup, false, false)
+	if dupErr == nil || dupErr.Error() != "contract is full" {
+		t.Errorf("expected 'contract is full' error for duplicate waitlist user, got %v", dupErr)
 	}
 
 	// 8. Simulate contract arrival: periodical arrives with live contract matching pastContractID
@@ -550,5 +599,67 @@ func TestPredictedPastContract_ArchiveCleanupAfterThreeWeeks(t *testing.T) {
 
 	if c2 != nil {
 		t.Errorf("expected predicted past contract over 3 weeks old to be archived and removed from Contracts, got state: %v, hash: %s", c2.State, c2.ContractHash)
+	}
+}
+
+func TestPredictedPastContract_AutoUpdateThreadNameWhenFull(t *testing.T) {
+	pastContractID := "test-past-auto-rename"
+	guildID := "guild-rn-1"
+	threadID := "thread-rn-1"
+
+	ei.EggIncContractsMutex.Lock()
+	if ei.EggIncContractsAll == nil {
+		ei.EggIncContractsAll = make(map[string]ei.EggIncContract)
+	}
+	ei.EggIncContractsAll[pastContractID] = ei.EggIncContract{
+		ID:          pastContractID,
+		Name:        "Past Space Trek",
+		Predicted:   false,
+		MaxCoopSize: 2,
+		ValidFrom:   time.Now().Add(-50 * 24 * time.Hour),
+	}
+	ei.EggIncContractsMutex.Unlock()
+
+	defer func() {
+		ei.EggIncContractsMutex.Lock()
+		delete(ei.EggIncContractsAll, pastContractID)
+		ei.EggIncContractsMutex.Unlock()
+	}()
+
+	contract := &Contract{
+		ContractHash:         "test-hash-rn-pred",
+		ContractID:           pastContractID,
+		CoopID:               "predicted",
+		CoopSize:             2,
+		Name:                 "Past Space Trek",
+		PredictionSignup:     true,
+		WasPredictedContract: true,
+		State:                ContractStateSignup,
+		StartTime:            time.Now(),
+		Location: []*LocationData{
+			{GuildID: guildID, ChannelID: threadID},
+		},
+		Boosters: map[string]*Booster{
+			"u1": {UserID: "u1"},
+			"u2": {UserID: "u2"},
+		},
+	}
+
+	client := dctest.New().
+		WithGuild(guildID, "Test Guild").
+		WithThread(threadID, guildID, "parent-rn", "🔮 Past Space Trek Signup (1/2)")
+
+	AutoUpdateThreadName(client, contract)
+
+	edits := client.CallsTo("EditChannel")
+	if len(edits) == 0 {
+		t.Fatalf("expected AutoUpdateThreadName to call EditChannel for full predicted past contract")
+	}
+	renamedTo := edits[len(edits)-1].Args[1]
+	if !strings.Contains(renamedTo, "(FULL)") {
+		t.Errorf("expected renamed thread name to include '(FULL)', got: %s", renamedTo)
+	}
+	if !strings.HasPrefix(renamedTo, "🔮 ") {
+		t.Errorf("expected renamed thread name to start with '🔮 ', got: %s", renamedTo)
 	}
 }

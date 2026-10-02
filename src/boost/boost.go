@@ -751,8 +751,8 @@ func AddFarmerToContract(client dc.Client, contract *Contract, guildID string, c
 	log.Println("AddFarmerToContract", "GuildID: ", guildID, "ChannelID: ", channelID, "UserID: ", userID, "Order: ", order)
 
 	// Add farmers to booster list if the coop isn't full, otherwise add to waitlist
-	// If this is a prediction contract, we want to allow unlimited signups but not boosting, so skip the coop size check
-	if contract.CoopSize == min(len(contract.Order), len(contract.Boosters)) && !contract.PredictionSignup {
+	// If this is a prediction contract (and not a predicted past contract), allow unlimited signups but not boosting
+	if contract.CoopSize == min(len(contract.Order), len(contract.Boosters)) && (!contract.PredictionSignup || isPredictedPastContract(contract)) {
 		// Only add to waitlist if user isn't already in it
 		if !slices.Contains(contract.WaitlistBoosters, userID) {
 			contract.WaitlistBoosters = append(contract.WaitlistBoosters, userID)
