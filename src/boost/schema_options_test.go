@@ -112,3 +112,55 @@ func TestSubcommandCommandsHaveNoTopLevelOptions(t *testing.T) {
 		}
 	}
 }
+
+func checkOptionLimits(t *testing.T, cmdName string, option dc.Option) {
+	check := func(name, desc string) {
+		if len(name) < 1 || len(name) > 32 {
+			t.Errorf("%s option %q: name length %d must be 1-32", cmdName, name, len(name))
+		}
+		if len(desc) < 1 || len(desc) > 100 {
+			t.Errorf("%s option %q: description length %d must be 1-100 (%q)", cmdName, name, len(desc), desc)
+		}
+	}
+
+	switch opt := option.(type) {
+	case dc.SubCommand:
+		check(opt.Name, opt.Description)
+		for _, sub := range opt.Options {
+			checkOptionLimits(t, cmdName+" "+opt.Name, sub)
+		}
+	case dc.SubCommandGroup:
+		check(opt.Name, opt.Description)
+		for _, sub := range opt.Options {
+			checkOptionLimits(t, cmdName+" "+opt.Name, sub)
+		}
+	case dc.BoolOption:
+		check(opt.Name, opt.Description)
+	case dc.StringOption:
+		check(opt.Name, opt.Description)
+	case dc.IntOption:
+		check(opt.Name, opt.Description)
+	case dc.NumberOption:
+		check(opt.Name, opt.Description)
+	case dc.UserOption:
+		check(opt.Name, opt.Description)
+	case dc.ChannelOption:
+		check(opt.Name, opt.Description)
+	case dc.RoleOption:
+		check(opt.Name, opt.Description)
+	case dc.AttachmentOption:
+		check(opt.Name, opt.Description)
+	}
+}
+
+func TestDiscordCommandLengthLimits(t *testing.T) {
+	for constructor, build := range commandDefinitions {
+		command := build("cmd-" + constructor)
+		if len(command.Description) < 1 || len(command.Description) > 100 {
+			t.Errorf("%s: command description length %d must be 1-100 (%q)", constructor, len(command.Description), command.Description)
+		}
+		for _, option := range command.Options {
+			checkOptionLimits(t, constructor, option)
+		}
+	}
+}
