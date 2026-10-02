@@ -98,6 +98,18 @@ func GetSlashContractCommand(cmd string) *dc.Command {
 	return &command
 }
 
+// determinePlayStyle returns the contract play style based on explicit option and coopID.
+// Default is ACO Cooperative, unless the coopID contains "chill", in which case it defaults to Chill.
+func determinePlayStyle(explicitPlayStyle int, hasExplicit bool, coopID string) int {
+	if hasExplicit {
+		return explicitPlayStyle
+	}
+	if strings.Contains(strings.ToLower(coopID), "chill") {
+		return ContractPlaystyleChill
+	}
+	return ContractPlaystyleACOCooperative
+}
+
 // HandleContractCommand will handle the /contract command
 func HandleContractCommand(client dc.Client, e *dc.CommandEvent) {
 	// Protection against DM use
@@ -126,13 +138,15 @@ func HandleContractCommand(client dc.Client, e *dc.CommandEvent) {
 	var boostOrder = -1
 	var coopSize = 0
 	var ChannelID = e.ChannelID()
-	var playStyle = ContractPlaystyleChill
+	var playStyle = ContractPlaystyleACOCooperative
+	hasExplicitPlayStyle := false
 	makeThread := true // Default is to always make a thread
 	progenitors := []string{e.UserID()}
 	plannedStartTime := time.Time{}
 
 	if opt, ok := e.OptInt("play-style"); ok {
 		playStyle = opt
+		hasExplicitPlayStyle = true
 	}
 	if opt, ok := e.OptInt("coop-size"); ok {
 		coopSize = opt
@@ -203,18 +217,13 @@ func HandleContractCommand(client dc.Client, e *dc.CommandEvent) {
 	}
 	if opt, ok := e.OptString("coop-id"); ok {
 		coopID = strings.ReplaceAll(opt, " ", "")
-
-		// if the coop-id contains the word "chill" at the start or end of the string, then we set the play style to chill
-		coopLower := strings.ToLower(coopID)
-		if strings.HasPrefix(coopLower, "chill") || strings.Contains(coopLower, "-chill") {
-			playStyle = ContractPlaystyleChill
-		}
 	} else {
 		var c, err = client.Channel(ChannelID)
 		if err != nil && c != nil {
 			coopID = c.Name
 		}
 	}
+	playStyle = determinePlayStyle(playStyle, hasExplicitPlayStyle, coopID)
 
 	validFrom := GetEggStandardTime(time.Now())
 
