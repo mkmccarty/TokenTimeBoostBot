@@ -346,6 +346,11 @@ func runCsEstimate(e *dc.CommandEvent, p csEstimateParams) {
 	imageTable := p.imageTable
 
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("runCsEstimate background goroutine recovered from panic: %v", r)
+			}
+		}()
 		archives, fetched, missing, err := GetContractArchivesForNames(
 			names,
 			"cxp_v0_2_0",

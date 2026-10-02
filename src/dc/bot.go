@@ -4,6 +4,7 @@ import (
 	"context"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/disgoorg/disgo"
 	"github.com/disgoorg/disgo/bot"
@@ -203,7 +204,9 @@ func (b *Bot) UserID() string {
 
 // SetPresence sets the bot's activity to "Playing <activity>".
 func (b *Bot) SetPresence(activity string) error {
-	return b.gateway.SetPresence(context.Background(), gateway.WithPlayingActivity(activity))
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return b.gateway.SetPresence(ctx, gateway.WithPlayingActivity(activity))
 }
 
 // OnCommand registers the handler for a slash command name.

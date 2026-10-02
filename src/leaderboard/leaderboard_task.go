@@ -3,6 +3,7 @@ package leaderboard
 import (
 	"fmt"
 	"log"
+	"runtime/debug"
 	"strconv"
 	"sync"
 	"time"
@@ -271,6 +272,7 @@ func RunLeaderboardCollection(client dc.Client, dryRun bool, guildID string, tar
 			onProgress("🏁 Dry run complete. Data saved but not posted.")
 		}
 	}
+	debug.FreeOSMemory()
 }
 
 // collectPlayerGroup fetches API data for one Egg Inc account and saves leaderboard entries for all associated Discord users.
