@@ -302,7 +302,7 @@ func HandleContractCommand(client dc.Client, e *dc.CommandEvent) {
 	isPredictedContract := contractInfo.Predicted || isPastContract(contractID)
 
 	maxSize := contractInfo.MaxCoopSize
-	if isPredictedContract {
+	if isPredictedContract && !isPastContract(contractID) {
 		maxSize = 100
 	} else if maxSize == 0 {
 		maxSize = coopSize
@@ -330,6 +330,12 @@ func HandleContractCommand(client dc.Client, e *dc.CommandEvent) {
 					fmt.Fprintf(&suffixBuilder, "(%s%d/%d)", playStyleStr, len(progenitors), contractInfo.MaxCoopSize)
 				} else {
 					fmt.Fprint(&suffixBuilder, "(FULL)")
+				}
+			} else if isPastContract(contractID) {
+				if len(progenitors) != maxSize {
+					fmt.Fprintf(&suffixBuilder, " (%s%d/%d)", playStyleStr, len(progenitors), maxSize)
+				} else {
+					fmt.Fprint(&suffixBuilder, " (FULL)")
 				}
 			} else {
 				fmt.Fprintf(&suffixBuilder, " (%s%d)", playStyleStr, len(progenitors))

@@ -677,7 +677,10 @@ func updateContractWithEggIncData(client dc.Client, contract *Contract) {
 			contract.PredictionInfo = pInfo
 		} else {
 			// Past contract selected as a predicted contract
-			contract.CoopSize = 100
+			contract.CoopSize = cc.MaxCoopSize
+			if contract.CoopSize == 0 {
+				contract.CoopSize = 100
+			}
 			contract.PredictionSignup = true
 			contract.WasPredictedContract = true
 			contract.PredictionsList = []string{contract.ContractID}
