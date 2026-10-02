@@ -1,6 +1,7 @@
 package boost
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -661,5 +662,111 @@ func TestPredictedPastContract_AutoUpdateThreadNameWhenFull(t *testing.T) {
 	}
 	if !strings.HasPrefix(renamedTo, "🔮 ") {
 		t.Errorf("expected renamed thread name to start with '🔮 ', got: %s", renamedTo)
+	}
+}
+
+func TestUpdatePredictedSignupContracts_DatedContractPreservesAllBoosters(t *testing.T) {
+	fridayDate := time.Date(2026, 10, 9, 16, 0, 0, 0, time.UTC)
+	datedContractID := fmt.Sprintf("friday-%s", fridayDate.Format("2006-01-02"))
+	liveContractID := "test-live-friday-mission"
+	guildID := "guild-dated-1"
+	threadID := "thread-dated-1"
+
+	liveArrival := ei.EggIncContract{
+		ID:          liveContractID,
+		Name:        "Live Friday Mission",
+		Description: "A brand new live contract",
+		Predicted:   false,
+		MaxCoopSize: 2, // Live coop size is smaller than the 5 players who signed up
+		EggName:     "Fusion",
+		Egg:         int32(ei.Egg_FUSION),
+		Ultra:       false,
+		ValidFrom:   fridayDate,
+		ValidUntil:  fridayDate.Add(7 * 24 * time.Hour),
+	}
+
+	ei.EggIncContractsMutex.Lock()
+	if ei.EggIncContractsAll == nil {
+		ei.EggIncContractsAll = make(map[string]ei.EggIncContract)
+	}
+	ei.EggIncContractsAll[liveContractID] = liveArrival
+	ei.EggIncContracts = append(ei.EggIncContracts, liveArrival)
+	ei.EggIncContractsMutex.Unlock()
+
+	defer func() {
+		ei.EggIncContractsMutex.Lock()
+		delete(ei.EggIncContractsAll, liveContractID)
+		ei.EggIncContractsMutex.Unlock()
+	}()
+
+	contract := &Contract{
+		ContractHash:     "test-hash-dated-pred",
+		ContractID:       datedContractID,
+		CoopID:           "predicted",
+		CoopSize:         100,
+		Name:             "Predicted Friday",
+		PredictionSignup: true,
+		State:            ContractStateSignup,
+		StartTime:        time.Now(),
+		Location: []*LocationData{
+			{GuildID: guildID, ChannelID: threadID},
+		},
+		CreatorID: []string{"u1"},
+		Order:     []string{"u1", "u2", "u3", "u4", "u5"},
+		Boosters: map[string]*Booster{
+			"u1": {UserID: "u1"},
+			"u2": {UserID: "u2"},
+			"u3": {UserID: "u3"},
+			"u4": {UserID: "u4"},
+			"u5": {UserID: "u5"},
+		},
+		WaitlistBoosters: nil,
+	}
+
+	ContractsMutex.Lock()
+	Contracts[contract.ContractHash] = contract
+	ContractsMutex.Unlock()
+
+	defer func() {
+		ContractsMutex.Lock()
+		delete(Contracts, contract.ContractHash)
+		ContractsMutex.Unlock()
+	}()
+
+	client := dctest.New().
+		WithGuild(guildID, "Test Guild").
+		WithThread(threadID, guildID, "parent-dated", "Predicted Friday Signup (5)")
+
+	updatedCount := UpdatePredictedSignupContracts(client, []ei.EggIncContract{liveArrival})
+	if updatedCount != 1 {
+		t.Fatalf("expected 1 contract updated, got %d", updatedCount)
+	}
+
+	if contract.ContractID != liveContractID {
+		t.Errorf("expected ContractID to update to %s, got %s", liveContractID, contract.ContractID)
+	}
+	if contract.PredictionSignup {
+		t.Errorf("expected PredictionSignup to be false after contract arrival")
+	}
+	if contract.CoopSize != 2 {
+		t.Errorf("expected CoopSize to update to 2, got %d", contract.CoopSize)
+	}
+
+	// Verify all 5 players were kept in the contract and none were moved to waitlist/backups
+	if len(contract.Order) != 5 {
+		t.Errorf("expected all 5 players to remain in contract.Order, got %d", len(contract.Order))
+	}
+	if len(contract.Boosters) != 5 {
+		t.Errorf("expected all 5 players to remain in contract.Boosters, got %d", len(contract.Boosters))
+	}
+	if len(contract.WaitlistBoosters) != 0 {
+		t.Errorf("expected WaitlistBoosters to be empty for dated contract, got %v", contract.WaitlistBoosters)
+	}
+
+	// Verify no waitlist warning message was sent
+	for _, sendCall := range client.CallsTo("SendMessage") {
+		if strings.Contains(fmt.Sprintf("%v", sendCall.Args), "Moved") {
+			t.Errorf("unexpected waitlist warning message sent: %v", sendCall.Args)
+		}
 	}
 }
