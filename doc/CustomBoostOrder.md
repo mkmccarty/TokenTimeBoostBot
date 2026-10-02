@@ -133,10 +133,10 @@ In Boost Bot, players in a contract have one of two roles:
 * **Main**: Primary player accounts (the default for all participants).
 * **Helper**: Alternate/helper accounts (designated alts or accounts marked via `/boost-order-helpers`).
 
-Coordinators manage helper designations using:
-* `/boost-order-helpers set farmers:...`
-* `/boost-order-helpers clear farmers:...`
-* `/boost-order-helpers list`
+Players and coordinators manage helper designations using:
+* `/boost-order-helpers set [farmers:...]` (leave `farmers` blank to designate yourself; coordinators can specify other farmers)
+* `/boost-order-helpers clear [farmers:...]` (leave `farmers` blank to clear yourself and linked alts; coordinators can specify other farmers or 'all')
+* `/boost-order-helpers list` (list current helper designations)
 
 > [!NOTE]
 > Items like Ship in a Bottle (`SIAB`), Gusset (`GUSSET`), or Compass (`COMPASS`) are **not roles**—they are artifact items. To prioritize players who have or equip these items, use artifact criteria directly (e.g. `<SIAB`, `<GUSSET`, or `<COMPASS`).
