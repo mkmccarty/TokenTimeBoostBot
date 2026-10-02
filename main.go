@@ -8,6 +8,7 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
+	"runtime"
 	"slices"
 	"strings"
 	"syscall"
@@ -1148,6 +1149,11 @@ func startHeartbeat(filepath string, interval time.Duration) {
 				log.Printf("Heartbeat error: %v", err)
 			}
 			counter++
+			if counter%10 == 0 {
+				var m runtime.MemStats
+				runtime.ReadMemStats(&m)
+				log.Printf("Heartbeat stats: Alloc=%dMB, Sys=%dMB, Goroutines=%d", m.Alloc/1024/1024, m.Sys/1024/1024, runtime.NumGoroutine())
+			}
 			if counter%2 == 1 {
 				// Get a random status message
 				activityName, err := ei.GetRandomStatusMessage()
