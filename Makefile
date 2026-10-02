@@ -167,7 +167,7 @@ install:
 .PHONY: clean
 clean:
 	go clean
-	rm -r $(BUILD_OUTPUT)/*
+	rm -rf $(BUILD_OUTPUT)/*
 
 .PHONY: docker
 docker:

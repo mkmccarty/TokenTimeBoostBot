@@ -30,7 +30,7 @@ func GetSlashBoostOrderHelpersCommand(cmd string) *dc.Command {
 			Options: []dc.Option{
 				dc.StringOption{
 					Name:        "farmers",
-					Description: "List, mentions, or boost numbers of farmers to remove helper status from, 'all', or leave blank for yourself and alts",
+					Description: "Farmers to remove helper status from, 'all', or leave blank for yourself and alts",
 					Required:    false,
 				},
 			},
