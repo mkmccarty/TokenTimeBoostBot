@@ -29,6 +29,24 @@ func GetEggStandardTime(t time.Time) time.Time {
 	return time.Date(tInLoc.Year(), tInLoc.Month(), tInLoc.Day(), 9, 0, 0, 0, loc)
 }
 
+// isPastContract returns true if contractID is an Egg Inc contract from history
+// that is not currently an active or placeholder contract in ei.EggIncContracts.
+func isPastContract(contractID string) bool {
+	if contractID == "" {
+		return false
+	}
+	ei.EggIncContractsMutex.RLock()
+	defer ei.EggIncContractsMutex.RUnlock()
+
+	for _, c := range ei.EggIncContracts {
+		if c.ID == contractID {
+			return false
+		}
+	}
+	c, ok := ei.EggIncContractsAll[contractID]
+	return ok && !c.Predicted
+}
+
 // GetSlashContractCommand returns the slash command for creating a contract
 func GetSlashContractCommand(cmd string) *dc.Command {
 	command := guildOnlyCommand(cmd, "Create a contract boost list.")
@@ -245,7 +263,15 @@ func HandleContractCommand(client dc.Client, e *dc.CommandEvent) {
 		for _, x := range ei.EggIncContracts {
 			if x.ID == contractID {
 				found = true
+				break
 			}
+		}
+		if !found {
+			ei.EggIncContractsMutex.RLock()
+			if _, ok := ei.EggIncContractsAll[contractID]; ok {
+				found = true
+			}
+			ei.EggIncContractsMutex.RUnlock()
 		}
 		if !found {
 			_ = e.Followup(dc.Message{
@@ -273,8 +299,12 @@ func HandleContractCommand(client dc.Client, e *dc.CommandEvent) {
 	}
 
 	contractInfo := ei.EggIncContractsAll[contractID]
+	isPredictedContract := contractInfo.Predicted || isPastContract(contractID)
+
 	maxSize := contractInfo.MaxCoopSize
-	if maxSize == 0 {
+	if isPredictedContract {
+		maxSize = 100
+	} else if maxSize == 0 {
 		maxSize = coopSize
 	}
 	if maxSize > 0 {
@@ -295,7 +325,7 @@ func HandleContractCommand(client dc.Client, e *dc.CommandEvent) {
 		var suffixBuilder strings.Builder
 		if contractInfo.ID != "" {
 			playStyleStr := fmt.Sprintf("%s ", contractPlaystyleNames[playStyle])
-			if !contractInfo.Predicted {
+			if !isPredictedContract {
 				if len(progenitors) != contractInfo.MaxCoopSize {
 					fmt.Fprintf(&suffixBuilder, "(%s%d/%d)", playStyleStr, len(progenitors), contractInfo.MaxCoopSize)
 				} else {
@@ -316,7 +346,7 @@ func HandleContractCommand(client dc.Client, e *dc.CommandEvent) {
 		suffixes := suffixBuilder.String()
 
 		var builder strings.Builder
-		if !contractInfo.Predicted {
+		if !isPredictedContract {
 			if isTBDCoopID(coopID) {
 				collisionCount := 0
 				ContractsMutex.RLock()
@@ -357,7 +387,11 @@ func HandleContractCommand(client dc.Client, e *dc.CommandEvent) {
 			}
 		} else {
 			icon := threadStyleIcons[playStyle]
-			fixedLen := len(icon) + 1 + len("Signup") + len(suffixes) + 1
+			prefix := ""
+			if isPastContract(contractID) {
+				prefix = "🔮 "
+			}
+			fixedLen := len(prefix) + len(icon) + 1 + len("Signup") + len(suffixes) + 1
 			nameToUse := contractInfo.Name
 			if fixedLen+len(nameToUse) > 100 {
 				allowedNameLen := 100 - fixedLen
@@ -369,7 +403,7 @@ func HandleContractCommand(client dc.Client, e *dc.CommandEvent) {
 					nameToUse = ""
 				}
 			}
-			fmt.Fprintf(&builder, "%s%s %s", icon, nameToUse, "Signup")
+			fmt.Fprintf(&builder, "%s%s%s %s", prefix, icon, nameToUse, "Signup")
 		}
 
 		builder.WriteString(suffixes)

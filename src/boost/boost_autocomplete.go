@@ -50,6 +50,11 @@ func HandleContractAutoComplete(e *dc.AutocompleteEvent) {
 	if opt, ok := e.OptString("contract-contract-id-contract-id"); ok {
 		searchString = strings.ToLower(opt)
 	}
+	if searchString == "" {
+		if name, value := e.FocusedOption(); strings.HasSuffix(name, "contract-id") {
+			searchString = strings.ToLower(strings.TrimSpace(value))
+		}
+	}
 
 	isContractCommand := e.CommandName() == "contract"
 
@@ -57,8 +62,13 @@ func HandleContractAutoComplete(e *dc.AutocompleteEvent) {
 	allowPredicted := isContractCommand || (contract != nil && contract.State == ContractStateSignup && contract.PredictionSignup)
 
 	choices := make([]dc.Choice[string], 0)
+	seen := make(map[string]bool)
+
+	ei.EggIncContractsMutex.RLock()
 	contracts := make([]ei.EggIncContract, len(ei.EggIncContracts))
 	copy(contracts, ei.EggIncContracts)
+	ei.EggIncContractsMutex.RUnlock()
+
 	sort.SliceStable(contracts, func(i, j int) bool {
 		return contracts[i].ValidFrom.After(contracts[j].ValidFrom)
 	})
@@ -76,12 +86,21 @@ func HandleContractAutoComplete(e *dc.AutocompleteEvent) {
 			continue
 		}
 
+		seen[c.ID] = true
+
 		seasonalStr := ""
 		if c.SeasonID != "" {
-			//seasonYear := strings.Split(c.SeasonID, "_")[1]
-			seasonIcon := strings.Split(c.SeasonID, "_")[0]
-			seasonEmote := map[string]string{"winter": "❄️", "spring": "🌷", "summer": "☀️", "fall": "🍂"}
-			seasonalStr = seasonEmote[seasonIcon]
+			seasonParts := strings.Split(c.SeasonID, "_")
+			if len(seasonParts) > 1 {
+				seasonYear := seasonParts[1]
+				seasonIcon := seasonParts[0]
+				seasonEmote := map[string]string{"winter": "❄️", "spring": "🌷", "summer": "☀️", "fall": "🍂"}
+				if len(seasonYear) >= 4 {
+					seasonalStr = fmt.Sprintf("%s%s", seasonEmote[seasonIcon], seasonYear[2:4])
+				} else {
+					seasonalStr = seasonEmote[seasonIcon]
+				}
+			}
 		}
 
 		ultra := ""
@@ -92,6 +111,57 @@ func HandleContractAutoComplete(e *dc.AutocompleteEvent) {
 			Name:  fmt.Sprintf("%s (%s)%s %s", c.Name, c.ID, ultra, seasonalStr),
 			Value: c.ID,
 		})
+	}
+
+	if allowPredicted && searchString != "" {
+		ei.EggIncContractsMutex.RLock()
+		var pastContracts []ei.EggIncContract
+		for _, c := range ei.EggIncContractsAll {
+			if c.Predicted || seen[c.ID] {
+				continue
+			}
+			if strings.Contains(strings.ToLower(c.ID), searchString) ||
+				strings.Contains(strings.ToLower(c.Name), searchString) ||
+				strings.Contains(strings.ToLower(c.SeasonID), searchString) {
+				pastContracts = append(pastContracts, c)
+			}
+		}
+		ei.EggIncContractsMutex.RUnlock()
+
+		sort.SliceStable(pastContracts, func(i, j int) bool {
+			return pastContracts[i].ValidFrom.After(pastContracts[j].ValidFrom)
+		})
+
+		for _, c := range pastContracts {
+			if len(choices) >= maxAutocompleteChoices {
+				break
+			}
+			seen[c.ID] = true
+
+			seasonalStr := ""
+			if c.SeasonID != "" {
+				seasonParts := strings.Split(c.SeasonID, "_")
+				if len(seasonParts) > 1 {
+					seasonYear := seasonParts[1]
+					seasonIcon := seasonParts[0]
+					seasonEmote := map[string]string{"winter": "❄️", "spring": "🌷", "summer": "☀️", "fall": "🍂"}
+					if len(seasonYear) >= 4 {
+						seasonalStr = fmt.Sprintf("%s%s", seasonEmote[seasonIcon], seasonYear[2:4])
+					} else {
+						seasonalStr = seasonEmote[seasonIcon]
+					}
+				}
+			}
+
+			ultra := ""
+			if c.Ultra {
+				ultra = " -ultra"
+			}
+			choices = append(choices, dc.Choice[string]{
+				Name:  fmt.Sprintf("%s (%s)%s %s", c.Name, c.ID, ultra, seasonalStr),
+				Value: c.ID,
+			})
+		}
 	}
 
 	//sortContractChoices(choices)

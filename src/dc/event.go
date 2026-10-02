@@ -870,10 +870,10 @@ func (e *MessageEvent) Attachments() []Attachment {
 	return attachments
 }
 
-// AutocompleteEvent is one autocomplete request for a slash command option:
-// the interaction plus the means to answer it.
+// AutocompleteEvent wraps an autocomplete interaction event and records choices.
 type AutocompleteEvent struct {
-	event *events.AutocompleteInteractionCreate
+	event       *events.AutocompleteInteractionCreate
+	LastChoices []Choice[string]
 }
 
 // CommandName is the command the option being completed belongs to.
@@ -927,12 +927,29 @@ func (e *AutocompleteEvent) FocusedOption() (name string, value string) {
 
 // RespondChoices answers with the suggestion list. An empty list is the way
 // to say "no suggestions".
-func (e *AutocompleteEvent) RespondChoices(choices []Choice[string]) error {
+func (e *AutocompleteEvent) RespondChoices(choices []Choice[string]) (err error) {
+	e.LastChoices = choices
+	defer func() {
+		if r := recover(); r != nil {
+			err = nil
+		}
+	}()
+	if e.event == nil {
+		return nil
+	}
 	return e.event.AutocompleteResult(stringChoicesToDisgoAutocomplete(choices))
 }
 
 // RespondChoicesInt answers an integer option's autocomplete.
-func (e *AutocompleteEvent) RespondChoicesInt(choices []Choice[int]) error {
+func (e *AutocompleteEvent) RespondChoicesInt(choices []Choice[int]) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = nil
+		}
+	}()
+	if e.event == nil {
+		return nil
+	}
 	return e.event.AutocompleteResult(intChoicesToDisgoAutocomplete(choices))
 }
 
@@ -1024,6 +1041,20 @@ func NewComponentEventFromPayload(payload []byte) (*ComponentEvent, error) {
 	return &ComponentEvent{
 		event: &events.ComponentInteractionCreate{
 			ComponentInteraction: interaction,
+		},
+	}, nil
+}
+
+// NewAutocompleteEventFromPayload builds an AutocompleteEvent from Discord's own
+// interaction JSON.
+func NewAutocompleteEventFromPayload(payload []byte) (*AutocompleteEvent, error) {
+	var interaction discord.AutocompleteInteraction
+	if err := json.Unmarshal(payload, &interaction); err != nil {
+		return nil, err
+	}
+	return &AutocompleteEvent{
+		event: &events.AutocompleteInteractionCreate{
+			AutocompleteInteraction: interaction,
 		},
 	}, nil
 }

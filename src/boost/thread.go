@@ -152,6 +152,13 @@ func HandleRenameThreadCommand(client dc.Client, e *dc.CommandEvent) {
 	})
 }
 
+func isPredictedPastContract(c *Contract) bool {
+	if c == nil || !c.PredictionSignup {
+		return false
+	}
+	return isPastContract(c.ContractID)
+}
+
 func generateThreadName(c *Contract) string {
 	var threadName = c.ThreadName
 	threadStyleIcons := []string{"", "🟦 ", "🟩 ", "🟧 ", "🟥 "}
@@ -222,7 +229,11 @@ func generateThreadName(c *Contract) string {
 	var idReplacement string
 
 	if !c.PredictionSignup {
-		nReplacement = coopID
+		if c.WasPredictedContract && c.State == ContractStateSignup && (isTBDCoopID(coopID) || coopID == "predicted") {
+			nReplacement = fmt.Sprintf("%s %s", c.Name, "Signup")
+		} else {
+			nReplacement = coopID
+		}
 		idReplacement = c.ContractID
 	} else {
 		nReplacement = fmt.Sprintf("%s %s", c.Name, "Signup")
@@ -237,6 +248,9 @@ func generateThreadName(c *Contract) string {
 	tempName = strings.ReplaceAll(tempName, "$C", statusStr)
 
 	fullLength := len(threadColor) + len(tempName)
+	if isPredictedPastContract(c) {
+		fullLength += len("🔮 ")
+	}
 	if fullLength >= maxLength {
 		// Need to trim the CoopID
 		excess := fullLength - maxLength + 1 // +1 for safety margin
@@ -245,7 +259,7 @@ func generateThreadName(c *Contract) string {
 		} else if len(coopID) > 3 {
 			coopID = "..."
 		}
-		if !c.PredictionSignup {
+		if !c.PredictionSignup && (!c.WasPredictedContract || c.State != ContractStateSignup || (!isTBDCoopID(c.CoopID) && c.CoopID != "predicted")) {
 			nReplacement = coopID
 		}
 	}
@@ -256,5 +270,23 @@ func generateThreadName(c *Contract) string {
 	threadName = strings.ReplaceAll(threadName, "$COUNT", statusStr)
 	threadName = strings.ReplaceAll(threadName, "$C", statusStr)
 
-	return threadColor + threadName
+	finalName := threadColor + threadName
+	if isPredictedPastContract(c) {
+		if !strings.HasPrefix(finalName, "🔮 ") && !strings.HasPrefix(finalName, "🔮") {
+			finalName = "🔮 " + finalName
+		}
+	} else {
+		finalName = strings.TrimPrefix(strings.TrimPrefix(finalName, "🔮 "), "🔮")
+		if threadColor != "" && strings.HasPrefix(finalName, threadColor) {
+			rest := strings.TrimPrefix(finalName, threadColor)
+			rest = strings.TrimPrefix(strings.TrimPrefix(rest, "🔮 "), "🔮")
+			finalName = threadColor + rest
+		}
+	}
+
+	if len(finalName) > 100 {
+		finalName = finalName[:100]
+	}
+
+	return finalName
 }

@@ -206,56 +206,65 @@ func UpdatePredictedSignupContracts(client dc.Client, liveContracts []ei.EggIncC
 			continue
 		}
 
-		// Predicted IDs look like "monday-2024-05-13", "wednesday-2024-05-15", or "ultra-2024-05-17"
-		parts := strings.Split(contract.ContractID, "-")
-		if len(parts) < 4 {
-			continue
-		}
-		// Date is the last 3 parts
-		dateStr := strings.Join(parts[len(parts)-3:], "-")
-		predictedDate, err := time.Parse("2006-01-02", dateStr)
-		if err != nil {
-			continue
-		}
-
 		for _, live := range liveContracts {
 			if live.Predicted {
 				continue
 			}
 
-			// Match Ultra status
-			if live.Ultra != contract.Ultra {
-				continue
-			}
-
-			// Check if the live contract ValidFrom is within +/- 36 hours of the predicted date
-			diff := live.ValidFrom.Sub(predictedDate)
-			if diff < -36*time.Hour || diff > 36*time.Hour {
-				continue
-			}
-
-			computedLabel := ""
-			if live.Ultra {
-				computedLabel = "ultra"
+			isMatch := false
+			if contract.ContractID == live.ID {
+				isMatch = true
 			} else {
-				switch live.ValidFrom.Weekday() {
-				case time.Monday:
-					computedLabel = "monday"
-				case time.Wednesday:
-					computedLabel = "wednesday"
-				case time.Friday:
-					computedLabel = "friday"
+				// Predicted IDs look like "monday-2024-05-13", "wednesday-2024-05-15", or "ultra-2024-05-17"
+				parts := strings.Split(contract.ContractID, "-")
+				if len(parts) >= 4 {
+					dateStr := strings.Join(parts[len(parts)-3:], "-")
+					if predictedDate, err := time.Parse("2006-01-02", dateStr); err == nil {
+						if live.Ultra == contract.Ultra {
+							diff := live.ValidFrom.Sub(predictedDate)
+							if diff >= -36*time.Hour && diff <= 36*time.Hour {
+								computedLabel := ""
+								if live.Ultra {
+									computedLabel = "ultra"
+								} else {
+									switch live.ValidFrom.Weekday() {
+									case time.Monday:
+										computedLabel = "monday"
+									case time.Wednesday:
+										computedLabel = "wednesday"
+									case time.Friday:
+										computedLabel = "friday"
+									}
+								}
+								whatIfID := fmt.Sprintf("%s-%s", computedLabel, live.ValidFrom.Format("2006-01-02"))
+								if contract.ContractID == whatIfID {
+									isMatch = true
+								}
+							}
+						}
+					}
 				}
 			}
 
-			whatIfID := fmt.Sprintf("%s-%s", computedLabel, live.ValidFrom.Format("2006-01-02"))
-			if contract.ContractID != whatIfID {
-				continue
-			}
-
-			if contract.ContractID != live.ID {
+			if isMatch {
 				contract.ContractID = live.ID
 				updateContractWithEggIncData(client, contract)
+
+				movedLabels := moveOverflowBoostersToWaitlist(contract)
+				if len(movedLabels) > 0 {
+					for _, loc := range contract.Location {
+						if loc != nil && loc.ChannelID != "" {
+							channelMsg := fmt.Sprintf("⚠️ Contract is live and coop size is %d. Moved %d booster(s) to waitlist: %s",
+								contract.CoopSize,
+								len(movedLabels),
+								strings.Join(movedLabels, ", "),
+							)
+							if _, err := client.SendMessage(loc.ChannelID, dc.Message{Content: channelMsg}); err != nil {
+								log.Println("Error sending waitlist movement message:", err)
+							}
+						}
+					}
+				}
 
 				if contract.Name != "" && contract.EggName != "" && !contract.PredictionSignup {
 					creator := ""
@@ -277,12 +286,13 @@ func UpdatePredictedSignupContracts(client dc.Client, liveContracts []ei.EggIncC
 				UpdateBannerURL(contract)
 				refreshBoostListMessage(client, contract, true)
 				contract.WasPredictedContract = true
+				contract.ThreadRenameTime = time.Time{}
 				contract.ThreadRenameFinalized = false
 				AutoUpdateThreadName(client, contract)
 				saveData(contract.ContractHash)
 				updated++
+				break // Found a match, move to the next contract
 			}
-			break // Found a match, move to the next contract
 		}
 	}
 
@@ -605,6 +615,10 @@ func updateContractWithEggIncData(client dc.Client, contract *Contract) {
 			contract.ChickenRunCooldownMinutes = cc.ChickenRunCooldownMinutes
 			contract.MinutesPerToken = cc.MinutesPerToken
 			contract.Ultra = cc.Ultra
+			contract.SeasonalScoring = cc.SeasonalScoring
+			if !cc.ValidFrom.IsZero() {
+				contract.ValidFrom = cc.ValidFrom
+			}
 			contract.PredictionSignup = cc.Predicted
 			if cc.Predicted {
 				contract.WasPredictedContract = true
@@ -634,28 +648,47 @@ func updateContractWithEggIncData(client dc.Client, contract *Contract) {
 		contract.EstimatedDuration = cc.EstimatedDuration
 		contract.Name = cc.Name
 		contract.Description = cc.Description
+		contract.Egg = cc.Egg
 		contract.EggName = cc.EggName
 		contract.EggEmoji = FindEggEmoji(contract.EggName)
 		contract.ChickenRunCooldownMinutes = cc.ChickenRunCooldownMinutes
 		contract.MinutesPerToken = cc.MinutesPerToken
 		contract.Ultra = cc.Ultra
 		contract.SeasonalScoring = cc.SeasonalScoring
-		contract.PredictionSignup = cc.Predicted
-		if cc.Predicted {
-			contract.WasPredictedContract = true
+		if !cc.ValidFrom.IsZero() {
+			contract.ValidFrom = cc.ValidFrom
 		}
-		contract.PredictionsList = cc.PredictionsList
-		var pInfo []PredictionInfo
-		for _, pid := range cc.PredictionsList {
-			if pc, ok := ei.EggIncContractsAll[pid]; ok {
-				pInfo = append(pInfo, PredictionInfo{
-					ContractID: pid,
-					Name:       pc.Name,
-					EggName:    pc.EggName,
-				})
+
+		if cc.Predicted {
+			contract.CoopSize = cc.MaxCoopSize
+			contract.PredictionSignup = true
+			contract.WasPredictedContract = true
+			contract.PredictionsList = cc.PredictionsList
+			var pInfo []PredictionInfo
+			for _, pid := range cc.PredictionsList {
+				if pc, ok := ei.EggIncContractsAll[pid]; ok {
+					pInfo = append(pInfo, PredictionInfo{
+						ContractID: pid,
+						Name:       pc.Name,
+						EggName:    pc.EggName,
+					})
+				}
+			}
+			contract.PredictionInfo = pInfo
+		} else {
+			// Past contract selected as a predicted contract
+			contract.CoopSize = 100
+			contract.PredictionSignup = true
+			contract.WasPredictedContract = true
+			contract.PredictionsList = []string{contract.ContractID}
+			contract.PredictionInfo = []PredictionInfo{
+				{
+					ContractID: contract.ContractID,
+					Name:       cc.Name,
+					EggName:    cc.EggName,
+				},
 			}
 		}
-		contract.PredictionInfo = pInfo
 		renameContractRole(client, contract)
 	}
 }

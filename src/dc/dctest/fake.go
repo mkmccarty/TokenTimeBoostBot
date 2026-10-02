@@ -326,6 +326,12 @@ func (f *FakeClient) CreateGuildRole(guildID string, params dc.RoleParams) (*dc.
 	return &dc.Role{ID: "role-" + strconv.Itoa(count), Name: params.Name}, nil
 }
 
+// EditGuildRole records the role edit and hands back the updated role.
+func (f *FakeClient) EditGuildRole(guildID, roleID string, params dc.RoleParams) (*dc.Role, error) {
+	f.record("EditGuildRole", guildID, roleID, params.Name)
+	return &dc.Role{ID: roleID, Name: params.Name}, nil
+}
+
 // AddGuildMemberRole records the role grant.
 func (f *FakeClient) AddGuildMemberRole(guildID, userID, roleID string) error {
 	f.record("AddGuildMemberRole", guildID, userID, roleID)

@@ -899,6 +899,12 @@ func AddFarmerToContract(client dc.Client, contract *Contract, guildID string, c
 		if !UserInContract(contract, b.UserID) {
 			contract.Boosters[b.UserID] = b
 
+			if contract.PredictionSignup && len(contract.PredictionInfo) == 1 {
+				if !slices.Contains(b.Availability.Contract, contract.PredictionInfo[0].ContractID) {
+					b.Availability.Contract = append(b.Availability.Contract, contract.PredictionInfo[0].ContractID)
+				}
+			}
+
 			// Auto-link alternate accounts if AltController is established in farmerstate
 			parentID := farmerstate.GetMiscSettingString(b.UserID, "AltController")
 			if parentID == "" && b.Name != "" && b.Name != b.UserID {
@@ -1742,6 +1748,10 @@ func StartContractBoosting(client dc.Client, guildID string, channelID string, u
 
 	if contract.State != ContractStateSignup {
 		return errors.New(errorContractAlreadyStarted)
+	}
+
+	if contract.PredictionSignup {
+		return errors.New("cannot start a predicted contract")
 	}
 
 	if !creatorOfContract(client, contract, userID) && contract.CreatorID[0] != config.DiscordAppID {
@@ -2595,6 +2605,28 @@ func ArchiveContracts(client dc.Client) {
 	ContractsMutex.RLock()
 	for _, contract := range Contracts {
 		if contract.State == ContractStateSignup {
+			if isPredictedPastContract(contract) {
+				createdAt := contract.StartTime
+				if threadCreatedAt, ok := getContractThreadCreatedAtFromLastMessageID(client, contract); ok && !threadCreatedAt.IsZero() {
+					if createdAt.IsZero() || threadCreatedAt.Before(createdAt) {
+						createdAt = threadCreatedAt
+					}
+				}
+				if !createdAt.IsZero() && currentTime.After(createdAt.Add(predictedPastContractMaxDuration)) {
+					log.Println("Archiving predicted past contract (3-week limit): ", contract.ContractID, " / ", contract.CoopID)
+					changeContractState(contract, ContractStateArchive)
+					finishHash = append(finishHash, contract.ContractHash)
+					continue
+				}
+				if !contractHasValidThread(client, contract) {
+					log.Println("Archiving predicted past contract (invalid thread): ", contract.ContractID, " / ", contract.CoopID)
+					changeContractState(contract, ContractStateArchive)
+					finishHash = append(finishHash, contract.ContractHash)
+					continue
+				}
+				continue
+			}
+
 			isPredicted := false
 			for _, pid := range predictedIDs {
 				if contract.ContractID == pid {
