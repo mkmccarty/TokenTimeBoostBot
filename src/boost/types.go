@@ -28,6 +28,7 @@ const errorNotContractCreator = "restricted to contract creator"
 
 const defaultFamerTokens = 6
 const signupThreadBackstopDuration = 7 * 24 * time.Hour
+const predictedPastContractMaxDuration = 21 * 24 * time.Hour
 
 var boostIconName = "🚀"     // For Reaction tests
 var boostIconReaction = "🚀" // For displaying

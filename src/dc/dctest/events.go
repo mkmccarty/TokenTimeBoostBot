@@ -104,3 +104,28 @@ func ComponentButtonEvent(customID string) *dc.ComponentEvent {
 	}
 	return event
 }
+
+// AutocompleteEvent builds a dc.AutocompleteEvent for an autocomplete interaction.
+func AutocompleteEvent(commandName, optionName, optionValue string) *dc.AutocompleteEvent {
+	payload := fmt.Sprintf(`{
+		"id": "1",
+		"application_id": "2",
+		"type": 4,
+		"token": "test-token",
+		"version": 1,
+		"channel": {"id": "3", "type": 0},
+		"user": {"id": "4", "username": "tester", "discriminator": "0"},
+		"data": {
+			"id": "5",
+			"name": %q,
+			"type": 1,
+			"options": [{"name": %q, "type": 3, "value": %q, "focused": true}]
+		}
+	}`, commandName, optionName, optionValue)
+
+	event, err := dc.NewAutocompleteEventFromPayload([]byte(payload))
+	if err != nil {
+		panic(fmt.Sprintf("dctest: building an autocomplete event: %v", err))
+	}
+	return event
+}

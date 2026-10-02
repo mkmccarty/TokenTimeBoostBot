@@ -326,6 +326,9 @@ func GetSignupComponents(contract *Contract) (string, []dc.LayoutComponent) {
 	if isTBDCoopID(contract.CoopID) {
 		disableStartContract = true
 	}
+	if contract.PredictionSignup {
+		disableStartContract = true
+	}
 
 	joinMsg := "Join"
 	if len(contract.Boosters) == contract.CoopSize {
