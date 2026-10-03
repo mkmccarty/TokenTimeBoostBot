@@ -58,13 +58,16 @@ func HandleContractReactions(client dc.Client, e *dc.ComponentEvent) {
 		return
 	}
 
-	// Restring commands to those within the contract
-	if !UserInContract(contract, userID) && !creatorOfContract(client, contract, userID) {
-		_ = e.Followup(dc.Message{
-			Content:   "User isn't in this contract.",
-			Ephemeral: true,
-		})
-		return
+	// Restrict commands to those within the contract.
+	// Only boost, swap, and crping allow contract creators/coordinators who aren't in the contract.
+	if !UserInContract(contract, userID) {
+		if (cmd != "boost" && cmd != "swap" && cmd != "crping") || !creatorOfContract(client, contract, userID) {
+			_ = e.Followup(dc.Message{
+				Content:   "User isn't in this contract.",
+				Ephemeral: true,
+			})
+			return
+		}
 	}
 	// Ack the message for every other command
 	if cmd != "cr" {
@@ -719,6 +722,14 @@ func buttonReactionCRPing(client dc.Client, e *dc.ComponentEvent, contract *Cont
 		return
 	}
 
+	if !UserInContract(contract, cUserID) && !creatorOfContract(client, contract, cUserID) {
+		_ = e.Followup(dc.Message{
+			Content:   "User isn't in this contract.",
+			Ephemeral: true,
+		})
+		return
+	}
+
 	values := e.Values()
 	if len(values) == 0 {
 		return
@@ -759,8 +770,8 @@ func buttonReactionCRPing(client dc.Client, e *dc.ComponentEvent, contract *Cont
 	if pb := contract.Boosters[cUserID]; pb != nil && pb.AltController != "" {
 		presserID = pb.AltController
 	}
-	presserMention := presserID
-	if mb := contract.Boosters[presserID]; mb != nil {
+	presserMention := fmt.Sprintf("<@%s>", presserID)
+	if mb := contract.Boosters[presserID]; mb != nil && mb.Mention != "" {
 		presserMention = mb.Mention
 	}
 
@@ -812,6 +823,10 @@ func buttonReactionRanChicken(client dc.Client, e *dc.ComponentEvent, contract *
 	}
 
 	if !UserInContract(contract, cUserID) {
+		_ = e.Followup(dc.Message{
+			Content:   "User isn't in this contract.",
+			Ephemeral: true,
+		})
 		return
 	}
 
@@ -909,6 +924,10 @@ func buttonReactionRanCoop(client dc.Client, e *dc.ComponentEvent, contract *Con
 	}
 
 	if !UserInContract(contract, cUserID) {
+		_ = e.Followup(dc.Message{
+			Content:   "User isn't in this contract.",
+			Ephemeral: true,
+		})
 		return
 	}
 

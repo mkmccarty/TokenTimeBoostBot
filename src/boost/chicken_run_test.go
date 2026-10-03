@@ -247,3 +247,104 @@ func TestButtonReactionRunChickensSendFailureRollback(t *testing.T) {
 		t.Errorf("expected RunChickensTime to be rolled back to zero on send error, got %v", runTime)
 	}
 }
+
+func TestChickenRunUserInContractRestriction(t *testing.T) {
+	c := &Contract{
+		ContractHash: "test-hash-restriction",
+		Order:        []string{"1001", "1002"},
+		Location: []*LocationData{
+			{
+				GuildID:   "101",
+				ChannelID: "102",
+			},
+		},
+		CreatorID:    []string{"1000"},
+		CRMessageIDs: make(map[string]string),
+		Boosters: map[string]*Booster{
+			"1001": {
+				UserID:          "1001",
+				Nick:            "Player1",
+				UserName:        "player1",
+				Mention:         "<@1001>",
+				BoostState:      BoostStateBoosted,
+				RunChickensTime: time.Now(),
+			},
+			"1002": {
+				UserID:     "1002",
+				Nick:       "Player2",
+				UserName:   "player2",
+				Mention:    "<@1002>",
+				BoostState: BoostStateBoosted,
+			},
+		},
+	}
+
+	Contracts[c.ContractHash] = c
+	defer delete(Contracts, c.ContractHash)
+
+	client := dctest.New()
+
+	// 1. Outsider (not in contract) clicking RanChicken button
+	outsiderButtonEvent := dctest.ComponentButtonEventWithUser("rc_#RanChicken#1001#"+c.ContractHash, "1099")
+	HandleContractReactions(client, outsiderButtonEvent)
+
+	// Verify outsider was not able to run chickens on 1001
+	if slices.Contains(c.Boosters["1001"].RanChickensOn, "1099") {
+		t.Errorf("outsider should not have run chickens")
+	}
+
+	// 2. Creator (not in contract) clicking RanChicken button
+	creatorButtonEvent := dctest.ComponentButtonEventWithUser("rc_#RanChicken#1001#"+c.ContractHash, "1000")
+	HandleContractReactions(client, creatorButtonEvent)
+	if slices.Contains(c.Boosters["1001"].RanChickensOn, "1000") {
+		t.Errorf("creator not in contract should not have run chickens")
+	}
+
+	// 3. Outsider (not in contract) selecting CRPing
+	outsiderSelectEvent := dctest.ComponentSelectEventWithUser("rc_#CRPing#"+c.ContractHash, "1099", "1001")
+	HandleContractReactions(client, outsiderSelectEvent)
+	// Verify client did NOT send any message to channel
+	if len(client.SentMessages) != 0 {
+		t.Errorf("outsider should not have triggered a CRPing message, got %d messages", len(client.SentMessages))
+	}
+
+	// 4. Creator (not in contract) selecting CRPing -> allowed because admin/coordinator can send pings
+	creatorSelectEvent := dctest.ComponentSelectEventWithUser("rc_#CRPing#"+c.ContractHash, "1000", "1001")
+	HandleContractReactions(client, creatorSelectEvent)
+	if len(client.SentMessages) != 1 {
+		t.Errorf("creator should have been allowed to trigger CRPing message, got %d messages", len(client.SentMessages))
+	}
+
+	// 5. In-contract user 1002 clicking RanChicken button
+	user2ButtonEvent := dctest.ComponentButtonEventWithUser("rc_#RanChicken#1001#"+c.ContractHash, "1002")
+	HandleContractReactions(client, user2ButtonEvent)
+	if !slices.Contains(c.Boosters["1002"].RanChickensOn, "1001") {
+		t.Errorf("user2 in contract should have run chickens on 1001")
+	}
+
+	// 6. Direct buttonReactionCRPing test with outsider
+	client.SentMessages = nil
+	buttonReactionCRPing(client, outsiderSelectEvent, c, "1099")
+	if len(client.SentMessages) != 0 {
+		t.Errorf("direct buttonReactionCRPing should not send message for outsider")
+	}
+
+	// 7. Direct buttonReactionCRPing test with creator (reset RanChickensOn so player is remaining)
+	c.Boosters["1002"].RanChickensOn = nil
+	buttonReactionCRPing(client, creatorSelectEvent, c, "1000")
+	if len(client.SentMessages) != 1 {
+		t.Errorf("direct buttonReactionCRPing should send message for creator")
+	}
+
+	// 8. Direct buttonReactionRanChicken test with outsider
+	buttonReactionRanChicken(client, outsiderButtonEvent, c, "1099", "1001")
+	if slices.Contains(c.Boosters["1001"].RanChickensOn, "1099") {
+		t.Errorf("direct buttonReactionRanChicken should not add outsider to RanChickensOn")
+	}
+
+	// 9. Direct buttonReactionRanChicken test with creator not in contract
+	buttonReactionRanChicken(client, creatorButtonEvent, c, "1000", "1001")
+	if slices.Contains(c.Boosters["1001"].RanChickensOn, "1000") {
+		t.Errorf("direct buttonReactionRanChicken should not add creator to RanChickensOn")
+	}
+}
