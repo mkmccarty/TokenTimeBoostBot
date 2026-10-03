@@ -52,13 +52,11 @@ func parseHexColor(hex string) int {
 	return 0x888888
 }
 
-// ExecuteEb executes the EB display logic and responds to the interaction event.
-func ExecuteEb(e dc.InteractionEvent, farmChoice string, eggIncID string, showAvatar bool, okayToSave bool) {
-	userID := e.UserID()
-
+// ExecuteEbTarget executes the EB display logic for a specific target user ID with optional notice.
+func ExecuteEbTarget(e dc.InteractionEvent, farmChoice string, eggIncID string, showAvatar bool, okayToSave bool, targetUserID string, notice string) {
 	_ = e.Defer(false)
 
-	backup, _ := ei.GetFirstContactFromAPI(eggIncID, userID, okayToSave)
+	backup, _ := ei.GetFirstContactFromAPI(eggIncID, targetUserID, okayToSave)
 	if backup == nil {
 		_ = e.Followup(dc.Message{
 			Content: "Unable to retrieve game data for this Egg Inc ID. Please verify your ID and try again.",
@@ -67,14 +65,36 @@ func ExecuteEb(e dc.InteractionEvent, farmChoice string, eggIncID string, showAv
 	}
 
 	avatarURL := ""
-	if showAvatar {
+	if targetUserID != e.UserID() {
+		altDiscordID := findAltDiscordID(targetUserID)
+		if altDiscordID != "" {
+			avatarURL = getDiscordAvatarURL(e.Client(), e.GuildID(), altDiscordID)
+		}
+		if avatarURL == "" && showAvatar {
+			avatarURL = e.AvatarURL()
+		}
+	} else if showAvatar {
 		avatarURL = e.AvatarURL()
+		if avatarURL == "" && e.Client() != nil && e.GuildID() != "" {
+			avatarURL = getDiscordAvatarURL(e.Client(), e.GuildID(), e.UserID())
+		}
 	}
-	components := BuildEbComponents(backup, farmChoice, userID, avatarURL)
+	components := BuildEbComponents(backup, farmChoice, targetUserID, avatarURL)
+
+	if notice != "" {
+		components = append([]dc.LayoutComponent{
+			dc.TextDisplay{Content: notice},
+		}, components...)
+	}
 
 	_ = e.Followup(dc.Message{
 		Components: components,
 	})
+}
+
+// ExecuteEb executes the EB display logic and responds to the interaction event.
+func ExecuteEb(e dc.InteractionEvent, farmChoice string, eggIncID string, showAvatar bool, okayToSave bool) {
+	ExecuteEbTarget(e, farmChoice, eggIncID, showAvatar, okayToSave, e.UserID(), "")
 }
 
 // determineFarmIcons returns the icon to use for Home and Virtue farms based on the player's active farm.

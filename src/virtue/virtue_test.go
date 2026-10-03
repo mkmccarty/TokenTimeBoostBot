@@ -1,12 +1,16 @@
 package virtue
 
 import (
+	"encoding/base64"
 	"fmt"
 	"slices"
 	"testing"
 
+	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc/dctest"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
 func TestGetSlashVirtueCommand(t *testing.T) {
@@ -14,8 +18,8 @@ func TestGetSlashVirtueCommand(t *testing.T) {
 	if cmd.Name != "virtue" {
 		t.Errorf("cmd.Name = %q; want virtue", cmd.Name)
 	}
-	if len(cmd.Options) != 5 {
-		t.Fatalf("expected 5 options, got %d", len(cmd.Options))
+	if len(cmd.Options) != 6 {
+		t.Fatalf("expected 6 options, got %d", len(cmd.Options))
 	}
 
 	expectedOptions := map[string]string{
@@ -24,6 +28,7 @@ func TestGetSlashVirtueCommand(t *testing.T) {
 		"help":                     "bool",
 		"reset":                    "bool",
 		"compact":                  "bool",
+		"alt":                      "string",
 	}
 
 	for _, opt := range cmd.Options {
@@ -46,6 +51,13 @@ func TestGetSlashVirtueCommand(t *testing.T) {
 		case dc.BoolOption:
 			if expectedOptions[o.Name] != "bool" {
 				t.Errorf("unexpected bool option: %s", o.Name)
+			}
+		case dc.StringOption:
+			if expectedOptions[o.Name] != "string" {
+				t.Errorf("unexpected string option: %s", o.Name)
+			}
+			if o.Name == "alt" && !o.Autocomplete {
+				t.Errorf("expected alt option to have Autocomplete=true")
 			}
 		default:
 			t.Errorf("unexpected option type for %v", opt)
@@ -236,5 +248,73 @@ func TestPrintVirtue_AvatarAccessory(t *testing.T) {
 	}
 	if thumbFallback.URL == "" {
 		t.Errorf("expected non-empty thumbnail URL on fallback")
+	}
+}
+
+func makeTestEncryptedEID(t *testing.T, plainEID string) string {
+	t.Helper()
+	if config.Key == "" {
+		key, err := config.GenerateKey()
+		if err != nil {
+			t.Fatalf("failed to generate config key: %v", err)
+		}
+		config.Key = base64.StdEncoding.EncodeToString(key)
+	}
+	keyBytes, err := base64.StdEncoding.DecodeString(config.Key)
+	if err != nil {
+		t.Fatalf("failed to decode config.Key: %v", err)
+	}
+	enc, err := config.EncryptAndCombine(keyBytes, []byte(plainEID))
+	if err != nil {
+		t.Fatalf("failed to encrypt test eid: %v", err)
+	}
+	return base64.StdEncoding.EncodeToString(enc)
+}
+
+func TestHandleVirtueAutocomplete(t *testing.T) {
+	parentUser := "4" // dctest.AutocompleteEvent uses user ID "4"
+	altA := "alt-alpha-virtue"
+	altB := "alt-beta-virtue"
+	dummyEID1 := "EI4444444444444444"
+	dummyEID2 := "EI5555555555555555"
+
+	enc1 := makeTestEncryptedEID(t, dummyEID1)
+	enc2 := makeTestEncryptedEID(t, dummyEID2)
+
+	farmerstate.SetMiscSettingString(altA, "AltController", parentUser)
+	farmerstate.SetMiscSettingString(altA, "encrypted_ei_id", enc1)
+	farmerstate.SetMiscSettingString(altA, "ei_ign", "AlphaFarm")
+
+	farmerstate.SetMiscSettingString(altB, "AltController", parentUser)
+	farmerstate.SetMiscSettingString(altB, "encrypted_ei_id", enc2)
+	farmerstate.SetMiscSettingString(altB, "ei_ign", "BetaFarm")
+
+	// Autocomplete for focused option "alt" with empty search
+	eventAll := dctest.AutocompleteEvent("virtue", "alt", "")
+	HandleVirtueAutocomplete(eventAll)
+
+	choices := eventAll.LastChoices
+	if len(choices) != 2 {
+		t.Fatalf("expected 2 choices, got %d", len(choices))
+	}
+
+	// Autocomplete with filter "alpha"
+	eventFilter := dctest.AutocompleteEvent("virtue", "alt", "alpha")
+	HandleVirtueAutocomplete(eventFilter)
+	filteredChoices := eventFilter.LastChoices
+	if len(filteredChoices) != 1 {
+		t.Fatalf("expected 1 choice for 'alpha', got %d", len(filteredChoices))
+	}
+	if filteredChoices[0].Value != altA {
+		t.Errorf("expected choice value %q, got %q", altA, filteredChoices[0].Value)
+	}
+
+	// Autocomplete for user with no alts
+	farmerstate.SetMiscSettingString(altA, "AltController", "other-user")
+	farmerstate.SetMiscSettingString(altB, "AltController", "other-user")
+	eventEmpty := dctest.AutocompleteEvent("virtue", "alt", "")
+	HandleVirtueAutocomplete(eventEmpty)
+	if len(eventEmpty.LastChoices) != 0 {
+		t.Errorf("expected 0 choices for user without alts, got %d", len(eventEmpty.LastChoices))
 	}
 }

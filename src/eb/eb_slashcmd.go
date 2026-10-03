@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
@@ -53,9 +54,83 @@ func GetSlashEbCommand(cmd string) *dc.Command {
 				Description: "Show player's avatar image. Default is false. (sticky)",
 				Required:    false,
 			},
+			dc.StringOption{
+				Name:         "alt",
+				Description:  "Show EB for a registered alternate account.",
+				Required:     false,
+				Autocomplete: true,
+			},
 		},
 	}
 	return &command
+}
+
+// AltAccount represents an alternate account with a saved Egg Inc ID.
+type AltAccount = farmerstate.AltAccount
+
+func isDiscordSnowflake(value string) bool {
+	return farmerstate.IsDiscordSnowflake(value)
+}
+
+// findAltDiscordID returns the registered Discord user ID for an alt, if any.
+func findAltDiscordID(altID string) string {
+	return farmerstate.FindAltDiscordID(altID)
+}
+
+// getDiscordAvatarURL looks up the avatar image URL for a given Discord user ID.
+func getDiscordAvatarURL(client dc.Client, guildID string, discordID string) string {
+	return bottools.GetDiscordAvatarURL(client, guildID, discordID)
+}
+
+// GetUserAltsWithSavedEID returns all registered alternate accounts for userID that have a saved Egg Inc ID.
+func GetUserAltsWithSavedEID(userID string) []AltAccount {
+	return farmerstate.GetUserAltsWithSavedEID(userID)
+}
+
+// resolveAltSelection determines which user ID and Egg Inc ID to display, along with any informational message.
+func resolveAltSelection(userID string, altParam string) (targetID string, eggIncID string, notice string) {
+	return farmerstate.ResolveAltSelection(userID, altParam, "EB")
+}
+
+// HandleEbAutocomplete handles autocomplete events for the /eb command.
+func HandleEbAutocomplete(e *dc.AutocompleteEvent) {
+	name, value := e.FocusedOption()
+	if name != "alt" {
+		_ = e.RespondChoices(nil)
+		return
+	}
+
+	alts := GetUserAltsWithSavedEID(e.UserID())
+	if len(alts) == 0 {
+		_ = e.RespondChoices(nil)
+		return
+	}
+
+	value = strings.ToLower(strings.TrimSpace(value))
+	choices := make([]dc.Choice[string], 0, len(alts))
+	for _, alt := range alts {
+		if value != "" {
+			matchID := strings.Contains(strings.ToLower(alt.ID), value)
+			matchIGN := strings.Contains(strings.ToLower(alt.IGN), value)
+			matchDisplay := strings.Contains(strings.ToLower(alt.DisplayName), value)
+			if !matchID && !matchIGN && !matchDisplay {
+				continue
+			}
+		}
+		displayName := alt.DisplayName
+		if len(displayName) > 100 {
+			displayName = displayName[:100]
+		}
+		choices = append(choices, dc.Choice[string]{
+			Name:  displayName,
+			Value: alt.ID,
+		})
+		if len(choices) == 25 {
+			break
+		}
+	}
+
+	_ = e.RespondChoices(choices)
 }
 
 // NormalizeFarmChoice cleans and standardizes a user-supplied farm choice.
@@ -95,13 +170,19 @@ func HandleEb(e *dc.CommandEvent) {
 		showAvatar = farmerstate.GetMiscSettingFlag(userID, StickySettingEbShowAvatar)
 	}
 
-	eggIncID := getEggIncID(userID)
+	altParam, _ := e.OptString("alt")
+	targetID, eggIncID, notice := resolveAltSelection(userID, altParam)
+
+	if eggIncID == "" {
+		eggIncID = getEggIncID(targetID)
+	}
+
 	if eggIncID == "" {
 		boost.RequestEggIncIDModal(e, "eb", e.Options())
 		return
 	}
 
-	ExecuteEb(e, farmChoice, eggIncID, showAvatar, true)
+	ExecuteEbTarget(e, farmChoice, eggIncID, showAvatar, true, targetID, notice)
 }
 
 // HandleEbModal handles the modal submission when a user provides their Egg Inc ID.
@@ -127,7 +208,14 @@ func HandleEbModal(e *dc.ModalEvent, options dc.OptionValues, encryptedID string
 		showAvatar = farmerstate.GetMiscSettingFlag(userID, StickySettingEbShowAvatar)
 	}
 
-	eggIncID := decryptEggIncID(encryptedID)
+	altParam, _ := options.String("alt")
+	targetID, altEggIncID, notice := resolveAltSelection(userID, altParam)
+
+	eggIncID := altEggIncID
+	if eggIncID == "" {
+		eggIncID = decryptEggIncID(encryptedID)
+	}
+
 	if eggIncID == "" {
 		_ = e.Respond(dc.Message{
 			Content:   "Invalid Egg Inc ID received.",
@@ -136,5 +224,5 @@ func HandleEbModal(e *dc.ModalEvent, options dc.OptionValues, encryptedID string
 		return
 	}
 
-	ExecuteEb(e, farmChoice, eggIncID, showAvatar, okayToSave)
+	ExecuteEbTarget(e, farmChoice, eggIncID, showAvatar, okayToSave, targetID, notice)
 }

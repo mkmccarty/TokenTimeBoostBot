@@ -124,3 +124,19 @@ func DownloadAttachmentBytesDC(att *dc.Attachment) ([]byte, error) {
 	}
 	return buf, nil
 }
+
+// GetDiscordAvatarURL looks up the avatar image URL for a given Discord user ID.
+func GetDiscordAvatarURL(client dc.Client, guildID string, discordID string) string {
+	if client == nil || discordID == "" {
+		return ""
+	}
+	if guildID != "" {
+		if member, err := client.GuildMember(guildID, discordID); err == nil && member != nil && member.AvatarURL != "" {
+			return member.AvatarURL
+		}
+	}
+	if user, err := client.User(discordID); err == nil && user != nil && user.AvatarURL != "" {
+		return user.AvatarURL
+	}
+	return ""
+}

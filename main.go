@@ -486,14 +486,16 @@ func setupCommands() {
 			Autocomplete: boost.HandleRerunEvalAutoComplete,
 		},
 		{
-			AppCmd:   virtue.GetSlashVirtueCommand(slashVirtue),
-			Category: CmdCategoryGlobal,
-			Handler:  virtue.HandleVirtue,
+			AppCmd:       virtue.GetSlashVirtueCommand(slashVirtue),
+			Category:     CmdCategoryGlobal,
+			Handler:      virtue.HandleVirtue,
+			Autocomplete: virtue.HandleVirtueAutocomplete,
 		},
 		{
-			AppCmd:   eb.GetSlashEbCommand(slashEb),
-			Category: CmdCategoryGlobal,
-			Handler:  eb.HandleEb,
+			AppCmd:       eb.GetSlashEbCommand(slashEb),
+			Category:     CmdCategoryGlobal,
+			Handler:      eb.HandleEb,
+			Autocomplete: eb.HandleEbAutocomplete,
 		},
 
 		{

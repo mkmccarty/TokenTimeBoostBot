@@ -23,6 +23,7 @@ type InteractionEvent interface {
 	Member() *Member
 	User() *User
 	AvatarURL() string
+	Client() Client
 	Respond(m Message) error
 	Defer(ephemeral bool) error
 	Followup(m Message) error
@@ -106,7 +107,7 @@ func (e *CommandEvent) GuildID() string {
 // Member is the guild-scoped identity of the user who ran the command, nil in
 // a DM where there is no membership.
 func (e *CommandEvent) Member() *Member {
-	return resolvedMemberFrom(e.event.Member())
+	return resolvedMemberFrom(e.event.Member(), e.event.GuildID())
 }
 
 // User is the account that ran the command.
@@ -125,6 +126,14 @@ func (e *CommandEvent) AvatarURL() string {
 		return u.AvatarURL
 	}
 	return ""
+}
+
+// Client returns the bot's REST client, or nil if none is attached.
+func (e *CommandEvent) Client() Client {
+	if e == nil || e.client == nil {
+		return nil
+	}
+	return newDisgoClient(e.client)
 }
 
 // Token returns the interaction's token.
@@ -434,7 +443,7 @@ func (e *ComponentEvent) UserID() string {
 // Member is the guild-scoped identity of the user who used the component, nil
 // in a DM.
 func (e *ComponentEvent) Member() *Member {
-	return resolvedMemberFrom(e.event.Member())
+	return resolvedMemberFrom(e.event.Member(), e.event.GuildID())
 }
 
 // User is the account that ran the component.
@@ -453,6 +462,14 @@ func (e *ComponentEvent) AvatarURL() string {
 		return u.AvatarURL
 	}
 	return ""
+}
+
+// Client returns the bot's REST client, or nil if none is attached.
+func (e *ComponentEvent) Client() Client {
+	if e == nil || e.client == nil {
+		return nil
+	}
+	return newDisgoClient(e.client)
 }
 
 // Token returns the interaction's token.
@@ -619,7 +636,7 @@ func (e *ModalEvent) GuildID() string {
 
 // Member is the guild-scoped identity of the submitting user, nil in a DM.
 func (e *ModalEvent) Member() *Member {
-	return resolvedMemberFrom(e.event.Member())
+	return resolvedMemberFrom(e.event.Member(), e.event.GuildID())
 }
 
 // User is the account that submitted the modal.
@@ -638,6 +655,14 @@ func (e *ModalEvent) AvatarURL() string {
 		return u.AvatarURL
 	}
 	return ""
+}
+
+// Client returns the bot's REST client, or nil if none is attached.
+func (e *ModalEvent) Client() Client {
+	if e == nil || e.client == nil {
+		return nil
+	}
+	return newDisgoClient(e.client)
 }
 
 // MessageID is the message the modal was opened from, empty when the modal

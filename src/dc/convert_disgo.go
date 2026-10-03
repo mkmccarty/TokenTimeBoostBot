@@ -2,8 +2,10 @@ package dc
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/disgoorg/disgo/discord"
+	"github.com/disgoorg/snowflake/v2"
 )
 
 // Converters from disgo's types into the facade's. They live together because
@@ -76,22 +78,30 @@ func channelFrom(ch discord.Channel) *Channel {
 
 // resolvedMemberFrom converts the membership Discord resolves alongside an
 // interaction, which carries the member plus the permissions it computed.
-func resolvedMemberFrom(m *discord.ResolvedMember) *Member {
+func resolvedMemberFrom(m *discord.ResolvedMember, guildID *snowflake.ID) *Member {
 	if m == nil {
 		return nil
 	}
-	return memberFrom(&m.Member)
+	mem := m.Member
+	if mem.GuildID == 0 && guildID != nil {
+		mem.GuildID = *guildID
+	}
+	return memberFrom(&mem)
 }
 
 func memberFrom(m *discord.Member) *Member {
 	if m == nil {
 		return nil
 	}
+	avatarURL := m.EffectiveAvatarURL(discord.WithSize(128))
+	if strings.Contains(avatarURL, "/guilds/0/") {
+		avatarURL = m.User.EffectiveAvatarURL(discord.WithSize(128))
+	}
 	member := &Member{
 		UserID:       idString(m.User.ID),
 		User:         userFrom(&m.User),
 		PremiumSince: m.PremiumSince,
-		AvatarURL:    m.EffectiveAvatarURL(discord.WithSize(128)),
+		AvatarURL:    avatarURL,
 	}
 	if m.Nick != nil {
 		member.Nick = *m.Nick
