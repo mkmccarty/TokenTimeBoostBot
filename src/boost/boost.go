@@ -2014,6 +2014,12 @@ func Unboost(client dc.Client, guildID string, channelID string, mention string)
 	if contract.CoopSize == 0 {
 		return errors.New(errorContractEmpty)
 	}
+	if contract.State == ContractStateSignup {
+		return errors.New(errorContractNotStarted)
+	}
+	if contract.State == ContractStateArchive {
+		return errors.New("contract is archived")
+	}
 	/*
 		if contract.Speedrun {
 			return errors.New(errorSpeedrunContract)
@@ -2028,11 +2034,12 @@ func Unboost(client dc.Client, guildID string, channelID string, mention string)
 		}
 	}
 
-	if contract.Boosters[userID] == nil {
+	booster := contract.Boosters[userID]
+	if booster == nil || slices.Index(contract.Order, userID) == -1 {
 		return errors.New(errorUserNotInContract)
 	}
 
-	if contract.State == ContractStateWaiting {
+	if contract.State == ContractStateWaiting || contract.State == ContractStateCompleted {
 		if contract.Style&ContractFlagBanker != 0 {
 			changeContractState(contract, ContractStateBanker)
 		} else if contract.Style&ContractFlagFastrun != 0 {
@@ -2040,28 +2047,30 @@ func Unboost(client dc.Client, guildID string, channelID string, mention string)
 		} else {
 			panic("Invalid contract style")
 		}
-		// Remove user from contract.BootedOrder
-		boostedIdx := slices.Index(contract.BoostedOrder, userID)
-		if boostedIdx != -1 {
-			contract.BoostedOrder = removeIndex(contract.BoostedOrder, boostedIdx)
-		} else {
-			log.Printf("Unboost warning: user not found in BoostedOrder while in waiting state; contractHash=%s channelID=%s userID=%s", contract.ContractHash, channelID, userID)
-		}
-		contract.Boosters[userID].BoostState = BoostStateTokenTime
-		contract.setCurrentBoosterByUserIDWithStart(userID)
-		contract.enforceOnlyOneTokenTimeBooster()
-
-		sendNextNotification(client, contract, true)
-	} else {
-		contract.Boosters[userID].BoostState = BoostStateUnboosted
-		boostedIdx := slices.Index(contract.BoostedOrder, userID)
-		if boostedIdx != -1 {
-			contract.BoostedOrder = removeIndex(contract.BoostedOrder, boostedIdx)
-		} else {
-			log.Printf("Unboost warning: user not found in BoostedOrder; contractHash=%s channelID=%s userID=%s state=%d", contract.ContractHash, channelID, userID, contract.State)
-		}
-		refreshBoostListMessage(client, contract, false)
+		contract.EndTime = time.Time{}
 	}
+
+	// Remove user from contract.BoostedOrder
+	boostedIdx := slices.Index(contract.BoostedOrder, userID)
+	if boostedIdx != -1 {
+		contract.BoostedOrder = removeIndex(contract.BoostedOrder, boostedIdx)
+	} else {
+		log.Printf("Unboost warning: user not found in BoostedOrder; contractHash=%s channelID=%s userID=%s state=%d", contract.ContractHash, channelID, userID, contract.State)
+	}
+
+	booster.EndTime = time.Time{}
+	booster.Duration = 0
+	booster.StartTime = time.Now()
+	booster.BoostState = BoostStateTokenTime
+	contract.setCurrentBoosterByUserIDWithStart(userID)
+
+	if contract.BoostOrder == ContractOrderTVal {
+		reorderBoosters(contract)
+	}
+
+	contract.enforceOnlyOneTokenTimeBooster()
+
+	sendNextNotification(client, contract, true)
 	return nil
 }
 
