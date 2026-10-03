@@ -27,7 +27,6 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/leaderboard"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/menno"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/mint"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/server"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/tasks"
@@ -126,7 +125,6 @@ const slashVirtue string = "virtue"
 const slashEb string = "eb"
 const slashRegister string = "register"
 const slashRegisterAlt string = "register-alt"
-const slashHunt string = "hunt"
 const slashPredictions string = "predictions"
 const slashPred string = "pred"
 const slashMint string = "mint"
@@ -508,12 +506,6 @@ func setupCommands() {
 			Category:     CmdCategoryGlobal,
 			Handler:      boost.HandleRegisterAlt,
 			Autocomplete: boost.HandleRegisterAltAutocomplete,
-		},
-		{
-			AppCmd:       menno.SlashHuntCommand(slashHunt),
-			Category:     CmdCategoryGlobal,
-			Handler:      menno.HandleHunt,
-			Autocomplete: menno.HandleHuntAutocomplete,
 		},
 
 		// Standard Commands
@@ -1025,9 +1017,6 @@ func main() {
 
 	bottools.LoadEmotesWithClient(botClient(), false)
 	dashboard.LaunchIndependentTimers(botClient())
-	safeGoMeta("menno-startup", withSessionHints(map[string]string{
-		"job": "menno.Startup",
-	}), menno.Startup)
 
 	_ = bot.SetPresence(fmt.Sprintf("Starting: %s", Version))
 

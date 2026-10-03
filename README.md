@@ -84,7 +84,6 @@ Install your bot into your discord server with this URL:
 * `/register` - Register player/profile information.
 * `/virtue` - Virtue command/tools.
 * `/rerun-eval` - Re-run evaluation for a contract.
-* `/hunt` - Menno hunt helper command.
 * `/launch-helper` - Launch helper command for event tooling.
 * `/events` - Event helper commands.
 
