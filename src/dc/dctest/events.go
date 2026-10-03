@@ -53,6 +53,12 @@ func CommandEvent(name string, options ...StringOption) *dc.CommandEvent {
 // ComponentSelectEvent builds a dc.ComponentEvent for a select menu interaction
 // with the given customID and selected values.
 func ComponentSelectEvent(customID string, values ...string) *dc.ComponentEvent {
+	return ComponentSelectEventWithUser(customID, "4", values...)
+}
+
+// ComponentSelectEventWithUser builds a dc.ComponentEvent for a select menu interaction
+// with the given customID, userID and selected values.
+func ComponentSelectEventWithUser(customID, userID string, values ...string) *dc.ComponentEvent {
 	encodedValues := make([]string, 0, len(values))
 	for _, v := range values {
 		b, err := json.Marshal(v)
@@ -69,11 +75,11 @@ func ComponentSelectEvent(customID string, values ...string) *dc.ComponentEvent 
 		"token": "test-token",
 		"version": 1,
 		"channel": {"id": "3", "type": 0},
-		"user": {"id": "4", "username": "tester", "discriminator": "0"},
+		"user": {"id": %q, "username": "tester", "discriminator": "0"},
 		"message": {"id": "700", "channel_id": "3", "content": "", "timestamp": "2026-01-01T00:00:00Z",
 			"author": {"id": "1", "username": "bot", "discriminator": "0"}},
 		"data": {"custom_id": %q, "component_type": 3, "values": [%s]}
-	}`, customID, strings.Join(encodedValues, ","))
+	}`, userID, customID, strings.Join(encodedValues, ","))
 
 	event, err := dc.NewComponentEventFromPayload([]byte(payload))
 	if err != nil {
@@ -85,6 +91,12 @@ func ComponentSelectEvent(customID string, values ...string) *dc.ComponentEvent 
 // ComponentButtonEvent builds a dc.ComponentEvent for a button click interaction
 // with the given customID.
 func ComponentButtonEvent(customID string) *dc.ComponentEvent {
+	return ComponentButtonEventWithUser(customID, "4")
+}
+
+// ComponentButtonEventWithUser builds a dc.ComponentEvent for a button click interaction
+// with the given customID and userID.
+func ComponentButtonEventWithUser(customID, userID string) *dc.ComponentEvent {
 	payload := fmt.Sprintf(`{
 		"id": "1",
 		"application_id": "2",
@@ -92,11 +104,11 @@ func ComponentButtonEvent(customID string) *dc.ComponentEvent {
 		"token": "test-token",
 		"version": 1,
 		"channel": {"id": "3", "type": 0},
-		"user": {"id": "4", "username": "tester", "discriminator": "0"},
+		"user": {"id": %q, "username": "tester", "discriminator": "0"},
 		"message": {"id": "700", "channel_id": "3", "content": "", "timestamp": "2026-01-01T00:00:00Z",
 			"author": {"id": "1", "username": "bot", "discriminator": "0"}},
 		"data": {"custom_id": %q, "component_type": 2}
-	}`, customID)
+	}`, userID, customID)
 
 	event, err := dc.NewComponentEventFromPayload([]byte(payload))
 	if err != nil {
