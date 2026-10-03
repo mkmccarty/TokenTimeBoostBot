@@ -113,3 +113,85 @@ func TestRenderCoopStatusStones_DepartedNoMissingColleggtibles(t *testing.T) {
 		}
 	}
 }
+
+func TestRenderCoopStatusStones_StoneSwapLegend(t *testing.T) {
+	contractID := "test-stones-swap-contract"
+
+	grades := make([]ei.ContractGrade, 6)
+	grades[int(ei.Contract_GRADE_AAA)] = ei.ContractGrade{
+		ModifierELR:     1.0,
+		ModifierSR:      1.0,
+		ModifierHabCap:  1.0,
+		TargetAmount:    []float64{1e15},
+		LengthInSeconds: 86400,
+	}
+
+	if ei.EggIncContractsAll == nil {
+		ei.EggIncContractsAll = make(map[string]ei.EggIncContract)
+	}
+	ei.EggIncContractsAll[contractID] = ei.EggIncContract{
+		ID:              contractID,
+		MinutesPerToken: 60,
+		ModifierELR:     1.0,
+		ModifierSR:      1.0,
+		ModifierHabCap:  1.0,
+		Grade:           grades,
+	}
+
+	// Player with a T4 metronome with 1 tachyon stone, where stone balance differs
+	coopStatus := &ei.ContractCoopStatusResponse{
+		ContractIdentifier: proto.String(contractID),
+		CoopIdentifier:     proto.String("swap-coop"),
+		ResponseStatus:     ei.ContractCoopStatusResponse_NO_ERROR.Enum(),
+		Grade:              ei.Contract_GRADE_AAA.Enum(),
+		Contributors: []*ei.ContractCoopStatusResponse_ContributionInfo{
+			{
+				UserId:             proto.String("EI1234567890123456"),
+				UserName:           proto.String("PlayerSwap"),
+				ContributionAmount: proto.Float64(1e12),
+				ColleggtibleInfo:   &ei.PlayerColleggtibleInfo{},
+				FarmInfo: &ei.PlayerFarmInfo{
+					EquippedArtifacts: []*ei.CompleteArtifact{
+						{
+							Spec: &ei.ArtifactSpec{
+								Name:   ei.ArtifactSpec_QUANTUM_METRONOME.Enum(),
+								Level:  ei.ArtifactSpec_GREATER.Enum(),
+								Rarity: ei.ArtifactSpec_EPIC.Enum(),
+							},
+							Stones: []*ei.ArtifactSpec{
+								{
+									Name:  ei.ArtifactSpec_TACHYON_STONE.Enum(),
+									Level: ei.ArtifactSpec_NORMAL.Enum(),
+								},
+								{
+									Name:  ei.ArtifactSpec_TACHYON_STONE.Enum(),
+									Level: ei.ArtifactSpec_NORMAL.Enum(),
+								},
+							},
+						},
+					},
+					CommonResearch: []*ei.Backup_ResearchItem{
+						{
+							Id:    proto.String("leafsprings"),
+							Level: proto.Uint32(30),
+						},
+					},
+					HabPopulation: []uint64{1000000, 1000000, 1000000, 1000000},
+					HabCapacity:   []uint64{1000000, 1000000, 1000000, 1000000},
+				},
+				ProductionParams: &ei.FarmProductionParams{
+					FarmPopulation: proto.Float64(4000000),
+					FarmCapacity:   proto.Float64(4000000),
+					Elr:            proto.Float64(10.0),
+					Sr:             proto.Float64(100.0),
+				},
+			},
+		},
+	}
+
+	result, _, _ := renderCoopStatusStones("chan-test", contractID, coopStatus, false, "", false, "")
+	expectedLegendPart := "🧩" + ei.GetBotEmojiMarkdown("afx_tachyon_stone_4") + ei.GetBotEmojiMarkdown("afx_quantum_stone_4") + "Swap"
+	if !strings.Contains(result, expectedLegendPart) {
+		t.Fatalf("expected result to contain %q, but got:\n%s", expectedLegendPart, result)
+	}
+}
