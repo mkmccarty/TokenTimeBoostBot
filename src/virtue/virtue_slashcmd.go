@@ -66,8 +66,50 @@ func GetSlashVirtueCommand(cmd string) *dc.Command {
 			Name:        "compact",
 			Description: "Compact display (sticky)",
 		},
+		dc.StringOption{
+			Name:         "alt",
+			Description:  "Select an alternate account to evaluate",
+			Required:     false,
+			Autocomplete: true,
+		},
 	}
 	return &command
+}
+
+// HandleVirtueAutocomplete handles autocomplete events for the /virtue command.
+func HandleVirtueAutocomplete(e *dc.AutocompleteEvent) {
+	name, value := e.FocusedOption()
+	if name != "alt" {
+		return
+	}
+
+	alts := farmerstate.GetUserAltsWithSavedEID(e.UserID())
+	value = strings.ToLower(strings.TrimSpace(value))
+
+	var choices []dc.Choice[string]
+	for _, alt := range alts {
+		if value != "" {
+			matchID := strings.Contains(strings.ToLower(alt.ID), value)
+			matchIGN := strings.Contains(strings.ToLower(alt.IGN), value)
+			matchDisplay := strings.Contains(strings.ToLower(alt.DisplayName), value)
+			if !matchID && !matchIGN && !matchDisplay {
+				continue
+			}
+		}
+		displayName := alt.DisplayName
+		if len(displayName) > 100 {
+			displayName = displayName[:100]
+		}
+		choices = append(choices, dc.Choice[string]{
+			Name:  displayName,
+			Value: alt.ID,
+		})
+		if len(choices) == 25 {
+			break
+		}
+	}
+
+	_ = e.RespondChoices(choices)
 }
 
 // decryptEggIncID decrypts an encrypted Egg Inc ID string using config.Key.
@@ -113,18 +155,33 @@ func HandleVirtue(e *dc.CommandEvent) {
 		farmerstate.SetMiscSettingString(userID, "encrypted_ei_id", "")
 	}
 
-	eggIncID := getEggIncID(userID)
+	altParam, _ := e.OptString("alt")
+	targetID, altEggIncID, notice := farmerstate.ResolveAltSelection(userID, altParam, "Eggs of Virtue")
+
+	eggIncID := altEggIncID
+	if eggIncID == "" {
+		eggIncID = getEggIncID(targetID)
+	}
+
 	if eggIncID == "" {
 		boost.RequestEggIncIDModal(e, "virtue", e.Options())
 		return
 	}
 
-	ExecuteVirtue(e, e.Options(), eggIncID, true)
+	ExecuteVirtueTarget(e, e.Options(), eggIncID, true, targetID, notice)
 }
 
 // HandleVirtueModal handles the modal submission when a user provides their Egg Inc ID.
 func HandleVirtueModal(e *dc.ModalEvent, options dc.OptionValues, encryptedID string, okayToSave bool) {
-	eggIncID := decryptEggIncID(encryptedID)
+	userID := e.UserID()
+
+	altParam, _ := options.String("alt")
+	targetID, altEggIncID, notice := farmerstate.ResolveAltSelection(userID, altParam, "Eggs of Virtue")
+
+	eggIncID := altEggIncID
+	if eggIncID == "" {
+		eggIncID = decryptEggIncID(encryptedID)
+	}
 	if eggIncID == "" {
 		_ = e.Respond(dc.Message{
 			Content:   "Invalid Egg Inc ID received.",
@@ -133,7 +190,7 @@ func HandleVirtueModal(e *dc.ModalEvent, options dc.OptionValues, encryptedID st
 		return
 	}
 
-	ExecuteVirtue(e, options, eggIncID, okayToSave)
+	ExecuteVirtueTarget(e, options, eggIncID, okayToSave, targetID, notice)
 }
 
 func virtueHelpText() string {

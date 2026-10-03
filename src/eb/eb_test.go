@@ -1,12 +1,15 @@
 package eb
 
 import (
+	"encoding/base64"
 	"fmt"
 	"math"
 	"strings"
 	"testing"
 
+	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc/dctest"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
@@ -43,8 +46,8 @@ func TestGetSlashEbCommand(t *testing.T) {
 	if cmd.Name != "eb" {
 		t.Errorf("cmd.Name = %q; want eb", cmd.Name)
 	}
-	if len(cmd.Options) != 2 {
-		t.Fatalf("expected 2 options, got %d", len(cmd.Options))
+	if len(cmd.Options) != 3 {
+		t.Fatalf("expected 3 options, got %d", len(cmd.Options))
 	}
 	strOpt, ok := cmd.Options[0].(dc.StringOption)
 	if !ok {
@@ -72,8 +75,20 @@ func TestGetSlashEbCommand(t *testing.T) {
 	if boolOpt.Required {
 		t.Errorf("expected show-avatar option to not be required")
 	}
+	altOpt, ok := cmd.Options[2].(dc.StringOption)
+	if !ok {
+		t.Fatalf("expected option 2 to be dc.StringOption, got %T", cmd.Options[2])
+	}
+	if altOpt.Name != "alt" {
+		t.Errorf("option Name = %q; want alt", altOpt.Name)
+	}
+	if altOpt.Required {
+		t.Errorf("expected alt option to not be required")
+	}
+	if !altOpt.Autocomplete {
+		t.Errorf("expected alt option to have Autocomplete = true")
+	}
 	if len(cmd.IntegrationTypes) != 2 || cmd.IntegrationTypes[0] != dc.IntegrationGuildInstall || cmd.IntegrationTypes[1] != dc.IntegrationUserInstall {
-
 		t.Errorf("expected IntegrationTypes to have GuildInstall and UserInstall, got %v", cmd.IntegrationTypes)
 	}
 	if len(cmd.Contexts) != 3 {
@@ -522,5 +537,278 @@ func TestEbStickyShowAvatar(t *testing.T) {
 	farmerstate.SetMiscSettingFlag(testUser, StickySettingEbShowAvatar, false)
 	if farmerstate.GetMiscSettingFlag(testUser, StickySettingEbShowAvatar) {
 		t.Errorf("expected show-avatar to be false after setting")
+	}
+}
+
+func makeTestEncryptedEID(t *testing.T, plainEID string) string {
+	t.Helper()
+	if config.Key == "" {
+		key, err := config.GenerateKey()
+		if err != nil {
+			t.Fatalf("failed to generate config key: %v", err)
+		}
+		config.Key = base64.StdEncoding.EncodeToString(key)
+	}
+	keyBytes, err := base64.StdEncoding.DecodeString(config.Key)
+	if err != nil {
+		t.Fatalf("failed to decode config.Key: %v", err)
+	}
+	enc, err := config.EncryptAndCombine(keyBytes, []byte(plainEID))
+	if err != nil {
+		t.Fatalf("failed to encrypt test eid: %v", err)
+	}
+	return base64.StdEncoding.EncodeToString(enc)
+}
+
+func TestGetUserAltsWithSavedEID(t *testing.T) {
+	parentUser := "user-parent-1"
+	altWithEID := "alt-user-has-eid"
+	altNoEID := "alt-user-no-eid"
+	altSnowflake := "123456789012345678"
+
+	// Dummy synthetic IDs adhering to no_player_ids rule
+	dummyEID1 := "EI1111111111111111"
+	dummyEID2 := "EI2222222222222222"
+
+	encEID1 := makeTestEncryptedEID(t, dummyEID1)
+	encEID2 := makeTestEncryptedEID(t, dummyEID2)
+
+	farmerstate.SetMiscSettingString(altWithEID, "AltController", parentUser)
+	farmerstate.SetMiscSettingString(altWithEID, "encrypted_ei_id", encEID1)
+	farmerstate.SetMiscSettingString(altWithEID, "ei_ign", "AltOne")
+
+	farmerstate.SetMiscSettingString(altNoEID, "AltController", parentUser)
+	farmerstate.SetMiscSettingString(altNoEID, "encrypted_ei_id", "")
+	farmerstate.SetMiscSettingString(altNoEID, "ei_ign", "AltNoEID")
+
+	farmerstate.SetMiscSettingString(altSnowflake, "AltController", parentUser)
+	farmerstate.SetMiscSettingString(altSnowflake, "encrypted_ei_id", encEID2)
+	farmerstate.SetMiscSettingString(altSnowflake, "ei_ign", "SnowflakeFarmer")
+
+	alts := GetUserAltsWithSavedEID(parentUser)
+	if len(alts) != 2 {
+		t.Fatalf("expected 2 alts with saved EID, got %d", len(alts))
+	}
+
+	foundNamed := false
+	foundSnowflake := false
+	for _, a := range alts {
+		if a.ID == altWithEID {
+			foundNamed = true
+			if a.IGN != "AltOne" {
+				t.Errorf("expected IGN AltOne, got %q", a.IGN)
+			}
+			if a.EggIncID != dummyEID1 {
+				t.Errorf("expected EggIncID %q, got %q", dummyEID1, a.EggIncID)
+			}
+			if a.DisplayName != "alt-user-has-eid (AltOne)" {
+				t.Errorf("expected display name %q, got %q", "alt-user-has-eid (AltOne)", a.DisplayName)
+			}
+		}
+		if a.ID == altSnowflake {
+			foundSnowflake = true
+			if a.DisplayName != "SnowflakeFarmer" {
+				t.Errorf("expected snowflake display name to use IGN %q, got %q", "SnowflakeFarmer", a.DisplayName)
+			}
+		}
+	}
+
+	if !foundNamed || !foundSnowflake {
+		t.Errorf("expected to find both alts, got foundNamed=%v, foundSnowflake=%v", foundNamed, foundSnowflake)
+	}
+
+	// User with no alts
+	emptyAlts := GetUserAltsWithSavedEID("user-with-no-alts-at-all")
+	if len(emptyAlts) != 0 {
+		t.Errorf("expected 0 alts for user without alts, got %d", len(emptyAlts))
+	}
+}
+
+func TestResolveAltSelection(t *testing.T) {
+	parentUser := "user-parent-2"
+	alt1 := "alt-child-1"
+	dummyEID := "EI3333333333333333"
+	encEID := makeTestEncryptedEID(t, dummyEID)
+
+	farmerstate.SetMiscSettingString(alt1, "AltController", parentUser)
+	farmerstate.SetMiscSettingString(alt1, "encrypted_ei_id", encEID)
+	farmerstate.SetMiscSettingString(alt1, "ei_ign", "LittleFarmer")
+
+	// 1. alt parameter empty -> no-op
+	targetID, eid, notice := resolveAltSelection(parentUser, "")
+	if targetID != parentUser || eid != "" || notice != "" {
+		t.Errorf("empty alt: got (%q, %q, %q); want (%q, \"\", \"\")", targetID, eid, notice, parentUser)
+	}
+
+	// 2. User with no registered alts used alt parameter
+	noAltUser := "user-no-alts"
+	targetID, eid, notice = resolveAltSelection(noAltUser, "some-alt")
+	if targetID != noAltUser || eid != "" {
+		t.Errorf("user with no alts: got targetID %q, eid %q", targetID, eid)
+	}
+	expectedNoAltNotice := "You have no registered alternate accounts. Showing your EB instead."
+	if notice != expectedNoAltNotice {
+		t.Errorf("notice = %q; want %q", notice, expectedNoAltNotice)
+	}
+
+	// 3. User with alts, but none with saved EID
+	userWithAltsNoEID := "user-alts-no-eid"
+	altNoEID := "alt-no-eid-child"
+	farmerstate.SetMiscSettingString(altNoEID, "AltController", userWithAltsNoEID)
+	targetID, eid, notice = resolveAltSelection(userWithAltsNoEID, altNoEID)
+	if targetID != userWithAltsNoEID || eid != "" {
+		t.Errorf("user with alts without EID: got targetID %q, eid %q", targetID, eid)
+	}
+	expectedNoEIDNotice := "You have no registered alternate accounts with a saved Egg Inc ID. Showing your EB instead."
+	if notice != expectedNoEIDNotice {
+		t.Errorf("notice = %q; want %q", notice, expectedNoEIDNotice)
+	}
+
+	// 4. Valid alt selection by ID
+	targetID, eid, notice = resolveAltSelection(parentUser, alt1)
+	if targetID != alt1 || eid != dummyEID || notice != "" {
+		t.Errorf("valid alt by ID: got (%q, %q, %q); want (%q, %q, \"\")", targetID, eid, notice, alt1, dummyEID)
+	}
+
+	// 5. Valid alt selection by IGN (case-insensitive)
+	targetID, eid, notice = resolveAltSelection(parentUser, "littlefarmer")
+	if targetID != alt1 || eid != dummyEID || notice != "" {
+		t.Errorf("valid alt by IGN: got (%q, %q, %q); want (%q, %q, \"\")", targetID, eid, notice, alt1, dummyEID)
+	}
+
+	// 6. Unknown alt selection when user has alts with saved EID
+	targetID, eid, notice = resolveAltSelection(parentUser, "unknown-alt")
+	if targetID != parentUser || eid != "" {
+		t.Errorf("unknown alt: got targetID %q, eid %q", targetID, eid)
+	}
+	if !strings.Contains(notice, "not found with a saved Egg Inc ID") {
+		t.Errorf("unexpected notice for unknown alt: %q", notice)
+	}
+}
+
+func TestHandleEbAutocomplete(t *testing.T) {
+	parentUser := "4" // dctest.AutocompleteEvent uses user ID "4"
+	altA := "alt-alpha"
+	altB := "alt-beta"
+	dummyEID1 := "EI4444444444444444"
+	dummyEID2 := "EI5555555555555555"
+
+	enc1 := makeTestEncryptedEID(t, dummyEID1)
+	enc2 := makeTestEncryptedEID(t, dummyEID2)
+
+	farmerstate.SetMiscSettingString(altA, "AltController", parentUser)
+	farmerstate.SetMiscSettingString(altA, "encrypted_ei_id", enc1)
+	farmerstate.SetMiscSettingString(altA, "ei_ign", "AlphaFarm")
+
+	farmerstate.SetMiscSettingString(altB, "AltController", parentUser)
+	farmerstate.SetMiscSettingString(altB, "encrypted_ei_id", enc2)
+	farmerstate.SetMiscSettingString(altB, "ei_ign", "BetaFarm")
+
+	// Autocomplete for focused option "alt" with empty search
+	eventAll := dctest.AutocompleteEvent("eb", "alt", "")
+	HandleEbAutocomplete(eventAll)
+
+	// Verify choices were returned
+	choices := eventAll.LastChoices
+	if len(choices) != 2 {
+		t.Fatalf("expected 2 choices, got %d", len(choices))
+	}
+
+	// Autocomplete with filter "alpha"
+	eventFilter := dctest.AutocompleteEvent("eb", "alt", "alpha")
+	HandleEbAutocomplete(eventFilter)
+	filteredChoices := eventFilter.LastChoices
+	if len(filteredChoices) != 1 {
+		t.Fatalf("expected 1 choice for 'alpha', got %d", len(filteredChoices))
+	}
+	if filteredChoices[0].Value != altA {
+		t.Errorf("expected choice value %q, got %q", altA, filteredChoices[0].Value)
+	}
+
+	// Autocomplete for user with no alts
+	farmerstate.SetMiscSettingString(altA, "AltController", "other-user")
+	farmerstate.SetMiscSettingString(altB, "AltController", "other-user")
+	eventEmpty := dctest.AutocompleteEvent("eb", "alt", "")
+	HandleEbAutocomplete(eventEmpty)
+	if len(eventEmpty.LastChoices) != 0 {
+		t.Errorf("expected 0 choices for user without alts, got %d", len(eventEmpty.LastChoices))
+	}
+}
+
+func TestFindAltDiscordID(t *testing.T) {
+	// 1. Direct snowflake ID
+	snowflakeID := "123456789012345678"
+	if got := findAltDiscordID(snowflakeID); got != snowflakeID {
+		t.Errorf("findAltDiscordID(%q) = %q; want %q", snowflakeID, got, snowflakeID)
+	}
+
+	// 2. Alt with discord_id misc setting
+	altWithSetting := "alt-with-discord-setting"
+	targetSnowflake := "987654321098765432"
+	farmerstate.SetMiscSettingString(altWithSetting, "discord_id", targetSnowflake)
+	if got := findAltDiscordID(altWithSetting); got != targetSnowflake {
+		t.Errorf("findAltDiscordID(%q) = %q; want %q", altWithSetting, got, targetSnowflake)
+	}
+
+	// 3. Alt with IGN matching a Discord user in farmerstate
+	altNamed := "MyAltAccount"
+	userSnowflake := "112233445566778899"
+	farmerstate.SetMiscSettingString(userSnowflake, "ei_ign", "MyAltIGN")
+	farmerstate.SetMiscSettingString(altNamed, "ei_ign", "MyAltIGN")
+	if got := findAltDiscordID(altNamed); got != userSnowflake {
+		t.Errorf("findAltDiscordID(%q) = %q; want %q", altNamed, got, userSnowflake)
+	}
+
+	// 4. Alt with no Discord ID
+	altNoDiscord := "alt-no-discord-id"
+	if got := findAltDiscordID(altNoDiscord); got != "" {
+		t.Errorf("findAltDiscordID(%q) = %q; want empty string", altNoDiscord, got)
+	}
+}
+
+func TestGetDiscordAvatarURL(t *testing.T) {
+	fakeClient := &dctest.FakeClient{
+		Users: map[string]*dc.User{
+			"user-with-avatar": {
+				ID:        "user-with-avatar",
+				AvatarURL: "https://cdn.discordapp.com/avatars/user-with-avatar/avatar.png",
+			},
+			"user-no-avatar": {
+				ID: "user-no-avatar",
+			},
+		},
+		Members: map[string]*dc.Member{
+			"guild-1:member-with-avatar": {
+				UserID:    "member-with-avatar",
+				AvatarURL: "https://cdn.discordapp.com/guilds/guild-1/users/member-with-avatar/avatar.png",
+			},
+		},
+	}
+
+	// 1. Nil client
+	if got := getDiscordAvatarURL(nil, "guild-1", "user-with-avatar"); got != "" {
+		t.Errorf("expected empty string for nil client, got %q", got)
+	}
+
+	// 2. Empty discord ID
+	if got := getDiscordAvatarURL(fakeClient, "guild-1", ""); got != "" {
+		t.Errorf("expected empty string for empty discord ID, got %q", got)
+	}
+
+	// 3. Guild member avatar found
+	wantGuildAvatar := "https://cdn.discordapp.com/guilds/guild-1/users/member-with-avatar/avatar.png"
+	if got := getDiscordAvatarURL(fakeClient, "guild-1", "member-with-avatar"); got != wantGuildAvatar {
+		t.Errorf("got %q; want %q", got, wantGuildAvatar)
+	}
+
+	// 4. Fallback to user avatar when member not in guild
+	wantUserAvatar := "https://cdn.discordapp.com/avatars/user-with-avatar/avatar.png"
+	if got := getDiscordAvatarURL(fakeClient, "other-guild", "user-with-avatar"); got != wantUserAvatar {
+		t.Errorf("got %q; want %q", got, wantUserAvatar)
+	}
+
+	// 5. User with no avatar
+	if got := getDiscordAvatarURL(fakeClient, "", "user-no-avatar"); got != "" {
+		t.Errorf("expected empty string for user without avatar, got %q", got)
 	}
 }

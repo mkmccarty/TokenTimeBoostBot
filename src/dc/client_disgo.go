@@ -224,6 +224,9 @@ func (c *disgoClient) GuildMember(guildID, userID string) (*Member, error) {
 	if err != nil {
 		return nil, wrapAPIError(err)
 	}
+	if m != nil && m.GuildID == 0 {
+		m.GuildID = ids[0]
+	}
 	return memberFrom(m), nil
 }
 
@@ -245,6 +248,9 @@ func (c *disgoClient) GuildMemberWithColor(guildID, userID, _ string) (*Member, 
 	}
 	color := 0
 	if m != nil {
+		if m.GuildID == 0 {
+			m.GuildID = ids[0]
+		}
 		color = highestColoredRoleColor(c.bot.Caches.MemberRoles(*m))
 	}
 	return memberFrom(m), color, nil

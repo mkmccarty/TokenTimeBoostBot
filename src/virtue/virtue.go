@@ -33,9 +33,8 @@ func Virtue(e dc.InteractionEvent, options dc.OptionValues, eiID string, okayToS
 	ExecuteVirtue(e, options, eggIncID, okayToSave)
 }
 
-// ExecuteVirtue executes the /virtue display logic and responds to the interaction event.
-func ExecuteVirtue(e dc.InteractionEvent, options dc.OptionValues, eggIncID string, okayToSave bool) {
-	userID := e.UserID()
+// ExecuteVirtueTarget executes the /virtue display logic for a specific target user ID with optional notice.
+func ExecuteVirtueTarget(e dc.InteractionEvent, options dc.OptionValues, eggIncID string, okayToSave bool, targetUserID string, notice string) {
 	simulatedEgg := ei.Egg(-1)
 	var components []dc.LayoutComponent
 
@@ -49,9 +48,9 @@ func ExecuteVirtue(e dc.InteractionEvent, options dc.OptionValues, eggIncID stri
 	compact := false
 	if opt, ok := options.Bool("compact"); ok {
 		compact = opt
-		farmerstate.SetMiscSettingString(userID, "virtueCompactMode", fmt.Sprintf("%t", compact))
+		farmerstate.SetMiscSettingString(e.UserID(), "virtueCompactMode", fmt.Sprintf("%t", compact))
 	} else {
-		savedCompact := farmerstate.GetMiscSettingString(userID, "virtueCompactMode")
+		savedCompact := farmerstate.GetMiscSettingString(e.UserID(), "virtueCompactMode")
 		if savedCompact != "" {
 			compact, _ = strconv.ParseBool(savedCompact)
 		}
@@ -62,7 +61,7 @@ func ExecuteVirtue(e dc.InteractionEvent, options dc.OptionValues, eggIncID stri
 
 	_ = e.Defer(ephemeral)
 
-	backup, _ := ei.GetFirstContactFromAPI(eggIncID, userID, okayToSave)
+	backup, _ := ei.GetFirstContactFromAPI(eggIncID, targetUserID, okayToSave)
 	if backup == nil {
 		_ = e.Followup(dc.Message{
 			Content:   "Unable to retrieve game data for this Egg Inc ID. Please verify your ID and try again.",
@@ -71,14 +70,30 @@ func ExecuteVirtue(e dc.InteractionEvent, options dc.OptionValues, eggIncID stri
 		return
 	}
 
-	farmerstate.SetFarmerBackupDetails(userID, backup)
+	farmerstate.SetFarmerBackupDetails(targetUserID, backup)
+
+	avatarURL := ""
+	if targetUserID != e.UserID() {
+		altDiscordID := farmerstate.FindAltDiscordID(targetUserID)
+		if altDiscordID != "" {
+			avatarURL = bottools.GetDiscordAvatarURL(e.Client(), e.GuildID(), altDiscordID)
+		}
+		if avatarURL == "" {
+			avatarURL = e.AvatarURL()
+		}
+	} else {
+		avatarURL = e.AvatarURL()
+		if avatarURL == "" && e.Client() != nil && e.GuildID() != "" {
+			avatarURL = bottools.GetDiscordAvatarURL(e.Client(), e.GuildID(), e.UserID())
+		}
+	}
 
 	if len(backup.GetFarms()) > 0 {
 		farm := backup.GetFarms()[0]
 		if farm != nil {
 			farmType := farm.GetFarmType()
 			if farmType == ei.FarmType_HOME {
-				components = printVirtue(userID, backup, simulatedEgg, targetTE, compact, e.AvatarURL())
+				components = printVirtue(targetUserID, backup, simulatedEgg, targetTE, compact, avatarURL)
 			}
 		}
 	}
@@ -87,10 +102,22 @@ func ExecuteVirtue(e dc.InteractionEvent, options dc.OptionValues, eggIncID stri
 			Content: "Your home farm isn't currently producing Eggs of Virtue. Switch to an Egg of Virtue on your home farm to see this information.",
 		})
 	}
+
+	if notice != "" {
+		components = append([]dc.LayoutComponent{
+			dc.TextDisplay{Content: notice},
+		}, components...)
+	}
+
 	_ = e.Followup(dc.Message{
 		Ephemeral:  ephemeral,
 		Components: components,
 	})
+}
+
+// ExecuteVirtue executes the /virtue display logic and responds to the interaction event.
+func ExecuteVirtue(e dc.InteractionEvent, options dc.OptionValues, eggIncID string, okayToSave bool) {
+	ExecuteVirtueTarget(e, options, eggIncID, okayToSave, e.UserID(), "")
 }
 
 func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE uint64, compact bool, avatarURL string) []dc.LayoutComponent {

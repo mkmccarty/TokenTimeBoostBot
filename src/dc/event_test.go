@@ -1,6 +1,7 @@
 package dc
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/disgoorg/disgo/discord"
@@ -511,5 +512,34 @@ func TestInteractionEventAvatarURL(t *testing.T) {
 	}`)
 	if modal.AvatarURL() == "" {
 		t.Error("expected non-empty AvatarURL on ModalEvent")
+	}
+
+	// Member with a guild-specific avatar in an interaction
+	testGuildMember := `"member": {"user": {"id": "400", "username": "tester", "discriminator": "0"}, "avatar": "guild_avatar_hash_123", "roles": ["500"], "joined_at": "2026-01-01T00:00:00Z"}`
+	cmdWithGuildAvatar := commandEventFrom(t, `{
+		"id": "100", "application_id": "200", "type": 2, "token": "tok", "version": 1,
+		`+testChannel+`, `+testGuildMember+`, `+testGuild+`,
+		"data": {"id": "1", "name": "contract", "type": 1, "options": []}
+	}`)
+	url := cmdWithGuildAvatar.AvatarURL()
+	if strings.Contains(url, "/guilds/0/") {
+		t.Errorf("avatar URL must not contain /guilds/0/, got %q", url)
+	}
+	if !strings.Contains(url, "/guilds/900/users/400/avatars/guild_avatar_hash_123") {
+		t.Errorf("expected guild avatar URL with guild 900, got %q", url)
+	}
+
+	// Member with guild avatar but missing guild ID must fall back to user avatar without /guilds/0/
+	cmdMissingGuild := commandEventFrom(t, `{
+		"id": "100", "application_id": "200", "type": 2, "token": "tok", "version": 1,
+		`+testChannel+`, `+testGuildMember+`,
+		"data": {"id": "1", "name": "contract", "type": 1, "options": []}
+	}`)
+	fallbackURL := cmdMissingGuild.AvatarURL()
+	if strings.Contains(fallbackURL, "/guilds/0/") {
+		t.Errorf("avatar URL must not contain /guilds/0/, got %q", fallbackURL)
+	}
+	if fallbackURL == "" {
+		t.Error("expected non-empty fallback avatar URL")
 	}
 }
