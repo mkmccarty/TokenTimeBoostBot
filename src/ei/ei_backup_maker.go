@@ -622,6 +622,15 @@ func (b *BackupMaker) SetPermitLevel(level uint32) *BackupMaker {
 	return b
 }
 
+// SetSubscriptionStatus sets the user subscription status.
+func (b *BackupMaker) SetSubscriptionStatus(status UserSubscriptionInfo_Status) *BackupMaker {
+	if b.backup.SubInfo == nil {
+		b.backup.SubInfo = &UserSubscriptionInfo{}
+	}
+	b.backup.SubInfo.Status = userSubscriptionInfoStatusp(status)
+	return b
+}
+
 // --- Contracts and Colleggtibles ---
 
 // AddColleggtibleContract adds a past contract to the archive to simulate earning a Colleggtible.

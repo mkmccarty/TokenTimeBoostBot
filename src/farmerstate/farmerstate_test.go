@@ -246,3 +246,44 @@ func TestReencryptFarmerEIDs(t *testing.T) {
 		t.Errorf("decrypted EID2 = %q, want %q", string(decrypted2), plainEID2)
 	}
 }
+
+func TestSetUltraAndClearUltra(t *testing.T) {
+	userID := "test-ultra-toggle-user"
+
+	// Initially false
+	ClearUltra(userID)
+	if IsUltra(userID) {
+		t.Errorf("expected IsUltra to be false initially")
+	}
+
+	// Set ultra to true
+	SetUltra(userID, true)
+	if !IsUltra(userID) {
+		t.Errorf("expected IsUltra to be true after SetUltra(userID, true)")
+	}
+
+	// Set ultra to false
+	SetUltra(userID, false)
+	if IsUltra(userID) {
+		t.Errorf("expected IsUltra to be false after SetUltra(userID, false)")
+	}
+
+	// Default SetUltra (no bool arg) should set to true
+	SetUltra(userID)
+	if !IsUltra(userID) {
+		t.Errorf("expected IsUltra to be true after SetUltra(userID)")
+	}
+
+	// ClearUltra should set to false
+	ClearUltra(userID)
+	if IsUltra(userID) {
+		t.Errorf("expected IsUltra to be false after ClearUltra(userID)")
+	}
+
+	// Empty userID should safely return false and no-op
+	if IsUltra("") {
+		t.Errorf("expected IsUltra(\"\") to be false")
+	}
+	SetUltra("")
+	ClearUltra("")
+}

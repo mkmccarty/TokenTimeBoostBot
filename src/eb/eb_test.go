@@ -812,3 +812,106 @@ func TestGetDiscordAvatarURL(t *testing.T) {
 		t.Errorf("expected empty string for user without avatar, got %q", got)
 	}
 }
+
+func TestBuildEb_UltraBadge(t *testing.T) {
+	oldMap := ei.EmoteMap
+	ei.EmoteMap = make(map[string]ei.Emotes)
+	ei.EmoteMap["ultra"] = ei.Emotes{Name: "ultra", ID: "4001"}
+	ei.EmoteMap["pro_permit"] = ei.Emotes{Name: "pro_permit", ID: "3001"}
+	ei.EmoteMap["free_permit"] = ei.Emotes{Name: "free_permit", ID: "3002"}
+	ei.EmoteMap["badge_nah"] = ei.Emotes{Name: "badge_nah", ID: "111"}
+	defer func() {
+		ei.EmoteMap = oldMap
+	}()
+
+	// 1. Ultra active with Pro Permit (updates farmerstate to true)
+	makerUltra := ei.NewBackupMaker("EI1234567890123456", "UltraFarmer")
+	makerUltra.SetPermitLevel(1)
+	makerUltra.SetSubscriptionStatus(ei.UserSubscriptionInfo_ACTIVE)
+	farmerstate.ClearUltra("user-ultra-pro")
+	embedUltra := BuildEbEmbed(makerUltra.GetBackup(), FarmHomeAndVirtue, "user-ultra-pro")
+	expectedPrefix := "<:ultra:4001> <:pro_permit:3001>"
+	if !strings.HasPrefix(embedUltra.Description, expectedPrefix) {
+		t.Errorf("expected Ultra embed to start with %q, got:\n%s", expectedPrefix, embedUltra.Description)
+	}
+	if !farmerstate.IsUltra("user-ultra-pro") {
+		t.Errorf("expected farmerstate.IsUltra to be true after learning user is ultra")
+	}
+
+	// Also verify Components header has ultra badge left of permit icon
+	compsUltra := BuildEbComponents(makerUltra.GetBackup(), FarmHomeAndVirtue, "user-ultra-pro", "")
+	if len(compsUltra) > 0 {
+		container := compsUltra[0].(dc.Container)
+		headerDisplay := container.Components[0].(dc.TextDisplay)
+		if !strings.Contains(headerDisplay.Content, expectedPrefix) {
+			t.Errorf("expected Components header to contain %q, got:\n%s", expectedPrefix, headerDisplay.Content)
+		}
+	}
+
+	// 2. Ultra expired with Pro Permit (updates farmerstate to false)
+	makerExpired := ei.NewBackupMaker("EI1234567890123456", "ExpiredFarmer")
+	makerExpired.SetPermitLevel(1)
+	makerExpired.SetSubscriptionStatus(ei.UserSubscriptionInfo_EXPIRED)
+	farmerstate.SetUltra("user-expired", true) // was previously true
+	embedExpired := BuildEbEmbed(makerExpired.GetBackup(), FarmHomeAndVirtue, "user-expired")
+	if strings.Contains(embedExpired.Description, "<:ultra:4001>") {
+		t.Errorf("expected expired ultra to not have ultra emoji, got:\n%s", embedExpired.Description)
+	}
+	if !strings.HasPrefix(embedExpired.Description, "<:pro_permit:3001>") {
+		t.Errorf("expected expired ultra embed to start with pro_permit emoji, got:\n%s", embedExpired.Description)
+	}
+	if farmerstate.IsUltra("user-expired") {
+		t.Errorf("expected farmerstate.IsUltra to be false after learning user is expired")
+	}
+
+	// 3. Ultra active with Standard Permit
+	makerStdUltra := ei.NewBackupMaker("EI1234567890123456", "StdUltraFarmer")
+	makerStdUltra.SetPermitLevel(0)
+	makerStdUltra.SetSubscriptionStatus(ei.UserSubscriptionInfo_ACTIVE)
+	embedStdUltra := BuildEbEmbed(makerStdUltra.GetBackup(), FarmHomeAndVirtue, "user-std-ultra")
+	expectedStdPrefix := "<:ultra:4001> <:free_permit:3002>"
+	if !strings.HasPrefix(embedStdUltra.Description, expectedStdPrefix) {
+		t.Errorf("expected Std Ultra embed to start with %q, got:\n%s", expectedStdPrefix, embedStdUltra.Description)
+	}
+	if !farmerstate.IsUltra("user-std-ultra") {
+		t.Errorf("expected farmerstate.IsUltra to be true for user-std-ultra")
+	}
+
+	// 4. Ultra active with Badges (ultra -> permit -> badges)
+	makerWithBadges := ei.NewBackupMaker("EI1234567890123456", "BadgeUltraFarmer")
+	makerWithBadges.SetPermitLevel(1)
+	makerWithBadges.SetSubscriptionStatus(ei.UserSubscriptionInfo_ACTIVE)
+	farmsize := make([]uint64, 19)
+	farmsize[18] = 21000000000
+	backupWithBadges := makerWithBadges.GetBackup()
+	backupWithBadges.Game.MaxFarmSizeReached = farmsize
+	embedWithBadges := BuildEbEmbed(backupWithBadges, FarmHome, "user-badges-ultra")
+	expectedBadgePrefix := "<:ultra:4001> <:pro_permit:3001> <:badge_nah:111>"
+	if !strings.HasPrefix(embedWithBadges.Description, expectedBadgePrefix) {
+		t.Errorf("expected Ultra embed with badges to start with %q, got:\n%s", expectedBadgePrefix, embedWithBadges.Description)
+	}
+
+	// 5. When backup has nil SubInfo, we learn user is not ultra -> farmerstate updated to false
+	makerNilSub := ei.NewBackupMaker("EI1234567890123456", "LearnedNotUltra")
+	makerNilSub.SetPermitLevel(1)
+	backupNilSub := makerNilSub.GetBackup()
+	backupNilSub.SubInfo = nil
+	farmerstate.SetUltra("user-learned-not-ultra", true)
+	embedNilSub := BuildEbEmbed(backupNilSub, FarmHomeAndVirtue, "user-learned-not-ultra")
+	if strings.Contains(embedNilSub.Description, "<:ultra:4001>") {
+		t.Errorf("expected embed to not have ultra emoji when backup has nil SubInfo")
+	}
+	if farmerstate.IsUltra("user-learned-not-ultra") {
+		t.Errorf("expected farmerstate.IsUltra to be false after learning backup has no ultra subscription")
+	}
+
+	// 6. When backup is nil, preserve existing farmerstate.IsUltra
+	farmerstate.SetUltra("user-nil-backup", true)
+	embedNilBackup := BuildEbEmbed(nil, FarmHomeAndVirtue, "user-nil-backup")
+	if !strings.Contains(embedNilBackup.Description, "<:ultra:4001>") {
+		t.Errorf("expected fallback ultra embed when backup is nil to preserve ultra status")
+	}
+	if !farmerstate.IsUltra("user-nil-backup") {
+		t.Errorf("expected farmerstate.IsUltra to remain true when backup is nil")
+	}
+}
