@@ -143,8 +143,36 @@ func determineFarmIcons(backup *ei.Backup) (homeIcon string, virtueIcon string) 
 	return homeIcon, virtueIcon
 }
 
+// isUltraSubscriber returns whether the player currently has an active Ultra subscription.
+func isUltraSubscriber(backup *ei.Backup, userID string) bool {
+	if backup != nil {
+		if sub := backup.GetSubInfo(); sub != nil {
+			return sub.GetStatus() == ei.UserSubscriptionInfo_ACTIVE
+		}
+	}
+	if userID != "" && farmerstate.IsUltra(userID) {
+		return true
+	}
+	return false
+}
+
+// buildBadgeLine formats the badge row including the optional Ultra badge, permit emoji, and achievement badges.
+func buildBadgeLine(ultraEmoji, permitEmoji, badgeRow string) string {
+	var parts []string
+	if ultraEmoji != "" {
+		parts = append(parts, ultraEmoji)
+	}
+	if permitEmoji != "" {
+		parts = append(parts, permitEmoji)
+	}
+	if badgeRow != "" {
+		parts = append(parts, badgeRow)
+	}
+	return strings.Join(parts, " ")
+}
+
 // calculateEbData computes the earnings bonus values, roles, badges, and farm descriptions.
-func calculateEbData(backup *ei.Backup, farmChoice string, userID string) (primaryColor int, userName string, permitEmoji string, badgeRow string, farmDesc string) {
+func calculateEbData(backup *ei.Backup, farmChoice string, userID string) (primaryColor int, userName string, badgeLine string, farmDesc string) {
 	game := backup.GetGame()
 	pe := game.GetEggsOfProphecy()
 	se := game.GetSoulEggsD()
@@ -224,6 +252,14 @@ func calculateEbData(backup *ei.Backup, farmChoice string, userID string) (prima
 
 	homeIcon, virtueIcon := determineFarmIcons(backup)
 
+	var ultraEmoji string
+	if isUltraSubscriber(backup, userID) {
+		if emoji, ok := ei.GetBotEmojiMarkdownIfExists("ultra"); ok {
+			ultraEmoji = emoji
+		}
+	}
+
+	var permitEmoji string
 	if game := backup.GetGame(); game != nil && game.GetPermitLevel() == 1 {
 		if emoji, ok := ei.GetBotEmojiMarkdownIfExists("pro_permit"); ok {
 			permitEmoji = emoji
@@ -234,7 +270,8 @@ func calculateEbData(backup *ei.Backup, farmChoice string, userID string) (prima
 		}
 	}
 
-	badgeRow = ei.GetBadgeMarkdownRow(backup)
+	badgeRow := ei.GetBadgeMarkdownRow(backup)
+	badgeLine = buildBadgeLine(ultraEmoji, permitEmoji, badgeRow)
 	primaryColor = parseHexColor(homeDressedRole.Color)
 
 	fmtFmt := map[string]any{"decimals": 3, "trim": true}
@@ -356,22 +393,12 @@ func calculateEbData(backup *ei.Backup, farmChoice string, userID string) (prima
 
 // BuildEbEmbed computes the earnings bonus values and generates the Discord embed.
 func BuildEbEmbed(backup *ei.Backup, farmChoice string, userID string) dc.Embed {
-	primaryColor, userName, permitEmoji, badgeRow, farmDesc := calculateEbData(backup, farmChoice, userID)
+	primaryColor, userName, badgeLine, farmDesc := calculateEbData(backup, farmChoice, userID)
 
 	var desc strings.Builder
-	if permitEmoji != "" || badgeRow != "" {
-		if permitEmoji != "" && badgeRow != "" {
-			desc.WriteString(permitEmoji)
-			desc.WriteString(" ")
-			desc.WriteString(badgeRow)
-			desc.WriteString("\n")
-		} else if permitEmoji != "" {
-			desc.WriteString(permitEmoji)
-			desc.WriteString("\n")
-		} else {
-			desc.WriteString(badgeRow)
-			desc.WriteString("\n")
-		}
+	if badgeLine != "" {
+		desc.WriteString(badgeLine)
+		desc.WriteString("\n")
 	}
 	desc.WriteString(farmDesc)
 
@@ -384,23 +411,13 @@ func BuildEbEmbed(backup *ei.Backup, farmChoice string, userID string) dc.Embed 
 
 // BuildEbComponents computes the earnings bonus values and generates the Components V2 container.
 func BuildEbComponents(backup *ei.Backup, farmChoice string, userID string, avatarURL string) []dc.LayoutComponent {
-	primaryColor, userName, permitEmoji, badgeRow, farmDesc := calculateEbData(backup, farmChoice, userID)
+	primaryColor, userName, badgeLine, farmDesc := calculateEbData(backup, farmChoice, userID)
 
 	var header strings.Builder
 	fmt.Fprintf(&header, "## %s\n", userName)
-	if permitEmoji != "" || badgeRow != "" {
-		if permitEmoji != "" && badgeRow != "" {
-			header.WriteString(permitEmoji)
-			header.WriteString(" ")
-			header.WriteString(badgeRow)
-			header.WriteString("\n")
-		} else if permitEmoji != "" {
-			header.WriteString(permitEmoji)
-			header.WriteString("\n")
-		} else {
-			header.WriteString(badgeRow)
-			header.WriteString("\n")
-		}
+	if badgeLine != "" {
+		header.WriteString(badgeLine)
+		header.WriteString("\n")
 	}
 
 	var containerSub []dc.ContainerSubComponent

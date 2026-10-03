@@ -812,3 +812,82 @@ func TestGetDiscordAvatarURL(t *testing.T) {
 		t.Errorf("expected empty string for user without avatar, got %q", got)
 	}
 }
+
+func TestBuildEb_UltraBadge(t *testing.T) {
+	oldMap := ei.EmoteMap
+	ei.EmoteMap = make(map[string]ei.Emotes)
+	ei.EmoteMap["ultra"] = ei.Emotes{Name: "ultra", ID: "4001"}
+	ei.EmoteMap["pro_permit"] = ei.Emotes{Name: "pro_permit", ID: "3001"}
+	ei.EmoteMap["free_permit"] = ei.Emotes{Name: "free_permit", ID: "3002"}
+	ei.EmoteMap["badge_nah"] = ei.Emotes{Name: "badge_nah", ID: "111"}
+	defer func() {
+		ei.EmoteMap = oldMap
+	}()
+
+	// 1. Ultra active with Pro Permit
+	makerUltra := ei.NewBackupMaker("EI1234567890123456", "UltraFarmer")
+	makerUltra.SetPermitLevel(1)
+	makerUltra.SetSubscriptionStatus(ei.UserSubscriptionInfo_ACTIVE)
+	embedUltra := BuildEbEmbed(makerUltra.GetBackup(), FarmHomeAndVirtue, "user-ultra-pro")
+	expectedPrefix := "<:ultra:4001> <:pro_permit:3001>"
+	if !strings.HasPrefix(embedUltra.Description, expectedPrefix) {
+		t.Errorf("expected Ultra embed to start with %q, got:\n%s", expectedPrefix, embedUltra.Description)
+	}
+
+	// Also verify Components header has ultra badge left of permit icon
+	compsUltra := BuildEbComponents(makerUltra.GetBackup(), FarmHomeAndVirtue, "user-ultra-pro", "")
+	if len(compsUltra) > 0 {
+		container := compsUltra[0].(dc.Container)
+		headerDisplay := container.Components[0].(dc.TextDisplay)
+		if !strings.Contains(headerDisplay.Content, expectedPrefix) {
+			t.Errorf("expected Components header to contain %q, got:\n%s", expectedPrefix, headerDisplay.Content)
+		}
+	}
+
+	// 2. Ultra expired with Pro Permit (should NOT have ultra badge)
+	makerExpired := ei.NewBackupMaker("EI1234567890123456", "ExpiredFarmer")
+	makerExpired.SetPermitLevel(1)
+	makerExpired.SetSubscriptionStatus(ei.UserSubscriptionInfo_EXPIRED)
+	embedExpired := BuildEbEmbed(makerExpired.GetBackup(), FarmHomeAndVirtue, "user-expired")
+	if strings.Contains(embedExpired.Description, "<:ultra:4001>") {
+		t.Errorf("expected expired ultra to not have ultra emoji, got:\n%s", embedExpired.Description)
+	}
+	if !strings.HasPrefix(embedExpired.Description, "<:pro_permit:3001>") {
+		t.Errorf("expected expired ultra embed to start with pro_permit emoji, got:\n%s", embedExpired.Description)
+	}
+
+	// 3. Ultra active with Standard Permit
+	makerStdUltra := ei.NewBackupMaker("EI1234567890123456", "StdUltraFarmer")
+	makerStdUltra.SetPermitLevel(0)
+	makerStdUltra.SetSubscriptionStatus(ei.UserSubscriptionInfo_ACTIVE)
+	embedStdUltra := BuildEbEmbed(makerStdUltra.GetBackup(), FarmHomeAndVirtue, "user-std-ultra")
+	expectedStdPrefix := "<:ultra:4001> <:free_permit:3002>"
+	if !strings.HasPrefix(embedStdUltra.Description, expectedStdPrefix) {
+		t.Errorf("expected Std Ultra embed to start with %q, got:\n%s", expectedStdPrefix, embedStdUltra.Description)
+	}
+
+	// 4. Ultra active with Badges (ultra -> permit -> badges)
+	makerWithBadges := ei.NewBackupMaker("EI1234567890123456", "BadgeUltraFarmer")
+	makerWithBadges.SetPermitLevel(1)
+	makerWithBadges.SetSubscriptionStatus(ei.UserSubscriptionInfo_ACTIVE)
+	farmsize := make([]uint64, 19)
+	farmsize[18] = 21000000000
+	backupWithBadges := makerWithBadges.GetBackup()
+	backupWithBadges.Game.MaxFarmSizeReached = farmsize
+	embedWithBadges := BuildEbEmbed(backupWithBadges, FarmHome, "user-badges-ultra")
+	expectedBadgePrefix := "<:ultra:4001> <:pro_permit:3001> <:badge_nah:111>"
+	if !strings.HasPrefix(embedWithBadges.Description, expectedBadgePrefix) {
+		t.Errorf("expected Ultra embed with badges to start with %q, got:\n%s", expectedBadgePrefix, embedWithBadges.Description)
+	}
+
+	// 5. Fallback: nil SubInfo in backup, but farmerstate.IsUltra is true
+	makerNilSub := ei.NewBackupMaker("EI1234567890123456", "FarmerstateUltra")
+	makerNilSub.SetPermitLevel(1)
+	backupNilSub := makerNilSub.GetBackup()
+	backupNilSub.SubInfo = nil
+	farmerstate.SetUltra("user-farmerstate-ultra")
+	embedNilSub := BuildEbEmbed(backupNilSub, FarmHomeAndVirtue, "user-farmerstate-ultra")
+	if !strings.HasPrefix(embedNilSub.Description, expectedPrefix) {
+		t.Errorf("expected fallback ultra embed to start with %q, got:\n%s", expectedPrefix, embedNilSub.Description)
+	}
+}
