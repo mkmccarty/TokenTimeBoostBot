@@ -3,6 +3,7 @@ package boost
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -18,6 +19,48 @@ func TestGetVersionAndRevisionInfo(t *testing.T) {
 		t.Errorf("expected runningVer to not be empty")
 	}
 	t.Logf("runningVer=%q, runningRev=%q, diskVer=%q, diskRev=%q", runningVer, runningRev, diskVer, diskRev)
+}
+
+func TestFindNewestBotBinary(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	currentExe := filepath.Join(tmpDir, "TokenTimeBoostBot_freebsd_amd64_v7.0-100")
+	if err := os.WriteFile(currentExe, []byte("old binary"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	// Give it an earlier mod time
+	earlier := time.Now().Add(-1 * time.Hour)
+	_ = os.Chtimes(currentExe, earlier, earlier)
+
+	// Write noise files that should be ignored
+	_ = os.WriteFile(filepath.Join(tmpDir, "TokenTimeBoostBot_freebsd_amd64.final-discordgo-version"), []byte("noise"), 0755)
+	_ = os.WriteFile(filepath.Join(tmpDir, ".TokenTimeBoostBot_freebsd_amd64_v7.0-200.tmp"), []byte("uploading"), 0755)
+	_ = os.WriteFile(filepath.Join(tmpDir, "TokenTimeBoostBot.bak"), []byte("bak"), 0755)
+	_ = os.WriteFile(filepath.Join(tmpDir, "run-ttbb.sh"), []byte("#!/bin/sh"), 0755)
+	_ = os.WriteFile(filepath.Join(tmpDir, "config.json"), []byte("{}"), 0644)
+
+	// Before new binary is added, newest should be currentExe
+	found, info := findNewestBotBinary(currentExe)
+	if found != currentExe {
+		t.Errorf("expected currentExe %s, got %s", currentExe, found)
+	}
+	if info == nil {
+		t.Errorf("expected non-nil FileInfo")
+	}
+
+	// Now add a newer versioned binary
+	newExe := filepath.Join(tmpDir, "TokenTimeBoostBot_freebsd_amd64_v7.0-200")
+	if err := os.WriteFile(newExe, []byte("new binary"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	found, info = findNewestBotBinary(currentExe)
+	if found != newExe {
+		t.Errorf("expected newExe %s, got %s", newExe, found)
+	}
+	if info == nil || info.Name() != "TokenTimeBoostBot_freebsd_amd64_v7.0-200" {
+		t.Errorf("unexpected file info: %v", info)
+	}
 }
 
 func TestLdflagsVersionRegex(t *testing.T) {

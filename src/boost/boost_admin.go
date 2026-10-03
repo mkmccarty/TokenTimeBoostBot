@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"regexp"
 	"runtime/debug"
 	"slices"
@@ -1465,6 +1466,54 @@ func init() {
 
 var ldflagsVersionRegex = regexp.MustCompile(`(?:main\.)?Version=([^\s"']+)`)
 
+func findNewestBotBinary(currentExe string) (string, os.FileInfo) {
+	currentInfo, _ := os.Stat(currentExe)
+
+	dir := filepath.Dir(currentExe)
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return currentExe, currentInfo
+	}
+
+	currentBase := filepath.Base(currentExe)
+	prefix := "TokenTimeBoostBot"
+	if !strings.HasPrefix(currentBase, prefix) {
+		prefix = currentBase
+	}
+
+	newestPath := currentExe
+	newestInfo := currentInfo
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if strings.HasPrefix(name, ".") || strings.HasSuffix(name, ".tmp") || strings.HasSuffix(name, ".bak") {
+			continue
+		}
+		if strings.Contains(name, "final-discordgo-version") || strings.HasSuffix(name, ".sh") || strings.HasSuffix(name, ".json") {
+			continue
+		}
+		if !strings.HasPrefix(name, prefix) {
+			continue
+		}
+
+		fullPath := filepath.Join(dir, name)
+		info, err := entry.Info()
+		if err != nil {
+			continue
+		}
+
+		if newestInfo == nil || info.ModTime().After(newestInfo.ModTime()) {
+			newestInfo = info
+			newestPath = fullPath
+		}
+	}
+
+	return newestPath, newestInfo
+}
+
 func getVersionAndRevisionInfo() (runningVer, runningRev, runningTime, diskVer, diskRev, diskTime string, diskChanged bool) {
 	runningVer = version.Version
 	if runningVer == "" {
@@ -1488,17 +1537,22 @@ func getVersionAndRevisionInfo() (runningVer, runningRev, runningTime, diskVer, 
 	diskRev = "Unknown"
 	diskTime = "Unknown"
 
-	targetExe := ""
+	currentExe := ""
 	if exePath, err := os.Executable(); err == nil {
-		targetExe = exePath
+		currentExe = exePath
 	} else {
-		targetExe = os.Args[0]
+		currentExe = os.Args[0]
 	}
 
-	if info, err := os.Stat(targetExe); err == nil {
-		if !startupExeModTime.IsZero() && (info.ModTime().After(startupExeModTime) || info.Size() != startupExeSize) {
+	targetExe, info := findNewestBotBinary(currentExe)
+	if targetExe != currentExe {
+		diskChanged = true
+	}
+
+	if info != nil {
+		diskTime = info.ModTime().Format("2006-01-02 15:04:05")
+		if targetExe == currentExe && !startupExeModTime.IsZero() && (info.ModTime().After(startupExeModTime) || info.Size() != startupExeSize) {
 			diskChanged = true
-			diskTime = info.ModTime().Format("2006-01-02 15:04:05")
 		}
 	}
 
@@ -1515,6 +1569,14 @@ func getVersionAndRevisionInfo() (runningVer, runningRev, runningTime, diskVer, 
 					diskVer = m[1]
 				}
 			}
+		}
+	}
+
+	// Fallback: if diskVer is still Unknown, check if the binary filename has a version suffix (_v...)
+	if diskVer == "Unknown" {
+		base := filepath.Base(targetExe)
+		if idx := strings.Index(base, "_v"); idx != -1 {
+			diskVer = base[idx+1:]
 		}
 	}
 
