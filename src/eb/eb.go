@@ -64,6 +64,8 @@ func ExecuteEbTarget(e dc.InteractionEvent, farmChoice string, eggIncID string, 
 		return
 	}
 
+	farmerstate.SetFarmerBackupDetails(targetUserID, backup)
+
 	avatarURL := ""
 	if targetUserID != e.UserID() {
 		altDiscordID := findAltDiscordID(targetUserID)
@@ -143,12 +145,18 @@ func determineFarmIcons(backup *ei.Backup) (homeIcon string, virtueIcon string) 
 	return homeIcon, virtueIcon
 }
 
-// isUltraSubscriber returns whether the player currently has an active Ultra subscription.
+// isUltraSubscriber returns whether the player currently has an active Ultra subscription,
+// and updates the user's farmerstate to reflect their ultra status if known.
 func isUltraSubscriber(backup *ei.Backup, userID string) bool {
 	if backup != nil {
+		isUltra := false
 		if sub := backup.GetSubInfo(); sub != nil {
-			return sub.GetStatus() == ei.UserSubscriptionInfo_ACTIVE
+			isUltra = (sub.GetStatus() == ei.UserSubscriptionInfo_ACTIVE)
 		}
+		if userID != "" {
+			farmerstate.SetUltra(userID, isUltra)
+		}
+		return isUltra
 	}
 	if userID != "" && farmerstate.IsUltra(userID) {
 		return true

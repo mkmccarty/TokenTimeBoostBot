@@ -507,8 +507,12 @@ func SetLink(userID string, description string, guildID string, channelID string
 	}
 }
 
-// IsUltra will return if a player has joined an ultra contract in last 60 days
+// IsUltra will return if a player has joined an ultra contract in last 60 days,
+// or has an active Ultra subscription.
 func IsUltra(userID string) bool {
+	if userID == "" {
+		return false
+	}
 	f := getFarmer(userID)
 	stateMutex.RLock()
 	defer stateMutex.RUnlock()
@@ -516,15 +520,32 @@ func IsUltra(userID string) bool {
 	return time.Since(f.UltraContract) <= 60*24*time.Hour
 }
 
-// SetUltra sets a player to have joined an ultra contract
-func SetUltra(userID string) {
+// SetUltra sets whether a player is an ultra player.
+// An optional boolean parameter specifies the ultra status (defaults to true).
+func SetUltra(userID string, isUltra ...bool) {
+	if userID == "" {
+		return
+	}
+	setting := true
+	if len(isUltra) > 0 {
+		setting = isUltra[0]
+	}
 	f := getFarmer(userID)
 	stateMutex.Lock()
 	defer stateMutex.Unlock()
 	if !f.DataPrivacy {
-		f.UltraContract = time.Now()
+		if setting {
+			f.UltraContract = time.Now()
+		} else {
+			f.UltraContract = time.Time{}
+		}
 		saveSqliteData(userID, f)
 	}
+}
+
+// ClearUltra clears a player's ultra status.
+func ClearUltra(userID string) {
+	SetUltra(userID, false)
 }
 
 // GetEiIgnsByMiscString returns all ei_ign values for farmers where MiscSettingsString[key] == value.
