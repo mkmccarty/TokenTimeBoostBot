@@ -907,7 +907,7 @@ func parseCustomCriterion(s string) customCriterion {
 
 func getBoosterBackup(userID string) *ei.Backup {
 	eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
-	if eiID == "" && !isDiscordSnowflake(userID) {
+	if eiID == "" && !dc.IsSnowflake(userID) {
 		if discordID, err := farmerstate.GetDiscordUserIDFromEiIgnExact(userID); err == nil && discordID != "" {
 			eiID = farmerstate.GetMiscSettingString(discordID, "encrypted_ei_id")
 		}

@@ -1268,7 +1268,7 @@ func updateContractFarmerTE(client dc.Client, userID string, b *Booster, contrac
 	// Get user EI from the db and set any relevant fields
 	eggIncID := ""
 	eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
-	if eiID == "" && !isDiscordSnowflake(userID) {
+	if eiID == "" && !dc.IsSnowflake(userID) {
 		if discordID, err := farmerstate.GetDiscordUserIDFromEiIgnExact(userID); err == nil && discordID != "" {
 			eiID = farmerstate.GetMiscSettingString(discordID, "encrypted_ei_id")
 		}
