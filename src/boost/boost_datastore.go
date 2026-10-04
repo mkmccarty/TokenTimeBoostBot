@@ -826,21 +826,7 @@ func SaveRoleNames(data map[string][]string) {
 		sqliteInit()
 	}
 
-	var tx *sql.Tx
-	var txQueries *Queries
-	ensureTx := func() error {
-		if tx != nil {
-			return nil
-		}
-		var err error
-		tx, err = dbConn.BeginTx(ctx, nil)
-		if err != nil {
-			return err
-		}
-		txQueries = queries.WithTx(tx)
-		return nil
-	}
-
+	toUpdate := make(map[string][]string)
 	for contractID, roles := range data {
 		normalizedRoles := normalizeUniqueStrings(roles)
 		existingRoles, err := GetRoleNamesForContract(contractID)
@@ -850,12 +836,21 @@ func SaveRoleNames(data map[string][]string) {
 		if err != nil {
 			log.Printf("SaveRoleNames: failed to load existing roles for %s: %v", contractID, err)
 		}
+		toUpdate[contractID] = normalizedRoles
+	}
 
-		if err := ensureTx(); err != nil {
-			log.Printf("SaveRoleNames: failed to begin transaction: %v", err)
-			return
-		}
+	if len(toUpdate) == 0 {
+		return
+	}
 
+	tx, err := dbConn.BeginTx(ctx, nil)
+	if err != nil {
+		log.Printf("SaveRoleNames: failed to begin transaction: %v", err)
+		return
+	}
+	txQueries := queries.WithTx(tx)
+
+	for contractID, normalizedRoles := range toUpdate {
 		if err := txQueries.DeleteContractRoles(ctx, contractID); err != nil {
 			_ = tx.Rollback()
 			log.Printf("SaveRoleNames: failed to delete roles for contract %s: %v", contractID, err)
@@ -870,10 +865,6 @@ func SaveRoleNames(data map[string][]string) {
 				log.Printf("SaveRoleNames: failed to insert role %s for %s: %v", rName, contractID, err)
 			}
 		}
-	}
-
-	if tx == nil {
-		return
 	}
 
 	if err := tx.Commit(); err != nil {
@@ -1116,23 +1107,7 @@ func SaveThematicComplaints(data map[string][]string) error {
 		sqliteInit()
 	}
 
-	var tx *sql.Tx
-	var txQueries *Queries
-	ensureTx := func() error {
-		if tx != nil {
-			return nil
-		}
-		var err error
-		tx, err = dbConn.BeginTx(ctx, nil)
-		if err != nil {
-			return err
-		}
-		txQueries = queries.WithTx(tx)
-		return nil
-	}
-
-	changed := false
-
+	toUpdate := make(map[string][]string)
 	for contractID, complaints := range data {
 		normalizedComplaints := normalizeUniqueStrings(complaints)
 		existingComplaints, err := GetThematicComplaintsForContract(contractID)
@@ -1142,11 +1117,20 @@ func SaveThematicComplaints(data map[string][]string) error {
 		if err != nil {
 			log.Printf("SaveThematicComplaints: failed to load existing complaints for %s: %v", contractID, err)
 		}
+		toUpdate[contractID] = normalizedComplaints
+	}
 
-		if err := ensureTx(); err != nil {
-			return err
-		}
+	if len(toUpdate) == 0 {
+		return nil
+	}
 
+	tx, err := dbConn.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	txQueries := queries.WithTx(tx)
+
+	for contractID, normalizedComplaints := range toUpdate {
 		if err := txQueries.DeleteContractComplaints(ctx, contractID); err != nil {
 			_ = tx.Rollback()
 			return err
@@ -1160,22 +1144,15 @@ func SaveThematicComplaints(data map[string][]string) error {
 				log.Printf("SaveThematicComplaints: failed to insert complaint %s for %s: %v", complaint, contractID, err)
 			}
 		}
-		changed = true
-	}
-
-	if tx == nil {
-		return nil
 	}
 
 	if err := tx.Commit(); err != nil {
 		return err
 	}
 
-	if changed {
-		thematicComplaintsMu.Lock()
-		thematicComplaintsMap = nil // Invalidate cache so next Load reflects updates
-		thematicComplaintsMu.Unlock()
-	}
+	thematicComplaintsMu.Lock()
+	thematicComplaintsMap = nil // Invalidate cache so next Load reflects updates
+	thematicComplaintsMu.Unlock()
 
 	return nil
 }
