@@ -287,3 +287,35 @@ func TestSetUltraAndClearUltra(t *testing.T) {
 	SetUltra("")
 	ClearUltra("")
 }
+
+func TestSetPermitLevelAndGetPermitLevel(t *testing.T) {
+	userID := "userA-permit-test"
+
+	// Default when unset should be Pro (1)
+	if GetPermitLevel(userID) != 1 || !HasProPermit(userID) {
+		t.Errorf("expected default permit level to be 1, got %d", GetPermitLevel(userID))
+	}
+
+	// Set standard permit (0)
+	SetPermitLevel(userID, 0)
+	if GetPermitLevel(userID) != 0 || HasProPermit(userID) {
+		t.Errorf("expected permit level 0, got %d", GetPermitLevel(userID))
+	}
+
+	// Set pro permit (1)
+	SetPermitLevel(userID, 1)
+	if GetPermitLevel(userID) != 1 || !HasProPermit(userID) {
+		t.Errorf("expected permit level 1, got %d", GetPermitLevel(userID))
+	}
+
+	// Out of bounds / invalid fallback to 1
+	SetMiscSettingString(userID, "permit_level", "-1")
+	if GetPermitLevel(userID) != 1 {
+		t.Errorf("expected invalid negative permit level to fallback to 1, got %d", GetPermitLevel(userID))
+	}
+
+	SetMiscSettingString(userID, "permit_level", "99")
+	if GetPermitLevel(userID) != 1 {
+		t.Errorf("expected out-of-bounds permit level to fallback to 1, got %d", GetPermitLevel(userID))
+	}
+}
