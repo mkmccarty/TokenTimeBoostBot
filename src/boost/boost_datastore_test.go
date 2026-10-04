@@ -16,6 +16,7 @@ func TestRoleNamesSaveLoad(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to open in-memory db: %v", err)
 	}
+	db.SetMaxOpenConns(1)
 	defer func() { _ = db.Close() }()
 
 	// Execute DDL
@@ -81,6 +82,7 @@ func TestThematicComplaintsSaveLoad(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to open in-memory db: %v", err)
 	}
+	db.SetMaxOpenConns(1)
 	defer func() { _ = db.Close() }()
 
 	// Execute DDL
@@ -173,6 +175,7 @@ func TestPerformTransitionFromJSON(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to open in-memory db: %v", err)
 	}
+	db.SetMaxOpenConns(1)
 	defer func() { _ = db.Close() }()
 
 	// Execute DDL
