@@ -310,7 +310,11 @@ func populateArtifactsFromBackup(client dc.Client, userID string) (string, strin
 		updated := false
 		contract.mutex.Lock()
 		if b := contract.Boosters[userID]; b != nil {
-			b.TECount = int(te)
+			if te > ei.MaxTruthEggs {
+				b.TECount = ei.MaxTruthEggs
+			} else {
+				b.TECount = int(te)
+			}
 			b.ArtifactSet = getUserArtifacts(userID, nil)
 			rate, logStr := CalculateIHRRateFromDB(userID)
 			if rate < DefaultLeggyIHR {

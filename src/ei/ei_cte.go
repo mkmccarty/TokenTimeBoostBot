@@ -213,6 +213,12 @@ func GetActiveVirtueArtifacts(backup *Backup) []*CompleteArtifact {
 	return activeArtifactsFromSet(virtueDB.GetInventoryItems(), virtueDB.GetActiveArtifacts())
 }
 
+// MaxTruthEggs is the current maximum Truth Eggs attainable in Egg Inc.
+const MaxTruthEggs = 490
+
+// MaxTE is an alias for MaxTruthEggs.
+const MaxTE = MaxTruthEggs
+
 // GetCurrentTruthEggs returns currently credited Truth Eggs derived from virtue progress.
 func GetCurrentTruthEggs(backup *Backup) uint32 {
 	if backup == nil || backup.GetVirtue() == nil {

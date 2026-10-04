@@ -264,7 +264,7 @@ func processContributors(
 				// cache IGN if missing
 				if ign := farmerstate.GetMiscSettingString(r.discordID, "ei_ign"); ign == "" {
 					if backup, _ := ei.GetFirstContactFromAPI(r.eiID, r.discordID, okayToSave); backup != nil {
-						farmerstate.SetMiscSettingString(r.discordID, "ei_ign", backup.GetUserName())
+						farmerstate.SetFarmerBackupDetails(r.discordID, backup)
 					}
 				}
 
@@ -456,14 +456,12 @@ func ContractReport(
 
 	// Do I know the user's IGN?
 	callerFarmerName := farmerstate.GetMiscSettingString(callerUserID, "ei_ign")
-	// Update their IGN using the backup
+	// Update their profile using the backup
 	backup, _ := ei.GetFirstContactFromAPI(callerEI, callerUserID, okayToSave)
 	if backup != nil {
-		newIGN := backup.GetUserName()
-		if newIGN != "" && newIGN != callerFarmerName {
-			// update cached IGN if missing OR changed
+		newIGN, _, _, _ := farmerstate.SetFarmerBackupDetails(callerUserID, backup)
+		if newIGN != "" {
 			callerFarmerName = newIGN
-			farmerstate.SetMiscSettingString(callerUserID, "ei_ign", callerFarmerName)
 		}
 	}
 	callerArchive, _ := ei.GetContractArchiveFromAPI(callerEI, callerUserID, forceRefresh, okayToSave)

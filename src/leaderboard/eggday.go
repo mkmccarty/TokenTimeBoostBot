@@ -249,6 +249,7 @@ func CollectEggDayStart(year int, guildID string) {
 			log.Printf("eggday: failed to fetch backup for user %s during start collection", userID)
 			continue
 		}
+		farmerstate.SetFarmerBackupDetails(userID, backup)
 
 		game := backup.GetGame()
 		if game == nil {
@@ -310,6 +311,7 @@ func CollectEggDayEndAndCalculate(client dc.Client, year int, dryRun bool, guild
 			log.Printf("eggday: failed to fetch backup for user %s during end collection", userID)
 			continue
 		}
+		farmerstate.SetFarmerBackupDetails(userID, backup)
 
 		game := backup.GetGame()
 		if game == nil {

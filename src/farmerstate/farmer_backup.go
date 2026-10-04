@@ -9,7 +9,7 @@ import (
 )
 
 // SetFarmerBackupDetails updates the player's saved game name ("ei_ign"), Truth Eggs ("TE"),
-// and Ultra status from their Egg Inc backup. It returns the updated game name, whether the name changed,
+// Ultra status, and Permit Level from their Egg Inc backup. It returns the updated game name, whether the name changed,
 // the updated Truth Egg count, and whether the Truth Egg count changed.
 func SetFarmerBackupDetails(userID string, backup *ei.Backup) (newIGN string, ignChanged bool, newTE uint32, teChanged bool) {
 	oldIGN := GetMiscSettingString(userID, "ei_ign")
@@ -17,7 +17,7 @@ func SetFarmerBackupDetails(userID string, backup *ei.Backup) (newIGN string, ig
 
 	if backup == nil {
 		var te uint32
-		if v, err := strconv.ParseUint(oldTEStr, 10, 32); err == nil {
+		if v, err := strconv.Atoi(oldTEStr); err == nil && v >= 0 && v <= ei.MaxTruthEggs {
 			te = uint32(v)
 		}
 		return oldIGN, false, te, false
@@ -41,15 +41,20 @@ func SetFarmerBackupDetails(userID string, backup *ei.Backup) (newIGN string, ig
 
 	// Update Truth Eggs (TE)
 	if backup.GetVirtue() != nil || oldTEStr == "" {
-		newTE = ei.GetCurrentTruthEggs(backup)
+		newTE = min(ei.GetCurrentTruthEggs(backup), ei.MaxTruthEggs)
 		if oldTEStr != fmt.Sprintf("%d", newTE) {
 			teChanged = true
 		}
 		SetMiscSettingString(userID, "TE", fmt.Sprintf("%d", newTE))
 	} else {
-		if v, err := strconv.ParseUint(oldTEStr, 10, 32); err == nil {
+		if v, err := strconv.Atoi(oldTEStr); err == nil && v >= 0 && v <= ei.MaxTruthEggs {
 			newTE = uint32(v)
 		}
+	}
+
+	// Update Permit Level
+	if game := backup.GetGame(); game != nil {
+		SetPermitLevel(userID, game.GetPermitLevel())
 	}
 
 	return newIGN, ignChanged, newTE, teChanged
