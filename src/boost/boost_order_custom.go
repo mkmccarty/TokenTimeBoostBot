@@ -916,6 +916,9 @@ func getBoosterBackup(userID string) *ei.Backup {
 		return nil
 	}
 	backup, _ := ei.GetFirstContactFromAPI(eiID, userID, true)
+	if backup != nil {
+		farmerstate.SetFarmerBackupDetails(userID, backup)
+	}
 	return backup
 }
 

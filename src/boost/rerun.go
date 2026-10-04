@@ -278,12 +278,10 @@ func RerunEval(e dc.InteractionEvent, options dc.OptionValues, eiID string, okay
 	}
 
 	// Do I know the user's IGN?
-	farmerName := farmerstate.GetMiscSettingString(userID, "ei_ign")
-	if farmerName == "" {
+	if farmerstate.GetMiscSettingString(userID, "ei_ign") == "" {
 		backup, _ := ei.GetFirstContactFromAPI(eggIncID, userID, okayToSave)
 		if backup != nil {
-			farmerName = backup.GetUserName()
-			farmerstate.SetMiscSettingString(userID, "ei_ign", farmerName)
+			farmerstate.SetFarmerBackupDetails(userID, backup)
 		}
 	}
 	archive, _ := ei.GetContractArchiveFromAPI(eggIncID, userID, forceRefresh, okayToSave)

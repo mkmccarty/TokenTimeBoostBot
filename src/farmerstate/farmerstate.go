@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -546,6 +547,29 @@ func SetUltra(userID string, isUltra ...bool) {
 // ClearUltra clears a player's ultra status.
 func ClearUltra(userID string) {
 	SetUltra(userID, false)
+}
+
+// SetPermitLevel sets a player's permit level (0 for standard, 1 for pro).
+func SetPermitLevel(userID string, level uint32) {
+	SetMiscSettingString(userID, "permit_level", fmt.Sprintf("%d", level))
+}
+
+// GetPermitLevel returns a player's permit level (defaults to 1 / Pro if unset).
+func GetPermitLevel(userID string) uint32 {
+	val := GetMiscSettingString(userID, "permit_level")
+	if val == "" {
+		return 1 // Default to pro permit
+	}
+	level, err := strconv.ParseUint(val, 10, 32)
+	if err != nil {
+		return 1
+	}
+	return uint32(level)
+}
+
+// HasProPermit returns true if the player has the Pro Permit (permit level == 1).
+func HasProPermit(userID string) bool {
+	return GetPermitLevel(userID) == 1
 }
 
 // GetEiIgnsByMiscString returns all ei_ign values for farmers where MiscSettingsString[key] == value.

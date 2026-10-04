@@ -9,7 +9,7 @@ import (
 )
 
 // SetFarmerBackupDetails updates the player's saved game name ("ei_ign"), Truth Eggs ("TE"),
-// and Ultra status from their Egg Inc backup. It returns the updated game name, whether the name changed,
+// Ultra status, and Permit Level from their Egg Inc backup. It returns the updated game name, whether the name changed,
 // the updated Truth Egg count, and whether the Truth Egg count changed.
 func SetFarmerBackupDetails(userID string, backup *ei.Backup) (newIGN string, ignChanged bool, newTE uint32, teChanged bool) {
 	oldIGN := GetMiscSettingString(userID, "ei_ign")
@@ -50,6 +50,11 @@ func SetFarmerBackupDetails(userID string, backup *ei.Backup) (newIGN string, ig
 		if v, err := strconv.ParseUint(oldTEStr, 10, 32); err == nil {
 			newTE = uint32(v)
 		}
+	}
+
+	// Update Permit Level
+	if game := backup.GetGame(); game != nil {
+		SetPermitLevel(userID, game.GetPermitLevel())
 	}
 
 	return newIGN, ignChanged, newTE, teChanged

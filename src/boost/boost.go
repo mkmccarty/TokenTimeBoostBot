@@ -1297,27 +1297,11 @@ func updateContractFarmerTE(client dc.Client, userID string, b *Booster, contrac
 				log.Printf("Received nil backup for user %s", userID)
 				return
 			}
-			virtue := backup.GetVirtue()
-			if virtue == nil {
-				log.Printf("Received nil virtue for user %s", userID)
-				return
-			}
 
-			var allEov uint32
-
-			// virtueEggs := []string{"CURIOSITY", "INTEGRITY", "HUMILITY", "RESILIENCE", "KINDNESS"}
-			for i := range 5 {
-				eov := virtue.GetEovEarned()[i]
-				delivered := virtue.GetEggsDelivered()[i]
-
-				eovEarned := ei.CountTruthEggTiersPassed(delivered)
-				eovPending := ei.PendingTruthEggs(delivered, eov)
-
-				allEov += max(eovEarned-eovPending, 0)
-			}
+			_, _, newTE, _ := farmerstate.SetFarmerBackupDetails(userID, backup)
 
 			contract.mutex.Lock()
-			b.TECount = int(allEov)
+			b.TECount = int(newTE)
 			if manualIHR > 0 {
 				b.IHRRate = manualIHR
 				b.IHRCalcLog = fmt.Sprintf("IHR Calculation (Manual for %s): Final=%0.2f", userID, manualIHR)
@@ -1331,8 +1315,7 @@ func updateContractFarmerTE(client dc.Client, userID string, b *Booster, contrac
 			}
 			contract.mutex.Unlock()
 
-			// Update the farmerstate database with the retrieved artifacts & TE
-			farmerstate.SetMiscSettingString(userID, "TE", fmt.Sprintf("%d", allEov))
+			// Update the farmerstate database with the retrieved artifacts
 			best := ei.GetBestCoopArtifactsFromInventory(backup.GetArtifactsDb().GetInventoryItems())
 			if best["chalice"] != "" {
 				farmerstate.SetMiscSettingString(userID, "chalice", best["chalice"])

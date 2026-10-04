@@ -37,6 +37,9 @@ func TestSetFarmerBackupDetails(t *testing.T) {
 	if !IsUltra(userID) {
 		t.Errorf("expected IsUltra to be true after SetFarmerBackupDetails with active ultra backup")
 	}
+	if !HasProPermit(userID) || GetPermitLevel(userID) != 1 {
+		t.Errorf("expected HasProPermit=true and PermitLevel=1, got %t, %d", HasProPermit(userID), GetPermitLevel(userID))
+	}
 
 	// Calling again with the same backup should report no changes
 	newIGN2, ignChanged2, newTE2, teChanged2 := SetFarmerBackupDetails(userID, backup)

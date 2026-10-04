@@ -303,6 +303,10 @@ func collectPlayerGroup(g *playerGroup, snapDate string) {
 		_ = cached
 		if backup == nil {
 			log.Printf("leaderboard: first-contact API failed for Egg Inc ID %s (Discord IDs: %v)", g.eiUserID, g.discordIDs)
+		} else {
+			for _, uID := range g.discordIDs {
+				farmerstate.SetFarmerBackupDetails(uID, backup)
+			}
 		}
 	}
 

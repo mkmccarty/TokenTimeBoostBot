@@ -98,11 +98,8 @@ func Register(e *dc.ModalEvent, encryptedID string, okayToSave bool) {
 			str = "Your Egg Inc ID was saved but the backup could not be retrieved from EI."
 		} else {
 			farmerName := farmerstate.GetMiscSettingString(userID, "ei_ign")
-			newName := backup.GetUserName()
+			newName, _, te, _ := farmerstate.SetFarmerBackupDetails(userID, backup)
 			displayName := ei.NormalizePlayerNameForDisplay(newName)
-			farmerstate.SetMiscSettingString(userID, "ei_ign", newName)
-			te := ei.GetCurrentTruthEggs(backup)
-			farmerstate.SetMiscSettingString(userID, "TE", fmt.Sprintf("%d", te))
 			artifacts := ei.GetBestCoopArtifactsFromInventory(backup.GetArtifactsDb().GetInventoryItems())
 			for key, val := range artifacts {
 				farmerstate.SetMiscSettingString(userID, key, val)
@@ -177,19 +174,15 @@ func RegisterAlt(e *dc.ModalEvent, targetAlt string, encryptedID string) {
 		if backup == nil {
 			str = "Your Egg Inc ID was saved but the backup could not be retrieved from EI."
 		} else {
-			newName := backup.GetUserName()
-			displayName := ei.NormalizePlayerNameForDisplay(newName)
 			altID := targetAlt
 			if altID == "new" {
-				altID = newName
+				altID = strings.TrimSpace(backup.GetUserName())
 			}
 			// Use altID as the ID for the alt record
-			farmerstate.SetMiscSettingString(altID, "ei_ign", newName)
 			farmerstate.SetMiscSettingString(altID, "encrypted_ei_id", encryptedID)
 			farmerstate.SetMiscSettingString(altID, "AltController", parentUserID)
-
-			te := ei.GetCurrentTruthEggs(backup)
-			farmerstate.SetMiscSettingString(altID, "TE", fmt.Sprintf("%d", te))
+			newName, _, te, _ := farmerstate.SetFarmerBackupDetails(altID, backup)
+			displayName := ei.NormalizePlayerNameForDisplay(newName)
 			artifacts := ei.GetBestCoopArtifactsFromInventory(backup.GetArtifactsDb().GetInventoryItems())
 			for key, val := range artifacts {
 				farmerstate.SetMiscSettingString(altID, key, val)

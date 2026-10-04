@@ -368,6 +368,7 @@ func HandleWatch(e *dc.CommandEvent) {
 			_ = e.Followup(dc.Message{Content: "Failed to retrieve your player data from Egg Inc API. Please try again later."})
 			return
 		}
+		farmerstate.SetFarmerBackupDetails(userID, backup)
 
 		completed := make(map[string]bool)
 		ownedColleggtibles := make(map[string]bool)

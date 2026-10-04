@@ -241,6 +241,7 @@ func handleAdminBackfillEggDay(client dc.Client, e *dc.CommandEvent) {
 		enc := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
 		if enc != "" {
 			if backup, _ := ei.GetFirstContactFromAPI(enc, userID, true); backup != nil && backup.GetGame() != nil {
+				farmerstate.SetFarmerBackupDetails(userID, backup)
 				gameName = ei.NormalizePlayerNameForDisplay(backup.GetUserName())
 				if backup.GetGame().GetPermitLevel() != 1 {
 					gameName += " (SP)"

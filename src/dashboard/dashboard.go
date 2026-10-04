@@ -317,6 +317,7 @@ func drawDashboard(client dc.Client, userID string, showExternal bool) []dc.Layo
 		if isFullLoad {
 			backup, _ := ei.GetFirstContactFromAPI(eeid, userID, true)
 			if backup != nil {
+				farmerstate.SetFarmerBackupDetails(userID, backup)
 				for _, farm := range backup.GetFarms() {
 					if farm.GetFarmType() == ei.FarmType_CONTRACT {
 						contractID := farm.GetContractId()
