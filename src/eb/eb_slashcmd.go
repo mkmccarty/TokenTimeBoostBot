@@ -68,10 +68,6 @@ func GetSlashEbCommand(cmd string) *dc.Command {
 // AltAccount represents an alternate account with a saved Egg Inc ID.
 type AltAccount = farmerstate.AltAccount
 
-func isDiscordSnowflake(value string) bool {
-	return farmerstate.IsDiscordSnowflake(value)
-}
-
 // findAltDiscordID returns the registered Discord user ID for an alt, if any.
 func findAltDiscordID(altID string) string {
 	return farmerstate.FindAltDiscordID(altID)

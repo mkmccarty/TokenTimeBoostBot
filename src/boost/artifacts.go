@@ -66,18 +66,6 @@ func getSelectedColleggtiblesFromStored(stored string) map[string]bool {
 	return selected
 }
 
-func isDiscordSnowflake(value string) bool {
-	if len(value) < 15 || len(value) > 21 {
-		return false
-	}
-	for _, r := range value {
-		if r < '0' || r > '9' {
-			return false
-		}
-	}
-	return true
-}
-
 func formatArtifactTarget(userID string) string {
 	if mentionID, ok := parseMentionUserID(userID); ok {
 		ign := strings.TrimSpace(farmerstate.GetMiscSettingString(mentionID, "ei_ign"))
@@ -87,7 +75,7 @@ func formatArtifactTarget(userID string) string {
 		return "<@" + mentionID + ">"
 	}
 
-	if isDiscordSnowflake(userID) {
+	if dc.IsSnowflake(userID) {
 		ign := strings.TrimSpace(farmerstate.GetMiscSettingString(userID, "ei_ign"))
 		if ign != "" {
 			return fmt.Sprintf("<@%s> (%s)", userID, ei.NormalizePlayerNameForDisplay(ign))
@@ -228,7 +216,7 @@ func displayArtifactQuality(val string) string {
 
 func populateArtifactsFromBackup(client dc.Client, userID string) (string, string, error) {
 	eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
-	if eiID == "" && !isDiscordSnowflake(userID) {
+	if eiID == "" && !dc.IsSnowflake(userID) {
 		if discordID, err := farmerstate.GetDiscordUserIDFromEiIgnExact(userID); err == nil && discordID != "" {
 			eiID = farmerstate.GetMiscSettingString(discordID, "encrypted_ei_id")
 		}
@@ -935,7 +923,7 @@ func getArtifactsComponents(userID string, channelID string, contractOnly bool, 
 		ihrStyle := dc.ButtonSecondary
 		colleggStyle := dc.ButtonSecondary
 		eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
-		if eiID == "" && !isDiscordSnowflake(userID) {
+		if eiID == "" && !dc.IsSnowflake(userID) {
 			if discordID, err := farmerstate.GetDiscordUserIDFromEiIgnExact(userID); err == nil && discordID != "" {
 				eiID = farmerstate.GetMiscSettingString(discordID, "encrypted_ei_id")
 			}
@@ -1008,7 +996,7 @@ func HandleArtifactAltAutoComplete(e *dc.AutocompleteEvent) {
 	for _, alt := range alts {
 		ign := strings.TrimSpace(farmerstate.GetMiscSettingString(alt, "ei_ign"))
 		displayName := alt
-		if isDiscordSnowflake(alt) {
+		if dc.IsSnowflake(alt) {
 			if ign != "" {
 				displayName = ei.NormalizePlayerNameForDisplay(ign)
 			}
