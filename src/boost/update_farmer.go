@@ -6,13 +6,14 @@ import (
 	"strings"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
 // GetSlashUpdateCommand returns the /update slash command with main subcommand groups for farmer and contract
 func GetSlashUpdateCommand(cmd string) *dc.Command {
 	zero := 0
-	maxTokens, maxTE, maxIHR := 12, 490, 1000000000000
+	maxTokens, maxTE, maxIHR := 12, ei.MaxTE, 1000000000000
 
 	farmerName := dc.StringOption{
 		Name:        "farmername",

@@ -560,8 +560,8 @@ func GetPermitLevel(userID string) uint32 {
 	if val == "" {
 		return 1 // Default to pro permit
 	}
-	level, err := strconv.ParseUint(val, 10, 32)
-	if err != nil {
+	level, err := strconv.Atoi(val)
+	if err != nil || level < 0 {
 		return 1
 	}
 	return uint32(level)

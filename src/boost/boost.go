@@ -1301,7 +1301,11 @@ func updateContractFarmerTE(client dc.Client, userID string, b *Booster, contrac
 			_, _, newTE, _ := farmerstate.SetFarmerBackupDetails(userID, backup)
 
 			contract.mutex.Lock()
-			b.TECount = int(newTE)
+			if newTE > ei.MaxTruthEggs {
+				b.TECount = ei.MaxTruthEggs
+			} else {
+				b.TECount = int(newTE)
+			}
 			if manualIHR > 0 {
 				b.IHRRate = manualIHR
 				b.IHRCalcLog = fmt.Sprintf("IHR Calculation (Manual for %s): Final=%0.2f", userID, manualIHR)

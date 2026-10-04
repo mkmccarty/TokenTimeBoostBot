@@ -53,7 +53,7 @@ func calcLeggyBoost(te float64) (tokens float64, multiplier float64) {
 
 // GetSlashEstimateTime is the definition of the slash command
 func GetSlashEstimateTime(cmd string) *dc.Command {
-	teMin, teMax := 0, 490
+	teMin, teMax := 0, ei.MaxTE
 	command := anywhereCommand(cmd, "Get an estimate of completion time of a contract.")
 	command.Options = []dc.Option{
 		dc.StringOption{
