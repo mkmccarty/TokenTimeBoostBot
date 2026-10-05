@@ -255,7 +255,7 @@ func getContractDisplay(header *Contract, coops []*Contract, activeThreadIDs map
 		fmt.Fprintf(&b, "%s%s `%s` [**⧉ %s**](%s) \n",
 			strings.Repeat("_ _ ", 5),
 			colorEmoji, count, c.CoopID, threadURL)
-		if !c.PlannedStartTime.IsZero() {
+		if c.State == ContractStateSignup && !c.PlannedStartTime.IsZero() {
 			fmt.Fprintf(&b, "-# %s↳Start: %s\n",
 				strings.Repeat("_ _ ", 7),
 				bottools.WrapTimestamp(c.PlannedStartTime.Unix(), bottools.TimestampLongDateTime))

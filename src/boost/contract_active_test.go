@@ -3,6 +3,7 @@ package boost
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc/dctest"
@@ -106,5 +107,46 @@ func TestGetCurrentContractsComponentsFiltersOtherChannels(t *testing.T) {
 	}
 	if strings.Contains(componentsText(components), "Error retrieving active contracts") {
 		t.Errorf("unexpected error component: %s", componentsText(components))
+	}
+}
+
+func TestGetContractDisplayStartOffsetOnlyInSignupMode(t *testing.T) {
+	startTime := time.Date(2026, 10, 5, 12, 0, 0, 0, time.UTC)
+
+	signupContract := &Contract{
+		ContractID:       "contract-1",
+		CoopID:           "coop-signup",
+		Name:             "Contract Signup",
+		CoopSize:         10,
+		State:            ContractStateSignup,
+		PlannedStartTime: startTime,
+		Boosters:         map[string]*Booster{"user-1": {}},
+		Location:         []*LocationData{{GuildID: "guild-1", ChannelID: "thread-1"}},
+	}
+
+	activeContract := &Contract{
+		ContractID:       "contract-1",
+		CoopID:           "coop-active",
+		Name:             "Contract Active",
+		CoopSize:         10,
+		State:            ContractStateFastrun,
+		PlannedStartTime: startTime,
+		Boosters:         map[string]*Booster{"user-2": {}},
+		Location:         []*LocationData{{GuildID: "guild-1", ChannelID: "thread-2"}},
+	}
+
+	activeThreadIDs := map[string]bool{
+		"thread-1": true,
+		"thread-2": true,
+	}
+
+	signupDisplay := getContractDisplay(signupContract, []*Contract{signupContract}, activeThreadIDs, 4000)
+	if !strings.Contains(signupDisplay.Content, "↳Start:") {
+		t.Errorf("expected signup contract to display start offset time, got: %s", signupDisplay.Content)
+	}
+
+	activeDisplay := getContractDisplay(activeContract, []*Contract{activeContract}, activeThreadIDs, 4000)
+	if strings.Contains(activeDisplay.Content, "↳Start:") {
+		t.Errorf("expected non-signup contract not to display start offset time, got: %s", activeDisplay.Content)
 	}
 }
