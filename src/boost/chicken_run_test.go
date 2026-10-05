@@ -236,12 +236,18 @@ func TestButtonReactionRunChickensSendFailureRollback(t *testing.T) {
 		t.Fatalf("expected buttonReactionRunChickens to return true")
 	}
 
-	// Wait for goroutine to finish
-	time.Sleep(50 * time.Millisecond)
-
-	c.mutex.Lock()
-	runTime := c.Boosters["user1"].RunChickensTime
-	c.mutex.Unlock()
+	// Wait for goroutine to finish rolling back
+	var runTime time.Time
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		c.mutex.Lock()
+		runTime = c.Boosters["user1"].RunChickensTime
+		c.mutex.Unlock()
+		if runTime.IsZero() {
+			break
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
 
 	if !runTime.IsZero() {
 		t.Errorf("expected RunChickensTime to be rolled back to zero on send error, got %v", runTime)
