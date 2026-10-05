@@ -190,7 +190,7 @@ func TestRenderCoopStatusStones_StoneSwapLegend(t *testing.T) {
 	}
 
 	result, _, _ := renderCoopStatusStones("chan-test", contractID, coopStatus, false, "", false, "")
-	expectedLegendPart := "🧩" + ei.GetBotEmojiMarkdown("afx_tachyon_stone_4") + ei.GetBotEmojiMarkdown("afx_quantum_stone_4") + "Swap"
+	expectedLegendPart := "🧩T/Q Swap"
 	if !strings.Contains(result, expectedLegendPart) {
 		t.Fatalf("expected result to contain %q, but got:\n%s", expectedLegendPart, result)
 	}

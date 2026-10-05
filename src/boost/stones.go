@@ -776,7 +776,7 @@ func renderCoopStatusStones(channelID string, contractID string, coopStatus *ei.
 		"🚩": "🚩Research",
 		"💎": "💎Missing",
 		"🏠": "🏠Filling(🐣CR)",
-		"🧩": fmt.Sprintf("🧩%s%sSwap", ei.GetBotEmojiMarkdown("afx_tachyon_stone_4"), ei.GetBotEmojiMarkdown("afx_quantum_stone_4")),
+		"🧩": "🧩T/Q Swap",
 		"🎣": "🎣Away",
 		"🫙": "🫙Silos",
 	}
