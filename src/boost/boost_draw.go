@@ -716,15 +716,21 @@ func getSortRate(contract *Contract, b *Booster, includeTokenAsk bool, tvalByUse
 		}
 	}
 	if contract.State == ContractStateSignup && (contract.BoostOrder == ContractOrderIHR || contract.BoostOrder == ContractOrderIHRFuzzy) {
+		prefix := "IHR:"
+		precision := 2
+		if len(contract.Order) > 40 || len(contract.Boosters) > 40 {
+			prefix = ""
+			precision = 1
+		}
 		if b.IHRRate == 0 {
 			if bottools.IsValidDiscordID(b.UserID) {
-				sortRate = " **IHR:🛜** "
+				sortRate = fmt.Sprintf(" **%s🛜** ", prefix)
 			} else {
-				sortRate = " **IHR:0** "
+				sortRate = fmt.Sprintf(" **%s0** ", prefix)
 			}
 		} else {
-			mult := strings.TrimRight(strings.TrimRight(fmt.Sprintf("%0.2f", b.IHRRate/DefaultLeggyIHR), "0"), ".")
-			sortRate = fmt.Sprintf(" **IHR:%sx** ", mult)
+			mult := strings.TrimRight(strings.TrimRight(fmt.Sprintf("%.*f", precision, b.IHRRate/DefaultLeggyIHR), "0"), ".")
+			sortRate = fmt.Sprintf(" **%s%sx** ", prefix, mult)
 		}
 	}
 	if (contract.State == ContractStateBanker || contract.State == ContractStateFastrun) && contract.PlayStyle != ContractPlaystyleChill {
