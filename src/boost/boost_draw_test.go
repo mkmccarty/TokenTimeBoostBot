@@ -211,6 +211,55 @@ func TestDrawBoostListIHRMultiple(t *testing.T) {
 	}
 }
 
+func TestDrawBoostListIHROmitPrefixLargeContract(t *testing.T) {
+	contract := &Contract{
+		ContractHash: "ihr-large-hash",
+		ContractID:   "ihr-large-contract",
+		CoopID:       "ihr-large-coop",
+		State:        ContractStateSignup,
+		BoostOrder:   ContractOrderIHR,
+		CreatorID:    []string{"creator-id"},
+		Order:        make([]string, 42),
+		Boosters:     make(map[string]*Booster),
+		Location:     []*LocationData{{GuildID: "guild1", ChannelID: "channel1"}},
+	}
+
+	for i := 0; i < 42; i++ {
+		userID := fmt.Sprintf("u%02d", i)
+		contract.Order[i] = userID
+		ihr := 33480.0 // 4.5x
+		if i == 0 {
+			ihr = 33628.8 // 4.52x, should drop precision to 4.5x
+		}
+		contract.Boosters[userID] = &Booster{
+			UserID:       userID,
+			Mention:      fmt.Sprintf("<@%s>", userID),
+			Name:         fmt.Sprintf("Player%02d", i),
+			TokensWanted: 6,
+			IHRRate:      ihr,
+		}
+	}
+
+	components := DrawBoostList(contract)
+	var outputBuilder strings.Builder
+	for _, comp := range components {
+		if textDisplay, ok := comp.(dc.TextDisplay); ok {
+			outputBuilder.WriteString(textDisplay.Content)
+		}
+	}
+	output := outputBuilder.String()
+
+	if strings.Contains(output, "IHR:") {
+		t.Errorf("expected output to omit IHR: prefix when > 40 players, got %q", output)
+	}
+	if strings.Contains(output, "**4.52x**") {
+		t.Errorf("expected output to drop precision and not contain **4.52x**, got %q", output)
+	}
+	if !strings.Contains(output, "**4.5x**") {
+		t.Errorf("expected output to contain **4.5x**, got %q", output)
+	}
+}
+
 func TestDrawBoostListSignupPrefixNumbers(t *testing.T) {
 	createTestContract := func(state int, boostOrder int) *Contract {
 		return &Contract{
