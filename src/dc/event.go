@@ -383,8 +383,9 @@ func (e *CommandEvent) FromComponent() bool { return false }
 
 // ComponentEvent is one button press or select menu choice.
 type ComponentEvent struct {
-	event  *events.ComponentInteractionCreate
-	client *bot.Client
+	event        *events.ComponentInteractionCreate
+	client       *bot.Client
+	LastResponse *Message
 }
 
 // CustomID is the component's identifier, which carries this bot's
@@ -509,6 +510,8 @@ func (e *ComponentEvent) Respond(m Message) (err error) {
 			err = nil
 		}
 	}()
+	msg := m
+	e.LastResponse = &msg
 	if e.event == nil {
 		return nil
 	}

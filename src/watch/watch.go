@@ -228,7 +228,17 @@ func HandleWatch(e *dc.CommandEvent) {
 		return
 	}
 
-	userID := e.UserID()
+	effectiveUserID, expiresAt, isActAs := farmerstate.GetEffectiveUserIDAndExpiry(e.UserID(), e.ChannelID())
+	userID := effectiveUserID
+
+	var actAsNotice string
+	if isActAs {
+		if farmerstate.IsActAsForever(expiresAt) {
+			actAsNotice = fmt.Sprintf("\n*(Acting as <@%s>)*", effectiveUserID)
+		} else {
+			actAsNotice = fmt.Sprintf("\n*(Acting as <@%s>, expires <t:%d:R>)*", effectiveUserID, expiresAt.Unix())
+		}
+	}
 
 	switch subcmd {
 	case "contract":
@@ -250,7 +260,7 @@ func HandleWatch(e *dc.CommandEvent) {
 		}
 		if hasWatch {
 			farmerstate.DeleteWatch(userID, WatchTypeContract, contractID)
-			_ = e.Followup(dc.Message{Content: fmt.Sprintf("Watch for contract `%s` cleared/removed.", contractID)})
+			_ = e.Followup(dc.Message{Content: fmt.Sprintf("Watch for contract `%s` cleared/removed.%s", contractID, actAsNotice)})
 			return
 		}
 
@@ -264,12 +274,12 @@ func HandleWatch(e *dc.CommandEvent) {
 		}
 		if isActive {
 			farmerstate.DeleteWatch(userID, WatchTypeContract, contractID)
-			_ = e.Followup(dc.Message{Content: fmt.Sprintf("Contract `%s` is currently active. Watch cleared/removed.", contractID)})
+			_ = e.Followup(dc.Message{Content: fmt.Sprintf("Contract `%s` is currently active. Watch cleared/removed.%s", contractID, actAsNotice)})
 			return
 		}
 
 		farmerstate.AddWatch(userID, WatchTypeContract, contractID)
-		_ = e.Followup(dc.Message{Content: fmt.Sprintf("Success! Added watch for contract: `%s`.", contractID)})
+		_ = e.Followup(dc.Message{Content: fmt.Sprintf("Success! Added watch for contract: `%s`.%s", contractID, actAsNotice)})
 
 	case "colleggtible":
 		_ = e.Defer(true)
@@ -294,7 +304,7 @@ func HandleWatch(e *dc.CommandEvent) {
 			if colleggtibleID == "new" {
 				msg = "Watch for any **NEW COLLEGGTIBLES** cleared/removed."
 			}
-			_ = e.Followup(dc.Message{Content: msg})
+			_ = e.Followup(dc.Message{Content: msg + actAsNotice})
 			return
 		}
 
@@ -314,7 +324,7 @@ func HandleWatch(e *dc.CommandEvent) {
 			}
 			if isActive {
 				farmerstate.DeleteWatch(userID, WatchTypeColleggtible, colleggtibleID)
-				_ = e.Followup(dc.Message{Content: fmt.Sprintf("Colleggtible `%s` is currently active (offered in contract **%s**). Watch cleared/removed.", colleggtibleID, activeContractName)})
+				_ = e.Followup(dc.Message{Content: fmt.Sprintf("Colleggtible `%s` is currently active (offered in contract **%s**). Watch cleared/removed.%s", colleggtibleID, activeContractName, actAsNotice)})
 				return
 			}
 		}
@@ -324,7 +334,7 @@ func HandleWatch(e *dc.CommandEvent) {
 		if colleggtibleID == "new" {
 			msgContent = "Success! Added watch for any **NEW COLLEGGTIBLES**."
 		}
-		_ = e.Followup(dc.Message{Content: msgContent})
+		_ = e.Followup(dc.Message{Content: msgContent + actAsNotice})
 
 	case "event":
 		_ = e.Defer(true)
@@ -349,18 +359,22 @@ func HandleWatch(e *dc.CommandEvent) {
 		}
 		if hasWatch {
 			farmerstate.DeleteWatch(userID, WatchTypeEvent, targetID)
-			_ = e.Followup(dc.Message{Content: fmt.Sprintf("Watch for event `%s` (include ultra: `%t`, repeat: `%t`) cleared/removed.", eventType, ultra, repeat)})
+			_ = e.Followup(dc.Message{Content: fmt.Sprintf("Watch for event `%s` (include ultra: `%t`, repeat: `%t`) cleared/removed.%s", eventType, ultra, repeat, actAsNotice)})
 			return
 		}
 
 		farmerstate.AddWatch(userID, WatchTypeEvent, targetID)
-		_ = e.Followup(dc.Message{Content: fmt.Sprintf("Success! Added watch for event: `%s` (include ultra: `%t`, repeat: `%t`).", eventType, ultra, repeat)})
+		_ = e.Followup(dc.Message{Content: fmt.Sprintf("Success! Added watch for event: `%s` (include ultra: `%t`, repeat: `%t`).%s", eventType, ultra, repeat, actAsNotice)})
 
 	case "missing":
 		_ = e.Defer(true)
 		eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
 		if eiID == "" {
-			_ = e.Followup(dc.Message{Content: "No EIID found. Please run the `/register` command first to link your account."})
+			msg := "No EIID found. Please run the `/register` command first to link your account."
+			if isActAs {
+				msg = fmt.Sprintf("No EIID found for <@%s>. Please link their account first with `/register`.", effectiveUserID)
+			}
+			_ = e.Followup(dc.Message{Content: msg})
 			return
 		}
 		backup, _ := ei.GetFirstContactFromAPI(eiID, userID, true)
@@ -501,8 +515,12 @@ func HandleWatchAutoComplete(e *dc.AutocompleteEvent) {
 func renderStatusPage(e dc.InteractionEvent, userID string, page int, showClearConfirm bool) {
 	watches := farmerstate.GetWatchesForUser(userID)
 	if len(watches) == 0 {
+		msg := "You currently have no active watches."
+		if userID != e.UserID() {
+			msg = fmt.Sprintf("<@%s> currently has no active watches.", userID)
+		}
 		sendStatusPage(e, dc.Message{
-			Content:      "You currently have no active watches.",
+			Content:      msg,
 			ComponentsV1: true,
 		})
 		return
@@ -596,7 +614,11 @@ func renderStatusPage(e dc.InteractionEvent, userID string, page int, showClearC
 	}
 
 	var sb strings.Builder
-	fmt.Fprintf(&sb, "### Your Active Watches (Page %d/%d):\n", page+1, totalPages)
+	if userID != e.UserID() {
+		fmt.Fprintf(&sb, "### Active Watches for <@%s> (Page %d/%d):\n", userID, page+1, totalPages)
+	} else {
+		fmt.Fprintf(&sb, "### Your Active Watches (Page %d/%d):\n", page+1, totalPages)
+	}
 	for idx, w := range watches[start:end] {
 		targetName := w.TargetID
 		switch w.WatchType {
@@ -814,6 +836,19 @@ func sendStatusPage(e dc.InteractionEvent, m dc.Message) {
 	}
 }
 
+func isAuthorizedWatchUser(clickerID, targetUserID, channelID string) bool {
+	if clickerID == targetUserID {
+		return true
+	}
+	if farmerstate.GetEffectiveUserID(clickerID, channelID) == targetUserID {
+		return true
+	}
+	if farmerstate.IsActAsLinked(clickerID, targetUserID) {
+		return true
+	}
+	return false
+}
+
 func HandlePage(e *dc.ComponentEvent) {
 	parts := strings.Split(e.CustomID(), "#")
 	if len(parts) < 3 {
@@ -826,9 +861,9 @@ func HandlePage(e *dc.ComponentEvent) {
 		return
 	}
 
-	// Ensure clicking user is the owner
+	// Ensure clicking user is authorized
 	clickerID := e.UserID()
-	if clickerID != userID {
+	if !isAuthorizedWatchUser(clickerID, userID, e.ChannelID()) {
 		log.Printf("watch: HandlePage clicker ID mismatch: clicker=%s, owner=%s", clickerID, userID)
 		_ = e.Respond(dc.Message{
 			Content:   "You can only interact with your own watch status pages.",
@@ -850,7 +885,7 @@ func HandleToggleSort(e *dc.ComponentEvent) {
 	userID := parts[1]
 
 	clickerID := e.UserID()
-	if clickerID != userID {
+	if !isAuthorizedWatchUser(clickerID, userID, e.ChannelID()) {
 		_ = e.Respond(dc.Message{
 			Content:   "You can only interact with your own watch status pages.",
 			Ephemeral: true,
@@ -882,7 +917,7 @@ func HandleToggleUltra(e *dc.ComponentEvent) {
 	}
 
 	clickerID := e.UserID()
-	if clickerID != userID {
+	if !isAuthorizedWatchUser(clickerID, userID, e.ChannelID()) {
 		_ = e.Respond(dc.Message{
 			Content:   "You can only interact with your own watch status pages.",
 			Ephemeral: true,
@@ -910,7 +945,7 @@ func HandleClearConfirm(e *dc.ComponentEvent) {
 	}
 
 	clickerID := e.UserID()
-	if clickerID != userID {
+	if !isAuthorizedWatchUser(clickerID, userID, e.ChannelID()) {
 		_ = e.Respond(dc.Message{
 			Content:   "You can only clear your own watches.",
 			Ephemeral: true,
@@ -931,7 +966,7 @@ func HandleClear(e *dc.ComponentEvent) {
 	userID := parts[1]
 
 	clickerID := e.UserID()
-	if clickerID != userID {
+	if !isAuthorizedWatchUser(clickerID, userID, e.ChannelID()) {
 		_ = e.Respond(dc.Message{
 			Content:   "You can only clear your own watches.",
 			Ephemeral: true,
@@ -1209,6 +1244,11 @@ func HandleTestContract(client dc.Client, e *dc.ComponentEvent) {
 	}
 	userID := parts[1]
 
+	clickerID := e.UserID()
+	if !isAuthorizedWatchUser(clickerID, userID, e.ChannelID()) {
+		return
+	}
+
 	_ = e.Respond(dc.Message{Content: "Testing contract watch DM notification...", Ephemeral: true})
 
 	contractID := "first-contract"
@@ -1254,6 +1294,11 @@ func HandleTestColleggtible(client dc.Client, e *dc.ComponentEvent) {
 		return
 	}
 	userID := parts[1]
+
+	clickerID := e.UserID()
+	if !isAuthorizedWatchUser(clickerID, userID, e.ChannelID()) {
+		return
+	}
 
 	_ = e.Respond(dc.Message{Content: "Testing colleggtible watch DM notification...", Ephemeral: true})
 
