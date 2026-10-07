@@ -8,6 +8,7 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
@@ -494,7 +495,7 @@ func GetSignupComponents(contract *Contract) (string, []dc.LayoutComponent) {
 func joinContract(client dc.Client, e *dc.ComponentEvent, bell bool) {
 	_ = e.DeferUpdate()
 
-	userID := e.UserID()
+	userID := farmerstate.GetEffectiveUserID(e.UserID(), e.MessageID(), e.ChannelID())
 
 	if err := JoinContract(client, e.GuildID(), e.ChannelID(), userID, bell); err != nil {
 		log.Print(err.Error())
@@ -546,7 +547,8 @@ func HandleSignupLeave(client dc.Client, e *dc.ComponentEvent) {
 	str := "Removed from Contract"
 	_ = e.Defer(true)
 
-	mention := "<@" + e.UserID() + ">"
+	userID := farmerstate.GetEffectiveUserID(e.UserID(), e.MessageID(), e.ChannelID())
+	mention := "<@" + userID + ">"
 	var err = RemoveFarmerByMention(client, e.GuildID(), e.ChannelID(), mention, mention)
 	if err != nil {
 		str = err.Error()

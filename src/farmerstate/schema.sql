@@ -92,3 +92,18 @@ CREATE TABLE IF NOT EXISTS watches (
     PRIMARY KEY (user_id, watch_type, target_id)
 );
 
+CREATE TABLE IF NOT EXISTS act_as_links (
+    main_user_id TEXT NOT NULL,
+    alt_user_id  TEXT NOT NULL,
+    created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    PRIMARY KEY (main_user_id, alt_user_id)
+);
+
+CREATE TABLE IF NOT EXISTS act_as_switches (
+    main_user_id TEXT NOT NULL,
+    channel_id   TEXT NOT NULL,
+    alt_user_id  TEXT NOT NULL,
+    expires_at   TIMESTAMP NOT NULL,
+    PRIMARY KEY (main_user_id, channel_id)
+);
+

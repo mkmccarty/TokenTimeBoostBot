@@ -2,6 +2,7 @@ package virtue
 
 import (
 	"encoding/base64"
+	"fmt"
 	"strings"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
@@ -83,7 +84,7 @@ func HandleVirtueAutocomplete(e *dc.AutocompleteEvent) {
 		return
 	}
 
-	alts := farmerstate.GetUserAltsWithSavedEID(e.UserID())
+	alts := farmerstate.GetUserAltsWithSavedEID(farmerstate.GetEffectiveUserID(e.UserID(), e.ChannelID()))
 	value = strings.ToLower(strings.TrimSpace(value))
 
 	var choices []dc.Choice[string]
@@ -144,7 +145,8 @@ func getEggIncID(userID string) string {
 
 // HandleVirtue handles the /virtue command.
 func HandleVirtue(e *dc.CommandEvent) {
-	userID := e.UserID()
+	effectiveUserID, expiresAt, isActAs := farmerstate.GetEffectiveUserIDAndExpiry(e.UserID(), e.ChannelID())
+	userID := effectiveUserID
 
 	if opt, ok := e.OptBool("help"); ok && opt {
 		_ = e.Respond(dc.Message{Content: virtueHelpText(), Ephemeral: true})
@@ -157,6 +159,20 @@ func HandleVirtue(e *dc.CommandEvent) {
 
 	altParam, _ := e.OptString("alt")
 	targetID, altEggIncID, notice := farmerstate.ResolveAltSelection(userID, altParam, "Eggs of Virtue")
+
+	if isActAs && altParam == "" {
+		var actAsNotice string
+		if farmerstate.IsActAsForever(expiresAt) {
+			actAsNotice = fmt.Sprintf("Acting as <@%s> via /act-as", effectiveUserID)
+		} else {
+			actAsNotice = fmt.Sprintf("Acting as <@%s> via /act-as (expires <t:%d:R>)", effectiveUserID, expiresAt.Unix())
+		}
+		if notice != "" {
+			notice = actAsNotice + "\n" + notice
+		} else {
+			notice = actAsNotice
+		}
+	}
 
 	eggIncID := altEggIncID
 	if eggIncID == "" {
@@ -173,10 +189,25 @@ func HandleVirtue(e *dc.CommandEvent) {
 
 // HandleVirtueModal handles the modal submission when a user provides their Egg Inc ID.
 func HandleVirtueModal(e *dc.ModalEvent, options dc.OptionValues, encryptedID string, okayToSave bool) {
-	userID := e.UserID()
+	effectiveUserID, expiresAt, isActAs := farmerstate.GetEffectiveUserIDAndExpiry(e.UserID(), e.ChannelID())
+	userID := effectiveUserID
 
 	altParam, _ := options.String("alt")
 	targetID, altEggIncID, notice := farmerstate.ResolveAltSelection(userID, altParam, "Eggs of Virtue")
+
+	if isActAs && altParam == "" {
+		var actAsNotice string
+		if farmerstate.IsActAsForever(expiresAt) {
+			actAsNotice = fmt.Sprintf("Acting as <@%s> via /act-as", effectiveUserID)
+		} else {
+			actAsNotice = fmt.Sprintf("Acting as <@%s> via /act-as (expires <t:%d:R>)", effectiveUserID, expiresAt.Unix())
+		}
+		if notice != "" {
+			notice = actAsNotice + "\n" + notice
+		} else {
+			notice = actAsNotice
+		}
+	}
 
 	eggIncID := altEggIncID
 	if eggIncID == "" {

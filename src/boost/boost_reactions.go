@@ -36,7 +36,8 @@ func ReactionAdd(client dc.Client, e *dc.ReactionEvent) string {
 	}
 
 	// If the user is not in the contract then they can join with a farmer reaction
-	if !UserInContract(contract, e.UserID()) {
+	joinUserID := farmerstate.GetEffectiveUserID(e.UserID(), e.MessageID(), e.ChannelID())
+	if !UserInContract(contract, joinUserID) {
 		var farmerSlice = []string{
 			"🧑‍🌾", "🧑🏻‍🌾", "🧑🏼‍🌾", "🧑🏽‍🌾", "🧑🏾‍🌾", "🧑🏿‍🌾", // farmer
 			"👩‍🌾", "👩🏻‍🌾", "👩🏼‍🌾", "👩🏽‍🌾", "👩🏾‍🌾", "👩🏿‍🌾", // woman farmer
@@ -44,22 +45,24 @@ func ReactionAdd(client dc.Client, e *dc.ReactionEvent) string {
 		}
 
 		if slices.Contains(farmerSlice, emojiName) {
-			err := JoinContract(client, e.GuildID(), e.ChannelID(), e.UserID(), false)
+			err := JoinContract(client, e.GuildID(), e.ChannelID(), joinUserID, false)
 			if err == nil {
 				redraw = true
 			}
 		}
 	}
 
+	userID := resolveContractUserID(client, contract, e.UserID())
+
 	// If the user is in the contract then they can set their token count
-	if UserInContract(contract, e.UserID()) {
+	if UserInContract(contract, userID) {
 		var numberSlice = []string{"0️⃣", "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"}
 		if slices.Contains(numberSlice, emojiName) {
-			var b = contract.Boosters[e.UserID()]
+			var b = contract.Boosters[userID]
 			if b != nil {
 				var tokenCount = slices.Index(numberSlice, emojiName)
 				if (ContractFlagDynamicTokens+ContractFlag8Tokens+ContractFlag6Tokens+ContractFlag4Tokens+ContractFlagThresholdTokens)&contract.Style == 0 {
-					farmerstate.SetTokens(e.UserID(), tokenCount)
+					farmerstate.SetTokens(userID, tokenCount)
 				}
 				b.TokensWanted = tokenCount
 				redraw = true
@@ -67,7 +70,7 @@ func ReactionAdd(client dc.Client, e *dc.ReactionEvent) string {
 		}
 	}
 
-	if UserInContract(contract, e.UserID()) || creatorOfContract(client, contract, e.UserID()) {
+	if UserInContract(contract, userID) || creatorOfContract(client, contract, e.UserID()) || creatorOfContract(client, contract, userID) {
 		contract.LastInteractionTime = time.Now()
 
 		if contract.State == ContractStateSignup {
@@ -105,32 +108,32 @@ func ReactionAdd(client dc.Client, e *dc.ReactionEvent) string {
 			switch e.EmojiName() {
 			case boostIconName:
 				if e.MessageID() == contract.Location[0].ListMsgID {
-					result := buttonReactionBoost(client, e.GuildID(), e.ChannelID(), contract, e.UserID())
+					result := buttonReactionBoost(client, e.GuildID(), e.ChannelID(), contract, userID)
 					if result {
 						return returnVal
 					}
 				}
 			case "🔃":
-				result := buttonReactionSwap(client, e.GuildID(), e.ChannelID(), contract, e.UserID())
+				result := buttonReactionSwap(client, e.GuildID(), e.ChannelID(), contract, userID)
 				if result {
 					return returnVal
 				}
 			case "⤵️":
 				willReturn := false
-				willReturn, redraw = buttonReactionLast(client, e.GuildID(), e.ChannelID(), contract, e.UserID())
+				willReturn, redraw = buttonReactionLast(client, e.GuildID(), e.ChannelID(), contract, userID)
 				if willReturn {
 					return returnVal
 				}
 			case "🚽":
-				if contract.Boosters[e.UserID()].BoostState == BoostStateUnboosted {
+				if contract.Boosters[userID].BoostState == BoostStateUnboosted {
 					// Bounds check: ensure currentBoosterIdx is valid before using it
 					if currentBoosterIdx < 0 {
 						_, _ = client.SendMessage(e.ChannelID(), dc.Message{Content: "Unable to move booster right now because the current booster position could not be determined."})
 					} else {
 						// Move Booster position is 1 based, so we need to add 2 to the current position
-						err := MoveBooster(client, e.GuildID(), e.ChannelID(), contract.CreatorID[0], e.UserID(), currentBoosterIdx+2, true)
+						err := MoveBooster(client, e.GuildID(), e.ChannelID(), contract.CreatorID[0], userID, currentBoosterIdx+2, true)
 						if err == nil {
-							_, _ = client.SendMessage(e.ChannelID(), dc.Message{Content: contract.Boosters[e.UserID()].Name + " expressed a desire to go next!"})
+							_, _ = client.SendMessage(e.ChannelID(), dc.Message{Content: contract.Boosters[userID].Name + " expressed a desire to go next!"})
 							returnVal = "!gonow"
 						}
 					}

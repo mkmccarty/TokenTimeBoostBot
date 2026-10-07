@@ -94,7 +94,7 @@ func parseCsEstimateParams(e *dc.CommandEvent) csEstimateParams {
 	if opt, ok := e.OptBool("private-reply"); ok && opt {
 		ephemeral = true
 	}
-	userID := e.UserID()
+	userID := farmerstate.GetEffectiveUserID(e.UserID(), e.ChannelID())
 	srMode := farmerstate.GetMiscSettingFlag(userID, "sr-mode")
 	if opt, ok := e.OptBool("sr-mode"); ok {
 		srMode = opt
@@ -157,7 +157,7 @@ func HandleCsEstimateButtons(e *dc.ComponentEvent) {
 		}
 
 		// Is the user in the contract?
-		userID := e.UserID()
+		userID := farmerstate.GetEffectiveUserID(e.UserID(), e.MessageID(), e.ChannelID())
 		if !UserInContract(contract, userID) {
 			// Ignore if the user isn't in the contract
 			return
@@ -209,7 +209,7 @@ func runCsEstimate(e *dc.CommandEvent, p csEstimateParams) {
 	}
 
 	// Get coopStatus with the given contractID and coopID
-	userID := e.UserID()
+	userID := farmerstate.GetEffectiveUserID(e.UserID(), e.ChannelID())
 	eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
 	str, fields, contractScore := DownloadCoopStatusTeamwork(e.ChannelID(), contractID, coopID, true, eiID)
 	if fields == nil || strings.HasSuffix(str, "no such file or directory") || strings.HasPrefix(str, "No grade found") {

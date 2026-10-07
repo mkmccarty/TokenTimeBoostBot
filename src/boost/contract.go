@@ -128,7 +128,8 @@ func HandleContractCommand(client dc.Client, e *dc.CommandEvent) {
 	var ChannelID = e.ChannelID()
 	var playStyle = ContractPlaystyleChill
 	makeThread := true // Default is to always make a thread
-	progenitors := []string{e.UserID()}
+	actingUserID, _, isActingAs := farmerstate.GetEffectiveUserIDAndExpiry(e.UserID(), e.ChannelID())
+	progenitors := []string{actingUserID}
 	plannedStartTime := time.Time{}
 
 	if opt, ok := e.OptInt("play-style"); ok {
@@ -312,10 +313,12 @@ func HandleContractCommand(client dc.Client, e *dc.CommandEvent) {
 		if len(progenitors) > maxSize {
 			progenitors = progenitors[:maxSize]
 		}
-		if !slices.Contains(progenitors, e.UserID()) && len(progenitors) < maxSize {
-			progenitors = append([]string{e.UserID()}, progenitors...)
+		if !slices.Contains(progenitors, actingUserID) && len(progenitors) < maxSize {
+			progenitors = append([]string{actingUserID}, progenitors...)
 		}
 	}
+
+	switchTransferred := false
 
 	// Create a new thread for this contract
 	if makeThread {
@@ -422,9 +425,16 @@ func HandleContractCommand(client dc.Client, e *dc.CommandEvent) {
 		if err == nil {
 			ChannelID = thread.ID
 			_ = client.JoinThread(thread.ID)
+			if isActingAs {
+				if err := farmerstate.MoveActAsSwitchWithExpiry(e.UserID(), e.ChannelID(), ChannelID, farmerstate.ActAsForeverExpiry); err == nil {
+					switchTransferred = true
+				}
+			}
 		} else {
 			log.Printf("contract: failed to start thread in channel %s: %v", ChannelID, err)
 		}
+	} else if ch != nil && ch.IsThread && isActingAs {
+		_ = farmerstate.SetActAsSwitch(e.UserID(), ChannelID, actingUserID, farmerstate.ActAsForeverExpiry)
 	}
 
 	mutex.Lock()
@@ -437,6 +447,12 @@ func HandleContractCommand(client dc.Client, e *dc.CommandEvent) {
 			Ephemeral: true,
 		}); ferr != nil {
 			log.Printf("contract: failed to send create error followup to channel %s: %v", e.ChannelID(), ferr)
+		}
+		if switchTransferred {
+			_ = e.Followup(dc.Message{
+				Content:   fmt.Sprintf("Your active `/act-as` switch has been transferred to the contract thread (<#%s>). You have been switched back to your main profile in this channel.", ChannelID),
+				Ephemeral: true,
+			})
 		}
 		return
 	}
@@ -458,6 +474,9 @@ func HandleContractCommand(client dc.Client, e *dc.CommandEvent) {
 		if ChannelID != e.ChannelID() {
 			str += "\nThis message can be moved into the contract thread via `/contract-settings` command in that thread."
 		}
+		if isActingAs {
+			str += fmt.Sprintf("\nActing as <@%s> for these settings.", actingUserID)
+		}
 		// Take the str and make it a TextDisplay component and add it as the fist entry on the components
 		var components []dc.LayoutComponent
 		components = append(components, dc.TextDisplay{
@@ -466,10 +485,13 @@ func HandleContractCommand(client dc.Client, e *dc.CommandEvent) {
 		// Add the contract settings component
 		components = append(components, comp...)
 
-		err = e.Followup(dc.Message{
+		msgRef, err := e.FollowupMessage(dc.Message{
 			Ephemeral:  true,
 			Components: components,
 		})
+		if msgRef != nil && msgRef.ID != "" && isActingAs {
+			farmerstate.RegisterEphemeralMessageSwitch(msgRef.ID, e.UserID(), actingUserID)
+		}
 		if err != nil {
 			log.Print(err)
 		}
@@ -481,6 +503,13 @@ func HandleContractCommand(client dc.Client, e *dc.CommandEvent) {
 		if err != nil {
 			log.Print(err)
 		}
+	}
+
+	if switchTransferred {
+		_ = e.Followup(dc.Message{
+			Content:   fmt.Sprintf("Your active `/act-as` switch has been transferred to the contract thread (<#%s>). You have been switched back to your main profile in this channel.", ChannelID),
+			Ephemeral: true,
+		})
 	}
 
 	var createMsg = DrawBoostList(contract)
@@ -752,6 +781,8 @@ func HandleContractSettingsReactions(client dc.Client, e *dc.ComponentEvent) {
 	redrawSignup := true
 	redrawSettings := false
 
+	actingUserID, _, isActingAs := farmerstate.GetEffectiveUserIDAndExpiry(e.UserID(), e.MessageID(), e.ChannelID())
+
 	// This is only coming from the caller of the contract
 
 	// cs_#Name # cs_#ID # HASH
@@ -949,7 +980,10 @@ func HandleContractSettingsReactions(client dc.Client, e *dc.ComponentEvent) {
 				}
 			} else if strings.HasPrefix(values[0], "custom_u:") {
 				name := strings.TrimPrefix(values[0], "custom_u:")
-				tmpl := FindCustomOrderTemplate(e.UserID(), "user:"+name)
+				tmpl := FindCustomOrderTemplate(actingUserID, "user:"+name)
+				if tmpl == nil && actingUserID != e.UserID() {
+					tmpl = FindCustomOrderTemplate(e.UserID(), "user:"+name)
+				}
 				if tmpl == nil && len(contract.CreatorID) > 0 {
 					tmpl = FindCustomOrderTemplate(contract.CreatorID[0], "user:"+name)
 				}
@@ -969,7 +1003,7 @@ func HandleContractSettingsReactions(client dc.Client, e *dc.ComponentEvent) {
 	switch cmd {
 
 	case "boostsink":
-		sid := e.UserID()
+		sid := actingUserID
 		booster, ok := contract.Boosters[sid]
 		if !ok || booster == nil {
 			_ = e.Followup(dc.Message{
@@ -998,7 +1032,7 @@ func HandleContractSettingsReactions(client dc.Client, e *dc.ComponentEvent) {
 			contract.Banker.CurrentBanker = contract.Banker.BoostingSinkUserID
 		}
 	case "postsink":
-		sid := e.UserID()
+		sid := actingUserID
 		booster, ok := contract.Boosters[sid]
 		if !ok || booster == nil {
 			_ = e.Followup(dc.Message{
@@ -1112,6 +1146,9 @@ func HandleContractSettingsReactions(client dc.Client, e *dc.ComponentEvent) {
 			inThread = true
 		}
 		str, comp := getSignupContractSettings(contract.Location[0].ChannelID, contract.ContractHash, inThread)
+		if isActingAs {
+			str += fmt.Sprintf("\nActing as <@%s> for these settings.", actingUserID)
+		}
 		// Take the str and make it a TextDisplay component and add it as the fist entry on the components
 		var components []dc.LayoutComponent
 		components = append(components, dc.TextDisplay{
@@ -1161,6 +1198,10 @@ func HandleContractSettingsCommand(client dc.Client, e *dc.CommandEvent) {
 			inThread = true
 		}
 		str, comp := getSignupContractSettings(contract.Location[0].ChannelID, contract.ContractHash, inThread)
+		actingUserID, _, isActingAs := farmerstate.GetEffectiveUserIDAndExpiry(e.UserID(), e.ChannelID())
+		if isActingAs {
+			str += fmt.Sprintf("\nActing as <@%s> for these settings.", actingUserID)
+		}
 		// Take the str and make it a TextDisplay component and add it as the fist entry on the components
 		var components []dc.LayoutComponent
 		components = append(components, dc.TextDisplay{
@@ -1168,7 +1209,13 @@ func HandleContractSettingsCommand(client dc.Client, e *dc.CommandEvent) {
 		})
 		// Add the contract settings component
 		components = append(components, comp...)
-		err = e.Followup(dc.Message{Components: components})
+		msgRef, err := e.FollowupMessage(dc.Message{
+			Ephemeral:  true,
+			Components: components,
+		})
+		if msgRef != nil && msgRef.ID != "" && isActingAs {
+			farmerstate.RegisterEphemeralMessageSwitch(msgRef.ID, e.UserID(), actingUserID)
+		}
 		if err != nil {
 			log.Printf("contract: error sending contract settings followup in channel %s: %v", e.ChannelID(), err)
 		}

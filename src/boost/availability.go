@@ -236,9 +236,9 @@ func HandleAvailabilityCommand(client dc.Client, e *dc.CommandEvent) {
 		return
 	}
 
-	userID := e.UserID()
-	isCoord := creatorOfContract(client, contract, userID)
-	inContract := UserInContract(contract, userID)
+	userID := resolveContractUserID(client, contract, e.UserID())
+	isCoord := creatorOfContract(client, contract, e.UserID()) || creatorOfContract(client, contract, userID)
+	inContract := UserInContract(contract, userID) || UserInContract(contract, e.UserID())
 
 	if !inContract && !isCoord {
 		_ = e.Respond(dc.Message{

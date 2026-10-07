@@ -404,13 +404,14 @@ func AddBoostTokens(client dc.Client, e dc.InteractionEvent, setCountWant int, c
 	if contract == nil {
 		return 0, 0, errors.New(errorNoContract)
 	}
+	userID := resolveContractUserID(client, contract, e.UserID())
 	// verify the user is in the contract
-	if !UserInContract(contract, e.UserID()) {
+	if !UserInContract(contract, userID) {
 		return 0, 0, errors.New(errorUserNotInContract)
 	}
 
 	// Add the token count for the userID, ensure the count is not negative
-	var b = contract.Boosters[e.UserID()]
+	var b = contract.Boosters[userID]
 	if b == nil {
 		return 0, 0, errors.New(errorUserNotInContract)
 	}
@@ -1375,8 +1376,16 @@ func creatorOfContract(client dc.Client, c *Contract, u string) bool {
 		if slices.Contains(c.CreatorID, u) {
 			return true
 		}
+		var channelID string
+		if len(c.Location) > 0 {
+			channelID = c.Location[0].ChannelID
+		}
+		effectiveUser := farmerstate.GetEffectiveUserID(u, channelID)
+		if effectiveUser != u && slices.Contains(c.CreatorID, effectiveUser) {
+			return true
+		}
 		for _, el := range c.Location {
-			if guildstate.IsGuildCoordinator(el.GuildID, u) {
+			if guildstate.IsGuildCoordinator(el.GuildID, u) || (effectiveUser != u && guildstate.IsGuildCoordinator(el.GuildID, effectiveUser)) {
 				return true
 			}
 			perms, err := client.UserChannelPermissions(u, el.ChannelID)
@@ -1390,6 +1399,26 @@ func creatorOfContract(client dc.Client, c *Contract, u string) bool {
 	}
 
 	return false
+}
+
+// resolveContractUserID returns the effective user ID if in the contract,
+// falling back to callerID if the effective user is not in the contract but callerID is (or is creator).
+func resolveContractUserID(client dc.Client, c *Contract, callerID string) string {
+	var channelID string
+	if c != nil && len(c.Location) > 0 {
+		channelID = c.Location[0].ChannelID
+	}
+	effectiveID := farmerstate.GetEffectiveUserID(callerID, channelID)
+	if effectiveID != callerID {
+		if UserInContract(c, effectiveID) {
+			return effectiveID
+		}
+		if UserInContract(c, callerID) || (client != nil && creatorOfContract(client, c, callerID)) {
+			return callerID
+		}
+		return effectiveID
+	}
+	return callerID
 }
 
 // UserInContract will return true if the user is in the contract, also checks for any discrepancies between Boosters and Order and resolves them

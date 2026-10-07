@@ -1021,12 +1021,13 @@ func HandleChartReactions(e *dc.ComponentEvent) {
 	action := parts[1]
 	uuidPart := parts[2]
 	userID := e.UserID()
+	effectiveUserID := farmerstate.GetEffectiveUserID(userID, e.MessageID(), e.ChannelID())
 
 	if action == "finish" {
 		chartSessionsMutex.Lock()
 		session, ok := chartSessions[uuidPart]
 		if ok {
-			if session.userID != userID {
+			if session.userID != userID && session.userID != effectiveUserID {
 				chartSessionsMutex.Unlock()
 				_ = e.Respond(dc.Message{
 					Content:   "This is restricted to the user that originally ran the command.",
@@ -1057,7 +1058,7 @@ func HandleChartReactions(e *dc.ComponentEvent) {
 		return
 	}
 
-	if session.userID != userID {
+	if session.userID != userID && session.userID != effectiveUserID {
 		_ = e.Respond(dc.Message{
 			Content:   "This is restricted to the user that originally ran the command.",
 			Ephemeral: true,

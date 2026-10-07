@@ -115,9 +115,14 @@ func HandleEggIDModalSubmit(e *dc.ModalEvent) {
 		}
 	}
 
+	targetSaveUserID := userID
+	if parts[1] != "register" && parts[1] != "register-alt" {
+		targetSaveUserID = farmerstate.GetEffectiveUserID(userID, e.MessageID(), e.ChannelID())
+	}
+
 	if okayToSave && encryptedID != "" {
 		if parts[1] != "register-alt" {
-			farmerstate.SetMiscSettingString(userID, "encrypted_ei_id", encryptedID)
+			farmerstate.SetMiscSettingString(targetSaveUserID, "encrypted_ei_id", encryptedID)
 		}
 		str += "\nI will remember your Egg Inc ID for future sessions."
 	}

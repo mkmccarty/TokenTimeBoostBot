@@ -86,6 +86,32 @@ func sqliteInit() {
 		_, _ = db.ExecContext(ctx, "DROP TABLE leaderboard_stats;")
 	}
 
+	// Drop old act_as_switches table if it lacks channel_id to migrate to channel-scoped schema
+	var hasActAsChannelID bool
+	var hasActAsTable bool
+	rows, err = db.QueryContext(ctx, "PRAGMA table_info(act_as_switches)")
+	if err == nil {
+		for rows.Next() {
+			hasActAsTable = true
+			var cid int
+			var name string
+			var type_ string
+			var notnull int
+			var dfltVal interface{}
+			var pk int
+			if err := rows.Scan(&cid, &name, &type_, &notnull, &dfltVal, &pk); err == nil {
+				if name == "channel_id" {
+					hasActAsChannelID = true
+				}
+			}
+		}
+		_ = rows.Close()
+	}
+	if hasActAsTable && !hasActAsChannelID {
+		log.Println("farmerstate: dropping old act_as_switches to migrate to channel-scoped schema")
+		_, _ = db.ExecContext(ctx, "DROP TABLE act_as_switches;")
+	}
+
 	// Execute each statement in the DDL to set up the database schema
 	for stmt := range strings.SplitSeq(ddl, ";") {
 		stmt = strings.TrimSpace(stmt)
@@ -675,27 +701,48 @@ func GetEiIgnsByGuild(guildID string) []string {
 // without collapsing alternate accounts back to their controller.
 func GetDiscordUserIDFromEiIgnExact(eiIgn string) (string, error) {
 	FlushPendingSaves()
-	id, err := queries.GetUserIdFromEiIgn(ctx, sql.NullString{String: eiIgn, Valid: true})
+	ids, err := queries.GetUserIdsFromEiIgn(ctx, sql.NullString{String: eiIgn, Valid: true})
 	if err != nil {
 		return "", err
 	}
-	return id, nil
+	for _, id := range ids {
+		if IsDiscordSnowflake(id) {
+			return id, nil
+		}
+	}
+	if len(ids) > 0 {
+		return ids[0], nil
+	}
+	return "", sql.ErrNoRows
 }
 
 // GetDiscordUserIDFromEiIgn retrieves the Discord user ID based on the provided ei_ign.
 // It also checks if the account is an alternate and returns the parent's Discord ID if so.
 func GetDiscordUserIDFromEiIgn(eiIgn string) (string, error) {
 	FlushPendingSaves()
-	id, err := queries.GetUserIdFromEiIgn(ctx, sql.NullString{String: eiIgn, Valid: true})
+	ids, err := queries.GetUserIdsFromEiIgn(ctx, sql.NullString{String: eiIgn, Valid: true})
 	if err != nil {
 		return "", err
 	}
+	var matchedID string
+	for _, id := range ids {
+		if IsDiscordSnowflake(id) {
+			matchedID = id
+			break
+		}
+	}
+	if matchedID == "" && len(ids) > 0 {
+		matchedID = ids[0]
+	}
+	if matchedID == "" {
+		return "", sql.ErrNoRows
+	}
 	// Check if this ID is an alternate of another user
-	parentID := GetMiscSettingString(id, "AltController")
+	parentID := GetMiscSettingString(matchedID, "AltController")
 	if parentID != "" {
 		return parentID, nil
 	}
-	return id, nil
+	return matchedID, nil
 }
 
 // GetDiscordUserIDFromEggIncName retrieves the Discord user ID based on the provided eggincname.

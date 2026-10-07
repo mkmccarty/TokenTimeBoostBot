@@ -86,7 +86,9 @@ func HandleLobbyCommand(e *dc.CommandEvent) {
 		return
 	}
 
-	components := buildLobbyComponents(e.ChannelID(), contractID, coopID, e.UserID(), false, true)
+	contract := FindContract(e.ChannelID())
+	targetUserID := resolveContractUserID(nil, contract, e.UserID())
+	components := buildLobbyComponents(e.ChannelID(), contractID, coopID, targetUserID, false, true)
 	if sendErr := e.Followup(dc.Message{
 		Ephemeral:  p.ephemeral,
 		Components: components,
@@ -134,7 +136,9 @@ func HandleLobbyButtons(client dc.Client, e *dc.ComponentEvent) {
 
 		_ = e.DeferUpdate()
 
-		components := buildLobbyComponents(e.ChannelID(), contractID, coopID, e.UserID(), true, true)
+		contract := FindContract(e.ChannelID())
+		targetUserID := resolveContractUserID(client, contract, e.UserID())
+		components := buildLobbyComponents(e.ChannelID(), contractID, coopID, targetUserID, true, true)
 		if err := e.EditResponse(dc.Message{Components: components}); err != nil {
 			if apiErr, ok := dc.AsAPIError(err); ok && (apiErr.Code == dc.ErrCodeMissingAccess || apiErr.Code == dc.ErrCodeMissingPermissions) {
 				log.Printf("lobby: unable to edit message %s in channel %s (missing access/permissions): %v", e.MessageID(), e.ChannelID(), err)
@@ -189,19 +193,19 @@ func handleLobbyPing(client dc.Client, e *dc.ComponentEvent, contractID string, 
 		return
 	}
 
-	userID := e.UserID()
-	isMember := UserInContract(contract, userID)
+	userID := resolveContractUserID(client, contract, e.UserID())
+	isMember := UserInContract(contract, userID) || UserInContract(contract, e.UserID())
 	if !isMember {
 		contract.mutex.Lock()
 		for _, b := range contract.Boosters {
-			if b.AltController == userID {
+			if b.AltController == userID || b.AltController == e.UserID() {
 				isMember = true
 				break
 			}
 		}
 		contract.mutex.Unlock()
 	}
-	if !isMember && !creatorOfContract(client, contract, userID) {
+	if !isMember && !creatorOfContract(client, contract, e.UserID()) && !creatorOfContract(client, contract, userID) {
 		_ = e.Followup(dc.Message{
 			Ephemeral: true,
 			Content:   "Only contract members or coordinators can ping players.",

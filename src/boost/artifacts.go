@@ -3,6 +3,7 @@ package boost
 import (
 	"fmt"
 	"log"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -995,6 +996,11 @@ func SlashArtifactsCommand(cmd string) *dc.Command {
 func HandleArtifactAltAutoComplete(e *dc.AutocompleteEvent) {
 	userID := e.UserID()
 	alts := farmerstate.GetAltControllerByMiscString("AltController", userID)
+	for _, linked := range farmerstate.GetActAsLinks(userID) {
+		if !slices.Contains(alts, linked) {
+			alts = append(alts, linked)
+		}
+	}
 
 	choices := make([]dc.Choice[string], 0, len(alts))
 	for _, alt := range alts {
@@ -1026,7 +1032,8 @@ func resolveArtifactTargetUserID(e *dc.CommandEvent) (string, string, bool) {
 
 	opt, ok := e.OptString("alternate")
 	if !ok {
-		return requesterID, requesterID, false
+		effectiveID := farmerstate.GetEffectiveUserID(requesterID, e.ChannelID())
+		return requesterID, effectiveID, false
 	}
 
 	candidate := strings.TrimSpace(opt)
@@ -1038,6 +1045,9 @@ func resolveArtifactTargetUserID(e *dc.CommandEvent) (string, string, bool) {
 		if alt == candidate {
 			return requesterID, candidate, false
 		}
+	}
+	if farmerstate.IsActAsLinked(requesterID, candidate) {
+		return requesterID, candidate, false
 	}
 
 	return requesterID, requesterID, true
