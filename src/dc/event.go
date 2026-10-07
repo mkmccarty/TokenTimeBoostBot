@@ -66,8 +66,9 @@ func optionalIDString(id *snowflake.ID) string {
 // CommandEvent is one slash command invocation: the interaction plus the
 // means to answer it. Handlers take this instead of a client and an event.
 type CommandEvent struct {
-	event  *events.ApplicationCommandInteractionCreate
-	client *bot.Client
+	event        *events.ApplicationCommandInteractionCreate
+	client       *bot.Client
+	LastResponse *Message
 }
 
 // data is the slash command payload. Every command this bot publishes is a
@@ -297,6 +298,8 @@ func (e *CommandEvent) Respond(m Message) (err error) {
 			err = nil
 		}
 	}()
+	msg := m
+	e.LastResponse = &msg
 	if e.event == nil {
 		return nil
 	}
@@ -361,7 +364,15 @@ func (e *CommandEvent) EditResponse(m Message) error {
 }
 
 // ShowModal answers the interaction by opening a modal form.
-func (e *CommandEvent) ShowModal(modal Modal) error {
+func (e *CommandEvent) ShowModal(modal Modal) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = nil
+		}
+	}()
+	if e.event == nil {
+		return nil
+	}
 	return e.event.Modal(modal.toDisgo())
 }
 
@@ -1080,6 +1091,20 @@ func NewAutocompleteEventFromPayload(payload []byte) (*AutocompleteEvent, error)
 	return &AutocompleteEvent{
 		event: &events.AutocompleteInteractionCreate{
 			AutocompleteInteraction: interaction,
+		},
+	}, nil
+}
+
+// NewModalEventFromPayload builds a ModalEvent from Discord's own
+// interaction JSON.
+func NewModalEventFromPayload(payload []byte) (*ModalEvent, error) {
+	var interaction discord.ModalSubmitInteraction
+	if err := json.Unmarshal(payload, &interaction); err != nil {
+		return nil, err
+	}
+	return &ModalEvent{
+		event: &events.ModalSubmitInteractionCreate{
+			ModalSubmitInteraction: interaction,
 		},
 	}, nil
 }

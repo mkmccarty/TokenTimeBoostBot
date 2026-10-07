@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
@@ -317,4 +318,37 @@ func TestHandleVirtueAutocomplete(t *testing.T) {
 	if len(eventEmpty.LastChoices) != 0 {
 		t.Errorf("expected 0 choices for user without alts, got %d", len(eventEmpty.LastChoices))
 	}
+}
+
+func TestHandleVirtueActAs(t *testing.T) {
+	callerID := "4"
+	altUser := "100000000000000088"
+	dummyEID := "EI7777777777777777"
+
+	enc := makeTestEncryptedEID(t, dummyEID)
+	farmerstate.SetMiscSettingString("sub-virtue-alt-1", "AltController", altUser)
+	farmerstate.SetMiscSettingString("sub-virtue-alt-1", "encrypted_ei_id", enc)
+	farmerstate.SetMiscSettingString("sub-virtue-alt-1", "ei_ign", "VirtueAltFarm")
+
+	// Initially caller has no alts
+	eventBefore := dctest.AutocompleteEvent("virtue", "alt", "")
+	HandleVirtueAutocomplete(eventBefore)
+	if len(eventBefore.LastChoices) != 0 {
+		t.Errorf("expected 0 choices before act-as switch, got %d", len(eventBefore.LastChoices))
+	}
+
+	// Link and switch
+	_ = farmerstate.AddActAsLink(callerID, altUser)
+	_ = farmerstate.SetActAsSwitch(callerID, "3", altUser, time.Now().Add(1*time.Hour))
+
+	// When acting as altUser, autocomplete should suggest altUser's alts
+	eventDuring := dctest.AutocompleteEvent("virtue", "alt", "")
+	HandleVirtueAutocomplete(eventDuring)
+	if len(eventDuring.LastChoices) != 1 || eventDuring.LastChoices[0].Value != "sub-virtue-alt-1" {
+		t.Errorf("expected 1 choice for 'sub-virtue-alt-1' while acting as %s, got %+v", altUser, eventDuring.LastChoices)
+	}
+
+	// Clean up
+	_ = farmerstate.ClearActAsSwitch(callerID, "3")
+	_ = farmerstate.RemoveActAsLink(callerID, altUser)
 }

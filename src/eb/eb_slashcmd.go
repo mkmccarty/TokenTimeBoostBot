@@ -1,6 +1,7 @@
 package eb
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
@@ -96,7 +97,7 @@ func HandleEbAutocomplete(e *dc.AutocompleteEvent) {
 		return
 	}
 
-	alts := GetUserAltsWithSavedEID(e.UserID())
+	alts := GetUserAltsWithSavedEID(farmerstate.GetEffectiveUserID(e.UserID(), e.ChannelID()))
 	if len(alts) == 0 {
 		_ = e.RespondChoices(nil)
 		return
@@ -145,7 +146,8 @@ func NormalizeFarmChoice(choice string) string {
 
 // HandleEb handles the /eb command.
 func HandleEb(e *dc.CommandEvent) {
-	userID := e.UserID()
+	effectiveUserID, expiresAt, isActAs := farmerstate.GetEffectiveUserIDAndExpiry(e.UserID(), e.ChannelID())
+	userID := effectiveUserID
 
 	farmChoice := DefaultFarmChoice
 	if opt, ok := e.OptString("farm"); ok && strings.TrimSpace(opt) != "" {
@@ -169,6 +171,20 @@ func HandleEb(e *dc.CommandEvent) {
 	altParam, _ := e.OptString("alt")
 	targetID, eggIncID, notice := resolveAltSelection(userID, altParam)
 
+	if isActAs && altParam == "" {
+		var actAsNotice string
+		if farmerstate.IsActAsForever(expiresAt) {
+			actAsNotice = fmt.Sprintf("Acting as <@%s> via /act-as", effectiveUserID)
+		} else {
+			actAsNotice = fmt.Sprintf("Acting as <@%s> via /act-as (expires <t:%d:R>)", effectiveUserID, expiresAt.Unix())
+		}
+		if notice != "" {
+			notice = actAsNotice + "\n" + notice
+		} else {
+			notice = actAsNotice
+		}
+	}
+
 	if eggIncID == "" {
 		eggIncID = getEggIncID(targetID)
 	}
@@ -183,7 +199,8 @@ func HandleEb(e *dc.CommandEvent) {
 
 // HandleEbModal handles the modal submission when a user provides their Egg Inc ID.
 func HandleEbModal(e *dc.ModalEvent, options dc.OptionValues, encryptedID string, okayToSave bool) {
-	userID := e.UserID()
+	effectiveUserID, expiresAt, isActAs := farmerstate.GetEffectiveUserIDAndExpiry(e.UserID(), e.ChannelID())
+	userID := effectiveUserID
 
 	farmChoice := DefaultFarmChoice
 	if opt, ok := options.String("farm"); ok && strings.TrimSpace(opt) != "" {
@@ -206,6 +223,20 @@ func HandleEbModal(e *dc.ModalEvent, options dc.OptionValues, encryptedID string
 
 	altParam, _ := options.String("alt")
 	targetID, altEggIncID, notice := resolveAltSelection(userID, altParam)
+
+	if isActAs && altParam == "" {
+		var actAsNotice string
+		if farmerstate.IsActAsForever(expiresAt) {
+			actAsNotice = fmt.Sprintf("Acting as <@%s> via /act-as", effectiveUserID)
+		} else {
+			actAsNotice = fmt.Sprintf("Acting as <@%s> via /act-as (expires <t:%d:R>)", effectiveUserID, expiresAt.Unix())
+		}
+		if notice != "" {
+			notice = actAsNotice + "\n" + notice
+		} else {
+			notice = actAsNotice
+		}
+	}
 
 	eggIncID := altEggIncID
 	if eggIncID == "" {

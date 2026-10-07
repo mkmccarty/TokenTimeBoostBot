@@ -144,7 +144,7 @@ func HandleReplayEval(e *dc.CommandEvent) {
 		return
 	}
 
-	userID := e.UserID()
+	userID := farmerstate.GetEffectiveUserID(e.UserID(), e.ChannelID())
 
 	if opt, ok := e.OptBool("reset"); ok && opt {
 		farmerstate.SetMiscSettingString(userID, "encrypted_ei_id", "")
@@ -258,7 +258,7 @@ func RerunEval(e dc.InteractionEvent, options dc.OptionValues, eiID string, okay
 	// Quick reply to buy us some time
 	_ = e.Defer(false)
 
-	userID := e.UserID()
+	userID := farmerstate.GetEffectiveUserID(e.UserID(), e.ChannelID())
 
 	mobileFriendly := farmerstate.GetMiscSettingString(userID, "rerunMobileFriendly") == "true"
 	if opt, ok := options.Bool("chart-mobile-friendly"); ok {

@@ -86,6 +86,32 @@ func sqliteInit() {
 		_, _ = db.ExecContext(ctx, "DROP TABLE leaderboard_stats;")
 	}
 
+	// Drop old act_as_switches table if it lacks channel_id to migrate to channel-scoped schema
+	var hasActAsChannelID bool
+	var hasActAsTable bool
+	rows, err = db.QueryContext(ctx, "PRAGMA table_info(act_as_switches)")
+	if err == nil {
+		for rows.Next() {
+			hasActAsTable = true
+			var cid int
+			var name string
+			var type_ string
+			var notnull int
+			var dfltVal interface{}
+			var pk int
+			if err := rows.Scan(&cid, &name, &type_, &notnull, &dfltVal, &pk); err == nil {
+				if name == "channel_id" {
+					hasActAsChannelID = true
+				}
+			}
+		}
+		_ = rows.Close()
+	}
+	if hasActAsTable && !hasActAsChannelID {
+		log.Println("farmerstate: dropping old act_as_switches to migrate to channel-scoped schema")
+		_, _ = db.ExecContext(ctx, "DROP TABLE act_as_switches;")
+	}
+
 	// Execute each statement in the DDL to set up the database schema
 	for stmt := range strings.SplitSeq(ddl, ";") {
 		stmt = strings.TrimSpace(stmt)

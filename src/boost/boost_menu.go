@@ -199,7 +199,7 @@ func HandleMenuReactions(client dc.Client, e *dc.ComponentEvent) {
 		return
 	}
 
-	userID := e.UserID()
+	userID := resolveContractUserID(client, contract, e.UserID())
 	cmd := strings.Split(values[0], ":")
 
 	switch cmd[0] {
@@ -321,7 +321,7 @@ func HandleMenuReactions(client dc.Client, e *dc.ComponentEvent) {
 		if redraw {
 			refreshBoostListMessage(client, contract, false)
 		}
-		sendOrUpdateUserReactionSummary(e, contract, e.UserID())
+		sendOrUpdateUserReactionSummary(e, contract, userID)
 	case "next":
 		_ = e.DeferUpdate()
 		nextUser := cmd[1]
@@ -329,7 +329,7 @@ func HandleMenuReactions(client dc.Client, e *dc.ComponentEvent) {
 		if redraw {
 			refreshBoostListMessage(client, contract, false)
 		}
-		sendOrUpdateUserReactionSummary(e, contract, e.UserID())
+		sendOrUpdateUserReactionSummary(e, contract, userID)
 	case "next2":
 		_ = e.DeferUpdate()
 		nextUser := cmd[1]
@@ -337,7 +337,7 @@ func HandleMenuReactions(client dc.Client, e *dc.ComponentEvent) {
 		if redraw {
 			refreshBoostListMessage(client, contract, false)
 		}
-		sendOrUpdateUserReactionSummary(e, contract, e.UserID())
+		sendOrUpdateUserReactionSummary(e, contract, userID)
 	case "grange":
 		components := DrawPureBoostList(contract)
 		_ = e.Respond(dc.Message{

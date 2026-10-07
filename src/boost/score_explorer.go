@@ -512,7 +512,7 @@ func HandleScoreExplorerPage(e *dc.ComponentEvent) {
 	}
 	if len(reaction) == 3 && reaction[2] == "load" {
 		// Load settings
-		userID := e.UserID()
+		userID := farmerstate.GetEffectiveUserID(e.UserID(), e.MessageID(), e.ChannelID())
 		paramsStr := farmerstate.GetMiscSettingString(userID, "scoreCalcParams")
 		if err != nil {
 			log.Println("Error loading settings:", err)
@@ -543,7 +543,7 @@ func HandleScoreExplorerPage(e *dc.ComponentEvent) {
 		//farmerstate.SetMiscSettingString()
 		paramsBytes, err := json.Marshal(params)
 		if err == nil {
-			userID := e.UserID()
+			userID := farmerstate.GetEffectiveUserID(e.UserID(), e.MessageID(), e.ChannelID())
 			paramsStr := string(paramsBytes)
 			farmerstate.SetMiscSettingString(userID, "scoreCalcParams", paramsStr)
 		}

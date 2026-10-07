@@ -52,10 +52,10 @@ func HandleSlashVolunteerSinkCommand(client dc.Client, e *dc.CommandEvent) {
 	if contract == nil {
 		str = "No contract found in this channel"
 	} else {
-		userID := e.UserID()
+		userID := resolveContractUserID(client, contract, e.UserID())
 
 		isAdmin := false
-		perms, err := client.UserChannelPermissions(userID, e.ChannelID())
+		perms, err := client.UserChannelPermissions(e.UserID(), e.ChannelID())
 		if err == nil {
 			isAdmin = perms.Administrator()
 		}

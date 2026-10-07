@@ -79,7 +79,7 @@ func HandleStonesCommand(client dc.Client, e *dc.CommandEvent) {
 		soloName = strings.ToLower(opt)
 		ephemeral = true
 	}
-	userID := e.UserID()
+	userID := farmerstate.GetEffectiveUserID(e.UserID(), e.ChannelID())
 	if opt, ok := e.OptBool("details"); ok {
 		details = opt
 		farmerstate.SetMiscSettingFlag(userID, "stone-details", details)

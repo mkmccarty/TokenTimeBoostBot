@@ -43,6 +43,112 @@ func (q *Queries) ClearExtraLegacyRecords(ctx context.Context) error {
 	return err
 }
 
+const deleteActAsLink = `-- name: DeleteActAsLink :execrows
+DELETE FROM act_as_links
+WHERE (main_user_id = ? AND alt_user_id = ?)
+   OR (main_user_id = ? AND alt_user_id = ?)
+`
+
+type DeleteActAsLinkParams struct {
+	MainUserID   string
+	AltUserID    string
+	MainUserID_2 string
+	AltUserID_2  string
+}
+
+func (q *Queries) DeleteActAsLink(ctx context.Context, arg DeleteActAsLinkParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteActAsLink,
+		arg.MainUserID,
+		arg.AltUserID,
+		arg.MainUserID_2,
+		arg.AltUserID_2,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const deleteActAsSwitch = `-- name: DeleteActAsSwitch :execrows
+DELETE FROM act_as_switches
+WHERE main_user_id = ? AND channel_id = ?
+`
+
+type DeleteActAsSwitchParams struct {
+	MainUserID string
+	ChannelID  string
+}
+
+func (q *Queries) DeleteActAsSwitch(ctx context.Context, arg DeleteActAsSwitchParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteActAsSwitch, arg.MainUserID, arg.ChannelID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const deleteActAsSwitchForPair = `-- name: DeleteActAsSwitchForPair :execrows
+DELETE FROM act_as_switches
+WHERE (main_user_id = ? AND alt_user_id = ?)
+   OR (main_user_id = ? AND alt_user_id = ?)
+`
+
+type DeleteActAsSwitchForPairParams struct {
+	MainUserID   string
+	AltUserID    string
+	MainUserID_2 string
+	AltUserID_2  string
+}
+
+func (q *Queries) DeleteActAsSwitchForPair(ctx context.Context, arg DeleteActAsSwitchForPairParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteActAsSwitchForPair,
+		arg.MainUserID,
+		arg.AltUserID,
+		arg.MainUserID_2,
+		arg.AltUserID_2,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const deleteAllActAsLinksForUser = `-- name: DeleteAllActAsLinksForUser :execrows
+DELETE FROM act_as_links
+WHERE main_user_id = ? OR alt_user_id = ?
+`
+
+type DeleteAllActAsLinksForUserParams struct {
+	MainUserID string
+	AltUserID  string
+}
+
+func (q *Queries) DeleteAllActAsLinksForUser(ctx context.Context, arg DeleteAllActAsLinksForUserParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteAllActAsLinksForUser, arg.MainUserID, arg.AltUserID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const deleteAllActAsSwitchesForUser = `-- name: DeleteAllActAsSwitchesForUser :execrows
+DELETE FROM act_as_switches
+WHERE main_user_id = ? OR alt_user_id = ?
+`
+
+type DeleteAllActAsSwitchesForUserParams struct {
+	MainUserID string
+	AltUserID  string
+}
+
+func (q *Queries) DeleteAllActAsSwitchesForUser(ctx context.Context, arg DeleteAllActAsSwitchesForUserParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteAllActAsSwitchesForUser, arg.MainUserID, arg.AltUserID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const deleteAllLeaderboardExclusionsForUserInGuild = `-- name: DeleteAllLeaderboardExclusionsForUserInGuild :exec
 DELETE FROM leaderboard_exclusion
 WHERE guild_id = ? AND user_id = ?
@@ -94,6 +200,16 @@ type DeleteCustomBannerParams struct {
 
 func (q *Queries) DeleteCustomBanner(ctx context.Context, arg DeleteCustomBannerParams) error {
 	_, err := q.db.ExecContext(ctx, deleteCustomBanner, arg.UserID, arg.GuildID)
+	return err
+}
+
+const deleteExpiredActAsSwitches = `-- name: DeleteExpiredActAsSwitches :exec
+DELETE FROM act_as_switches
+WHERE expires_at <= ?
+`
+
+func (q *Queries) DeleteExpiredActAsSwitches(ctx context.Context, expiresAt time.Time) error {
+	_, err := q.db.ExecContext(ctx, deleteExpiredActAsSwitches, expiresAt)
 	return err
 }
 
@@ -284,6 +400,89 @@ type DeleteWatchParams struct {
 func (q *Queries) DeleteWatch(ctx context.Context, arg DeleteWatchParams) error {
 	_, err := q.db.ExecContext(ctx, deleteWatch, arg.UserID, arg.WatchType, arg.TargetID)
 	return err
+}
+
+const getActAsLinksForMain = `-- name: GetActAsLinksForMain :many
+SELECT alt_user_id
+FROM act_as_links
+WHERE main_user_id = ?
+ORDER BY alt_user_id
+`
+
+func (q *Queries) GetActAsLinksForMain(ctx context.Context, mainUserID string) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, getActAsLinksForMain, mainUserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var alt_user_id string
+		if err := rows.Scan(&alt_user_id); err != nil {
+			return nil, err
+		}
+		items = append(items, alt_user_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getActAsMainsForAlt = `-- name: GetActAsMainsForAlt :many
+SELECT main_user_id
+FROM act_as_links
+WHERE alt_user_id = ?
+ORDER BY main_user_id
+`
+
+func (q *Queries) GetActAsMainsForAlt(ctx context.Context, altUserID string) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, getActAsMainsForAlt, altUserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var main_user_id string
+		if err := rows.Scan(&main_user_id); err != nil {
+			return nil, err
+		}
+		items = append(items, main_user_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getActAsSwitch = `-- name: GetActAsSwitch :one
+SELECT alt_user_id, expires_at
+FROM act_as_switches
+WHERE main_user_id = ? AND channel_id = ?
+`
+
+type GetActAsSwitchParams struct {
+	MainUserID string
+	ChannelID  string
+}
+
+type GetActAsSwitchRow struct {
+	AltUserID string
+	ExpiresAt time.Time
+}
+
+func (q *Queries) GetActAsSwitch(ctx context.Context, arg GetActAsSwitchParams) (GetActAsSwitchRow, error) {
+	row := q.db.QueryRowContext(ctx, getActAsSwitch, arg.MainUserID, arg.ChannelID)
+	var i GetActAsSwitchRow
+	err := row.Scan(&i.AltUserID, &i.ExpiresAt)
+	return i, err
 }
 
 const getAllLegacyFarmerstate = `-- name: GetAllLegacyFarmerstate :many
@@ -1158,6 +1357,21 @@ func (q *Queries) GetWatchesForUser(ctx context.Context, userID string) ([]Watch
 	return items, nil
 }
 
+const insertActAsLink = `-- name: InsertActAsLink :exec
+INSERT OR REPLACE INTO act_as_links (main_user_id, alt_user_id)
+VALUES (?, ?)
+`
+
+type InsertActAsLinkParams struct {
+	MainUserID string
+	AltUserID  string
+}
+
+func (q *Queries) InsertActAsLink(ctx context.Context, arg InsertActAsLinkParams) error {
+	_, err := q.db.ExecContext(ctx, insertActAsLink, arg.MainUserID, arg.AltUserID)
+	return err
+}
+
 const insertLegacyFarmerstate = `-- name: InsertLegacyFarmerstate :one
 INSERT INTO farmer_state (id, key, value)
 VALUES (?, 'legacy', ?)
@@ -1273,6 +1487,50 @@ func (q *Queries) InsertWatch(ctx context.Context, arg InsertWatchParams) error 
 	return err
 }
 
+const isActAsLinked = `-- name: IsActAsLinked :one
+SELECT COUNT(*)
+FROM act_as_links
+WHERE main_user_id = ? AND alt_user_id = ?
+`
+
+type IsActAsLinkedParams struct {
+	MainUserID string
+	AltUserID  string
+}
+
+func (q *Queries) IsActAsLinked(ctx context.Context, arg IsActAsLinkedParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, isActAsLinked, arg.MainUserID, arg.AltUserID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const isActAsLinkedEither = `-- name: IsActAsLinkedEither :one
+SELECT COUNT(*)
+FROM act_as_links
+WHERE (main_user_id = ? AND alt_user_id = ?)
+   OR (main_user_id = ? AND alt_user_id = ?)
+`
+
+type IsActAsLinkedEitherParams struct {
+	MainUserID   string
+	AltUserID    string
+	MainUserID_2 string
+	AltUserID_2  string
+}
+
+func (q *Queries) IsActAsLinkedEither(ctx context.Context, arg IsActAsLinkedEitherParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, isActAsLinkedEither,
+		arg.MainUserID,
+		arg.AltUserID,
+		arg.MainUserID_2,
+		arg.AltUserID_2,
+	)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const pruneOlderLeaderboardStatsForPlayer = `-- name: PruneOlderLeaderboardStatsForPlayer :exec
 DELETE FROM leaderboard_stats
 WHERE lb_type = ? AND player = ? AND snap_date != ?
@@ -1350,6 +1608,31 @@ type UpdateTimerStateParams struct {
 
 func (q *Queries) UpdateTimerState(ctx context.Context, arg UpdateTimerStateParams) error {
 	_, err := q.db.ExecContext(ctx, updateTimerState, arg.Active, arg.ID)
+	return err
+}
+
+const upsertActAsSwitch = `-- name: UpsertActAsSwitch :exec
+INSERT INTO act_as_switches (main_user_id, channel_id, alt_user_id, expires_at)
+VALUES (?, ?, ?, ?)
+ON CONFLICT(main_user_id, channel_id) DO UPDATE SET
+    alt_user_id = excluded.alt_user_id,
+    expires_at = excluded.expires_at
+`
+
+type UpsertActAsSwitchParams struct {
+	MainUserID string
+	ChannelID  string
+	AltUserID  string
+	ExpiresAt  time.Time
+}
+
+func (q *Queries) UpsertActAsSwitch(ctx context.Context, arg UpsertActAsSwitchParams) error {
+	_, err := q.db.ExecContext(ctx, upsertActAsSwitch,
+		arg.MainUserID,
+		arg.ChannelID,
+		arg.AltUserID,
+		arg.ExpiresAt,
+	)
 	return err
 }
 

@@ -157,7 +157,12 @@ func HandleBoostCommand(client dc.Client, e *dc.CommandEvent) {
 		return
 	}
 	var str = "Boosting!!"
-	var err = UserBoost(client, e.GuildID(), e.ChannelID(), e.UserID())
+	targetID := e.UserID()
+	contract := FindContract(e.ChannelID())
+	if contract != nil {
+		targetID = resolveContractUserID(client, contract, e.UserID())
+	}
+	var err = UserBoost(client, e.GuildID(), e.ChannelID(), targetID)
 	if err != nil {
 		str = err.Error()
 	}
@@ -182,6 +187,21 @@ func HandleUnboostCommand(client dc.Client, e *dc.CommandEvent) {
 
 	if opt, ok := e.OptString("farmer"); ok {
 		farmer = opt
+	}
+	contract := FindContract(e.ChannelID())
+	if contract != nil {
+		if farmer == "" {
+			targetID := resolveContractUserID(client, contract, e.UserID())
+			farmer = "<@" + targetID + ">"
+		} else {
+			inputID := normalizeUserIDInput(farmer)
+			if inputID == e.UserID() && !UserInContract(contract, e.UserID()) {
+				targetID := resolveContractUserID(client, contract, e.UserID())
+				if UserInContract(contract, targetID) {
+					farmer = "<@" + targetID + ">"
+				}
+			}
+		}
 	}
 	var err = Unboost(client, e.GuildID(), e.ChannelID(), farmer)
 	if err != nil {
@@ -261,7 +281,7 @@ func HandleJoinCommand(client dc.Client, e *dc.CommandEvent) {
 		})
 		return
 	}
-	var farmerInput = ""
+	var farmerInput string
 	var orderValue = ContractOrderTimeBased // Default to Time Based
 	var str = "Joining Member"
 	var tokenWant = 0
@@ -269,6 +289,10 @@ func HandleJoinCommand(client dc.Client, e *dc.CommandEvent) {
 
 	if opt, ok := e.OptString("farmer"); ok {
 		farmerInput = opt
+		str += " " + farmerInput
+	} else {
+		effectiveID := farmerstate.GetEffectiveUserID(e.UserID(), e.ChannelID())
+		farmerInput = "<@" + effectiveID + ">"
 		str += " " + farmerInput
 	}
 
@@ -291,6 +315,15 @@ func HandleJoinCommand(client dc.Client, e *dc.CommandEvent) {
 	if farmerInput != "" {
 		parsedFarmers := ParseFarmerInput(farmerInput)
 		for _, p := range parsedFarmers {
+			if p.Mention != "" {
+				mID := normalizeUserIDInput(p.Mention)
+				if mID == e.UserID() {
+					effID := farmerstate.GetEffectiveUserID(e.UserID(), e.ChannelID())
+					if effID != e.UserID() {
+						p.Mention = "<@" + effID + ">"
+					}
+				}
+			}
 			if tokenWant != 0 {
 				if p.Guest != "" {
 					farmerstate.SetTokens(p.Guest, tokenWant)
@@ -343,6 +376,21 @@ func HandlePruneCommand(client dc.Client, e *dc.CommandEvent) {
 	if opt, ok := e.OptString("farmer"); ok {
 		farmer = opt
 		str += " " + farmer
+	}
+	contract := FindContract(e.ChannelID())
+	if contract != nil {
+		if farmer == "" {
+			targetID := resolveContractUserID(client, contract, e.UserID())
+			farmer = "<@" + targetID + ">"
+		} else {
+			inputID := normalizeUserIDInput(farmer)
+			if inputID == e.UserID() && !UserInContract(contract, e.UserID()) {
+				targetID := resolveContractUserID(client, contract, e.UserID())
+				if UserInContract(contract, targetID) {
+					farmer = "<@" + targetID + ">"
+				}
+			}
+		}
 	}
 	_ = e.Defer(true)
 
@@ -591,12 +639,12 @@ func HandleTokenEditAutoComplete(e *dc.AutocompleteEvent) {
 
 // HandleTokenEditCommand will handle the /token-edit command
 func HandleTokenEditCommand(client dc.Client, e *dc.CommandEvent) string {
-	userID := e.UserID()
 	c := FindContract(e.ChannelID())
 	if c == nil {
 		return "Contract not found."
 	}
-	if !UserInContract(c, userID) {
+	userID := resolveContractUserID(client, c, e.UserID())
+	if !UserInContract(c, userID) && !UserInContract(c, e.UserID()) && !creatorOfContract(client, c, e.UserID()) {
 		return "You are not in this contract."
 	}
 	var action int // 0:Move, 1: Delete, 2 Modify Count

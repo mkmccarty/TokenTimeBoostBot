@@ -9,6 +9,19 @@ import (
 	"time"
 )
 
+type ActAsLink struct {
+	MainUserID string
+	AltUserID  string
+	CreatedAt  time.Time
+}
+
+type ActAsSwitch struct {
+	MainUserID string
+	ChannelID  string
+	AltUserID  string
+	ExpiresAt  time.Time
+}
+
 type CustomBanner struct {
 	UserID    string
 	GuildID   string

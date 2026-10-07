@@ -162,7 +162,7 @@ func HandleContractReport(e *dc.CommandEvent) {
 		return
 	}
 
-	userID := e.UserID()
+	userID := farmerstate.GetEffectiveUserID(e.UserID(), e.ChannelID())
 	if opt, ok := e.OptBool("reset"); ok && opt {
 		farmerstate.SetMiscSettingString(userID, "encrypted_ei_id", "")
 	}
@@ -385,7 +385,7 @@ func ContractReport(
 	okayToSave bool,
 ) error {
 
-	callerUserID := e.UserID()
+	callerUserID := farmerstate.GetEffectiveUserID(e.UserID(), e.ChannelID())
 
 	// define parameter struct
 	p := contractReportParameters{}

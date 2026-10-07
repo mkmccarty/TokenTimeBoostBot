@@ -263,25 +263,29 @@ func speedrunReactions(client dc.Client, e *dc.ReactionEvent, contract *Contract
 
 	// Token reaction handling
 	tokenReactionStr := "token"
-	userID := e.UserID()
+	userID := resolveContractUserID(client, contract, e.UserID())
 	// Special handling for alt icons representing token reactions
 	if strings.ToLower(e.EmojiName()) == tokenReactionStr {
 		_, redraw = buttonReactionToken(client, e.GuildID(), e.ChannelID(), contract, userID, 1, "")
 	}
 
 	if contract.State == ContractStateBanker {
-		// make sure Boosters[e.UserID()] exists
+		// make sure Boosters[userID] or Boosters[e.UserID()] exists
+		actingUser := userID
 		if _, ok := contract.Boosters[e.UserID()]; ok {
-			idx := slices.Index(contract.Boosters[e.UserID()].Alts, contract.Banker.BoostingSinkUserID)
+			actingUser = e.UserID()
+		}
+		if b, ok := contract.Boosters[actingUser]; ok {
+			idx := slices.Index(b.Alts, contract.Banker.BoostingSinkUserID)
 			if idx != -1 {
 				// This is an alternate
-				userID = contract.Boosters[e.UserID()].Alts[idx]
+				userID = b.Alts[idx]
 			}
 		}
 
 		if userID == contract.Banker.BoostingSinkUserID {
 			if e.EmojiName() == "💰" {
-				_, redraw = buttonReactionBag(client, e.GuildID(), e.ChannelID(), contract, e.UserID())
+				_, redraw = buttonReactionBag(client, e.GuildID(), e.ChannelID(), contract, userID)
 			}
 		}
 	}
@@ -335,7 +339,7 @@ func speedrunReactions(client dc.Client, e *dc.ReactionEvent, contract *Contract
 			} else {
 				log.Print("Updating estimated time")
 				contract.EstimateUpdateTime = time.Now()
-				go updateEstimatedTime(client, e.ChannelID(), contract, true, e.UserID())
+				go updateEstimatedTime(client, e.ChannelID(), contract, true, userID)
 			}
 		}
 	}

@@ -26,7 +26,7 @@ import (
 // list redraw are not on the facade yet.
 func HandleContractReactions(client dc.Client, e *dc.ComponentEvent) {
 	_ = e.DeferUpdate()
-	userID := e.UserID()
+	callerID := e.UserID()
 
 	// rc_Name # rc_ID # HASH
 	reaction := strings.Split(e.CustomID(), "#")
@@ -58,10 +58,12 @@ func HandleContractReactions(client dc.Client, e *dc.ComponentEvent) {
 		return
 	}
 
+	userID := resolveContractUserID(client, contract, callerID)
+
 	// Restrict commands to those within the contract.
 	// Only boost, swap, and crping allow contract creators/coordinators who aren't in the contract.
 	if !UserInContract(contract, userID) {
-		if (cmd != "boost" && cmd != "swap" && cmd != "crping") || !creatorOfContract(client, contract, userID) {
+		if (cmd != "boost" && cmd != "swap" && cmd != "crping") || (!creatorOfContract(client, contract, userID) && !creatorOfContract(client, contract, callerID)) {
 			_ = e.Followup(dc.Message{
 				Content:   "User isn't in this contract.",
 				Ephemeral: true,

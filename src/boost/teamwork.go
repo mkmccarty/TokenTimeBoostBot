@@ -74,7 +74,7 @@ func HandleTeamworkEvalCommand(e *dc.CommandEvent) {
 
 	publicReply := false
 
-	userID := e.UserID()
+	userID := farmerstate.GetEffectiveUserID(e.UserID(), e.ChannelID())
 	var contractID string
 	var coopID string
 	var eggign string
@@ -97,7 +97,7 @@ func HandleTeamworkEvalCommand(e *dc.CommandEvent) {
 		coopID = strings.ToLower(opt)
 		coopID = strings.ReplaceAll(coopID, " ", "")
 		// Only Development Staff can use a coop-id that starts with '?'
-		if !slices.Contains(config.DevelopmentStaff, userID) && strings.HasPrefix(coopID, "?") {
+		if !slices.Contains(config.DevelopmentStaff, e.UserID()) && !slices.Contains(config.DevelopmentStaff, userID) && strings.HasPrefix(coopID, "?") {
 			coopID = strings.TrimPrefix(coopID, "?")
 		}
 	}

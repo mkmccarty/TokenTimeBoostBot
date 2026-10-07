@@ -306,3 +306,68 @@ WHERE user_id = ?;
 DELETE FROM leaderboard_exclusion
 WHERE user_id = ?;
 
+-- name: InsertActAsLink :exec
+INSERT OR REPLACE INTO act_as_links (main_user_id, alt_user_id)
+VALUES (?, ?);
+
+-- name: DeleteActAsLink :execrows
+DELETE FROM act_as_links
+WHERE (main_user_id = ? AND alt_user_id = ?)
+   OR (main_user_id = ? AND alt_user_id = ?);
+
+-- name: DeleteAllActAsLinksForUser :execrows
+DELETE FROM act_as_links
+WHERE main_user_id = ? OR alt_user_id = ?;
+
+-- name: GetActAsLinksForMain :many
+SELECT alt_user_id
+FROM act_as_links
+WHERE main_user_id = ?
+ORDER BY alt_user_id;
+
+-- name: GetActAsMainsForAlt :many
+SELECT main_user_id
+FROM act_as_links
+WHERE alt_user_id = ?
+ORDER BY main_user_id;
+
+-- name: IsActAsLinked :one
+SELECT COUNT(*)
+FROM act_as_links
+WHERE main_user_id = ? AND alt_user_id = ?;
+
+-- name: IsActAsLinkedEither :one
+SELECT COUNT(*)
+FROM act_as_links
+WHERE (main_user_id = ? AND alt_user_id = ?)
+   OR (main_user_id = ? AND alt_user_id = ?);
+
+-- name: UpsertActAsSwitch :exec
+INSERT INTO act_as_switches (main_user_id, channel_id, alt_user_id, expires_at)
+VALUES (?, ?, ?, ?)
+ON CONFLICT(main_user_id, channel_id) DO UPDATE SET
+    alt_user_id = excluded.alt_user_id,
+    expires_at = excluded.expires_at;
+
+-- name: GetActAsSwitch :one
+SELECT alt_user_id, expires_at
+FROM act_as_switches
+WHERE main_user_id = ? AND channel_id = ?;
+
+-- name: DeleteActAsSwitch :execrows
+DELETE FROM act_as_switches
+WHERE main_user_id = ? AND channel_id = ?;
+
+-- name: DeleteActAsSwitchForPair :execrows
+DELETE FROM act_as_switches
+WHERE (main_user_id = ? AND alt_user_id = ?)
+   OR (main_user_id = ? AND alt_user_id = ?);
+
+-- name: DeleteAllActAsSwitchesForUser :execrows
+DELETE FROM act_as_switches
+WHERE main_user_id = ? OR alt_user_id = ?;
+
+-- name: DeleteExpiredActAsSwitches :exec
+DELETE FROM act_as_switches
+WHERE expires_at <= ?;
+

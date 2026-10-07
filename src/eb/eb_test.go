@@ -6,6 +6,7 @@ import (
 	"math"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
@@ -914,4 +915,37 @@ func TestBuildEb_UltraBadge(t *testing.T) {
 	if !farmerstate.IsUltra("user-nil-backup") {
 		t.Errorf("expected farmerstate.IsUltra to remain true when backup is nil")
 	}
+}
+
+func TestHandleEbActAs(t *testing.T) {
+	callerID := "4"
+	altUser := "100000000000000099"
+	dummyEID := "EI6666666666666666"
+
+	enc := makeTestEncryptedEID(t, dummyEID)
+	farmerstate.SetMiscSettingString("alt-of-alt-1", "AltController", altUser)
+	farmerstate.SetMiscSettingString("alt-of-alt-1", "encrypted_ei_id", enc)
+	farmerstate.SetMiscSettingString("alt-of-alt-1", "ei_ign", "SubAltFarm")
+
+	// Initially caller has no alts
+	eventBefore := dctest.AutocompleteEvent("eb", "alt", "")
+	HandleEbAutocomplete(eventBefore)
+	if len(eventBefore.LastChoices) != 0 {
+		t.Errorf("expected 0 choices before act-as switch, got %d", len(eventBefore.LastChoices))
+	}
+
+	// Link and switch
+	_ = farmerstate.AddActAsLink(callerID, altUser)
+	_ = farmerstate.SetActAsSwitch(callerID, "3", altUser, time.Now().Add(1*time.Hour))
+
+	// When acting as altUser, autocomplete should suggest altUser's alts
+	eventDuring := dctest.AutocompleteEvent("eb", "alt", "")
+	HandleEbAutocomplete(eventDuring)
+	if len(eventDuring.LastChoices) != 1 || eventDuring.LastChoices[0].Value != "alt-of-alt-1" {
+		t.Errorf("expected 1 choice for 'alt-of-alt-1' while acting as %s, got %+v", altUser, eventDuring.LastChoices)
+	}
+
+	// Clean up
+	_ = farmerstate.ClearActAsSwitch(callerID, "3")
+	_ = farmerstate.RemoveActAsLink(callerID, altUser)
 }

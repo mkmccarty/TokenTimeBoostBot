@@ -390,3 +390,38 @@ func (f *FakeClient) ThreadMember(threadID, userID string) (*dc.ThreadMember, er
 	}
 	return tm, nil
 }
+
+// StartThread records the thread creation and returns a channel representing the thread.
+func (f *FakeClient) StartThread(channelID, name string, archiveDurationMinutes int) (*dc.Channel, error) {
+	f.record("StartThread", channelID, name)
+	parent := f.Channels[channelID]
+	guildID := ""
+	if parent != nil {
+		guildID = parent.GuildID
+	}
+	thID := "thread-" + channelID + "-" + strconv.Itoa(len(f.Calls))
+	th := &dc.Channel{
+		ID:       thID,
+		GuildID:  guildID,
+		ParentID: channelID,
+		Name:     name,
+		IsThread: true,
+	}
+	f.Channels[thID] = th
+	if guildID != "" {
+		f.Threads[guildID] = append(f.Threads[guildID], *th)
+	}
+	return th, nil
+}
+
+// JoinThread records joining a thread.
+func (f *FakeClient) JoinThread(threadID string) error {
+	f.record("JoinThread", threadID)
+	return nil
+}
+
+// PinMessage records pinning a message.
+func (f *FakeClient) PinMessage(channelID, messageID string) error {
+	f.record("PinMessage", channelID, messageID)
+	return nil
+}

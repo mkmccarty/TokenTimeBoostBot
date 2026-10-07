@@ -119,8 +119,10 @@ const slashArtifact string = "artifact"
 const slashScoreExplorer string = "score-explorer"
 const slashRemoveDMMessage string = "remove-dm-message"
 const slashPrivacy string = "privacy"
+const slashRerun string = "rerun"
 const slashRerunEval string = "rerun-eval"
 const slashContractReport string = "contract-report"
+const slashContractScores string = "contract-scores"
 const slashVirtue string = "virtue"
 const slashEb string = "eb"
 const slashRegister string = "register"
@@ -135,6 +137,7 @@ const slashLBPlayer string = "lb"
 const slashChill string = "chill"
 const slashRoll string = "roll"
 const slashWatch string = "watch"
+const slashActAs string = "act-as"
 
 // const slashSignup string = "signup"
 var bot = dc.NewBot()
@@ -267,6 +270,7 @@ var (
 		"m_define_order":  func(e *dc.ModalEvent) { boost.HandleDefineCustomOrderModalSubmit(botClient(), e) },
 		"m_save_order":    func(e *dc.ModalEvent) { boost.HandleSaveCustomOrderModalSubmit(botClient(), e) },
 		"m_publish_order": func(e *dc.ModalEvent) { boost.HandlePublishCustomOrderModalSubmit(botClient(), e) },
+		"m_actas_reg":     func(e *dc.ModalEvent) { farmerstate.HandleActAsRegisterModalSubmit(botClient(), e) },
 	}
 
 	// Define the handlers for component interactions
@@ -486,6 +490,12 @@ func setupCommands() {
 			Autocomplete: boost.HandleRerunEvalAutoComplete,
 		},
 		{
+			AppCmd:       boost.GetSlashRerunEvalCommand(slashRerun),
+			Category:     CmdCategoryGlobal,
+			Handler:      boost.HandleReplayEval,
+			Autocomplete: boost.HandleRerunEvalAutoComplete,
+		},
+		{
 			AppCmd:       virtue.GetSlashVirtueCommand(slashVirtue),
 			Category:     CmdCategoryGlobal,
 			Handler:      virtue.HandleVirtue,
@@ -496,6 +506,12 @@ func setupCommands() {
 			Category:     CmdCategoryGlobal,
 			Handler:      eb.HandleEb,
 			Autocomplete: eb.HandleEbAutocomplete,
+		},
+		{
+			AppCmd:       farmerstate.GetSlashActAsCommand(slashActAs),
+			Category:     CmdCategoryGlobal,
+			Handler:      func(e *dc.CommandEvent) { farmerstate.HandleActAsCommand(botClient(), e) },
+			Autocomplete: farmerstate.HandleActAsAutocomplete,
 		},
 
 		{
@@ -630,6 +646,12 @@ func setupCommands() {
 		},
 		{
 			AppCmd:       boost.GetSlashContractReportCommand(slashContractReport),
+			Category:     CmdCategoryStandard,
+			Handler:      boost.HandleContractReport,
+			Autocomplete: boost.HandleAllContractsAutoComplete,
+		},
+		{
+			AppCmd:       boost.GetSlashContractReportCommand(slashContractScores),
 			Category:     CmdCategoryStandard,
 			Handler:      boost.HandleContractReport,
 			Autocomplete: boost.HandleAllContractsAutoComplete,

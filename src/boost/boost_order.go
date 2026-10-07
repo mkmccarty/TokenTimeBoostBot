@@ -13,6 +13,7 @@ import (
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
 const (
@@ -124,7 +125,8 @@ func HandleBoostOrderReactions(client dc.Client, e *dc.ComponentEvent) {
 		return
 	}
 
-	if session.userID != userID {
+	effectiveUserID := farmerstate.GetEffectiveUserID(userID, e.MessageID(), e.ChannelID())
+	if session.userID != userID && session.userID != effectiveUserID && farmerstate.GetEffectiveUserID(session.userID, e.MessageID(), e.ChannelID()) != userID {
 		respondBoostOrderUpdate(e, "Only the command caller can use this catalyst.", nil)
 		return
 	}
