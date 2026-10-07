@@ -48,7 +48,22 @@ FROM
     farmer_state
 WHERE
     -- Exclude records where the extracted value is NULL
-    json_extract(value, '$.MiscSettingsString.ei_ign') = ? LIMIT 1;
+    json_extract(value, '$.MiscSettingsString.ei_ign') = ?
+ORDER BY
+    CASE WHEN length(id) >= 17 AND length(id) <= 20 AND id GLOB '[0-9]*' THEN 0 ELSE 1 END,
+    rowid
+LIMIT 1;
+
+-- name: GetUserIdsFromEiIgn :many
+SELECT
+    id
+FROM
+    farmer_state
+WHERE
+    json_extract(value, '$.MiscSettingsString.ei_ign') = ?
+ORDER BY
+    CASE WHEN length(id) >= 17 AND length(id) <= 20 AND id GLOB '[0-9]*' THEN 0 ELSE 1 END,
+    rowid;
 
 
 -- name: ClearExtraLegacyRecords :exec

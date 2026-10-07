@@ -701,27 +701,48 @@ func GetEiIgnsByGuild(guildID string) []string {
 // without collapsing alternate accounts back to their controller.
 func GetDiscordUserIDFromEiIgnExact(eiIgn string) (string, error) {
 	FlushPendingSaves()
-	id, err := queries.GetUserIdFromEiIgn(ctx, sql.NullString{String: eiIgn, Valid: true})
+	ids, err := queries.GetUserIdsFromEiIgn(ctx, sql.NullString{String: eiIgn, Valid: true})
 	if err != nil {
 		return "", err
 	}
-	return id, nil
+	for _, id := range ids {
+		if IsDiscordSnowflake(id) {
+			return id, nil
+		}
+	}
+	if len(ids) > 0 {
+		return ids[0], nil
+	}
+	return "", sql.ErrNoRows
 }
 
 // GetDiscordUserIDFromEiIgn retrieves the Discord user ID based on the provided ei_ign.
 // It also checks if the account is an alternate and returns the parent's Discord ID if so.
 func GetDiscordUserIDFromEiIgn(eiIgn string) (string, error) {
 	FlushPendingSaves()
-	id, err := queries.GetUserIdFromEiIgn(ctx, sql.NullString{String: eiIgn, Valid: true})
+	ids, err := queries.GetUserIdsFromEiIgn(ctx, sql.NullString{String: eiIgn, Valid: true})
 	if err != nil {
 		return "", err
 	}
+	var matchedID string
+	for _, id := range ids {
+		if IsDiscordSnowflake(id) {
+			matchedID = id
+			break
+		}
+	}
+	if matchedID == "" && len(ids) > 0 {
+		matchedID = ids[0]
+	}
+	if matchedID == "" {
+		return "", sql.ErrNoRows
+	}
 	// Check if this ID is an alternate of another user
-	parentID := GetMiscSettingString(id, "AltController")
+	parentID := GetMiscSettingString(matchedID, "AltController")
 	if parentID != "" {
 		return parentID, nil
 	}
-	return id, nil
+	return matchedID, nil
 }
 
 // GetDiscordUserIDFromEggIncName retrieves the Discord user ID based on the provided eggincname.

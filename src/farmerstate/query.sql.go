@@ -1315,7 +1315,11 @@ FROM
     farmer_state
 WHERE
     -- Exclude records where the extracted value is NULL
-    json_extract(value, '$.MiscSettingsString.ei_ign') = ? LIMIT 1
+    json_extract(value, '$.MiscSettingsString.ei_ign') = ?
+ORDER BY
+    CASE WHEN length(id) >= 17 AND length(id) <= 20 AND id GLOB '[0-9]*' THEN 0 ELSE 1 END,
+    rowid
+LIMIT 1
 `
 
 func (q *Queries) GetUserIdFromEiIgn(ctx context.Context, value sql.NullString) (string, error) {
@@ -1323,6 +1327,41 @@ func (q *Queries) GetUserIdFromEiIgn(ctx context.Context, value sql.NullString) 
 	var id string
 	err := row.Scan(&id)
 	return id, err
+}
+
+const getUserIdsFromEiIgn = `-- name: GetUserIdsFromEiIgn :many
+SELECT
+    id
+FROM
+    farmer_state
+WHERE
+    json_extract(value, '$.MiscSettingsString.ei_ign') = ?
+ORDER BY
+    CASE WHEN length(id) >= 17 AND length(id) <= 20 AND id GLOB '[0-9]*' THEN 0 ELSE 1 END,
+    rowid
+`
+
+func (q *Queries) GetUserIdsFromEiIgn(ctx context.Context, value sql.NullString) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, getUserIdsFromEiIgn, value)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getWatchesForUser = `-- name: GetWatchesForUser :many
