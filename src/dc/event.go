@@ -69,6 +69,8 @@ type CommandEvent struct {
 	event        *events.ApplicationCommandInteractionCreate
 	client       *bot.Client
 	LastResponse *Message
+	LastFollowup *Message
+	Followups    []Message
 }
 
 // data is the slash command payload. Every command this bot publishes is a
@@ -323,9 +325,6 @@ func (e *CommandEvent) Defer(ephemeral bool) (err error) {
 // Followup sends a message after the interaction has been deferred or already
 // answered.
 func (e *CommandEvent) Followup(m Message) error {
-	if e.client == nil {
-		return nil
-	}
 	_, err := e.FollowupMessage(m)
 	return err
 }
@@ -333,6 +332,9 @@ func (e *CommandEvent) Followup(m Message) error {
 // FollowupMessage sends a followup and returns the message it created, for a
 // caller that needs to edit or delete it later.
 func (e *CommandEvent) FollowupMessage(m Message) (*MessageRef, error) {
+	msg := m
+	e.LastFollowup = &msg
+	e.Followups = append(e.Followups, m)
 	if e.client == nil {
 		return nil, nil
 	}

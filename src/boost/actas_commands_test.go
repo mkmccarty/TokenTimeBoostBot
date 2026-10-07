@@ -3,6 +3,7 @@ package boost
 import (
 	"encoding/base64"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -887,6 +888,21 @@ func TestActAs_ContractCommandExtendsDurationToForever(t *testing.T) {
 	}
 	if !farmerstate.IsActAsForever(expAfter) {
 		t.Errorf("expected thread switch duration to be forever, got %v", expAfter)
+	}
+
+	// Verify additional followup in original channel notifying user they were switched back to main profile
+	foundNotice := false
+	for _, f := range ev.Followups {
+		if strings.Contains(f.Content, "main profile") && strings.Contains(f.Content, threadChanID) {
+			foundNotice = true
+			if !f.Ephemeral {
+				t.Errorf("expected followup notice to be ephemeral")
+			}
+			break
+		}
+	}
+	if !foundNotice {
+		t.Errorf("expected additional followup notifying user of switch back to main profile, got followups: %+v", ev.Followups)
 	}
 
 	// Clean up created contract

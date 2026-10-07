@@ -318,6 +318,8 @@ func HandleContractCommand(client dc.Client, e *dc.CommandEvent) {
 		}
 	}
 
+	switchTransferred := false
+
 	// Create a new thread for this contract
 	if makeThread {
 		threadStyleIcons := []string{"", "🟦 ", "🟩 ", "🟧 ", "🟥 "}
@@ -424,7 +426,9 @@ func HandleContractCommand(client dc.Client, e *dc.CommandEvent) {
 			ChannelID = thread.ID
 			_ = client.JoinThread(thread.ID)
 			if isActingAs {
-				_ = farmerstate.MoveActAsSwitchWithExpiry(e.UserID(), e.ChannelID(), ChannelID, farmerstate.ActAsForeverExpiry)
+				if err := farmerstate.MoveActAsSwitchWithExpiry(e.UserID(), e.ChannelID(), ChannelID, farmerstate.ActAsForeverExpiry); err == nil {
+					switchTransferred = true
+				}
 			}
 		} else {
 			log.Printf("contract: failed to start thread in channel %s: %v", ChannelID, err)
@@ -443,6 +447,12 @@ func HandleContractCommand(client dc.Client, e *dc.CommandEvent) {
 			Ephemeral: true,
 		}); ferr != nil {
 			log.Printf("contract: failed to send create error followup to channel %s: %v", e.ChannelID(), ferr)
+		}
+		if switchTransferred {
+			_ = e.Followup(dc.Message{
+				Content:   fmt.Sprintf("Your active `/act-as` switch has been transferred to the contract thread (<#%s>). You have been switched back to your main profile in this channel.", ChannelID),
+				Ephemeral: true,
+			})
 		}
 		return
 	}
@@ -493,6 +503,13 @@ func HandleContractCommand(client dc.Client, e *dc.CommandEvent) {
 		if err != nil {
 			log.Print(err)
 		}
+	}
+
+	if switchTransferred {
+		_ = e.Followup(dc.Message{
+			Content:   fmt.Sprintf("Your active `/act-as` switch has been transferred to the contract thread (<#%s>). You have been switched back to your main profile in this channel.", ChannelID),
+			Ephemeral: true,
+		})
 	}
 
 	var createMsg = DrawBoostList(contract)
