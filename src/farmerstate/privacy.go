@@ -63,7 +63,9 @@ func HandlePrivacy(e *dc.CommandEvent) {
 	_ = e.Defer(true)
 	var builder strings.Builder
 
-	builder.WriteString("# Privacy information for user: <@" + userID + ">\n")
+	builder.WriteString("# Privacy information for user: <@")
+	builder.WriteString(userID)
+	builder.WriteString(">\n")
 	builder.WriteString("Boost Bot stores some information about your usage to provide you with a better experience and to improve the bot.\n")
 	builder.WriteString("Your Discord User ID is used as a key to this saved information.\n")
 	builder.WriteString("**This information is never sold.** It will only be shared with other Boost Bot developers or testers within the Bot's development Discord server.\n")
@@ -137,11 +139,13 @@ func HandlePrivacy(e *dc.CommandEvent) {
 			jsonData, err := json.Marshal(userData)
 			if err != nil {
 				log.Println(err.Error())
-				builder.WriteString("Error formatting JSON data. " + err.Error())
+				builder.WriteString("Error formatting JSON data. ")
+				builder.WriteString(err.Error())
 			} else {
 				err = json.Indent(buf, jsonData, "", "  ")
 				if err != nil {
-					builder.WriteString("Error formatting JSON data. " + err.Error())
+					builder.WriteString("Error formatting JSON data. ")
+					builder.WriteString(err.Error())
 				} else {
 					// Create io.Reader from JSON string
 					reader = bytes.NewReader(buf.Bytes())
