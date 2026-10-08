@@ -189,19 +189,6 @@ func DrawBoostListCustom(contract *Contract, compact bool) []dc.LayoutComponent 
 		}
 	} else {
 		if len(contract.PredictionInfo) > 0 {
-			timeLabels := map[string]string{
-				"00-01": "+0", "01-02": "+1", "02-03": "+2", "03-04": "+3",
-				"04-05": "+4", "05-06": "+5", "06-07": "+6", "07-08": "+7",
-				"08-09": "+8",
-				"20-21": "-4", "21-22": "-3", "22-23": "-2", "23-24": "-1",
-			}
-			sortedTimeKeys := []string{
-				"00-01", "01-02", "02-03", "03-04",
-				"04-05", "05-06", "06-07", "07-08",
-				"08-09",
-				"20-21", "21-22", "22-23", "23-24",
-			}
-
 			for _, pi := range contract.PredictionInfo {
 				count := 0
 				anyCount := 0
@@ -209,7 +196,7 @@ func DrawBoostListCustom(contract *Contract, compact bool) []dc.LayoutComponent 
 				for _, b := range contract.Boosters {
 					if slices.Contains(b.Availability.Contract, pi.ContractID) {
 						count++
-						if len(b.Availability.Timeslots) == 12 {
+						if slices.Contains(b.Availability.Timeslots, "all") || len(b.Availability.Timeslots) == len(availabilityTimeLabels) {
 							anyCount++
 						} else {
 							for _, ts := range b.Availability.Timeslots {
@@ -224,9 +211,9 @@ func DrawBoostListCustom(contract *Contract, compact bool) []dc.LayoutComponent 
 				if anyCount > 0 {
 					tsStrings = append(tsStrings, fmt.Sprintf("Any: %d", anyCount))
 				}
-				for _, k := range sortedTimeKeys {
+				for _, k := range availabilitySortedTimeKeys {
 					if c := tsCounts[k]; c > 0 {
-						tsStrings = append(tsStrings, fmt.Sprintf("%s: %d", timeLabels[k], c))
+						tsStrings = append(tsStrings, fmt.Sprintf("%s: %d", availabilityTimeLabels[k], c))
 					}
 				}
 				if len(tsStrings) > 0 {

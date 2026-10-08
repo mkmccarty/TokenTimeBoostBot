@@ -135,6 +135,7 @@ func HandleContractReactions(client dc.Client, e *dc.ComponentEvent) {
 	case "predtime":
 		values := e.Values()
 		if b := contract.Boosters[userID]; b != nil {
+			values = NormalizeTimeslotValues(values, b.Availability.Timeslots)
 			b.Availability.Timeslots = values
 			for _, altID := range b.Alts {
 				if altBooster := contract.Boosters[altID]; altBooster != nil {
