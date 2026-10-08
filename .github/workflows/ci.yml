@@ -46,6 +46,8 @@ jobs:
         run: go vet ./...
       - name: Golangci-lint
         uses: golangci/golangci-lint-action@v9.3.0
+        with:
+          version: v2.14.0
 
   audit:
     runs-on: ubuntu-latest
@@ -60,8 +62,6 @@ jobs:
           fetch-depth: 0
       - name: Verify Go Modules
         run: go mod verify
-      - name: Staticcheck
-        run: go run honnef.co/go/tools/cmd/staticcheck@latest -checks=all,-ST1000,-U1000 ./...
       - name: Govulncheck
         run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 
