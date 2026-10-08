@@ -10,6 +10,65 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
 
+var availabilityTimeLabels = map[string]string{
+	"00-01": "+0", "01-02": "+1", "02-03": "+2", "03-04": "+3",
+	"04-05": "+4", "05-06": "+5", "06-07": "+6", "07-08": "+7", "08-09": "+8",
+	"09-10": "+9", "10-11": "+10", "11-12": "+11", "12-13": "+12",
+	"20-21": "-4", "21-22": "-3", "22-23": "-2", "23-24": "-1",
+}
+
+var availabilitySortedTimeKeys = []string{
+	"00-01", "01-02", "02-03", "03-04",
+	"04-05", "05-06", "06-07", "07-08",
+	"08-09", "09-10", "10-11", "11-12",
+	"12-13",
+	"20-21", "21-22", "22-23", "23-24",
+}
+
+func formatTimes(slots []string) string {
+	if len(slots) == 0 {
+		return "Not set"
+	}
+	if slices.Contains(slots, "all") || len(slots) == len(availabilityTimeLabels) {
+		return "ALL Times"
+	}
+	sorted := make([]string, len(slots))
+	copy(sorted, slots)
+	sort.Strings(sorted)
+	var short []string
+	for _, s := range sorted {
+		if l, ok := availabilityTimeLabels[s]; ok {
+			short = append(short, l)
+		} else {
+			short = append(short, s)
+		}
+	}
+	return strings.Join(short, ", ")
+}
+
+// NormalizeTimeslotValues handles selection of "ALL Times" vs individual timeslots.
+func NormalizeTimeslotValues(selected []string, previous []string) []string {
+	if slices.Contains(selected, "all") {
+		if !slices.Contains(previous, "all") && len(previous) != len(availabilityTimeLabels) {
+			return []string{"all"}
+		}
+		if len(selected) > 1 {
+			var filtered []string
+			for _, v := range selected {
+				if v != "all" {
+					filtered = append(filtered, v)
+				}
+			}
+			return filtered
+		}
+		return []string{"all"}
+	}
+	if len(selected) == len(availabilityTimeLabels) {
+		return []string{"all"}
+	}
+	return selected
+}
+
 // GetSlashAvailabilityCommand returns the slash command for setting availability
 func GetSlashAvailabilityCommand(cmd string) *dc.Command {
 	command := guildOnlyCommand(cmd, "Set your availability for a contract.")
@@ -22,33 +81,6 @@ func GetAvailabilityComponents(client dc.Client, contract *Contract, userID stri
 	inContract := UserInContract(contract, userID)
 
 	var out []dc.LayoutComponent
-
-	timeLabels := map[string]string{
-		"00-01": "+0", "01-02": "+1", "02-03": "+2", "03-04": "+3",
-		"04-05": "+4", "05-06": "+5", "06-07": "+6", "07-08": "+7", "08-09": "+8",
-		"20-21": "-4", "21-22": "-3", "22-23": "-2", "23-24": "-1",
-	}
-
-	formatTimes := func(slots []string) string {
-		if len(slots) == 0 {
-			return "Not set"
-		}
-		if len(slots) == len(timeLabels) {
-			return "Any"
-		}
-		sorted := make([]string, len(slots))
-		copy(sorted, slots)
-		sort.Strings(sorted)
-		var short []string
-		for _, s := range sorted {
-			if l, ok := timeLabels[s]; ok {
-				short = append(short, l)
-			} else {
-				short = append(short, s)
-			}
-		}
-		return strings.Join(short, ", ")
-	}
 
 	// Discord defaults an unset MinValues to 1; these menus are deselectable,
 	// so the zero has to be sent explicitly.
@@ -86,6 +118,7 @@ func GetAvailabilityComponents(client dc.Client, contract *Contract, userID stri
 		}
 
 		timeOptions := []dc.SelectOption{
+			{Label: "ALL Times", Value: "all"},
 			{Label: "+0", Value: "00-01"},
 			{Label: "+1", Value: "01-02"},
 			{Label: "+2", Value: "02-03"},
@@ -95,13 +128,22 @@ func GetAvailabilityComponents(client dc.Client, contract *Contract, userID stri
 			{Label: "+6", Value: "06-07"},
 			{Label: "+7", Value: "07-08"},
 			{Label: "+8", Value: "08-09"},
+			{Label: "+9", Value: "09-10"},
+			{Label: "+10", Value: "10-11"},
+			{Label: "+11", Value: "11-12"},
+			{Label: "+12", Value: "12-13"},
 			{Label: "-4", Value: "20-21"},
 			{Label: "-3", Value: "21-22"},
 			{Label: "-2", Value: "22-23"},
 			{Label: "-1", Value: "23-24"},
 		}
+		hasAll := b != nil && (slices.Contains(b.Availability.Timeslots, "all") || len(b.Availability.Timeslots) == len(availabilityTimeLabels))
 		for i := range timeOptions {
-			if b != nil && slices.Contains(b.Availability.Timeslots, timeOptions[i].Value) {
+			if hasAll {
+				if timeOptions[i].Value == "all" {
+					timeOptions[i].Default = true
+				}
+			} else if b != nil && slices.Contains(b.Availability.Timeslots, timeOptions[i].Value) {
 				timeOptions[i].Default = true
 			}
 		}
