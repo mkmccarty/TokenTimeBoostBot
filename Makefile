@@ -2,8 +2,8 @@
 
 UNAME_A = `uname -m`
 UNAME_S = `uname -s`
-GO_VERSION = 1.27.1
-GOLANGCI_LINT_VERSION=v2.13.2
+GO_VERSION = 1.27.2
+GOLANGCI_LINT_VERSION=v2.14.0
 
 # Fallback GOROOT if system environment GOROOT points to non-existent directory
 ifneq ($(wildcard /opt/homebrew/opt/go/libexec),)
@@ -70,7 +70,7 @@ audit:
 	gofmt -l -s -w .
 	go mod verify
 	go vet ./...
-	go run honnef.co/go/tools/cmd/staticcheck@latest -checks=all,-ST1000,-U1000 ./...
+	./bin/golangci-lint run
 	go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 	go test -race -buildvcs -vet=off ./...
 
