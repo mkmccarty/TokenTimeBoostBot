@@ -712,16 +712,17 @@ func renderStatusPage(e dc.InteractionEvent, userID string, page int, showClearC
 			}
 		}
 
-		if w.WatchType == WatchTypeEvent {
+		switch w.WatchType {
+		case WatchTypeEvent:
 			fmt.Fprintf(&sb, "%d. %s **%s**%s\n", start+idx+1, typeStr, targetName, timeStr)
-		} else if w.WatchType == WatchTypeContract {
+		case WatchTypeContract:
 			carpetURL := fmt.Sprintf("https://eicoop-carpet.netlify.app/?q=%s", w.TargetID)
 			if targetName != w.TargetID {
 				fmt.Fprintf(&sb, "%d. %s **[%s](%s)** `%s`%s\n", start+idx+1, typeStr, targetName, carpetURL, w.TargetID, timeStr)
 			} else {
 				fmt.Fprintf(&sb, "%d. %s **[%s](%s)**%s\n", start+idx+1, typeStr, targetName, carpetURL, timeStr)
 			}
-		} else {
+		default:
 			fmt.Fprintf(&sb, "%d. %s **%s** `%s`%s\n", start+idx+1, typeStr, targetName, w.TargetID, timeStr)
 		}
 	}
