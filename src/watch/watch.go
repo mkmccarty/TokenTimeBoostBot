@@ -712,18 +712,10 @@ func renderStatusPage(e dc.InteractionEvent, userID string, page int, showClearC
 			}
 		}
 
-		switch w.WatchType {
-		case WatchTypeEvent:
+		if w.WatchType == WatchTypeEvent {
 			fmt.Fprintf(&sb, "%d. %s **%s**%s\n", start+idx+1, typeStr, targetName, timeStr)
-		case WatchTypeContract:
-			carpetURL := fmt.Sprintf("https://eicoop-carpet.netlify.app/?q=%s", w.TargetID)
-			if targetName != w.TargetID {
-				fmt.Fprintf(&sb, "%d. %s **[%s](%s)** `%s`%s\n", start+idx+1, typeStr, targetName, carpetURL, w.TargetID, timeStr)
-			} else {
-				fmt.Fprintf(&sb, "%d. %s **[%s](%s)**%s\n", start+idx+1, typeStr, targetName, carpetURL, timeStr)
-			}
-		default:
-			fmt.Fprintf(&sb, "%d. %s **%s** `%s`%s\n", start+idx+1, typeStr, targetName, w.TargetID, timeStr)
+		} else {
+			fmt.Fprintf(&sb, "%d. %s **%s** `%s` %s\n", start+idx+1, typeStr, targetName, w.TargetID, timeStr)
 		}
 	}
 
@@ -824,10 +816,9 @@ func renderStatusPage(e dc.InteractionEvent, userID string, page int, showClearC
 	}
 
 	sendStatusPage(e, dc.Message{
-		Content:        sb.String(),
-		Components:     components,
-		ComponentsV1:   true,
-		SuppressEmbeds: true,
+		Content:      sb.String(),
+		Components:   components,
+		ComponentsV1: true,
 	})
 }
 

@@ -534,7 +534,16 @@ func drawDashboard(client dc.Client, userID string, showExternal bool) []dc.Layo
 				}
 			}
 
-			fmt.Fprintf(&contractBuilder, "**%s / %s**\n%s\n", contractName, c.CoopID, channelStr)
+			carpetURL := fmt.Sprintf("https://eicoop-carpet.netlify.app/%s/%s", c.ContractID, c.CoopID)
+			if c.CoopID == "" || c.CoopID == "N/A" {
+				carpetURL = fmt.Sprintf("https://eicoop-carpet.netlify.app/?q=%s", c.ContractID)
+			}
+
+			if c.CoopID != "" {
+				fmt.Fprintf(&contractBuilder, "**%s / [%s](%s)**\n%s\n", contractName, c.CoopID, carpetURL, channelStr)
+			} else {
+				fmt.Fprintf(&contractBuilder, "**[%s](%s)**\n%s\n", contractName, carpetURL, channelStr)
+			}
 			fmt.Fprintf(&contractBuilder, "-# _       _ %s\n", timeStr)
 
 			if c.State == 99 && len(c.Location) == 0 { // It's an un-bookmarked external contract
