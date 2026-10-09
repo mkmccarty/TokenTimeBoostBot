@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc/dctest"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
@@ -112,6 +113,9 @@ func TestWatchActAs(t *testing.T) {
 	if !strings.Contains(lastStatusMsg, altUser) {
 		t.Errorf("expected status page header to mention altUser, got: %s", lastStatusMsg)
 	}
+	if !strings.Contains(lastStatusMsg, "https://eicoop-carpet.netlify.app/?q=test-c-999") {
+		t.Errorf("expected status page to link to carpet-wasmegg, got: %s", lastStatusMsg)
+	}
 
 	// 4. Test button interactions: mainUser interacting with altUser's status page
 	sortButtonEvent := dctest.ComponentButtonEventWithUser(
@@ -138,4 +142,44 @@ func TestWatchActAs(t *testing.T) {
 	farmerstate.DeleteUserWatches(altUser)
 	_ = farmerstate.ClearActAsSwitch(mainUser, channelID)
 	_ = farmerstate.RemoveActAsLink(mainUser, altUser)
+}
+
+func TestWatchContractCarpetLink(t *testing.T) {
+	testUser := "100000000000000099"
+	farmerstate.DeleteUserWatches(testUser)
+	defer farmerstate.DeleteUserWatches(testUser)
+
+	if ei.EggIncContractsAll == nil {
+		ei.EggIncContractsAll = make(map[string]ei.EggIncContract)
+	}
+	ei.EggIncContractsAll["carpet-test-c1"] = ei.EggIncContract{
+		ID:      "carpet-test-c1",
+		Name:    "Carpet Test Contract",
+		EggName: "superfood",
+	}
+
+	// 1. Add known contract watch
+	farmerstate.AddWatch(testUser, WatchTypeContract, "carpet-test-c1")
+	// 2. Add unknown contract watch
+	farmerstate.AddWatch(testUser, WatchTypeContract, "carpet-test-unknown")
+
+	statusEvent := dctest.SubcommandEventWithUser("watch", "status", testUser)
+	HandleWatch(statusEvent)
+
+	if len(statusEvent.Followups) == 0 {
+		t.Fatalf("expected followups from /watch status")
+	}
+	lastStatusMsg := statusEvent.Followups[len(statusEvent.Followups)-1].Content
+
+	// Check known contract formatting: **[Name](url)** `id`
+	expectedKnown := "**[Carpet Test Contract](https://eicoop-carpet.netlify.app/?q=carpet-test-c1)** `carpet-test-c1`"
+	if !strings.Contains(lastStatusMsg, expectedKnown) {
+		t.Errorf("expected status message to contain %q, got:\n%s", expectedKnown, lastStatusMsg)
+	}
+
+	// Check unknown contract formatting: **[id](url)**
+	expectedUnknown := "**[carpet-test-unknown](https://eicoop-carpet.netlify.app/?q=carpet-test-unknown)**"
+	if !strings.Contains(lastStatusMsg, expectedUnknown) {
+		t.Errorf("expected status message to contain %q, got:\n%s", expectedUnknown, lastStatusMsg)
+	}
 }
