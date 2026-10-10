@@ -674,8 +674,6 @@ func buildPlannerDialog(targetID string, backup *ei.Backup, notice string) dc.Me
 		},
 	}
 
-
-
 	// Action buttons
 	refreshBtn := dc.Button{
 		Label:    "Refresh Data",
@@ -1484,4 +1482,3 @@ func getTargetEmojiCandidates(target ei.ArtifactSpec_Name) []string {
 	}
 	return nil
 }
-

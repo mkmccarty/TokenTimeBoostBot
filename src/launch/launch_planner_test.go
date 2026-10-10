@@ -628,4 +628,3 @@ func TestBuildPlannerDialog_TargetArtifactEmoji(t *testing.T) {
 		t.Error("Expected active rocket section to show Tau Ceti Geode emoji <:afx_tau_ceti_geode_3:33445566> without the ingredient name")
 	}
 }
-
