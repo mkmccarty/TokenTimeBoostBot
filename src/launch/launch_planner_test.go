@@ -26,6 +26,7 @@ func TestGetSlashLaunchPlannerCommand(t *testing.T) {
 	hasDubcap := false
 	hasAlt := false
 	hasTarget := false
+	hasExactFuel := false
 
 	for _, opt := range cmd.Options {
 		switch o := opt.(type) {
@@ -42,6 +43,9 @@ func TestGetSlashLaunchPlannerCommand(t *testing.T) {
 		case dc.BoolOption:
 			if o.Name == "dubcap" {
 				hasDubcap = true
+			}
+			if o.Name == "exact-fuel" {
+				hasExactFuel = true
 			}
 		case dc.IntOption:
 			if o.Name == "target-launches" {
@@ -61,6 +65,9 @@ func TestGetSlashLaunchPlannerCommand(t *testing.T) {
 	}
 	if !hasTarget {
 		t.Error("Missing 'target-launches' option")
+	}
+	if !hasExactFuel {
+		t.Error("Missing 'exact-fuel' option")
 	}
 }
 
@@ -628,3 +635,116 @@ func TestBuildPlannerDialog_TargetArtifactEmoji(t *testing.T) {
 		t.Error("Expected active rocket section to show Tau Ceti Geode emoji <:afx_tau_ceti_geode_3:33445566> without the ingredient name")
 	}
 }
+
+func TestExactFuelOptionAndFormatting(t *testing.T) {
+	dummyEI := "EI1234567890123456"
+	dummyUser := "userExactFuel"
+	dummyName := "TestFarmer"
+
+	backupMaker := ei.NewBackupMaker(dummyEI, dummyName)
+	backup := backupMaker.GetBackup()
+
+	// Setup virtue farm on Kindness
+	homeFarmType := ei.FarmType_HOME
+	eggType := ei.Egg_KINDNESS
+	backup.Farms = []*ei.Backup_Simulation{{
+		EggType:  &eggType,
+		FarmType: &homeFarmType,
+	}}
+
+	// Setup Virtue AFX tank fuels (last 5 are virtue eggs)
+	// Curiosity (20), Integrity (21), Humility (22), Resilience (23), Kindness (24)
+	tankFuels := []float64{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 265420000000, 0, 0, 313560000000.5, 225100000000000.12}
+	tankLimits := []float64{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
+
+	backupMaker.SetVirtueAFX(1.0, true, false, tankFuels, tankLimits, 10, 50000)
+
+	lvl := uint32(7) // 500T tank
+	if backup.Artifacts != nil {
+		backup.Artifacts.TankLevel = &lvl
+	}
+
+	farmerstate.SetMiscSettingString(dummyUser, "launch_planner_goal", GoalArtifactHunt)
+
+	// Case 1: exactFuel = false (default)
+	farmerstate.SetMiscSettingFlag(dummyUser, "launch_planner_exact_fuel", false)
+	msgDefault := buildPlannerDialog(dummyUser, backup, "")
+	containerDefault := msgDefault.Components[0].(dc.Container)
+
+	fuelContentDefault := ""
+	for _, sub := range containerDefault.Components {
+		if textDisp, ok := sub.(dc.TextDisplay); ok {
+			if strings.Contains(textDisp.Content, "Path of Virtue Fuel Planning") {
+				fuelContentDefault = textDisp.Content
+			}
+		}
+	}
+	// With exactFuel = false, formats as standard 1-decimal EI units: 265.4B, 225.1T
+	if !strings.Contains(fuelContentDefault, "265.4B") || !strings.Contains(fuelContentDefault, "225.1T") {
+		t.Errorf("Expected 1 decimal formatting when exact-fuel is off, got:\n%s", fuelContentDefault)
+	}
+
+	// Verify button label
+	foundExactOffBtn := false
+	for _, sub := range containerDefault.Components {
+		if row, ok := sub.(dc.ActionRow); ok {
+			for _, comp := range row.Components {
+				if btn, ok := comp.(dc.Button); ok {
+					if btn.Label == "Exact Fuel: Off" {
+						foundExactOffBtn = true
+					}
+				}
+			}
+		}
+	}
+	if !foundExactOffBtn {
+		t.Error("Expected to find 'Exact Fuel: Off' button")
+	}
+
+	// Case 2: exactFuel = true
+	farmerstate.SetMiscSettingFlag(dummyUser, "launch_planner_exact_fuel", true)
+	msgExact := buildPlannerDialog(dummyUser, backup, "")
+	containerExact := msgExact.Components[0].(dc.Container)
+
+	fuelContentExact := ""
+	for _, sub := range containerExact.Components {
+		if textDisp, ok := sub.(dc.TextDisplay); ok {
+			if strings.Contains(textDisp.Content, "Path of Virtue Fuel Planning") {
+				fuelContentExact = textDisp.Content
+			}
+		}
+	}
+	// With exactFuel = true, should show all digits with commas up to 2 decimal places:
+	// e.g. 225,100,000,000,000.12, 265,420,000,000, 313,560,000,000.5
+	if !strings.Contains(fuelContentExact, "225,100,000,000,000.12") {
+		t.Errorf("Expected '225,100,000,000,000.12' when exact-fuel is on, got:\n%s", fuelContentExact)
+	}
+	if !strings.Contains(fuelContentExact, "265,420,000,000") {
+		t.Errorf("Expected '265,420,000,000' when exact-fuel is on, got:\n%s", fuelContentExact)
+	}
+	if !strings.Contains(fuelContentExact, "313,560,000,000.5") {
+		t.Errorf("Expected '313,560,000,000.5' when exact-fuel is on, got:\n%s", fuelContentExact)
+	}
+	// Total needed should remain standard (e.g. 225T, not 225,000,000,000,000)
+	if !strings.Contains(fuelContentExact, "/ 225T") {
+		t.Errorf("Expected total needed to remain standard '/ 225T', got:\n%s", fuelContentExact)
+	}
+
+	// Verify button label is now "Exact Fuel: On"
+	foundExactOnBtn := false
+	for _, sub := range containerExact.Components {
+		if row, ok := sub.(dc.ActionRow); ok {
+			for _, comp := range row.Components {
+				if btn, ok := comp.(dc.Button); ok {
+					if btn.Label == "Exact Fuel: On" {
+						foundExactOnBtn = true
+					}
+				}
+			}
+		}
+	}
+	if !foundExactOnBtn {
+		t.Error("Expected to find 'Exact Fuel: On' button")
+	}
+}
+

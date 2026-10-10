@@ -72,6 +72,11 @@ func GetSlashLaunchPlannerCommand(cmd string) *dc.Command {
 				Required:    false,
 			},
 			dc.BoolOption{
+				Name:        "exact-fuel",
+				Description: "Show all fuel digits up to 2 decimal places (e.g. 225,100,000,000,000.12). [Sticky]",
+				Required:    false,
+			},
+			dc.BoolOption{
 				Name:        "help",
 				Description: "Show explanation and help for the launch planner.",
 				Required:    false,
@@ -192,6 +197,9 @@ func HandleLaunchPlannerCommand(e *dc.CommandEvent) {
 	if opt, ok := e.OptInt("target-launches"); ok && opt > 0 {
 		farmerstate.SetMiscSettingString(targetID, "launch_planner_target", strconv.Itoa(opt))
 	}
+	if opt, ok := e.OptBool("exact-fuel"); ok {
+		farmerstate.SetMiscSettingFlag(targetID, "launch_planner_exact_fuel", opt)
+	}
 
 	eggIncID := altEggIncID
 	if eggIncID == "" {
@@ -305,6 +313,9 @@ func HandleLaunchPlannerComponent(e *dc.ComponentEvent) {
 		if len(e.Values()) > 0 {
 			farmerstate.SetMiscSettingString(targetID, "launch_planner_target", e.Values()[0])
 		}
+	case "exact_fuel":
+		curr := farmerstate.GetMiscSettingFlag(targetID, "launch_planner_exact_fuel")
+		farmerstate.SetMiscSettingFlag(targetID, "launch_planner_exact_fuel", !curr)
 	case "refresh":
 		// Just re-queries and updates
 	case "info":
@@ -351,6 +362,7 @@ func launchPlannerText() string {
 	b.WriteString("  - ⭐ **All Stars Club**: Focuses on Short missions for ships needing stars to achieve ASC in the fastest time.\n")
 	b.WriteString("  - 🧘 **Enlightenment Run**: Calculates optimal tank storage and launch capacity to sustain launches throughout an Enlightenment run without refueling.\n")
 	b.WriteString("- **Sunday Double Capacity Event (48h)**: Analyzes next Sunday's event window (9 AM PT Sunday to Tuesday) and provides timing advice so you never miss a 2x capacity launch!\n")
+	b.WriteString("- **Exact Fuel Display**: Toggle `exact-fuel` to display all fuel digits with commas up to 2 decimal places (e.g. 225,100,000,000,000.12).\n")
 	return b.String()
 }
 
@@ -435,6 +447,7 @@ func buildPlannerDialog(targetID string, backup *ei.Backup, notice string) dc.Me
 		goal = GoalFuelEfficiency
 	}
 	considerDubcap := farmerstate.GetMiscSettingFlag(targetID, "launch_planner_dubcap")
+	exactFuel := farmerstate.GetMiscSettingFlag(targetID, "launch_planner_exact_fuel")
 
 	targetLaunchesStr := farmerstate.GetMiscSettingString(targetID, "launch_planner_target")
 	targetLaunches := 9 // Default 9 launches for normal farm (3 full tri-launch cycles)
@@ -569,9 +582,9 @@ func buildPlannerDialog(targetID string, backup *ei.Backup, notice string) dc.Me
 	var fuelSec strings.Builder
 
 	if isVirtueFarm {
-		renderVirtueFuelPlanning(&fuelSec, backup, farmEgg, goal, tankLevels)
+		renderVirtueFuelPlanning(&fuelSec, backup, farmEgg, goal, tankLevels, exactFuel)
 	} else {
-		renderNormalFuelPlanning(&fuelSec, backup, farmEgg, goal, targetLaunches, tankLevels)
+		renderNormalFuelPlanning(&fuelSec, backup, farmEgg, goal, targetLaunches, tankLevels, exactFuel)
 	}
 
 	// 3. SUNDAY DOUBLE CAPACITY SECTION
@@ -680,6 +693,17 @@ func buildPlannerDialog(targetID string, backup *ei.Backup, notice string) dc.Me
 		CustomID: fmt.Sprintf("launch_planner#refresh#%s", targetID),
 		Style:    dc.ButtonSecondary,
 	}
+	exactFuelStyle := dc.ButtonSecondary
+	exactFuelLabel := "Exact Fuel: Off"
+	if exactFuel {
+		exactFuelStyle = dc.ButtonPrimary
+		exactFuelLabel = "Exact Fuel: On"
+	}
+	exactFuelBtn := dc.Button{
+		Label:    exactFuelLabel,
+		CustomID: fmt.Sprintf("launch_planner#exact_fuel#%s", targetID),
+		Style:    exactFuelStyle,
+	}
 	infoBtn := dc.Button{
 		Label:    "Help / Info",
 		CustomID: fmt.Sprintf("launch_planner#info#%s", targetID),
@@ -689,7 +713,7 @@ func buildPlannerDialog(targetID string, backup *ei.Backup, notice string) dc.Me
 	containerSubs = append(containerSubs, dc.Separator{Divider: true, Spacing: dc.SeparatorSpacingSmall})
 	containerSubs = append(containerSubs, dc.ActionRow{Components: []dc.InteractiveComponent{goalMenu}})
 	containerSubs = append(containerSubs, dc.ActionRow{Components: []dc.InteractiveComponent{dubcapMenu}})
-	containerSubs = append(containerSubs, dc.ActionRow{Components: []dc.InteractiveComponent{refreshBtn, infoBtn}})
+	containerSubs = append(containerSubs, dc.ActionRow{Components: []dc.InteractiveComponent{refreshBtn, exactFuelBtn, infoBtn}})
 
 	accentColor := 0x2ECC71 // Emerald Green
 	if isVirtueFarm {
@@ -707,8 +731,60 @@ func buildPlannerDialog(targetID string, backup *ei.Backup, notice string) dc.Me
 	}
 }
 
+// formatExactFuel formats a fuel value showing all digits with comma separators
+// and up to 2 decimal places (e.g. 225,100,000,000,000.12).
+func formatExactFuel(val float64) string {
+	if math.IsNaN(val) {
+		return "NaN"
+	}
+	if math.IsInf(val, 0) {
+		return "infinity"
+	}
+	if val < 0 {
+		return "-" + formatExactFuel(-val)
+	}
+
+	str := strconv.FormatFloat(val, 'f', 2, 64)
+	parts := strings.Split(str, ".")
+	intPart := parts[0]
+	fracPart := ""
+	if len(parts) > 1 {
+		fracPart = strings.TrimRight(parts[1], "0")
+	}
+
+	n := len(intPart)
+	if n <= 3 {
+		if fracPart != "" {
+			return intPart + "." + fracPart
+		}
+		return intPart
+	}
+
+	var buf []byte
+	for i := 0; i < n; i++ {
+		if (n-i)%3 == 0 && i != 0 {
+			buf = append(buf, ',')
+		}
+		buf = append(buf, intPart[i])
+	}
+
+	if fracPart != "" {
+		return string(buf) + "." + fracPart
+	}
+	return string(buf)
+}
+
+// formatFuelAmount formats a fuel amount, showing all digits with commas if exact is true,
+// or standard trimmed 1-decimal EI units (e.g. 225.1T) if false.
+func formatFuelAmount(val float64, exact bool) string {
+	if exact {
+		return formatExactFuel(val)
+	}
+	return ei.FormatEIValue(val, map[string]any{"decimals": 1, "trim": true})
+}
+
 // renderVirtueFuelPlanning renders the fuel advisor for Virtue farms.
-func renderVirtueFuelPlanning(b *strings.Builder, backup *ei.Backup, farmEgg ei.Egg, goal string, tankLevels []float64) {
+func renderVirtueFuelPlanning(b *strings.Builder, backup *ei.Backup, farmEgg ei.Egg, goal string, tankLevels []float64, exactFuel bool) {
 	b.WriteString("### 🧪 Path of Virtue Fuel Planning\n")
 
 	virtue := backup.GetVirtue()
@@ -886,7 +962,7 @@ func renderVirtueFuelPlanning(b *strings.Builder, backup *ei.Backup, farmEgg ei.
 
 		statusStr := ""
 		if deficit > 0 {
-			statusStr = fmt.Sprintf("• Needs **+%s**", ei.FormatEIValue(deficit, map[string]any{"decimals": 1, "trim": true}))
+			statusStr = fmt.Sprintf("• Needs **+%s**", formatFuelAmount(deficit, exactFuel))
 		} else if isExact {
 			statusStr = "• ⚠️ **Exact! (Rounding Risk)**"
 		} else {
@@ -895,7 +971,7 @@ func renderVirtueFuelPlanning(b *strings.Builder, backup *ei.Backup, farmEgg ei.
 
 		fmt.Fprintf(b, "- %s **%s**: %s / %s (has fuel for %.1f launches) %s%s\n",
 			eggEmoji, eggName,
-			ei.FormatEIValue(currentStored, map[string]any{"decimals": 1, "trim": true}),
+			formatFuelAmount(currentStored, exactFuel),
 			ei.FormatEIValue(totalNeeded, map[string]any{"decimals": 1, "trim": true}),
 			launchesCanDo,
 			statusStr,
@@ -988,17 +1064,17 @@ func renderVirtueFuelPlanning(b *strings.Builder, backup *ei.Backup, farmEgg ei.
 				if fillTarget > freeTankSpace {
 					fmt.Fprintf(b, "• ⛽ **Current Farm (%s)**: Needs **+%s**, but only **%s** free space remains in tank across all eggs. Bank as much as tank allows before shifting!\n",
 						formatEggName(farmEgg),
-						ei.FormatEIValue(fillTarget, map[string]any{"decimals": 1, "trim": true}),
-						ei.FormatEIValue(freeTankSpace, map[string]any{"decimals": 1, "trim": true}))
+						formatFuelAmount(fillTarget, exactFuel),
+						formatFuelAmount(freeTankSpace, exactFuel))
 				} else {
 					fmt.Fprintf(b, "• ⛽ **Current Farm (%s)**: Bank **+%s** more fuel here into your tank before shifting forward.\n",
 						formatEggName(farmEgg),
-						ei.FormatEIValue(fillTarget, map[string]any{"decimals": 1, "trim": true}))
+						formatFuelAmount(fillTarget, exactFuel))
 				}
 			} else if isExactOrBorderlineFuel(currentEggPlan.stored, currentEggPlan.needed) {
 				fmt.Fprintf(b, "• ⚠️ **Current Farm (%s)**: Stored fuel is exactly at the required amount (%s for %d launches). Due to Egg, Inc. fuel tank rounding bugs, bank a small extra buffer (+10B–100B) before shifting so your final launch isn't rejected!\n",
 					formatEggName(farmEgg),
-					ei.FormatEIValue(currentEggPlan.stored, map[string]any{"decimals": 1, "trim": true}),
+					formatFuelAmount(currentEggPlan.stored, exactFuel),
 					targetLaunches)
 			} else {
 				fmt.Fprintf(b, "• ✅ **Current Farm (%s)**: Target already met (has fuel for %.1f launches)! No more fuel needed here; safe to shift toward other required eggs or Humility.\n",
@@ -1025,7 +1101,7 @@ func renderVirtueFuelPlanning(b *strings.Builder, backup *ei.Backup, farmEgg ei.
 }
 
 // renderNormalFuelPlanning renders the fuel advisor for Standard home farms.
-func renderNormalFuelPlanning(b *strings.Builder, backup *ei.Backup, farmEgg ei.Egg, goal string, targetLaunches int, tankLevels []float64) {
+func renderNormalFuelPlanning(b *strings.Builder, backup *ei.Backup, farmEgg ei.Egg, goal string, targetLaunches int, tankLevels []float64, exactFuel bool) {
 	b.WriteString("### ⛽ Fuel Tank Advisor & Launch Planning\n")
 
 	artifacts := backup.GetArtifacts()
@@ -1133,7 +1209,7 @@ func renderNormalFuelPlanning(b *strings.Builder, backup *ei.Backup, farmEgg ei.
 
 		fmt.Fprintf(b, "- %s **%s**: %s in tank • Need %s/launch (Enough for **%d** launches)%s\n",
 			eggEmoji, eggName,
-			ei.FormatEIValue(currentStored, map[string]any{"decimals": 1, "trim": true}),
+			formatFuelAmount(currentStored, exactFuel),
 			ei.FormatEIValue(req.Amount, map[string]any{"decimals": 1, "trim": true}),
 			nLaunches,
 			exactNotice)
@@ -1156,7 +1232,7 @@ func renderNormalFuelPlanning(b *strings.Builder, backup *ei.Backup, farmEgg ei.
 		fmt.Fprintf(b, "🚨 **CRITICAL FUEL WARNING**: You are **OUT OF FUEL** for `%s`! Tank has insufficient **%s** (%s stored, %s needed per launch). Prestige and refill now!\n",
 			shipName,
 			formatEggName(bottleneckEgg),
-			ei.FormatEIValue(bottleneckStored, map[string]any{"decimals": 1, "trim": true}),
+			formatFuelAmount(bottleneckStored, exactFuel),
 			ei.FormatEIValue(bottleneckNeeded, map[string]any{"decimals": 1, "trim": true}))
 	} else if launchesRemaining <= 2 {
 		fmt.Fprintf(b, "⚠️ **FUEL WARNING**: Tank only has enough fuel for **%d** more launch(es) of `%s`! **%s** will run out first. Plan to prestige and refill soon!\n",
