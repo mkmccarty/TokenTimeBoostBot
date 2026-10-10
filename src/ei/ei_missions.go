@@ -40,15 +40,21 @@ type missionData struct {
 
 // AfxMissionParam holds mission parameter data from the AFX config.
 type AfxMissionParam struct {
-	Ship      string               `json:"ship"`
-	Durations []AfxMissionDuration `json:"durations"`
+	Ship                     string               `json:"ship"`
+	Durations                []AfxMissionDuration `json:"durations"`
+	LevelMissionRequirements []float64            `json:"levelMissionRequirements"`
 }
 
 // AfxMissionDuration holds duration parameter data from the AFX config.
 type AfxMissionDuration struct {
-	DurationType string  `json:"durationType"`
-	Seconds      float64 `json:"seconds"`
-	Capacity     uint32  `json:"capacity"`
+	DurationType      string  `json:"durationType"`
+	Seconds           float64 `json:"seconds"`
+	Quality           float64 `json:"quality"`
+	MinQuality        float64 `json:"minQuality"`
+	MaxQuality        float64 `json:"maxQuality"`
+	Capacity          uint32  `json:"capacity"`
+	LevelCapacityBump uint32  `json:"levelCapacityBump"`
+	LevelQualityBump  float64 `json:"levelQualityBump"`
 }
 
 // AfxArtifactParam holds artifact parameter data from the AFX config.
@@ -108,6 +114,12 @@ var AfxConfig AfxConfigData
 // MissionDurations maps ship and duration type to expected duration in seconds
 var MissionDurations = make(map[int]map[int]float64)
 
+// MissionDurationParams maps spaceship and duration type to its AfxMissionDuration config
+var MissionDurationParams = make(map[MissionInfo_Spaceship]map[MissionInfo_DurationType]AfxMissionDuration)
+
+// MissionLevelReqs maps spaceship to its slice of required launch points per level
+var MissionLevelReqs = make(map[MissionInfo_Spaceship][]float64)
+
 // SuspectMissionHandler is a callback to record suspect missions to the database without importing farmerstate
 var SuspectMissionHandler func(discordID string, mission *MissionInfo, baseSeconds, actualSeconds, eventMultiplier float64)
 
@@ -154,9 +166,15 @@ func loadAfxConfig() {
 			continue
 		}
 
+		shipEnum := MissionInfo_Spaceship(shipInt)
 		if MissionDurations[shipInt] == nil {
 			MissionDurations[shipInt] = make(map[int]float64)
 		}
+		if MissionDurationParams[shipEnum] == nil {
+			MissionDurationParams[shipEnum] = make(map[MissionInfo_DurationType]AfxMissionDuration)
+		}
+		MissionLevelReqs[shipEnum] = mp.LevelMissionRequirements
+
 		for _, d := range mp.Durations {
 			durInt := -1
 			for k, v := range MissionInfo_DurationType_name {
@@ -166,10 +184,186 @@ func loadAfxConfig() {
 				}
 			}
 			if durInt != -1 {
+				durEnum := MissionInfo_DurationType(durInt)
 				MissionDurations[shipInt][durInt] = d.Seconds
+				MissionDurationParams[shipEnum][durEnum] = d
 			}
 		}
 	}
+}
+
+// FuelRequirement represents a fuel requirement for a mission.
+type FuelRequirement struct {
+	Egg    Egg
+	Amount float64
+}
+
+// StandardMissionFuels maps ship and duration type to standard egg fuels.
+var StandardMissionFuels = map[MissionInfo_Spaceship]map[MissionInfo_DurationType][]FuelRequirement{
+	MissionInfo_CHICKEN_ONE: {
+		MissionInfo_TUTORIAL: {{Egg: Egg_ROCKET_FUEL, Amount: 1e5}},
+		MissionInfo_SHORT:    {{Egg: Egg_ROCKET_FUEL, Amount: 2e6}},
+		MissionInfo_LONG:     {{Egg: Egg_ROCKET_FUEL, Amount: 3e6}},
+		MissionInfo_EPIC:     {{Egg: Egg_ROCKET_FUEL, Amount: 10e6}},
+	},
+	MissionInfo_CHICKEN_NINE: {
+		MissionInfo_SHORT: {{Egg: Egg_ROCKET_FUEL, Amount: 10e6}},
+		MissionInfo_LONG:  {{Egg: Egg_ROCKET_FUEL, Amount: 15e6}},
+		MissionInfo_EPIC:  {{Egg: Egg_ROCKET_FUEL, Amount: 25e6}},
+	},
+	MissionInfo_CHICKEN_HEAVY: {
+		MissionInfo_SHORT: {{Egg: Egg_ROCKET_FUEL, Amount: 100e6}},
+		MissionInfo_LONG:  {{Egg: Egg_ROCKET_FUEL, Amount: 50e6}, {Egg: Egg_FUSION, Amount: 5e6}},
+		MissionInfo_EPIC:  {{Egg: Egg_ROCKET_FUEL, Amount: 75e6}, {Egg: Egg_FUSION, Amount: 25e6}},
+	},
+	MissionInfo_BCR: {
+		MissionInfo_SHORT: {{Egg: Egg_ROCKET_FUEL, Amount: 250e6}, {Egg: Egg_FUSION, Amount: 50e6}},
+		MissionInfo_LONG:  {{Egg: Egg_ROCKET_FUEL, Amount: 400e6}, {Egg: Egg_FUSION, Amount: 75e6}},
+		MissionInfo_EPIC:  {{Egg: Egg_SUPERFOOD, Amount: 5e6}, {Egg: Egg_ROCKET_FUEL, Amount: 300e6}, {Egg: Egg_FUSION, Amount: 100e6}},
+	},
+	MissionInfo_MILLENIUM_CHICKEN: {
+		MissionInfo_SHORT: {{Egg: Egg_FUSION, Amount: 5e9}, {Egg: Egg_GRAVITON, Amount: 1e9}},
+		MissionInfo_LONG:  {{Egg: Egg_FUSION, Amount: 7e9}, {Egg: Egg_GRAVITON, Amount: 5e9}},
+		MissionInfo_EPIC:  {{Egg: Egg_SUPERFOOD, Amount: 10e6}, {Egg: Egg_FUSION, Amount: 10e9}, {Egg: Egg_GRAVITON, Amount: 15e9}},
+	},
+	MissionInfo_CORELLIHEN_CORVETTE: {
+		MissionInfo_SHORT: {{Egg: Egg_FUSION, Amount: 15e9}, {Egg: Egg_GRAVITON, Amount: 2e9}},
+		MissionInfo_LONG:  {{Egg: Egg_FUSION, Amount: 20e9}, {Egg: Egg_GRAVITON, Amount: 3e9}},
+		MissionInfo_EPIC:  {{Egg: Egg_SUPERFOOD, Amount: 500e6}, {Egg: Egg_FUSION, Amount: 25e9}, {Egg: Egg_GRAVITON, Amount: 5e9}},
+	},
+	MissionInfo_GALEGGTICA: {
+		MissionInfo_SHORT: {{Egg: Egg_FUSION, Amount: 50e9}, {Egg: Egg_GRAVITON, Amount: 10e9}},
+		MissionInfo_LONG:  {{Egg: Egg_FUSION, Amount: 75e9}, {Egg: Egg_GRAVITON, Amount: 25e9}},
+		MissionInfo_EPIC:  {{Egg: Egg_FUSION, Amount: 100e9}, {Egg: Egg_GRAVITON, Amount: 50e9}, {Egg: Egg_ANTIMATTER, Amount: 1e9}},
+	},
+	MissionInfo_CHICKFIANT: {
+		MissionInfo_SHORT: {{Egg: Egg_DILITHIUM, Amount: 200e9}, {Egg: Egg_ANTIMATTER, Amount: 50e9}},
+		MissionInfo_LONG:  {{Egg: Egg_DILITHIUM, Amount: 250e9}, {Egg: Egg_ANTIMATTER, Amount: 150e9}},
+		MissionInfo_EPIC:  {{Egg: Egg_TACHYON, Amount: 25e9}, {Egg: Egg_DILITHIUM, Amount: 250e9}, {Egg: Egg_ANTIMATTER, Amount: 250e9}},
+	},
+	MissionInfo_VOYEGGER: {
+		MissionInfo_SHORT: {{Egg: Egg_DILITHIUM, Amount: 1e12}, {Egg: Egg_ANTIMATTER, Amount: 1e12}},
+		MissionInfo_LONG:  {{Egg: Egg_DILITHIUM, Amount: 1.5e12}, {Egg: Egg_ANTIMATTER, Amount: 1.5e12}},
+		MissionInfo_EPIC:  {{Egg: Egg_TACHYON, Amount: 100e9}, {Egg: Egg_DILITHIUM, Amount: 2e12}, {Egg: Egg_ANTIMATTER, Amount: 2e12}},
+	},
+	MissionInfo_HENERPRISE: {
+		MissionInfo_SHORT: {{Egg: Egg_DILITHIUM, Amount: 2e12}, {Egg: Egg_ANTIMATTER, Amount: 2e12}},
+		MissionInfo_LONG:  {{Egg: Egg_DILITHIUM, Amount: 3e12}, {Egg: Egg_ANTIMATTER, Amount: 3e12}, {Egg: Egg_DARK_MATTER, Amount: 3e12}},
+		MissionInfo_EPIC:  {{Egg: Egg_TACHYON, Amount: 1e12}, {Egg: Egg_DILITHIUM, Amount: 3e12}, {Egg: Egg_ANTIMATTER, Amount: 3e12}, {Egg: Egg_DARK_MATTER, Amount: 3e12}},
+	},
+	MissionInfo_ATREGGIES: {
+		MissionInfo_SHORT: {{Egg: Egg_DILITHIUM, Amount: 4e12}, {Egg: Egg_ANTIMATTER, Amount: 4e12}, {Egg: Egg_DARK_MATTER, Amount: 3e12}},
+		MissionInfo_LONG:  {{Egg: Egg_DILITHIUM, Amount: 6e12}, {Egg: Egg_ANTIMATTER, Amount: 6e12}, {Egg: Egg_DARK_MATTER, Amount: 4e12}},
+		MissionInfo_EPIC:  {{Egg: Egg_TACHYON, Amount: 2e12}, {Egg: Egg_DILITHIUM, Amount: 6e12}, {Egg: Egg_ANTIMATTER, Amount: 6e12}, {Egg: Egg_DARK_MATTER, Amount: 6e12}},
+	},
+}
+
+// VirtueMissionFuels maps ship and duration type to virtue egg fuels.
+var VirtueMissionFuels = map[MissionInfo_Spaceship]map[MissionInfo_DurationType][]FuelRequirement{
+	MissionInfo_CHICKEN_ONE: {
+		MissionInfo_SHORT: {{Egg: Egg_HUMILITY, Amount: 5e6}},
+		MissionInfo_LONG:  {{Egg: Egg_HUMILITY, Amount: 10e6}},
+		MissionInfo_EPIC:  {{Egg: Egg_HUMILITY, Amount: 20e6}},
+	},
+	MissionInfo_CHICKEN_NINE: {
+		MissionInfo_SHORT: {{Egg: Egg_HUMILITY, Amount: 10e6}},
+		MissionInfo_LONG:  {{Egg: Egg_HUMILITY, Amount: 20e6}},
+		MissionInfo_EPIC:  {{Egg: Egg_HUMILITY, Amount: 50e6}},
+	},
+	MissionInfo_CHICKEN_HEAVY: {
+		MissionInfo_SHORT: {{Egg: Egg_HUMILITY, Amount: 50e6}},
+		MissionInfo_LONG:  {{Egg: Egg_HUMILITY, Amount: 100e6}},
+		MissionInfo_EPIC:  {{Egg: Egg_HUMILITY, Amount: 150e6}},
+	},
+	MissionInfo_BCR: {
+		MissionInfo_SHORT: {{Egg: Egg_HUMILITY, Amount: 100e6}, {Egg: Egg_INTEGRITY, Amount: 10e6}},
+		MissionInfo_LONG:  {{Egg: Egg_HUMILITY, Amount: 150e6}, {Egg: Egg_INTEGRITY, Amount: 20e6}},
+		MissionInfo_EPIC:  {{Egg: Egg_HUMILITY, Amount: 200e6}, {Egg: Egg_INTEGRITY, Amount: 30e6}},
+	},
+	MissionInfo_MILLENIUM_CHICKEN: {
+		MissionInfo_SHORT: {{Egg: Egg_HUMILITY, Amount: 10e9}, {Egg: Egg_INTEGRITY, Amount: 10e9}},
+		MissionInfo_LONG:  {{Egg: Egg_HUMILITY, Amount: 20e9}, {Egg: Egg_INTEGRITY, Amount: 20e9}},
+		MissionInfo_EPIC:  {{Egg: Egg_HUMILITY, Amount: 50e9}, {Egg: Egg_INTEGRITY, Amount: 50e9}},
+	},
+	MissionInfo_CORELLIHEN_CORVETTE: {
+		MissionInfo_SHORT: {{Egg: Egg_HUMILITY, Amount: 20e9}, {Egg: Egg_INTEGRITY, Amount: 5e9}},
+		MissionInfo_LONG:  {{Egg: Egg_HUMILITY, Amount: 40e9}, {Egg: Egg_INTEGRITY, Amount: 8e9}},
+		MissionInfo_EPIC:  {{Egg: Egg_HUMILITY, Amount: 70e9}, {Egg: Egg_INTEGRITY, Amount: 10e9}},
+	},
+	MissionInfo_GALEGGTICA: {
+		MissionInfo_SHORT: {{Egg: Egg_HUMILITY, Amount: 200e9}, {Egg: Egg_INTEGRITY, Amount: 200e9}, {Egg: Egg_CURIOSITY, Amount: 200e9}},
+		MissionInfo_LONG:  {{Egg: Egg_HUMILITY, Amount: 400e9}, {Egg: Egg_INTEGRITY, Amount: 400e9}, {Egg: Egg_CURIOSITY, Amount: 400e9}},
+		MissionInfo_EPIC:  {{Egg: Egg_HUMILITY, Amount: 600e9}, {Egg: Egg_INTEGRITY, Amount: 600e9}, {Egg: Egg_CURIOSITY, Amount: 600e9}},
+	},
+	MissionInfo_CHICKFIANT: {
+		MissionInfo_SHORT: {{Egg: Egg_HUMILITY, Amount: 1e12}, {Egg: Egg_CURIOSITY, Amount: 1e12}, {Egg: Egg_KINDNESS, Amount: 1e12}},
+		MissionInfo_LONG:  {{Egg: Egg_HUMILITY, Amount: 2e12}, {Egg: Egg_CURIOSITY, Amount: 2e12}, {Egg: Egg_KINDNESS, Amount: 2e12}},
+		MissionInfo_EPIC:  {{Egg: Egg_HUMILITY, Amount: 3e12}, {Egg: Egg_CURIOSITY, Amount: 3e12}, {Egg: Egg_KINDNESS, Amount: 3e12}},
+	},
+	MissionInfo_VOYEGGER: {
+		MissionInfo_SHORT: {{Egg: Egg_HUMILITY, Amount: 5e12}, {Egg: Egg_CURIOSITY, Amount: 10e12}, {Egg: Egg_KINDNESS, Amount: 5e12}},
+		MissionInfo_LONG:  {{Egg: Egg_HUMILITY, Amount: 10e12}, {Egg: Egg_CURIOSITY, Amount: 20e12}, {Egg: Egg_KINDNESS, Amount: 10e12}},
+		MissionInfo_EPIC:  {{Egg: Egg_HUMILITY, Amount: 15e12}, {Egg: Egg_CURIOSITY, Amount: 25e12}, {Egg: Egg_KINDNESS, Amount: 15e12}},
+	},
+	MissionInfo_HENERPRISE: {
+		MissionInfo_SHORT: {{Egg: Egg_HUMILITY, Amount: 10e12}, {Egg: Egg_CURIOSITY, Amount: 15e12}, {Egg: Egg_KINDNESS, Amount: 10e12}},
+		MissionInfo_LONG:  {{Egg: Egg_HUMILITY, Amount: 15e12}, {Egg: Egg_CURIOSITY, Amount: 20e12}, {Egg: Egg_KINDNESS, Amount: 15e12}, {Egg: Egg_RESILIENCE, Amount: 10e12}},
+		MissionInfo_EPIC:  {{Egg: Egg_HUMILITY, Amount: 25e12}, {Egg: Egg_CURIOSITY, Amount: 25e12}, {Egg: Egg_KINDNESS, Amount: 25e12}, {Egg: Egg_RESILIENCE, Amount: 20e12}},
+	},
+	MissionInfo_ATREGGIES: {
+		MissionInfo_SHORT: {{Egg: Egg_HUMILITY, Amount: 20e12}, {Egg: Egg_CURIOSITY, Amount: 25e12}, {Egg: Egg_KINDNESS, Amount: 20e12}},
+		MissionInfo_LONG:  {{Egg: Egg_HUMILITY, Amount: 30e12}, {Egg: Egg_CURIOSITY, Amount: 40e12}, {Egg: Egg_KINDNESS, Amount: 30e12}, {Egg: Egg_RESILIENCE, Amount: 20e12}},
+		MissionInfo_EPIC:  {{Egg: Egg_HUMILITY, Amount: 75e12}, {Egg: Egg_CURIOSITY, Amount: 50e12}, {Egg: Egg_KINDNESS, Amount: 75e12}, {Egg: Egg_RESILIENCE, Amount: 40e12}},
+	},
+}
+
+// GetMissionFuels returns the fuel requirements for a ship and duration type.
+func GetMissionFuels(ship MissionInfo_Spaceship, dt MissionInfo_DurationType, virtue bool) []FuelRequirement {
+	if virtue {
+		if m, ok := VirtueMissionFuels[ship]; ok {
+			return m[dt]
+		}
+		return nil
+	}
+	if m, ok := StandardMissionFuels[ship]; ok {
+		return m[dt]
+	}
+	return nil
+}
+
+// GetShipMissionParams returns duration and quality parameters from afx config.
+func GetShipMissionParams(ship MissionInfo_Spaceship, dt MissionInfo_DurationType) (AfxMissionDuration, bool) {
+	if m, ok := MissionDurationParams[ship]; ok {
+		if p, ok2 := m[dt]; ok2 {
+			return p, true
+		}
+	}
+	return AfxMissionDuration{}, false
+}
+
+// GetShipLevelRequirements returns the launch points requirements per level for a ship.
+func GetShipLevelRequirements(ship MissionInfo_Spaceship) []float64 {
+	return MissionLevelReqs[ship]
+}
+
+// CalculateShipLevel calculates stars (level), points into current level, points needed to next level, and max level.
+func CalculateShipLevel(ship MissionInfo_Spaceship, totalLP float64) (level int, curLP float64, neededLP float64, maxLevel int) {
+	reqs := GetShipLevelRequirements(ship)
+	maxLevel = len(reqs)
+	accum := 0.0
+	for i, req := range reqs {
+		if totalLP >= accum+req {
+			level = i + 1
+			accum += req
+		} else {
+			curLP = totalLP - accum
+			neededLP = req - curLP
+			return level, curLP, neededLP, maxLevel
+		}
+	}
+	curLP = totalLP - accum
+	neededLP = 0
+	return level, curLP, neededLP, maxLevel
 }
 
 func init() {

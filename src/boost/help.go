@@ -209,6 +209,7 @@ func GetHelp(client dc.Client, guildID string, channelID string, userID string) 
 		var builder strings.Builder
 		fmt.Fprintf(&builder, "%s : Contract completion estimate.\n", bottools.GetFormattedCommand("estimate-contract-time"))
 		fmt.Fprintf(&builder, "%s : Launch planning helper.\n", bottools.GetFormattedCommand("launch-helper"))
+		fmt.Fprintf(&builder, "%s : Interactive launch and fuel planner.\n", bottools.GetFormattedCommand("launch-planner"))
 		fmt.Fprintf(&builder, "%s : Contract stones use\n", bottools.GetFormattedCommand("stones"))
 		fmt.Fprintf(&builder, "%s : Contract teamwork evaluation\n", bottools.GetFormattedCommand("teamwork"))
 		fmt.Fprintf(&builder, "%s : Contract score estimates\n", bottools.GetFormattedCommand("cs-estimate"))
