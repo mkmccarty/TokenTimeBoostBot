@@ -472,7 +472,7 @@ func buildPlannerDialog(targetID string, backup *ei.Backup, notice string) dc.Me
 	farmName := formatEggName(farmEgg)
 	farmEmoji, _ := ei.GetEggEmojiMarkdownIfExists(farmEgg)
 
-	fmt.Fprintf(&header, "# 🚀 Launch Planner & Advisor\n**Farmer**: **%s**\n", displayName)
+	fmt.Fprintf(&header, "# 🚀 Launch Planner & Advisor (alpha)\n**Farmer**: **%s**\n", displayName)
 	if isVirtueFarm {
 		fmt.Fprintf(&header, "**Farm**: %s Path of Virtue (%s)\n", farmEmoji, farmName)
 	} else {

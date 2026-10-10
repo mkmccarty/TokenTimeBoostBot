@@ -747,4 +747,3 @@ func TestExactFuelOptionAndFormatting(t *testing.T) {
 		t.Error("Expected to find 'Exact Fuel: On' button")
 	}
 }
-
