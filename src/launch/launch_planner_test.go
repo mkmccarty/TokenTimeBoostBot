@@ -66,8 +66,8 @@ func TestGetSlashLaunchPlannerCommand(t *testing.T) {
 	if !hasTarget {
 		t.Error("Missing 'target-launches' option")
 	}
-	if !hasExactFuel {
-		t.Error("Missing 'exact-fuel' option")
+	if hasExactFuel {
+		t.Error("Unexpected 'exact-fuel' option; exact fuel is toggled via sticky button only")
 	}
 }
 
@@ -186,6 +186,45 @@ func TestBuildPlannerDialog_NormalFarm(t *testing.T) {
 	}
 	if !foundDubcap {
 		t.Error("Expected dubcap section when dubcap is enabled")
+	}
+
+	foundDubcapOnBtn := false
+	foundDubcapMenu := false
+	for _, sub := range container.Components {
+		if row, ok := sub.(dc.ActionRow); ok {
+			for _, comp := range row.Components {
+				if btn, ok := comp.(dc.Button); ok && btn.Label == "Dubcap: On" {
+					foundDubcapOnBtn = true
+				}
+				if sm, ok := comp.(dc.SelectMenu); ok && strings.Contains(sm.CustomID, "dubcap") {
+					foundDubcapMenu = true
+				}
+			}
+		}
+	}
+	if !foundDubcapOnBtn {
+		t.Error("Expected 'Dubcap: On' button when dubcap is enabled")
+	}
+	if foundDubcapMenu {
+		t.Error("Did not expect dubcap SelectMenu; it should be a toggle button")
+	}
+
+	// Toggle dubcap off
+	farmerstate.SetMiscSettingFlag(dummyUser, "launch_planner_dubcap", false)
+	msgOff := buildPlannerDialog(dummyUser, backup, "")
+	containerOff := msgOff.Components[0].(dc.Container)
+	foundDubcapOffBtn := false
+	for _, sub := range containerOff.Components {
+		if row, ok := sub.(dc.ActionRow); ok {
+			for _, comp := range row.Components {
+				if btn, ok := comp.(dc.Button); ok && btn.Label == "Dubcap: Off" {
+					foundDubcapOffBtn = true
+				}
+			}
+		}
+	}
+	if !foundDubcapOffBtn {
+		t.Error("Expected 'Dubcap: Off' button when dubcap is disabled")
 	}
 }
 
@@ -412,7 +451,7 @@ func TestAllStarsClubShipSelection(t *testing.T) {
 	}
 	backup.ArtifactsDb.MissionArchive = []*ei.MissionInfo{mi}
 
-	shipName, selectedShip, selectedDur := findNextAllStarsShip(backup, false)
+	shipName, selectedShip, selectedDur := findNextAllStarsShip(backup, nil)
 	if selectedDur != ei.MissionInfo_SHORT {
 		t.Errorf("Expected Short duration for fastest LP, got %v", selectedDur)
 	}
@@ -745,5 +784,388 @@ func TestExactFuelOptionAndFormatting(t *testing.T) {
 	}
 	if !foundExactOnBtn {
 		t.Error("Expected to find 'Exact Fuel: On' button")
+	}
+}
+
+func TestVirtueShipPoolSelection(t *testing.T) {
+	dummyEI := "EI1234567890123456"
+	dummyUser := "userPool"
+	dummyName := "TestFarmerPool"
+
+	backupMaker := ei.NewBackupMaker(dummyEI, dummyName)
+	backup := backupMaker.GetBackup()
+
+	// Setup virtue farm on Kindness
+	homeFarmType := ei.FarmType_HOME
+	eggType := ei.Egg_KINDNESS
+	backup.Farms = []*ei.Backup_Simulation{{
+		EggType:  &eggType,
+		FarmType: &homeFarmType,
+	}}
+
+	// Setup Virtue AFX tank fuels (last 5 are virtue eggs)
+	tankFuels := []float64{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 50e12, 0, 0, 40e12, 50e12}
+	tankLimits := []float64{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
+
+	backupMaker.SetVirtueAFX(1.0, true, false, tankFuels, tankLimits, 10, 50000)
+
+	lvl := uint32(7) // 500T tank
+	if backup.Artifacts != nil {
+		backup.Artifacts.TankLevel = &lvl
+	}
+
+	// Case 1: By default, menu is closed; toggle button exists with "Select Ships"
+	msgDefault := buildPlannerDialog(dummyUser, backup, "")
+	containerDefault := msgDefault.Components[0].(dc.Container)
+
+	var foundShipMenu *dc.SelectMenu
+	var foundToggleBtn *dc.Button
+	for _, sub := range containerDefault.Components {
+		if row, ok := sub.(dc.ActionRow); ok {
+			for _, comp := range row.Components {
+				if sm, ok := comp.(dc.SelectMenu); ok && strings.Contains(sm.CustomID, "virtue_ships") {
+					foundShipMenu = &sm
+				}
+				if btn, ok := comp.(dc.Button); ok && strings.Contains(btn.CustomID, "toggle_virtue_ships") {
+					foundToggleBtn = &btn
+				}
+			}
+		}
+	}
+
+	if foundShipMenu != nil {
+		t.Error("Expected virtue_ships menu to be hidden by default")
+	}
+	if foundToggleBtn == nil {
+		t.Fatal("Expected to find toggle_virtue_ships button in ActionRow")
+	}
+	if foundToggleBtn.Label != "Select Ships" {
+		t.Errorf("Expected button label 'Select Ships', got '%s'", foundToggleBtn.Label)
+	}
+
+	fuelContentDefault := ""
+	for _, sub := range containerDefault.Components {
+		if textDisp, ok := sub.(dc.TextDisplay); ok {
+			if strings.Contains(textDisp.Content, "Path of Virtue Fuel Planning") {
+				fuelContentDefault = textDisp.Content
+			}
+		}
+	}
+	if !strings.Contains(fuelContentDefault, "**Ship Pool**: All") {
+		t.Errorf("Expected fuel content to list '**Ship Pool**: All' when all ships available, got:\n%s", fuelContentDefault)
+	}
+
+	// Case 1b: Toggle menu OPEN
+	farmerstate.SetMiscSettingFlag(dummyUser, "launch_planner_show_virtue_ships", true)
+	msgOpen := buildPlannerDialog(dummyUser, backup, "")
+	containerOpen := msgOpen.Components[0].(dc.Container)
+
+	foundShipMenu = nil
+	foundToggleBtn = nil
+	for _, sub := range containerOpen.Components {
+		if row, ok := sub.(dc.ActionRow); ok {
+			for _, comp := range row.Components {
+				if sm, ok := comp.(dc.SelectMenu); ok && strings.Contains(sm.CustomID, "virtue_ships") {
+					foundShipMenu = &sm
+				}
+				if btn, ok := comp.(dc.Button); ok && strings.Contains(btn.CustomID, "toggle_virtue_ships") {
+					foundToggleBtn = &btn
+				}
+			}
+		}
+	}
+
+	if foundShipMenu == nil {
+		t.Fatal("Expected to find virtue_ships multi-select menu when toggled open")
+	}
+	if foundShipMenu.MinValues == nil || *foundShipMenu.MinValues != 1 {
+		t.Errorf("Expected MinValues to be 1, got %v", foundShipMenu.MinValues)
+	}
+	if foundShipMenu.MaxValues < 11 {
+		t.Errorf("Expected MaxValues to be at least 11, got %d", foundShipMenu.MaxValues)
+	}
+	if foundToggleBtn == nil || foundToggleBtn.Label != "Hide Ships" {
+		t.Errorf("Expected button label 'Hide Ships' when open, got %v", foundToggleBtn)
+	}
+
+	// Close menu for subsequent tests
+	farmerstate.SetMiscSettingFlag(dummyUser, "launch_planner_show_virtue_ships", false)
+
+	// Case 2: Custom pool selection [Defihent (7), Voyegger (8)]
+	// Artifact Hunt should select best ship in pool: Voyegger
+	farmerstate.SetMiscSettingString(dummyUser, "launch_planner_virtue_ships", "7,8")
+	farmerstate.SetMiscSettingString(dummyUser, "launch_planner_goal", GoalArtifactHunt)
+
+	msgCustom := buildPlannerDialog(dummyUser, backup, "")
+	containerCustom := msgCustom.Components[0].(dc.Container)
+
+	fuelContent := ""
+	for _, sub := range containerCustom.Components {
+		if textDisp, ok := sub.(dc.TextDisplay); ok {
+			if strings.Contains(textDisp.Content, "Path of Virtue Fuel Planning") {
+				fuelContent = textDisp.Content
+			}
+		}
+	}
+
+	if !strings.Contains(fuelContent, "Extended Voyegger") {
+		t.Errorf("Expected Artifact Hunt with pool [7,8] to target Extended Voyegger, got:\n%s", fuelContent)
+	}
+	if !strings.Contains(fuelContent, "**Ship Pool**: Defihent, Voyegger") {
+		t.Errorf("Expected fuel content to list selected Ship Pool, got:\n%s", fuelContent)
+	}
+
+	// Case 3: Fuel Efficiency with pool [Defihent (7), Voyegger (8)]
+	// Should select second-best / lower fuel ship: Defihent
+	farmerstate.SetMiscSettingString(dummyUser, "launch_planner_goal", GoalFuelEfficiency)
+	msgEff := buildPlannerDialog(dummyUser, backup, "")
+	containerEff := msgEff.Components[0].(dc.Container)
+
+	fuelContentEff := ""
+	for _, sub := range containerEff.Components {
+		if textDisp, ok := sub.(dc.TextDisplay); ok {
+			if strings.Contains(textDisp.Content, "Path of Virtue Fuel Planning") {
+				fuelContentEff = textDisp.Content
+			}
+		}
+	}
+
+	if !strings.Contains(fuelContentEff, "Extended Defihent") {
+		t.Errorf("Expected Fuel Efficiency with pool [7,8] to target Extended Defihent, got:\n%s", fuelContentEff)
+	}
+
+	// Case 4: ASC with pool [Defihent (7), Voyegger (8)]
+	// Should select Short of one of the ships in pool
+	farmerstate.SetMiscSettingString(dummyUser, "launch_planner_goal", GoalAllStars)
+	msgASC := buildPlannerDialog(dummyUser, backup, "")
+	containerASC := msgASC.Components[0].(dc.Container)
+
+	fuelContentASC := ""
+	for _, sub := range containerASC.Components {
+		if textDisp, ok := sub.(dc.TextDisplay); ok {
+			if strings.Contains(textDisp.Content, "Path of Virtue Fuel Planning") {
+				fuelContentASC = textDisp.Content
+			}
+		}
+	}
+
+	if !strings.Contains(fuelContentASC, "Short Defihent") && !strings.Contains(fuelContentASC, "Short Voyegger") {
+		t.Errorf("Expected ASC with pool [7,8] to target a ship in the pool, got:\n%s", fuelContentASC)
+	}
+}
+
+func TestAllStarsClubOptionOmittedWhenNotNeeded(t *testing.T) {
+	dummyEI := "EI1234567890123456"
+	dummyUser := "userMaxStars"
+	dummyName := "MaxStarsFarmer"
+
+	backupMaker := ei.NewBackupMaker(dummyEI, dummyName)
+	backup := backupMaker.GetBackup()
+
+	// Max out all 11 ships in MissionArchive
+	var missions []*ei.MissionInfo
+	dur := ei.MissionInfo_SHORT
+	status := ei.MissionInfo_ARCHIVED
+	for s := 0; s < 11; s++ {
+		ship := ei.MissionInfo_Spaceship(s)
+		numMissions := int(ei.ShipMaxLaunchPoints[s]) + 1
+		for i := 0; i < numMissions; i++ {
+			missions = append(missions, &ei.MissionInfo{
+				Ship:         &ship,
+				DurationType: &dur,
+				Status:       &status,
+			})
+		}
+	}
+	if backup.ArtifactsDb == nil {
+		backup.ArtifactsDb = &ei.ArtifactsDB{}
+	}
+	backup.ArtifactsDb.MissionArchive = missions
+
+	// Test Normal Farm: should NOT show All Stars Club in goalMenu options
+	eggNormal := ei.Egg_DARK_MATTER
+	homeFarmType := ei.FarmType_HOME
+	backup.Farms = []*ei.Backup_Simulation{{
+		EggType:  &eggNormal,
+		FarmType: &homeFarmType,
+	}}
+	msgNormal := buildPlannerDialog(dummyUser, backup, "")
+	containerNormal := msgNormal.Components[0].(dc.Container)
+
+	for _, sub := range containerNormal.Components {
+		if row, ok := sub.(dc.ActionRow); ok {
+			for _, comp := range row.Components {
+				if sm, ok := comp.(dc.SelectMenu); ok && strings.Contains(sm.CustomID, "launch_planner#goal#") {
+					for _, opt := range sm.Options {
+						if opt.Value == GoalAllStars {
+							t.Error("Did not expect 'All Stars Club' option when all ships are maxed on Normal farm")
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Test Virtue Farm: should NOT show All Stars Club in goalMenu options
+	curiosity := ei.Egg_CURIOSITY
+	backup.Farms = []*ei.Backup_Simulation{{
+		EggType:  &curiosity,
+		FarmType: &homeFarmType,
+	}}
+	tankFuels := []float64{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 50e12, 10e12, 5e12, 40e12, 75e12}
+	tankLimits := []float64{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
+	backupMaker.SetVirtueAFX(1.0, true, false, tankFuels, tankLimits, 10, 50000)
+
+	msgVirtue := buildPlannerDialog(dummyUser, backup, "")
+	containerVirtue := msgVirtue.Components[0].(dc.Container)
+
+	for _, sub := range containerVirtue.Components {
+		if row, ok := sub.(dc.ActionRow); ok {
+			for _, comp := range row.Components {
+				if sm, ok := comp.(dc.SelectMenu); ok && strings.Contains(sm.CustomID, "launch_planner#goal#") {
+					for _, opt := range sm.Options {
+						if opt.Value == GoalAllStars {
+							t.Error("Did not expect 'All Stars Club' option when all ships are maxed on Virtue farm")
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+func TestSundayDubcapAdvisorWiggleRoom(t *testing.T) {
+	if ei.EggIncResearchesMap == nil {
+		ei.EggIncResearchesMap = make(map[string]ei.EggResearches)
+	}
+	ei.EggIncResearchesMap["afx_mission_time"] = ei.EggResearches{
+		ID:             "afx_mission_time",
+		EffectType:     "multiplicative",
+		PerLevel:       -0.01,
+		LevelsCompound: "additive",
+	}
+
+	backupMaker := ei.NewBackupMaker("EI1234567890123456", "testUser")
+	backup := backupMaker.GetBackup()
+
+	var b strings.Builder
+	renderSundayDubcapAdvisor(&b, nil, backup, ei.Egg_UNKNOWN, nil)
+	out := b.String()
+
+	if !strings.Contains(out, "Double ExLiner window") {
+		t.Errorf("Expected Dubcap advisor to include Double ExLiner window, got:\n%s", out)
+	}
+	if !strings.Contains(out, "wiggle room after start") {
+		t.Errorf("Expected Dubcap advisor to include wiggle room, got:\n%s", out)
+	}
+
+	// Test with active mission landing during dubcap
+	dubcapStart, dubcapEnd := getNextSundayEvent()
+	// Mission lands 2 hours after Dubcap starts
+	missionReturn := dubcapStart.Add(2 * time.Hour)
+	durSec := float64(138240)
+	startSec := float64(missionReturn.Unix()) - durSec
+	ship := ei.MissionInfo_ATREGGIES
+	dur := ei.MissionInfo_EPIC
+	activeM := []*ei.MissionInfo{
+		{
+			Ship:             &ship,
+			DurationType:     &dur,
+			StartTimeDerived: &startSec,
+			DurationSeconds:  &durSec,
+		},
+	}
+
+	b.Reset()
+	renderSundayDubcapAdvisor(&b, activeM, backup, ei.Egg_UNKNOWN, nil)
+	outActive := b.String()
+
+	if dubcapEnd.Sub(missionReturn) > 38*time.Hour+24*time.Minute {
+		if !strings.Contains(outActive, "Amazing timing") {
+			t.Errorf("Expected 'Amazing timing' recommendation for mission landing early in Dubcap, got:\n%s", outActive)
+		}
+		if !strings.Contains(outActive, "buffer before cutoff") {
+			t.Errorf("Expected 'buffer before cutoff' in output, got:\n%s", outActive)
+		}
+	}
+
+	// Test virtue farm filler suppression:
+	// Mission lands 4 hours before Dubcap starts
+	landingBefore := dubcapStart.Add(-4 * time.Hour)
+	startSecBefore := float64(landingBefore.Unix()) - durSec
+	shipChicken := ei.MissionInfo_CHICKEN_ONE
+	durShort := ei.MissionInfo_SHORT
+	durShortSec := float64(1200)
+	activeBefore := []*ei.MissionInfo{
+		{
+			Ship:             &shipChicken,
+			DurationType:     &durShort,
+			StartTimeDerived: &startSecBefore,
+			DurationSeconds:  &durShortSec,
+		},
+	}
+
+	// Case A: On Curiosity farm (Virtue, not Humility) -> No filler recommendation
+	b.Reset()
+	renderSundayDubcapAdvisor(&b, activeBefore, backup, ei.Egg_CURIOSITY, nil)
+	outCuriosity := b.String()
+	if strings.Contains(outCuriosity, "filler mission next") {
+		t.Errorf("Did not expect filler mission recommendation when on non-Humility virtue farm, got:\n%s", outCuriosity)
+	}
+	if !strings.Contains(outCuriosity, "shift to Humility for Dubcap") {
+		t.Errorf("Expected 'shift to Humility for Dubcap' advice, got:\n%s", outCuriosity)
+	}
+
+	// Case B: On Humility farm (Virtue, is Humility) -> Filler recommendation is allowed
+	b.Reset()
+	renderSundayDubcapAdvisor(&b, activeBefore, backup, ei.Egg_HUMILITY, nil)
+	outHumility := b.String()
+	if !strings.Contains(outHumility, "filler mission next") {
+		t.Errorf("Expected filler mission recommendation when already on Humility farm, got:\n%s", outHumility)
+	}
+
+	// Test Case C: Rocket already returned in past (e.g. 2 months ago)
+	pastReturn := time.Now().Add(-60 * 24 * time.Hour)
+	pastStartSec := float64(pastReturn.Unix()) - durSec
+	activeLanded := []*ei.MissionInfo{
+		{
+			Ship:             &ship,
+			DurationType:     &dur,
+			StartTimeDerived: &pastStartSec,
+			DurationSeconds:  &durSec,
+		},
+	}
+	// Zero out tank fuels to test missing fuel advice
+	backup.Virtue.Afx.TankFuels = make([]float64, 25)
+	b.Reset()
+	renderSundayDubcapAdvisor(&b, activeLanded, backup, ei.Egg_CURIOSITY, nil)
+	outLanded := b.String()
+	if !strings.Contains(outLanded, "🟢 **Landed & Ready to Collect!**") {
+		t.Errorf("Expected landed rocket status for past return time, got:\n%s", outLanded)
+	}
+	if strings.Contains(outLanded, "Lands ") && strings.Contains(outLanded, "before Dubcap") {
+		t.Errorf("Did not expect 'Lands ... before Dubcap' for already landed mission, got:\n%s", outLanded)
+	}
+	// Missing fuel check: backup has 0 virtue fuels, so it must tell user to bank fuel
+	if !strings.Contains(outLanded, "Bank required fuel") {
+		t.Errorf("Expected 'Bank required fuel' recommendation when virtue fuel is missing, got:\n%s", outLanded)
+	}
+
+	// Test Case D: Rocket already returned with sufficient virtue tank fuel
+	// Add virtue fuel to backup
+	vAfx := &ei.Backup_Artifacts{
+		TankLevel: new(uint32),
+		// Curiosity, Integrity, Humility, Resilience, Kindness
+		TankFuels: []float64{100e12, 0, 0, 100e12, 100e12},
+	}
+	*vAfx.TankLevel = 5
+	backup.Virtue = &ei.Backup_Virtue{
+		Afx: vAfx,
+	}
+	b.Reset()
+	renderSundayDubcapAdvisor(&b, activeLanded, backup, ei.Egg_CURIOSITY, nil)
+	outFueled := b.String()
+	if !strings.Contains(outFueled, "Tank fuel ready!") {
+		t.Errorf("Expected 'Tank fuel ready!' recommendation when sufficient virtue fuel is banked, got:\n%s", outFueled)
 	}
 }

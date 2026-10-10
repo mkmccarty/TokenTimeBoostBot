@@ -4,11 +4,13 @@ import (
 	"encoding/base64"
 	"fmt"
 	"math"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
@@ -69,11 +71,6 @@ func GetSlashLaunchPlannerCommand(cmd string) *dc.Command {
 			dc.IntOption{
 				Name:        "target-launches",
 				Description: "Target number of launches for fuel planning (e.g. 3, 6, 9, 12, 15, 21, 30). [Sticky]",
-				Required:    false,
-			},
-			dc.BoolOption{
-				Name:        "exact-fuel",
-				Description: "Show all fuel digits up to 2 decimal places (e.g. 225,100,000,000,000.12). [Sticky]",
 				Required:    false,
 			},
 			dc.BoolOption{
@@ -197,9 +194,6 @@ func HandleLaunchPlannerCommand(e *dc.CommandEvent) {
 	if opt, ok := e.OptInt("target-launches"); ok && opt > 0 {
 		farmerstate.SetMiscSettingString(targetID, "launch_planner_target", strconv.Itoa(opt))
 	}
-	if opt, ok := e.OptBool("exact-fuel"); ok {
-		farmerstate.SetMiscSettingFlag(targetID, "launch_planner_exact_fuel", opt)
-	}
 
 	eggIncID := altEggIncID
 	if eggIncID == "" {
@@ -304,10 +298,20 @@ func HandleLaunchPlannerComponent(e *dc.ComponentEvent) {
 		if len(e.Values()) > 0 {
 			farmerstate.SetMiscSettingString(targetID, "launch_planner_goal", e.Values()[0])
 		}
+	case "virtue_ships":
+		if len(e.Values()) > 0 {
+			farmerstate.SetMiscSettingString(targetID, "launch_planner_virtue_ships", strings.Join(e.Values(), ","))
+		}
+	case "toggle_virtue_ships":
+		curr := farmerstate.GetMiscSettingFlag(targetID, "launch_planner_show_virtue_ships")
+		farmerstate.SetMiscSettingFlag(targetID, "launch_planner_show_virtue_ships", !curr)
 	case "dubcap":
 		if len(e.Values()) > 0 {
 			val := e.Values()[0] == "true"
 			farmerstate.SetMiscSettingFlag(targetID, "launch_planner_dubcap", val)
+		} else {
+			curr := farmerstate.GetMiscSettingFlag(targetID, "launch_planner_dubcap")
+			farmerstate.SetMiscSettingFlag(targetID, "launch_planner_dubcap", !curr)
 		}
 	case "target":
 		if len(e.Values()) > 0 {
@@ -361,8 +365,9 @@ func launchPlannerText() string {
 	b.WriteString("  - 📦 **Most Artifacts / Used Fuel**: Focuses on Extended Henerprise (ExHen), saving ~2.35x fuel on Virtue farms to maximize total artifact drops per tank.\n")
 	b.WriteString("  - ⭐ **All Stars Club**: Focuses on Short missions for ships needing stars to achieve ASC in the fastest time.\n")
 	b.WriteString("  - 🧘 **Enlightenment Run**: Calculates optimal tank storage and launch capacity to sustain launches throughout an Enlightenment run without refueling.\n")
-	b.WriteString("- **Sunday Double Capacity Event (48h)**: Analyzes next Sunday's event window (9 AM PT Sunday to Tuesday) and provides timing advice so you never miss a 2x capacity launch!\n")
-	b.WriteString("- **Exact Fuel Display**: Toggle `exact-fuel` to display all fuel digits with commas up to 2 decimal places (e.g. 225,100,000,000,000.12).\n")
+	b.WriteString("- **Sunday Double Capacity Event (48h)**: Toggle the `Dubcap` button to analyze next Sunday's event window (9 AM PT Sunday to Tuesday) and receive timing advice so you never miss a 2x capacity launch!\n")
+	b.WriteString("- **Exact Fuel Display**: Toggle the `Exact Fuel` button to display all fuel digits with commas up to 2 decimal places (e.g. 225,100,000,000,000.12).\n")
+	b.WriteString("- **Virtue Ship Pool**: Multi-select dropdown to customize which ships are available for your Virtue launch rotation and All Stars Club cycling.\n")
 	return b.String()
 }
 
@@ -435,6 +440,20 @@ func buildPlannerDialog(targetID string, backup *ei.Backup, notice string) dc.Me
 		}
 	}
 
+	var unlockedShips []ei.MissionInfo_Spaceship
+	var selectedVirtueShips []ei.MissionInfo_Spaceship
+	if isVirtueFarm {
+		unlockedShips = getUnlockedVirtueShips(backup)
+		selectedVirtueShips = getSelectedVirtueShips(targetID, unlockedShips)
+	}
+
+	needsAllStars := false
+	if isVirtueFarm {
+		needsAllStars = needsAllStarsHunt(backup, selectedVirtueShips)
+	} else {
+		needsAllStars = needsAllStarsHunt(backup, nil)
+	}
+
 	// Read sticky settings
 	goal := farmerstate.GetMiscSettingString(targetID, "launch_planner_goal")
 	if goal == "" {
@@ -446,8 +465,16 @@ func buildPlannerDialog(targetID string, backup *ei.Backup, notice string) dc.Me
 	} else if isVirtueFarm && goal == GoalEnlightenment {
 		goal = GoalFuelEfficiency
 	}
+	if goal == GoalAllStars && !needsAllStars {
+		if isVirtueFarm {
+			goal = GoalFuelEfficiency
+		} else {
+			goal = GoalArtifactHunt
+		}
+	}
 	considerDubcap := farmerstate.GetMiscSettingFlag(targetID, "launch_planner_dubcap")
 	exactFuel := farmerstate.GetMiscSettingFlag(targetID, "launch_planner_exact_fuel")
+	showVirtueShips := farmerstate.GetMiscSettingFlag(targetID, "launch_planner_show_virtue_ships")
 
 	targetLaunchesStr := farmerstate.GetMiscSettingString(targetID, "launch_planner_target")
 	targetLaunches := 9 // Default 9 launches for normal farm (3 full tri-launch cycles)
@@ -582,7 +609,7 @@ func buildPlannerDialog(targetID string, backup *ei.Backup, notice string) dc.Me
 	var fuelSec strings.Builder
 
 	if isVirtueFarm {
-		renderVirtueFuelPlanning(&fuelSec, backup, farmEgg, goal, tankLevels, exactFuel)
+		renderVirtueFuelPlanning(&fuelSec, backup, farmEgg, goal, tankLevels, exactFuel, selectedVirtueShips)
 	} else {
 		renderNormalFuelPlanning(&fuelSec, backup, farmEgg, goal, targetLaunches, tankLevels, exactFuel)
 	}
@@ -590,7 +617,7 @@ func buildPlannerDialog(targetID string, backup *ei.Backup, notice string) dc.Me
 	// 3. SUNDAY DOUBLE CAPACITY SECTION
 	var dubcapSec strings.Builder
 	if considerDubcap {
-		renderSundayDubcapAdvisor(&dubcapSec, activeMissions, backup)
+		renderSundayDubcapAdvisor(&dubcapSec, activeMissions, backup, farmEgg, selectedVirtueShips)
 	}
 
 	// Assemble Container Components
@@ -612,25 +639,54 @@ func buildPlannerDialog(targetID string, backup *ei.Backup, notice string) dc.Me
 	// Dropdown 1: Goal SelectMenu
 	var goalOptions []dc.SelectOption
 	if isVirtueFarm {
+		bestShip := selectedVirtueShips[len(selectedVirtueShips)-1]
+		efficiencyShip := bestShip
+		if len(selectedVirtueShips) >= 2 {
+			poolMap := make(map[ei.MissionInfo_Spaceship]bool)
+			for _, s := range selectedVirtueShips {
+				poolMap[s] = true
+			}
+			if bestShip == ei.MissionInfo_ATREGGIES && poolMap[ei.MissionInfo_HENERPRISE] {
+				efficiencyShip = ei.MissionInfo_HENERPRISE
+			} else {
+				efficiencyShip = selectedVirtueShips[len(selectedVirtueShips)-2]
+			}
+		}
+
+		bestName := getShipDisplayName(bestShip)
+		effName := getShipDisplayName(efficiencyShip)
+
+		effLabel := fmt.Sprintf("Most Artifacts / Used Fuel (%s)", effName)
+		if efficiencyShip == ei.MissionInfo_HENERPRISE {
+			effLabel = "Most Artifacts / Used Fuel (Extended Henerprise)"
+		}
+
+		artLabel := fmt.Sprintf("Artifact Hunting (%s)", bestName)
+		if bestShip == ei.MissionInfo_ATREGGIES {
+			artLabel = "Artifact Hunting (Henliner)"
+		}
+
 		goalOptions = []dc.SelectOption{
 			{
-				Label:       "Most Artifacts / Used Fuel",
+				Label:       effLabel,
 				Value:       GoalFuelEfficiency,
-				Description: "Launch Extended Henerprise (ExHen) for maximum artifacts per fuel",
+				Description: fmt.Sprintf("Launch Extended %s to save fuel and maximize artifacts", effName),
 				Default:     goal == GoalFuelEfficiency,
 			},
 			{
-				Label:       "Artifact Hunting (Henliner)",
+				Label:       artLabel,
 				Value:       GoalArtifactHunt,
-				Description: "Launch Extended Henliner for highest-tier loot",
+				Description: fmt.Sprintf("Launch Extended %s for highest-tier loot in pool", bestName),
 				Default:     goal == GoalArtifactHunt,
 			},
-			{
+		}
+		if needsAllStars {
+			goalOptions = append(goalOptions, dc.SelectOption{
 				Label:       "All Stars Club",
 				Value:       GoalAllStars,
 				Description: "Launch Short missions to max stars and launch points fastest",
 				Default:     goal == GoalAllStars,
-			},
+			})
 		}
 	} else {
 		goalOptions = []dc.SelectOption{
@@ -646,19 +702,21 @@ func buildPlannerDialog(targetID string, backup *ei.Backup, notice string) dc.Me
 				Description: "Launch Extended Henerprise to save fuel and maximize artifacts",
 				Default:     goal == GoalFuelEfficiency,
 			},
-			{
+		}
+		if needsAllStars {
+			goalOptions = append(goalOptions, dc.SelectOption{
 				Label:       "All Stars Club",
 				Value:       GoalAllStars,
 				Description: "Launch Short missions to max stars and launch points fastest",
 				Default:     goal == GoalAllStars,
-			},
-			{
-				Label:       "Enlightenment Run",
-				Value:       GoalEnlightenment,
-				Description: "Plan tank fills to maximize launches without refueling",
-				Default:     goal == GoalEnlightenment,
-			},
+			})
 		}
+		goalOptions = append(goalOptions, dc.SelectOption{
+			Label:       "Enlightenment Run",
+			Value:       GoalEnlightenment,
+			Description: "Plan tank fills to maximize launches without refueling",
+			Default:     goal == GoalEnlightenment,
+		})
 	}
 
 	goalMenu := dc.SelectMenu{
@@ -667,24 +725,43 @@ func buildPlannerDialog(targetID string, backup *ei.Backup, notice string) dc.Me
 		Options:     goalOptions,
 	}
 
-	// Dropdown 2: Double Capacity SelectMenu
-	dubcapMenu := dc.SelectMenu{
-		CustomID:    fmt.Sprintf("launch_planner#dubcap#%s", targetID),
-		Placeholder: "Consider Sunday Double Capacity Event?",
-		Options: []dc.SelectOption{
-			{
-				Label:       "Sunday Dubcap: Consider (48h)",
-				Value:       "true",
-				Description: "Align missions to take advantage of 2x artifact capacity",
-				Default:     considerDubcap,
-			},
-			{
-				Label:       "Sunday Dubcap: Standard Schedule",
-				Value:       "false",
-				Description: "Regular continuous launches ignoring event timing",
-				Default:     !considerDubcap,
-			},
-		},
+	// Dropdown 2: Virtue Ship Pool Multi-SelectMenu (on Virtue farms)
+	var virtueShipMenu dc.SelectMenu
+	if isVirtueFarm {
+		poolMap := make(map[ei.MissionInfo_Spaceship]bool)
+		for _, s := range selectedVirtueShips {
+			poolMap[s] = true
+		}
+
+		var shipOptions []dc.SelectOption
+		for i := len(unlockedShips) - 1; i >= 0; i-- {
+			s := unlockedShips[i]
+			sName := getShipDisplayName(s)
+			tierNum := int(s) + 1
+			desc := fmt.Sprintf("Tier %d ship", tierNum)
+			switch s {
+			case ei.MissionInfo_ATREGGIES:
+				desc = "Tier 11 • Highest quality drops"
+			case ei.MissionInfo_HENERPRISE:
+				desc = "Tier 10 • Fuel efficient alternative"
+			}
+			shipOptions = append(shipOptions, dc.SelectOption{
+				Label:       sName,
+				Value:       strconv.Itoa(int(s)),
+				Description: desc,
+				Default:     poolMap[s],
+			})
+		}
+
+		minVal := 1
+		maxVal := len(unlockedShips)
+		virtueShipMenu = dc.SelectMenu{
+			CustomID:    fmt.Sprintf("launch_planner#virtue_ships#%s", targetID),
+			Placeholder: "Select pool of ships to use...",
+			MinValues:   &minVal,
+			MaxValues:   maxVal,
+			Options:     shipOptions,
+		}
 	}
 
 	// Action buttons
@@ -692,6 +769,17 @@ func buildPlannerDialog(targetID string, backup *ei.Backup, notice string) dc.Me
 		Label:    "Refresh Data",
 		CustomID: fmt.Sprintf("launch_planner#refresh#%s", targetID),
 		Style:    dc.ButtonSecondary,
+	}
+	dubcapStyle := dc.ButtonSecondary
+	dubcapLabel := "Dubcap: Off"
+	if considerDubcap {
+		dubcapStyle = dc.ButtonPrimary
+		dubcapLabel = "Dubcap: On"
+	}
+	dubcapBtn := dc.Button{
+		Label:    dubcapLabel,
+		CustomID: fmt.Sprintf("launch_planner#dubcap#%s", targetID),
+		Style:    dubcapStyle,
 	}
 	exactFuelStyle := dc.ButtonSecondary
 	exactFuelLabel := "Exact Fuel: Off"
@@ -712,8 +800,28 @@ func buildPlannerDialog(targetID string, backup *ei.Backup, notice string) dc.Me
 
 	containerSubs = append(containerSubs, dc.Separator{Divider: true, Spacing: dc.SeparatorSpacingSmall})
 	containerSubs = append(containerSubs, dc.ActionRow{Components: []dc.InteractiveComponent{goalMenu}})
-	containerSubs = append(containerSubs, dc.ActionRow{Components: []dc.InteractiveComponent{dubcapMenu}})
-	containerSubs = append(containerSubs, dc.ActionRow{Components: []dc.InteractiveComponent{refreshBtn, exactFuelBtn, infoBtn}})
+	if isVirtueFarm && showVirtueShips {
+		containerSubs = append(containerSubs, dc.ActionRow{Components: []dc.InteractiveComponent{virtueShipMenu}})
+	}
+
+	actionButtons := []dc.InteractiveComponent{refreshBtn, dubcapBtn, exactFuelBtn}
+	if isVirtueFarm {
+		shipsLabel := "Select Ships"
+		shipsStyle := dc.ButtonSecondary
+		if showVirtueShips {
+			shipsLabel = "Hide Ships"
+			shipsStyle = dc.ButtonPrimary
+		}
+		shipsBtn := dc.Button{
+			Label:    shipsLabel,
+			CustomID: fmt.Sprintf("launch_planner#toggle_virtue_ships#%s", targetID),
+			Style:    shipsStyle,
+		}
+		actionButtons = append(actionButtons, shipsBtn)
+	}
+	actionButtons = append(actionButtons, infoBtn)
+
+	containerSubs = append(containerSubs, dc.ActionRow{Components: actionButtons})
 
 	accentColor := 0x2ECC71 // Emerald Green
 	if isVirtueFarm {
@@ -784,7 +892,7 @@ func formatFuelAmount(val float64, exact bool) string {
 }
 
 // renderVirtueFuelPlanning renders the fuel advisor for Virtue farms.
-func renderVirtueFuelPlanning(b *strings.Builder, backup *ei.Backup, farmEgg ei.Egg, goal string, tankLevels []float64, exactFuel bool) {
+func renderVirtueFuelPlanning(b *strings.Builder, backup *ei.Backup, farmEgg ei.Egg, goal string, tankLevels []float64, exactFuel bool, selectedPool []ei.MissionInfo_Spaceship) {
 	b.WriteString("### 🧪 Path of Virtue Fuel Planning\n")
 
 	virtue := backup.GetVirtue()
@@ -837,18 +945,32 @@ func renderVirtueFuelPlanning(b *strings.Builder, backup *ei.Backup, farmEgg ei.
 		b.WriteString("-# ℹ️ Launches only happen on **Humility**. Plan which eggs to visit before heading to Humility.\n\n")
 	}
 
-	// Evaluate Target Ship
-	targetShip := ei.MissionInfo_ATREGGIES
+	// Evaluate Target Ship from selected pool
+	bestShip := selectedPool[len(selectedPool)-1]
+	efficiencyShip := bestShip
+	if len(selectedPool) >= 2 {
+		poolMap := make(map[ei.MissionInfo_Spaceship]bool)
+		for _, s := range selectedPool {
+			poolMap[s] = true
+		}
+		if bestShip == ei.MissionInfo_ATREGGIES && poolMap[ei.MissionInfo_HENERPRISE] {
+			efficiencyShip = ei.MissionInfo_HENERPRISE
+		} else {
+			efficiencyShip = selectedPool[len(selectedPool)-2]
+		}
+	}
+
+	targetShip := bestShip
 	targetDur := ei.MissionInfo_EPIC
-	shipName := "Extended Atreggies Henliner"
+	shipName := fmt.Sprintf("Extended %s", getShipDisplayName(targetShip))
 
 	switch goal {
 	case GoalFuelEfficiency:
-		targetShip = ei.MissionInfo_HENERPRISE
+		targetShip = efficiencyShip
 		targetDur = ei.MissionInfo_EPIC
-		shipName = "Extended Henerprise"
+		shipName = fmt.Sprintf("Extended %s", getShipDisplayName(targetShip))
 	case GoalAllStars:
-		shipName, targetShip, targetDur = findNextAllStarsShip(backup, true)
+		shipName, targetShip, targetDur = findNextAllStarsShip(backup, selectedPool)
 	}
 
 	reqs := ei.GetMissionFuels(targetShip, targetDur, true)
@@ -874,9 +996,30 @@ func renderVirtueFuelPlanning(b *strings.Builder, backup *ei.Backup, farmEgg ei.
 
 	totalTankFuelNeeded := totalTankFuelPerLaunch * float64(targetLaunches)
 
-	fmt.Fprintf(b, "🎯 **Goal**: %s (`%s`)\n", getGoalLabel(goal), shipName)
-	if goal == GoalFuelEfficiency {
-		b.WriteString("-# 💡 *ExHen requires ~2.35x less tank fuel than Henliner (70T vs 165T), maximizing artifact drops per tank fill.*\n")
+	goalLabel := getGoalLabel(goal)
+	if goal == GoalFuelEfficiency && efficiencyShip != ei.MissionInfo_HENERPRISE {
+		goalLabel = fmt.Sprintf("📦 Fuel Efficiency (Extended %s)", getShipDisplayName(efficiencyShip))
+	} else if goal == GoalArtifactHunt && bestShip != ei.MissionInfo_ATREGGIES {
+		goalLabel = fmt.Sprintf("🏆 Artifact Hunting (Extended %s)", getShipDisplayName(bestShip))
+	}
+	fmt.Fprintf(b, "🎯 **Goal**: %s (`%s`)\n", goalLabel, shipName)
+
+	if len(selectedPool) < len(getUnlockedVirtueShips(backup)) {
+		var poolNames []string
+		for _, s := range selectedPool {
+			poolNames = append(poolNames, getShipDisplayName(s))
+		}
+		fmt.Fprintf(b, "🛸 **Ship Pool**: %s\n", strings.Join(poolNames, ", "))
+	} else {
+		b.WriteString("🛸 **Ship Pool**: All\n")
+	}
+	if goal == GoalFuelEfficiency && targetShip != bestShip {
+		if targetShip == ei.MissionInfo_HENERPRISE && bestShip == ei.MissionInfo_ATREGGIES {
+			b.WriteString("-# 💡 *ExHen requires ~2.35x less tank fuel than Henliner (70T vs 165T), maximizing artifact drops per tank fill.*\n")
+		} else {
+			fmt.Fprintf(b, "-# 💡 *%s requires less fuel than %s, maximizing missions per tank fill.*\n",
+				getShipDisplayName(targetShip), getShipDisplayName(bestShip))
+		}
 	}
 
 	if maxLaunchesTankCanHold > 0 {
@@ -1143,7 +1286,7 @@ func renderNormalFuelPlanning(b *strings.Builder, backup *ei.Backup, farmEgg ei.
 		targetDur = ei.MissionInfo_EPIC
 		shipName = "Extended Henerprise"
 	case GoalAllStars:
-		shipName, targetShip, targetDur = findNextAllStarsShip(backup, false)
+		shipName, targetShip, targetDur = findNextAllStarsShip(backup, nil)
 	case GoalEnlightenment:
 		renderEnlightenmentRunAdvisor(b, backup, tankCapacity)
 		return
@@ -1292,9 +1435,122 @@ func renderEnlightenmentRunAdvisor(b *strings.Builder, backup *ei.Backup, tankCa
 	b.WriteString("-# 💡 *Tip: Fill slightly under max for each egg so you don't accidentally overfill and lock out another fuel type!*\n")
 }
 
+// getVirtueEggStored returns the stored amount of a given virtue egg.
+func getVirtueEggStored(backup *ei.Backup, egg ei.Egg) float64 {
+	if backup == nil || backup.GetVirtue() == nil || backup.GetVirtue().GetAfx() == nil {
+		return 0
+	}
+	fuels := backup.GetVirtue().GetAfx().GetTankFuels()
+	if len(fuels) >= 5 {
+		fuels = fuels[len(fuels)-5:]
+	}
+	idx := int(egg) - int(ei.Egg_CURIOSITY)
+	if idx >= 0 && idx < len(fuels) {
+		return fuels[idx]
+	}
+	return 0
+}
+
+// checkVirtueDubcapFuel calculates whether the player has enough banked virtue fuels for Extended launches.
+func checkVirtueDubcapFuel(backup *ei.Backup, ship ei.MissionInfo_Spaceship, targetLaunches int) (int, string) {
+	reqs := ei.GetMissionFuels(ship, ei.MissionInfo_EPIC, true)
+	if len(reqs) == 0 {
+		reqs = ei.GetMissionFuels(ship, ei.MissionInfo_SHORT, true)
+	}
+	if len(reqs) == 0 {
+		return targetLaunches, ""
+	}
+
+	minLaunches := math.MaxInt32
+	var missingParts []string
+
+	for _, req := range reqs {
+		// Humility egg is produced on the Humility farm where launches take place
+		if req.Egg == ei.Egg_HUMILITY {
+			continue
+		}
+		stored := getVirtueEggStored(backup, req.Egg)
+		launches := int(stored / req.Amount)
+		if launches < minLaunches {
+			minLaunches = launches
+		}
+		needed := req.Amount * float64(targetLaunches)
+		if stored < needed {
+			shortage := needed - stored
+			missingParts = append(missingParts, fmt.Sprintf("%s %s",
+				ei.FormatEIValue(shortage, map[string]any{"decimals": 1, "trim": true}),
+				formatEggName(req.Egg)))
+		}
+	}
+
+	if minLaunches == math.MaxInt32 {
+		minLaunches = targetLaunches
+	}
+
+	return minLaunches, strings.Join(missingParts, ", ")
+}
+
+// checkStandardDubcapFuel calculates whether the player has enough banked fuels for Extended launches on a standard farm.
+func checkStandardDubcapFuel(backup *ei.Backup, farmEgg ei.Egg, ship ei.MissionInfo_Spaceship, targetLaunches int) (int, string) {
+	reqs := ei.GetMissionFuels(ship, ei.MissionInfo_EPIC, false)
+	if len(reqs) == 0 {
+		return targetLaunches, ""
+	}
+	var tankFuels []float64
+	if backup != nil && backup.GetArtifacts() != nil {
+		tankFuels = backup.GetArtifacts().GetTankFuels()
+	}
+	minLaunches := math.MaxInt32
+	var missingParts []string
+
+	for _, req := range reqs {
+		if req.Egg == farmEgg {
+			continue
+		}
+		eggIdx := int(req.Egg) - 1
+		stored := 0.0
+		if eggIdx >= 0 && eggIdx < len(tankFuels) {
+			stored = tankFuels[eggIdx]
+		}
+		launches := int(stored / req.Amount)
+		if launches < minLaunches {
+			minLaunches = launches
+		}
+		needed := req.Amount * float64(targetLaunches)
+		if stored < needed {
+			shortage := needed - stored
+			missingParts = append(missingParts, fmt.Sprintf("%s %s",
+				ei.FormatEIValue(shortage, map[string]any{"decimals": 1, "trim": true}),
+				formatEggName(req.Egg)))
+		}
+	}
+	if minLaunches == math.MaxInt32 {
+		minLaunches = targetLaunches
+	}
+	return minLaunches, strings.Join(missingParts, ", ")
+}
+
+func getDubcapMissingFuel(backup *ei.Backup, farmEgg ei.Egg, isVirtueFarm bool, ship ei.MissionInfo_Spaceship, targetLaunches int) (int, string) {
+	if isVirtueFarm {
+		return checkVirtueDubcapFuel(backup, ship, targetLaunches)
+	}
+	return checkStandardDubcapFuel(backup, farmEgg, ship, targetLaunches)
+}
+
 // renderSundayDubcapAdvisor analyzes rocket return times relative to the next Sunday 48h Double Capacity event.
-func renderSundayDubcapAdvisor(b *strings.Builder, activeMissions []*ei.MissionInfo, backup *ei.Backup) {
+func renderSundayDubcapAdvisor(b *strings.Builder, activeMissions []*ei.MissionInfo, backup *ei.Backup, farmEgg ei.Egg, selectedVirtueShips []ei.MissionInfo_Spaceship) {
 	b.WriteString("### 🚀 Sunday Double Capacity Event (48h) Timing\n")
+
+	if farmEgg == ei.Egg_UNKNOWN && backup != nil {
+		if len(backup.GetFarms()) > 0 && backup.GetFarms()[0] != nil {
+			farmEgg = backup.GetFarms()[0].GetEggType()
+		} else if backup.GetSim() != nil {
+			farmEgg = backup.GetSim().GetEggType()
+		}
+	}
+
+	isVirtueFarm := farmEgg >= ei.Egg_CURIOSITY && farmEgg <= ei.Egg_KINDNESS
+	isOnHumility := farmEgg == ei.Egg_HUMILITY
 
 	dubcapStart, dubcapEnd := getNextSundayEvent()
 	now := time.Now().UTC()
@@ -1314,14 +1570,37 @@ func renderSundayDubcapAdvisor(b *strings.Builder, activeMissions []*ei.MissionI
 			dubcapIcon, dubcapStart.Unix(), dubcapStart.Unix(), dubcapEnd.Unix())
 	}
 
+	ftlMult := 1.0
+	if backup != nil && backup.GetGame() != nil {
+		ftlMult = ei.GetEpicResearchMissionTime(backup.GetGame().GetEpicResearch())
+	}
+
+	dubcapTargetShip := ei.MissionInfo_ATREGGIES
+	if isVirtueFarm && len(selectedVirtueShips) > 0 {
+		dubcapTargetShip = selectedVirtueShips[len(selectedVirtueShips)-1]
+	} else if !hasUnlockedHenliner(backup) {
+		dubcapTargetShip = ei.MissionInfo_HENERPRISE
+	}
+
+	targetSlots := len(activeMissions)
+	if targetSlots == 0 {
+		targetSlots = 3
+	}
+	launchesPossible, _ := getDubcapMissingFuel(backup, farmEgg, isVirtueFarm, dubcapTargetShip, targetSlots)
+
+	exHenSec := 4.0 * 86400 * ftlMult
+	exHenDur := time.Duration(exHenSec) * time.Second
+	cutoff := dubcapEnd.Add(-exHenDur)
+
+	if cutoff.After(dubcapStart) {
+		wiggleRoom := cutoff.Sub(dubcapStart)
+		fmt.Fprintf(b, "💡 *Double ExLiner window: Launch 1st Extended by <t:%d:t> (<t:%d:R>) to fit a 2nd Dubcap launch (%s wiggle room after start).*\n",
+			cutoff.Unix(), cutoff.Unix(), bottools.FmtDuration(wiggleRoom))
+	}
+
 	if len(activeMissions) == 0 {
 		b.WriteString("No active rockets deployed. You can schedule new launches freely to land within the Dubcap window!\n")
 		return
-	}
-
-	ftlMult := 1.0
-	if backup.GetGame() != nil {
-		ftlMult = ei.GetEpicResearchMissionTime(backup.GetGame().GetEpicResearch())
 	}
 
 	b.WriteString("\n**Slot Landing Analysis**:\n")
@@ -1337,26 +1616,83 @@ func renderSundayDubcapAdvisor(b *strings.Builder, activeMissions []*ei.MissionI
 			returnSec = time.Now().Unix() + int64(m.GetSecondsRemaining())
 		}
 		returnTime := time.Unix(returnSec, 0).UTC()
+		isAlreadyLanded := returnSec <= now.Unix()
 
-		if returnTime.Before(dubcapStart) {
-			// Lands BEFORE Sunday starts
+		canRunFiller := !isVirtueFarm || isOnHumility
+		shortDurationSec := 1200.0 // Default 20m
+		if durParam, ok := ei.GetShipMissionParams(shipType, ei.MissionInfo_SHORT); ok && durParam.Seconds > 0 {
+			shortDurationSec = durParam.Seconds
+		}
+		shortDuration := time.Duration(shortDurationSec*ftlMult) * time.Second
+
+		if isAlreadyLanded {
+			fmt.Fprintf(b, "- **Slot %d** (`%s`): 🟢 **Landed & Ready to Collect!** (Returned <t:%d:R>)\n",
+				i+1, shipName, returnSec)
+
+			if isCurrentlyActive {
+				if i < launchesPossible {
+					if isVirtueFarm && !isOnHumility {
+						b.WriteString("  - 🎯 *Recommendation: Tank fuel ready! Shift to Humility to launch Extended now during Dubcap!*\n")
+					} else {
+						b.WriteString("  - 🎯 *Recommendation: Ready for immediate Extended launch now during Dubcap!*\n")
+					}
+				} else {
+					_, missing := getDubcapMissingFuel(backup, farmEgg, isVirtueFarm, dubcapTargetShip, i+1)
+					if isVirtueFarm && !isOnHumility {
+						fmt.Fprintf(b, "  - ⛽ *Recommendation: Bank required fuel (%s) into tank before shifting to Humility to launch!*\n", missing)
+					} else {
+						fmt.Fprintf(b, "  - ⛽ *Recommendation: Refill tank (%s) to launch Extended during Dubcap!*\n", missing)
+					}
+				}
+			} else {
+				// Before Dubcap starts
+				leadTime := dubcapStart.Sub(now)
+				if canRunFiller && leadTime > shortDuration {
+					fillerEnd := now.Add(shortDuration)
+					fmt.Fprintf(b, "  - 💡 *Recommendation: Run a **Short** filler mission next; lands at <t:%d:t>, right in time for Dubcap!*\n",
+						fillerEnd.Unix())
+				} else {
+					if i < launchesPossible {
+						if isVirtueFarm && !isOnHumility {
+							b.WriteString("  - 🎯 *Recommendation: Tank fuel ready! Ready for immediate Extended launch once you shift to Humility for Dubcap!*\n")
+						} else {
+							b.WriteString("  - 🎯 *Recommendation: Ready for immediate Extended launch once Dubcap begins!*\n")
+						}
+					} else {
+						_, missing := getDubcapMissingFuel(backup, farmEgg, isVirtueFarm, dubcapTargetShip, i+1)
+						if isVirtueFarm && !isOnHumility {
+							fmt.Fprintf(b, "  - ⛽ *Recommendation: Bank required fuel (%s) into tank before shifting to Humility for Dubcap!*\n", missing)
+						} else {
+							fmt.Fprintf(b, "  - ⛽ *Recommendation: Tank needs more fuel (%s) before Dubcap begins!*\n", missing)
+						}
+					}
+				}
+			}
+		} else if returnTime.Before(dubcapStart) {
+			// Lands in future, but BEFORE Dubcap starts
 			leadTime := dubcapStart.Sub(returnTime)
 			fmt.Fprintf(b, "- **Slot %d** (`%s`): Lands <t:%d:R> (%.1fh before Dubcap)\n",
 				i+1, shipName, returnSec, leadTime.Hours())
 
-			// Check if a Short filler mission can be run
-			shortDurationSec := 1200.0 // Default 20m
-			if durParam, ok := ei.GetShipMissionParams(shipType, ei.MissionInfo_SHORT); ok && durParam.Seconds > 0 {
-				shortDurationSec = durParam.Seconds
-			}
-			shortDuration := time.Duration(shortDurationSec*ftlMult) * time.Second
-
-			if leadTime > shortDuration {
+			if canRunFiller && leadTime > shortDuration {
 				fillerEnd := returnTime.Add(shortDuration)
 				fmt.Fprintf(b, "  - 💡 *Recommendation: Run a **Short** filler mission next; lands at <t:%d:t>, right in time for Dubcap!*\n",
 					fillerEnd.Unix())
 			} else {
-				b.WriteString("  - 🎯 *Recommendation: Ready for immediate Extended launch once Dubcap begins!*\n")
+				if i < launchesPossible {
+					if isVirtueFarm && !isOnHumility {
+						b.WriteString("  - 🎯 *Recommendation: Tank fuel ready! Ready for immediate Extended launch once you shift to Humility for Dubcap!*\n")
+					} else {
+						b.WriteString("  - 🎯 *Recommendation: Ready for immediate Extended launch once Dubcap begins!*\n")
+					}
+				} else {
+					_, missing := getDubcapMissingFuel(backup, farmEgg, isVirtueFarm, dubcapTargetShip, i+1)
+					if isVirtueFarm && !isOnHumility {
+						fmt.Fprintf(b, "  - ⛽ *Recommendation: Bank required fuel (%s) into tank before shifting to Humility for Dubcap!*\n", missing)
+					} else {
+						fmt.Fprintf(b, "  - ⛽ *Recommendation: Tank needs more fuel (%s) before Dubcap begins!*\n", missing)
+					}
+				}
 			}
 		} else if returnTime.Before(dubcapEnd) {
 			// Lands DURING the 48h event window
@@ -1364,9 +1700,10 @@ func renderSundayDubcapAdvisor(b *strings.Builder, activeMissions []*ei.MissionI
 			fmt.Fprintf(b, "- **Slot %d** (`%s`): Lands <t:%d:R> (**DURING DUBCAP!** 🎉)\n",
 				i+1, shipName, returnSec)
 
-			exHenSec := 4.0 * 86400 * ftlMult
-			if timeLeftInDubcap > time.Duration(exHenSec)*time.Second {
-				b.WriteString("  - 🌟 *Amazing timing: Launch an Extended mission right away; it will return in time for a **2nd Dubcap launch**!*\n")
+			if timeLeftInDubcap > exHenDur {
+				buffer := timeLeftInDubcap - exHenDur
+				fmt.Fprintf(b, "  - 🌟 *Amazing timing: Launch an Extended mission right away; returns in time for a **2nd Dubcap launch**! (%s buffer before cutoff)*\n",
+					bottools.FmtDuration(buffer))
 			} else {
 				fmt.Fprintf(b, "  - 🚀 *Launch your best Extended mission before event ends <t:%d:R> to claim 2x capacity!*\n", dubcapEnd.Unix())
 			}
@@ -1414,10 +1751,132 @@ func hasUnlockedHenliner(backup *ei.Backup) bool {
 	return false
 }
 
-// findNextAllStarsShip identifies which ship to launch for fastest All Stars Club progress.
-func findNextAllStarsShip(backup *ei.Backup, virtue bool) (string, ei.MissionInfo_Spaceship, ei.MissionInfo_DurationType) {
+// getShipDisplayName returns the user-friendly display name for a ship.
+func getShipDisplayName(s ei.MissionInfo_Spaceship) string {
+	if int(s) >= 0 && int(s) < len(ei.MissionArt.Ships) {
+		return ei.MissionArt.Ships[s].Name
+	}
+	if name, ok := ei.MissionInfo_Spaceship_name[int32(s)]; ok {
+		return name
+	}
+	return fmt.Sprintf("Ship %d", s)
+}
+
+// getUnlockedVirtueShips returns all ships unlocked by the player up to their highest launched ship.
+func getUnlockedVirtueShips(backup *ei.Backup) []ei.MissionInfo_Spaceship {
+	maxShip := ei.MissionInfo_CHICKEN_ONE
+	if backup != nil && backup.GetArtifactsDb() != nil {
+		allMissions := append(backup.GetArtifactsDb().GetMissionArchive(), backup.GetArtifactsDb().GetMissionInfos()...)
+		for _, m := range allMissions {
+			if m != nil && m.GetShip() > maxShip && int(m.GetShip()) < 11 {
+				maxShip = m.GetShip()
+			}
+		}
+	}
+	if maxShip == ei.MissionInfo_CHICKEN_ONE {
+		maxShip = ei.MissionInfo_ATREGGIES
+	}
+
+	var ships []ei.MissionInfo_Spaceship
+	for s := ei.MissionInfo_CHICKEN_ONE; s <= maxShip; s++ {
+		ships = append(ships, s)
+	}
+	return ships
+}
+
+// getSelectedVirtueShips returns the player's selected pool of virtue ships.
+func getSelectedVirtueShips(targetID string, unlocked []ei.MissionInfo_Spaceship) []ei.MissionInfo_Spaceship {
+	saved := farmerstate.GetMiscSettingString(targetID, "launch_planner_virtue_ships")
+	unlockedMap := make(map[ei.MissionInfo_Spaceship]bool)
+	for _, s := range unlocked {
+		unlockedMap[s] = true
+	}
+
+	if saved != "" {
+		parts := strings.Split(saved, ",")
+		var pool []ei.MissionInfo_Spaceship
+		for _, p := range parts {
+			if id, err := strconv.Atoi(strings.TrimSpace(p)); err == nil {
+				ship := ei.MissionInfo_Spaceship(id)
+				if unlockedMap[ship] {
+					pool = append(pool, ship)
+				}
+			}
+		}
+		if len(pool) > 0 {
+			sort.Slice(pool, func(i, j int) bool {
+				return pool[i] < pool[j]
+			})
+			return pool
+		}
+	}
+
+	// Default to all unlocked ships
+	return unlocked
+}
+
+// needsAllStarsHunt checks if any candidate ships (or all ships if pool is empty) still need Launch Points to reach max stars.
+func needsAllStarsHunt(backup *ei.Backup, pool []ei.MissionInfo_Spaceship) bool {
 	if backup == nil || backup.GetArtifactsDb() == nil {
-		return "Short Atreggies Henliner", ei.MissionInfo_ATREGGIES, ei.MissionInfo_SHORT
+		return true
+	}
+
+	allMissions := append(backup.GetArtifactsDb().GetMissionArchive(), backup.GetArtifactsDb().GetMissionInfos()...)
+	if len(allMissions) == 0 {
+		return true
+	}
+
+	var shipLP [11]float64
+	for _, mi := range allMissions {
+		if mi == nil || mi.GetStatus() < ei.MissionInfo_EXPLORING {
+			continue
+		}
+		s := int(mi.GetShip())
+		if s >= 0 && s < 11 {
+			switch mi.GetDurationType() {
+			case ei.MissionInfo_SHORT, ei.MissionInfo_TUTORIAL:
+				shipLP[s] += 1.0
+			case ei.MissionInfo_LONG:
+				shipLP[s] += 1.4
+			case ei.MissionInfo_EPIC:
+				shipLP[s] += 1.8
+			default:
+				shipLP[s] += 1.0
+			}
+		}
+	}
+
+	candidateShips := pool
+	if len(candidateShips) == 0 {
+		for s := 0; s < 11; s++ {
+			candidateShips = append(candidateShips, ei.MissionInfo_Spaceship(s))
+		}
+	}
+
+	for _, s := range candidateShips {
+		idx := int(s)
+		if idx < 0 || idx >= 11 {
+			continue
+		}
+		if shipLP[idx] < ei.ShipMaxLaunchPoints[idx] {
+			return true
+		}
+	}
+
+	return false
+}
+
+// findNextAllStarsShip identifies which ship to launch for fastest All Stars Club progress.
+// If pool is non-empty, only ships in pool are considered.
+func findNextAllStarsShip(backup *ei.Backup, pool []ei.MissionInfo_Spaceship) (string, ei.MissionInfo_Spaceship, ei.MissionInfo_DurationType) {
+	defaultShip := ei.MissionInfo_ATREGGIES
+	if len(pool) > 0 {
+		defaultShip = pool[len(pool)-1]
+	}
+
+	if backup == nil || backup.GetArtifactsDb() == nil {
+		shipName := getShipDisplayName(defaultShip)
+		return fmt.Sprintf("Short %s", shipName), defaultShip, ei.MissionInfo_SHORT
 	}
 
 	allMissions := append(backup.GetArtifactsDb().GetMissionArchive(), backup.GetArtifactsDb().GetMissionInfos()...)
@@ -1441,27 +1900,38 @@ func findNextAllStarsShip(backup *ei.Backup, virtue bool) (string, ei.MissionInf
 		}
 	}
 
+	candidateShips := pool
+	if len(candidateShips) == 0 {
+		for s := 0; s < 11; s++ {
+			candidateShips = append(candidateShips, ei.MissionInfo_Spaceship(s))
+		}
+	}
+
 	// Find the ship with the least remaining LP to max that is not yet maxed
 	minRemainingLP := math.MaxFloat64
-	bestShip := ei.MissionInfo_ATREGGIES
+	bestShip := defaultShip
 
-	for s := 0; s < 11; s++ {
-		maxLP := ei.ShipMaxLaunchPoints[s]
-		if shipLP[s] < maxLP {
-			remaining := maxLP - shipLP[s]
+	for _, s := range candidateShips {
+		idx := int(s)
+		if idx < 0 || idx >= 11 {
+			continue
+		}
+		maxLP := ei.ShipMaxLaunchPoints[idx]
+		if shipLP[idx] < maxLP {
+			remaining := maxLP - shipLP[idx]
 			if remaining < minRemainingLP {
 				minRemainingLP = remaining
-				bestShip = ei.MissionInfo_Spaceship(s)
+				bestShip = s
 			}
 		}
 	}
 
-	shipName := ei.MissionInfo_Spaceship_name[int32(bestShip)]
-	if int(bestShip) < len(ei.MissionArt.Ships) {
-		shipName = ei.MissionArt.Ships[bestShip].Name
+	shipName := getShipDisplayName(bestShip)
+	if minRemainingLP < math.MaxFloat64 {
+		return fmt.Sprintf("Short %s (%.1f LP needed)", shipName, minRemainingLP), bestShip, ei.MissionInfo_SHORT
 	}
 
-	return fmt.Sprintf("Short %s (%.1f LP needed)", shipName, minRemainingLP), bestShip, ei.MissionInfo_SHORT
+	return fmt.Sprintf("Short %s (Stars maxed ⭐)", shipName), bestShip, ei.MissionInfo_SHORT
 }
 
 func getGoalLabel(goal string) string {
