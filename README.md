@@ -85,6 +85,7 @@ Install your bot into your discord server with this URL:
 * `/virtue` - Virtue command/tools.
 * `/rerun-eval` - Re-run evaluation for a contract.
 * `/launch-helper` - Launch helper command for event tooling.
+* `/launch-planner` - Interactive dialog for rocket launch, fuel tracking, and event planning.
 * `/events` - Event helper commands.
 
 ### Optional Command

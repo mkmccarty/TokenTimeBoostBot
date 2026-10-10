@@ -26,6 +26,7 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/events"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/launch"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/leaderboard"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/mint"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/server"
@@ -90,6 +91,7 @@ const slashHelp string = "help"
 const slashSpeedrun string = "speedrun"
 const slashCoopETA string = "coopeta"
 const slashLaunchHelper string = "launch-helper"
+const slashLaunchPlanner string = "launch-planner"
 const slashEventHelper string = "events"
 
 // const slashTokenRemove string = "token-remove"
@@ -328,6 +330,7 @@ var (
 		"lb_p":                    leaderboard.HandleLBPageButton,
 		"watch-dismiss":           func(e *dc.ComponentEvent) { watch.HandleDismiss(botClient(), e) },
 		"watch-keep":              watch.HandleKeep,
+		"launch_planner":          launch.HandleLaunchPlannerComponent,
 		"watch-clear":             watch.HandleClear,
 		"watch-page":              watch.HandlePage,
 		"watch-page-first":        watch.HandlePage,
@@ -477,6 +480,12 @@ func setupCommands() {
 			AppCmd:   events.SlashLaunchHelperCommand(slashLaunchHelper),
 			Category: CmdCategoryGlobal,
 			Handler:  events.HandleLaunchHelperCommand,
+		},
+		{
+			AppCmd:       launch.GetSlashLaunchPlannerCommand(slashLaunchPlanner),
+			Category:     CmdCategoryGlobal,
+			Handler:      launch.HandleLaunchPlannerCommand,
+			Autocomplete: launch.HandleLaunchPlannerAutocomplete,
 		},
 		{
 			AppCmd:   events.SlashEventHelperCommand(slashEventHelper),
