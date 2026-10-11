@@ -360,7 +360,7 @@ func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE
 
 	// Handle tank limits if on virtue farm and fueling
 	if selectedEggIndex != -1 {
-		tankLevels := []float64{2e9, 200e9, 10e12, 100e12, 200e12, 300e12, 400e12, 500e12}
+		tankLevels := ei.GetFuelTankCapacities()
 		fuelingTankLevel := backup.GetArtifacts().GetTankLevel()
 		fuelLimits := virtue.GetAfx().GetTankLimits()
 		tankLimit := tankLevels[fuelingTankLevel]
@@ -829,7 +829,7 @@ func getVirtueLaunchedShips(backup *ei.Backup) string {
 
 	virtue := backup.GetVirtue()
 
-	tankLevels := []float64{2e9, 200e9, 10e12, 100e12, 200e12, 300e12, 400e12, 500e12}
+	tankLevels := ei.GetFuelTankCapacities()
 	fuelingTankLevel := backup.GetArtifacts().GetTankLevel()
 	fuelLimits := virtue.GetAfx().GetTankLimits()
 	tankLimit := tankLevels[fuelingTankLevel]

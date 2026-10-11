@@ -1152,6 +1152,9 @@ func TestEnlightenmentRunAdvisorOptimization(t *testing.T) {
 	if !strings.Contains(out, "Goal**: 🧘 **Maximize Enlightenment Egg Run** (Target: **60 Days**)") {
 		t.Errorf("Expected target 60 days header, got:\n%s", out)
 	}
+	if !strings.Contains(out, "Tank Capacity**: 500T") {
+		t.Errorf("Expected 'Tank Capacity**: 500T' in output, got:\n%s", out)
+	}
 	if !strings.Contains(out, "Extended Atreggies Henliner") {
 		t.Errorf("Expected Extended Atreggies Henliner in planned missions, got:\n%s", out)
 	}

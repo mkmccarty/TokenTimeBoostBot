@@ -447,7 +447,7 @@ func buildPlannerDialog(targetID string, backup *ei.Backup, notice string) dc.Me
 		}
 	}
 
-	tankLevels := []float64{2e9, 200e9, 10e12, 100e12, 200e12, 300e12, 400e12, 500e12}
+	tankLevels := ei.GetFuelTankCapacities()
 
 	var components []dc.LayoutComponent
 	if notice != "" {
