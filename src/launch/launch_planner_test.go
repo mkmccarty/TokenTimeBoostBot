@@ -991,6 +991,11 @@ func TestAllStarsClubOptionOmittedWhenNotNeeded(t *testing.T) {
 }
 
 func TestSundayDubcapAdvisorWiggleRoom(t *testing.T) {
+	prevNow := dubcapNowFunc
+	defer func() { dubcapNowFunc = prevNow }()
+	fixedTime := time.Date(2026, 10, 10, 12, 0, 0, 0, time.UTC) // Saturday noon UTC
+	dubcapNowFunc = func() time.Time { return fixedTime }
+
 	if ei.EggIncResearchesMap == nil {
 		ei.EggIncResearchesMap = make(map[string]ei.EggResearches)
 	}
@@ -1431,5 +1436,63 @@ func TestFueledMissionFarmIsolation(t *testing.T) {
 	}
 	if !strings.Contains(contentHome, "Projected Next Launches") {
 		t.Errorf("Home farm with active missions and fueled rocket should show 'Projected Next Launches':\n%s", contentHome)
+	}
+}
+
+func TestStandardPermitFuelTankPlannerDialog(t *testing.T) {
+	dummyEI := "EI1234567890123456"
+	dummyUser := "userStdPermit"
+	makerStd := ei.NewBackupMaker(dummyEI, dummyUser)
+	makerStd.SetPermitLevel(0) // Standard permit
+	backup := makerStd.GetBackup()
+
+	// Artifacts tank level is set to 7 in data, but user has Standard Permit
+	lvl7 := uint32(7)
+	backup.Artifacts.TankLevel = &lvl7
+
+	// 1. Normal farm (Universe egg)
+	eggUniverse := ei.Egg_UNIVERSE
+	homeFarmType := ei.FarmType_HOME
+	backup.Farms = []*ei.Backup_Simulation{{
+		EggType:  &eggUniverse,
+		FarmType: &homeFarmType,
+	}}
+
+	msg := buildPlannerDialog(dummyUser, backup, "")
+	content := msg.Content
+	for _, sub := range msg.Components[0].(dc.Container).Components {
+		if text, ok := sub.(dc.TextDisplay); ok {
+			content += "\n" + text.Content
+		}
+	}
+
+	// Should be limited to Level 0 (2B)
+	if !strings.Contains(content, "Level 0") {
+		t.Errorf("Expected 'Level 0' for standard permit on normal farm, got:\n%s", content)
+	}
+	if !strings.Contains(content, "/ 2B") {
+		t.Errorf("Expected '/ 2B' capacity for standard permit on normal farm, got:\n%s", content)
+	}
+	if strings.Contains(content, "Level 7") || strings.Contains(content, "500T") {
+		t.Errorf("Standard permit should not show Level 7 or 500T, got:\n%s", content)
+	}
+
+	// 2. Virtue farm (Curiosity egg)
+	eggCuriosity := ei.Egg_CURIOSITY
+	backup.Farms[0].EggType = &eggCuriosity
+
+	msgVirtue := buildPlannerDialog(dummyUser, backup, "")
+	contentVirtue := msgVirtue.Content
+	for _, sub := range msgVirtue.Components[0].(dc.Container).Components {
+		if text, ok := sub.(dc.TextDisplay); ok {
+			contentVirtue += "\n" + text.Content
+		}
+	}
+
+	if !strings.Contains(contentVirtue, "/ 2B") {
+		t.Errorf("Expected '/ 2B' capacity for standard permit on virtue farm, got:\n%s", contentVirtue)
+	}
+	if strings.Contains(contentVirtue, "500T") {
+		t.Errorf("Virtue farm should not show 500T for standard permit, got:\n%s", contentVirtue)
 	}
 }

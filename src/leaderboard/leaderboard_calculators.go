@@ -140,7 +140,7 @@ func RunCalculators(
 			Value:    float64(claimedTE),
 		})
 
-		maxCTEResult := ei.CalculateMaxClothedTEWithSlotHint(backup, 2*(int(backup.GetGame().GetPermitLevel())+1))
+		maxCTEResult := ei.CalculateMaxClothedTEWithSlotHint(backup, ei.GetMaxEquippedArtifacts(backup))
 		maxCTE := maxCTEResult.ClothedTE
 
 		emit(LBEntry{

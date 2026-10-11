@@ -60,10 +60,7 @@ func GetDressedEarningsBonus(backup *Backup, eov float64) float64 {
 	}
 	inventory := adb.GetInventoryItems()
 
-	maxSlots := 4
-	if game.GetPermitLevel() != 1 {
-		maxSlots = 2
-	}
+	maxSlots := GetMaxEquippedArtifacts(backup)
 
 	// Helper to get prophecy stone bonus (+0.0005, +0.0010, +0.0015)
 	getProphecyStoneValue := func(spec *ArtifactSpec) float64 {
