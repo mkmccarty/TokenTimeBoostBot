@@ -52,37 +52,6 @@ func GetSlashLaunchPlannerCommand(cmd string) *dc.Command {
 				Required:     false,
 				Autocomplete: true,
 			},
-			dc.StringOption{
-				Name:        "goal",
-				Description: "Planning goal: Artifact Hunting, Fuel Efficiency, All Stars, Enlightenment. [Sticky]",
-				Required:    false,
-				Choices: []dc.Choice[string]{
-					{Name: "🏆 Artifact Hunting (Best Ships)", Value: GoalArtifactHunt},
-					{Name: "📦 Most Artifacts / Used Fuel (ExHen)", Value: GoalFuelEfficiency},
-					{Name: "⭐ All Stars Club (Fastest LP)", Value: GoalAllStars},
-					{Name: "🧘 Maximize Enlightenment Run", Value: GoalEnlightenment},
-				},
-			},
-			dc.BoolOption{
-				Name:        "dubcap",
-				Description: "Consider next Sunday 48h Double Capacity event in timing. [Sticky]",
-				Required:    false,
-			},
-			dc.IntOption{
-				Name:        "target-launches",
-				Description: "Target number of launches for fuel planning (e.g. 3, 6, 9, 12, 15, 21, 30). [Sticky]",
-				Required:    false,
-			},
-			dc.BoolOption{
-				Name:        "help",
-				Description: "Show explanation and help for the launch planner.",
-				Required:    false,
-			},
-			dc.BoolOption{
-				Name:        "reset",
-				Description: "Clear saved Egg Inc ID registration for this command.",
-				Required:    false,
-			},
 		},
 	}
 	return &command
@@ -157,15 +126,6 @@ func HandleLaunchPlannerCommand(e *dc.CommandEvent) {
 	effectiveUserID, expiresAt, isActAs := farmerstate.GetEffectiveUserIDAndExpiry(e.UserID(), e.ChannelID())
 	userID := effectiveUserID
 
-	if opt, ok := e.OptBool("help"); ok && opt {
-		_ = e.Respond(dc.Message{Content: launchPlannerText(), Ephemeral: true})
-		return
-	}
-
-	if opt, ok := e.OptBool("reset"); ok && opt {
-		farmerstate.SetMiscSettingString(userID, "encrypted_ei_id", "")
-	}
-
 	altParam, _ := e.OptString("alt")
 	targetID, altEggIncID, notice := farmerstate.ResolveAltSelection(userID, altParam, "Launch Planner")
 
@@ -182,17 +142,6 @@ func HandleLaunchPlannerCommand(e *dc.CommandEvent) {
 		} else {
 			notice = actAsNotice + " " + notice
 		}
-	}
-
-	// Update sticky settings if options were passed in the slash command
-	if opt, ok := e.OptString("goal"); ok {
-		farmerstate.SetMiscSettingString(targetID, "launch_planner_goal", opt)
-	}
-	if opt, ok := e.OptBool("dubcap"); ok {
-		farmerstate.SetMiscSettingFlag(targetID, "launch_planner_dubcap", opt)
-	}
-	if opt, ok := e.OptInt("target-launches"); ok && opt > 0 {
-		farmerstate.SetMiscSettingString(targetID, "launch_planner_target", strconv.Itoa(opt))
 	}
 
 	eggIncID := altEggIncID
@@ -316,6 +265,10 @@ func HandleLaunchPlannerComponent(e *dc.ComponentEvent) {
 	case "target":
 		if len(e.Values()) > 0 {
 			farmerstate.SetMiscSettingString(targetID, "launch_planner_target", e.Values()[0])
+		}
+	case "enlightenment_days":
+		if len(e.Values()) > 0 {
+			farmerstate.SetMiscSettingString(targetID, "launch_planner_enlightenment_days", e.Values()[0])
 		}
 	case "exact_fuel":
 		curr := farmerstate.GetMiscSettingFlag(targetID, "launch_planner_exact_fuel")
@@ -487,6 +440,13 @@ func buildPlannerDialog(targetID string, backup *ei.Backup, notice string) dc.Me
 		}
 	}
 
+	enlightenmentDays := 60
+	if daysStr := farmerstate.GetMiscSettingString(targetID, "launch_planner_enlightenment_days"); daysStr != "" {
+		if d, err := strconv.Atoi(daysStr); err == nil && d > 0 {
+			enlightenmentDays = d
+		}
+	}
+
 	tankLevels := []float64{2e9, 200e9, 10e12, 100e12, 200e12, 300e12, 400e12, 500e12}
 
 	var components []dc.LayoutComponent
@@ -506,10 +466,12 @@ func buildPlannerDialog(targetID string, backup *ei.Backup, notice string) dc.Me
 		fmt.Fprintf(&header, "**Farm**: %s %s Farm\n", farmEmoji, farmName)
 	}
 
-	// Epic Research multiplier for capacity
+	// Epic Research multiplier for capacity and mission duration
 	epicCapacityMult := 1.0
+	ftlMult := 1.0
 	if backup.GetGame() != nil {
 		epicCapacityMult = ei.GetEpicResearchMissionCapacity(backup.GetGame().GetEpicResearch())
+		ftlMult = ei.GetEpicResearchMissionTime(backup.GetGame().GetEpicResearch())
 	}
 
 	// 1. ACTIVE MISSIONS SECTION
@@ -603,6 +565,63 @@ func buildPlannerDialog(targetID string, backup *ei.Backup, notice string) dc.Me
 			fmt.Fprintf(&activeSec, "> -# ⏱️ %s | ✨ Quality: **%.2f** (Max: %.2f) | 📦 Cap: **%d**\n",
 				timeStr, calcQuality, calcMaxQuality, calcCapacity)
 		}
+
+		var fueledMission *ei.MissionInfo
+		if backup != nil && backup.GetArtifactsDb() != nil {
+			fueledMission = backup.GetArtifactsDb().GetFuelingMission()
+		}
+		if fueledMission != nil && len(fueledMission.GetFuel()) > 0 {
+			fShipType := fueledMission.GetShip()
+			fDurType := fueledMission.GetDurationType()
+			fShipName := ei.MissionInfo_Spaceship_name[int32(fShipType)]
+			if int(fShipType) < len(ei.MissionArt.Ships) {
+				fShipName = ei.MissionArt.Ships[fShipType].Name
+			}
+			fShipArt := ""
+			if int(fShipType) < len(ei.MissionArt.Ships) {
+				fShipArt = ei.GetBotEmojiMarkdown(ei.MissionArt.Ships[fShipType].Art) + " "
+			}
+			fDurName := formatDurationTypeName(fDurType)
+			fLevel := fueledMission.GetLevel()
+			fStars := fmt.Sprintf("⭐%d", fLevel)
+			fTargetStr := ""
+			if target, ok := getTargetArtifact(fueledMission); ok {
+				if emoji := getTargetArtifactEmoji(target); emoji != "" {
+					fTargetStr = fmt.Sprintf(" • 🎯 %s", emoji)
+				} else {
+					fTargetStr = fmt.Sprintf(" • 🎯 %s", getTargetArtifactName(target))
+				}
+			}
+
+			fDurSec := 0.0
+			if durParam, ok := ei.GetShipMissionParams(fShipType, fDurType); ok && durParam.Seconds > 0 {
+				fDurSec = durParam.Seconds * ftlMult
+			}
+			durStr := ""
+			if fDurSec > 0 {
+				durStr = fmt.Sprintf(" • ⏱️ %s", bottools.FmtDuration(time.Duration(fDurSec)*time.Second))
+			}
+
+			fmt.Fprintf(&activeSec, "\n🚀 **Fueled on Launch Pad**: %s**%s** (%s, %s)%s%s\n",
+				fShipArt, fShipName, fDurName, fStars, fTargetStr, durStr)
+
+			if len(activeMissions) > 0 && fDurSec > 0 {
+				activeSec.WriteString("🔮 **Projected Next Launches** (using fueled rocket):\n")
+				for i, m := range activeMissions {
+					returnSec := int64(m.GetStartTimeDerived() + m.GetDurationSeconds())
+					if returnSec == 0 && m.GetSecondsRemaining() > 0 {
+						returnSec = time.Now().Unix() + int64(m.GetSecondsRemaining())
+					}
+					launchSec := returnSec
+					if time.Now().Unix() > launchSec {
+						launchSec = time.Now().Unix()
+					}
+					nextReturnSec := launchSec + int64(fDurSec)
+					fmt.Fprintf(&activeSec, "> - **Slot %d**: Launches <t:%d:t> → Returns <t:%d:t> (<t:%d:R>)\n",
+						i+1, launchSec, nextReturnSec, nextReturnSec)
+				}
+			}
+		}
 	}
 
 	// 2. FUEL & GOAL PLANNING SECTION
@@ -611,7 +630,7 @@ func buildPlannerDialog(targetID string, backup *ei.Backup, notice string) dc.Me
 	if isVirtueFarm {
 		renderVirtueFuelPlanning(&fuelSec, backup, farmEgg, goal, tankLevels, exactFuel, selectedVirtueShips)
 	} else {
-		renderNormalFuelPlanning(&fuelSec, backup, farmEgg, goal, targetLaunches, tankLevels, exactFuel)
+		renderNormalFuelPlanning(&fuelSec, backup, farmEgg, goal, targetLaunches, tankLevels, exactFuel, enlightenmentDays)
 	}
 
 	// 3. SUNDAY DOUBLE CAPACITY SECTION
@@ -725,6 +744,55 @@ func buildPlannerDialog(targetID string, backup *ei.Backup, notice string) dc.Me
 		Options:     goalOptions,
 	}
 
+	// Dropdown: Enlightenment Duration Menu (when goal == GoalEnlightenment)
+	var enlightenmentDaysMenu dc.SelectMenu
+	if goal == GoalEnlightenment {
+		dayOptions := []struct {
+			days int
+			desc string
+		}{
+			{15, "15 Days • Short / early trophy run"},
+			{20, "20 Days • ~1B chickens (Platinum trophy)"},
+			{30, "30 Days • ~2.5B chickens / high clarity"},
+			{40, "40 Days • ~5B chickens / mid Diamond"},
+			{50, "50 Days • Fast Diamond run (T4 Clarity set)"},
+			{60, "60 Days • Standard Diamond run (~2 months)"},
+			{75, "75 Days • Relaxed Diamond run (~2.5 months)"},
+			{90, "90 Days • Budget Diamond run (~3 months)"},
+			{100, "100 Days • Extended Diamond run (~3.3 months)"},
+			{120, "120 Days • Low-IHR Diamond run (~4 months)"},
+		}
+		hasCustomMatch := false
+		for _, opt := range dayOptions {
+			if opt.days == enlightenmentDays {
+				hasCustomMatch = true
+				break
+			}
+		}
+		var selOptions []dc.SelectOption
+		if !hasCustomMatch && enlightenmentDays > 0 {
+			selOptions = append(selOptions, dc.SelectOption{
+				Label:       fmt.Sprintf("%d Days (Custom)", enlightenmentDays),
+				Value:       strconv.Itoa(enlightenmentDays),
+				Description: fmt.Sprintf("Custom duration: %d days", enlightenmentDays),
+				Default:     true,
+			})
+		}
+		for _, opt := range dayOptions {
+			selOptions = append(selOptions, dc.SelectOption{
+				Label:       fmt.Sprintf("%d Days", opt.days),
+				Value:       strconv.Itoa(opt.days),
+				Description: opt.desc,
+				Default:     enlightenmentDays == opt.days,
+			})
+		}
+		enlightenmentDaysMenu = dc.SelectMenu{
+			CustomID:    fmt.Sprintf("launch_planner#enlightenment_days#%s", targetID),
+			Placeholder: "Select Enlightenment Run Length (Days)...",
+			Options:     selOptions,
+		}
+	}
+
 	// Dropdown 2: Virtue Ship Pool Multi-SelectMenu (on Virtue farms)
 	var virtueShipMenu dc.SelectMenu
 	if isVirtueFarm {
@@ -800,6 +868,9 @@ func buildPlannerDialog(targetID string, backup *ei.Backup, notice string) dc.Me
 
 	containerSubs = append(containerSubs, dc.Separator{Divider: true, Spacing: dc.SeparatorSpacingSmall})
 	containerSubs = append(containerSubs, dc.ActionRow{Components: []dc.InteractiveComponent{goalMenu}})
+	if goal == GoalEnlightenment {
+		containerSubs = append(containerSubs, dc.ActionRow{Components: []dc.InteractiveComponent{enlightenmentDaysMenu}})
+	}
 	if isVirtueFarm && showVirtueShips {
 		containerSubs = append(containerSubs, dc.ActionRow{Components: []dc.InteractiveComponent{virtueShipMenu}})
 	}
@@ -1244,7 +1315,7 @@ func renderVirtueFuelPlanning(b *strings.Builder, backup *ei.Backup, farmEgg ei.
 }
 
 // renderNormalFuelPlanning renders the fuel advisor for Standard home farms.
-func renderNormalFuelPlanning(b *strings.Builder, backup *ei.Backup, farmEgg ei.Egg, goal string, targetLaunches int, tankLevels []float64, exactFuel bool) {
+func renderNormalFuelPlanning(b *strings.Builder, backup *ei.Backup, farmEgg ei.Egg, goal string, targetLaunches int, tankLevels []float64, exactFuel bool, enlightenmentDays int) {
 	b.WriteString("### ⛽ Fuel Tank Advisor & Launch Planning\n")
 
 	artifacts := backup.GetArtifacts()
@@ -1288,7 +1359,7 @@ func renderNormalFuelPlanning(b *strings.Builder, backup *ei.Backup, farmEgg ei.
 	case GoalAllStars:
 		shipName, targetShip, targetDur = findNextAllStarsShip(backup, nil)
 	case GoalEnlightenment:
-		renderEnlightenmentRunAdvisor(b, backup, tankCapacity)
+		renderEnlightenmentRunAdvisor(b, backup, tankCapacity, enlightenmentDays, exactFuel)
 		return
 	default:
 		// Artifact hunting: Use Henliner if available, otherwise Henerprise
@@ -1386,53 +1457,349 @@ func renderNormalFuelPlanning(b *strings.Builder, backup *ei.Backup, farmEgg ei.
 	}
 }
 
+type enlightenmentTier struct {
+	ship      ei.MissionInfo_Spaceship
+	name      string
+	shortName string
+	durDays   float64
+	fuelReqs  map[ei.Egg]float64
+	totalFuel float64
+}
+
+type enlightenmentPlan struct {
+	trios      []int
+	totalFuel  float64
+	totalDays  float64
+	fuelPerEgg map[ei.Egg]float64
+}
+
+func getEnlightenmentTiers(backup *ei.Backup, ftlMult float64) []enlightenmentTier {
+	var tiers []enlightenmentTier
+
+	if hasUnlockedHenliner(backup) {
+		tiers = append(tiers, enlightenmentTier{
+			ship:      ei.MissionInfo_ATREGGIES,
+			name:      "Extended Atreggies Henliner",
+			shortName: "ExLiner",
+			durDays:   4.0 * ftlMult,
+			fuelReqs: map[ei.Egg]float64{
+				ei.Egg_TACHYON:     2e12,
+				ei.Egg_DILITHIUM:   6e12,
+				ei.Egg_ANTIMATTER:  6e12,
+				ei.Egg_DARK_MATTER: 6e12,
+			},
+			totalFuel: 20e12,
+		})
+	}
+
+	tiers = append(tiers, enlightenmentTier{
+		ship:      ei.MissionInfo_HENERPRISE,
+		name:      "Extended Henerprise",
+		shortName: "ExHen",
+		durDays:   4.0 * ftlMult,
+		fuelReqs: map[ei.Egg]float64{
+			ei.Egg_TACHYON:     1e12,
+			ei.Egg_DILITHIUM:   3e12,
+			ei.Egg_ANTIMATTER:  3e12,
+			ei.Egg_DARK_MATTER: 3e12,
+		},
+		totalFuel: 10e12,
+	})
+
+	tiers = append(tiers, enlightenmentTier{
+		ship:      ei.MissionInfo_VOYEGGER,
+		name:      "Extended Voyegger",
+		shortName: "ExVoy",
+		durDays:   3.0 * ftlMult,
+		fuelReqs: map[ei.Egg]float64{
+			ei.Egg_TACHYON:    100e9,
+			ei.Egg_DILITHIUM:  2e12,
+			ei.Egg_ANTIMATTER: 2e12,
+		},
+		totalFuel: 4.1e12,
+	})
+
+	tiers = append(tiers, enlightenmentTier{
+		ship:      ei.MissionInfo_CHICKFIANT,
+		name:      "Extended Defihent",
+		shortName: "ExDefi",
+		durDays:   2.0 * ftlMult,
+		fuelReqs: map[ei.Egg]float64{
+			ei.Egg_TACHYON:    25e9,
+			ei.Egg_DILITHIUM:  250e9,
+			ei.Egg_ANTIMATTER: 250e9,
+		},
+		totalFuel: 0.525e12,
+	})
+
+	return tiers
+}
+
+func makeEnlightenmentPlan(tiers []enlightenmentTier, counts []int, totalFuel float64, totalDays float64) enlightenmentPlan {
+	plan := enlightenmentPlan{
+		trios:      make([]int, len(counts)),
+		totalFuel:  totalFuel,
+		totalDays:  totalDays,
+		fuelPerEgg: make(map[ei.Egg]float64),
+	}
+	copy(plan.trios, counts)
+
+	for i, c := range counts {
+		if c <= 0 {
+			continue
+		}
+		for egg, amt := range tiers[i].fuelReqs {
+			plan.fuelPerEgg[egg] += float64(c) * 3.0 * amt
+		}
+	}
+	return plan
+}
+
+func optimizeEnlightenmentLaunches(tiers []enlightenmentTier, tankCapacity float64, targetDays float64) enlightenmentPlan {
+	if len(tiers) == 0 {
+		return enlightenmentPlan{}
+	}
+
+	nTiers := len(tiers)
+	trioFuels := make([]float64, nTiers)
+	for i, t := range tiers {
+		trioFuels[i] = 3.0 * t.totalFuel
+	}
+
+	var bestPlan enlightenmentPlan
+	foundTargetCovered := false
+
+	max0 := int(math.Floor(tankCapacity / trioFuels[0]))
+
+	checkPlan := func(counts []int) {
+		fuel := 0.0
+		days := 0.0
+		for i, c := range counts {
+			fuel += float64(c) * trioFuels[i]
+			days += float64(c) * tiers[i].durDays
+		}
+		if fuel > tankCapacity {
+			return
+		}
+
+		coversTarget := days >= targetDays
+
+		if coversTarget {
+			if !foundTargetCovered {
+				foundTargetCovered = true
+				bestPlan = makeEnlightenmentPlan(tiers, counts, fuel, days)
+				return
+			}
+			for i := 0; i < nTiers; i++ {
+				if counts[i] > bestPlan.trios[i] {
+					bestPlan = makeEnlightenmentPlan(tiers, counts, fuel, days)
+					return
+				} else if counts[i] < bestPlan.trios[i] {
+					return
+				}
+			}
+			if days < bestPlan.totalDays {
+				bestPlan = makeEnlightenmentPlan(tiers, counts, fuel, days)
+			}
+		} else if !foundTargetCovered {
+			if days > bestPlan.totalDays+0.01 {
+				bestPlan = makeEnlightenmentPlan(tiers, counts, fuel, days)
+			} else if math.Abs(days-bestPlan.totalDays) <= 0.01 {
+				for i := 0; i < nTiers; i++ {
+					if counts[i] > bestPlan.trios[i] {
+						bestPlan = makeEnlightenmentPlan(tiers, counts, fuel, days)
+						return
+					} else if counts[i] < bestPlan.trios[i] {
+						return
+					}
+				}
+			}
+		}
+	}
+
+	for c0 := max0; c0 >= 0; c0-- {
+		remFuel0 := tankCapacity - float64(c0)*trioFuels[0]
+		if remFuel0 < 0 {
+			continue
+		}
+		days0 := float64(c0) * tiers[0].durDays
+		if days0 >= targetDays {
+			counts := make([]int, nTiers)
+			counts[0] = c0
+			checkPlan(counts)
+			break
+		}
+
+		max1 := 0
+		if nTiers > 1 {
+			max1 = int(math.Floor(remFuel0 / trioFuels[1]))
+		}
+		for c1 := max1; c1 >= 0; c1-- {
+			remFuel1 := remFuel0 - float64(c1)*trioFuels[1]
+			if remFuel1 < 0 {
+				continue
+			}
+			days1 := days0 + float64(c1)*tiers[1].durDays
+			if days1 >= targetDays && nTiers > 2 {
+				counts := make([]int, nTiers)
+				counts[0] = c0
+				counts[1] = c1
+				checkPlan(counts)
+				continue
+			}
+
+			max2 := 0
+			if nTiers > 2 {
+				max2 = int(math.Floor(remFuel1 / trioFuels[2]))
+			}
+			for c2 := max2; c2 >= 0; c2-- {
+				remFuel2 := remFuel1 - float64(c2)*trioFuels[2]
+				if remFuel2 < 0 {
+					continue
+				}
+				days2 := days1 + float64(c2)*tiers[2].durDays
+
+				if nTiers > 3 {
+					neededDays := targetDays - days2
+					c3 := 0
+					if neededDays > 0 {
+						c3 = int(math.Ceil(neededDays / tiers[3].durDays))
+					}
+					if float64(c3)*trioFuels[3] <= remFuel2 {
+						checkPlan([]int{c0, c1, c2, c3})
+					} else {
+						maxC3 := int(math.Floor(remFuel2 / trioFuels[3]))
+						checkPlan([]int{c0, c1, c2, maxC3})
+					}
+				} else {
+					counts := make([]int, nTiers)
+					counts[0] = c0
+					counts[1] = c1
+					counts[2] = c2
+					checkPlan(counts)
+				}
+			}
+		}
+
+		if foundTargetCovered && bestPlan.trios[0] == c0 {
+			break
+		}
+	}
+
+	return bestPlan
+}
+
 // renderEnlightenmentRunAdvisor gives specialized planning for an Enlightenment Egg run.
-func renderEnlightenmentRunAdvisor(b *strings.Builder, backup *ei.Backup, tankCapacity float64) {
-	b.WriteString("🎯 **Goal**: 🧘 **Maximize Enlightenment Egg Run**\n")
+func renderEnlightenmentRunAdvisor(b *strings.Builder, backup *ei.Backup, tankCapacity float64, targetDays int, exactFuel bool) {
+	if targetDays <= 0 {
+		targetDays = 60
+	}
+	fmt.Fprintf(b, "🎯 **Goal**: 🧘 **Maximize Enlightenment Egg Run** (Target: **%d Days**)\n", targetDays)
 	b.WriteString("-# On the Enlightenment egg, egg value is 0 and no rocket fuel can be produced. All launches rely 100% on fuel stored in your tank!\n\n")
 
-	// Extended Henliner: 2T Tachyon, 6T Dilithium, 6T Antimatter, 6T Dark Matter = 20T per ship
-	targetShip := ei.MissionInfo_ATREGGIES
-	shipName := "Extended Atreggies Henliner"
-	fuelPerShip := 20e12
-	reqs := ei.GetMissionFuels(targetShip, ei.MissionInfo_EPIC, false)
-
-	if !hasUnlockedHenliner(backup) {
-		targetShip = ei.MissionInfo_HENERPRISE
-		shipName = "Extended Henerprise"
-		fuelPerShip = 10e12
-		reqs = ei.GetMissionFuels(targetShip, ei.MissionInfo_EPIC, false)
-	}
-
-	maxLaunches := int(math.Floor(tankCapacity / fuelPerShip))
-	totalTriCycles := maxLaunches / 3
-
-	// Estimate days lasting (Extended Henliner with FTL research)
 	ftlMult := 1.0
-	if backup.GetGame() != nil {
+	if backup != nil && backup.GetGame() != nil {
 		ftlMult = ei.GetEpicResearchMissionTime(backup.GetGame().GetEpicResearch())
 	}
-	baseDurationDays := 4.0 // 4 days base for Extended Henliner
-	cycleDays := baseDurationDays * ftlMult
-	totalDays := float64(totalTriCycles) * cycleDays
 
-	fmt.Fprintf(b, "**Tank Capacity**: %s\n", ei.FormatEIValue(tankCapacity, map[string]any{"decimals": 0, "trim": true}))
-	fmt.Fprintf(b, "📦 **Max Full-Run Launches**: **%d launches** of `%s` (%d complete tri-launch cycles)\n",
-		maxLaunches, shipName, totalTriCycles)
-	fmt.Fprintf(b, "⏱️ **Estimated Mission Duration**: ~**%.1f days** of non-stop launches during Enlightenment\n\n", totalDays)
+	tiers := getEnlightenmentTiers(backup, ftlMult)
+	plan := optimizeEnlightenmentLaunches(tiers, tankCapacity, float64(targetDays))
 
-	b.WriteString("**Optimal Tank Fill Distribution**:\n")
-	for _, req := range reqs {
-		ratio := req.Amount / fuelPerShip
-		targetFill := tankCapacity * ratio
-		eggEmoji, _ := ei.GetEggEmojiMarkdownIfExists(req.Egg)
-		eggName := formatEggName(req.Egg)
-		fmt.Fprintf(b, "- %s **%s**: Fill to **%s** (%.0f%% of tank)\n",
-			eggEmoji, eggName,
-			ei.FormatEIValue(targetFill, map[string]any{"decimals": 1, "trim": true}),
-			ratio*100)
+	tankLevel := 0
+	if backup != nil && backup.GetArtifacts() != nil {
+		tankLevel = int(backup.GetArtifacts().GetTankLevel())
 	}
-	b.WriteString("-# 💡 *Tip: Fill slightly under max for each egg so you don't accidentally overfill and lock out another fuel type!*\n")
+
+	totalCycles := 0
+	totalShips := 0
+	for _, c := range plan.trios {
+		totalCycles += c
+		totalShips += c * 3
+	}
+
+	depotArt := ei.GetBotEmojiMarkdown("depot")
+	fmt.Fprintf(b, "%s **Tank Capacity**: %s (Level %d)\n",
+		depotArt,
+		ei.FormatEIValue(tankCapacity, map[string]any{"decimals": 0, "trim": true}),
+		tankLevel)
+	fmt.Fprintf(b, "⏱️ **Duration Covered**: ~**%.1f days** of non-stop launches (%d total cycles / %d rockets)\n\n",
+		plan.totalDays, totalCycles, totalShips)
+
+	// Planned Missions List
+	b.WriteString("🚀 **Planned Rocket Launches**:\n")
+	hasSpacer := false
+	for i, count := range plan.trios {
+		if count <= 0 {
+			continue
+		}
+		tier := tiers[i]
+		trioFuel := 3.0 * tier.totalFuel
+		tierDays := float64(count) * tier.durDays
+		fmt.Fprintf(b, "- **%d cycles** (%d ships) of `%s` • %s fuel • covers **%.1f days**\n",
+			count, count*3, tier.name,
+			formatFuelAmount(float64(count)*trioFuel, exactFuel),
+			tierDays)
+		if i > 0 {
+			hasSpacer = true
+		}
+	}
+	b.WriteString("\n")
+
+	// Spacing Strategy
+	if totalCycles > 0 {
+		topTrios := plan.trios[0]
+		topTierName := tiers[0].name
+		topShortName := tiers[0].shortName
+
+		if !hasSpacer || topTrios == totalCycles {
+			fmt.Fprintf(b, "🎉 **Full High-Tier Coverage**: Your tank capacity supports launching **100%% %s** for the entire %d days! No lower-fuel spacer missions are needed.\n\n",
+				topTierName, targetDays)
+		} else if topTrios > 0 {
+			spacing := int(math.Round(float64(totalCycles) / float64(topTrios)))
+			if spacing < 2 {
+				spacing = 2
+			}
+			fmt.Fprintf(b, "📅 **Launch Spacing Strategy**:\n")
+			fmt.Fprintf(b, "- **Pacing Cadence**: Launch **1 %s cycle** every **%d cycles** (spaced with lower-fuel missions in between).\n",
+				topShortName, spacing)
+			fmt.Fprintf(b, "- **Result**: Keeps your highest-quality artifact drops flowing steadily across the full **%d days**, while ensuring rockets launch continuously without running dry before your trophy unlocks!\n\n",
+				targetDays)
+		} else {
+			fmt.Fprintf(b, "ℹ️ **Lower-Tier Fuel Preservation**: Due to tank limits across %d days, launches are spaced using lower-fuel missions to ensure 100%% uptime.\n\n", targetDays)
+		}
+	}
+
+	// Optimal Tank Fill Distribution
+	b.WriteString("📦 **Optimal Tank Fill Distribution**:\n")
+	eggOrder := []ei.Egg{ei.Egg_TACHYON, ei.Egg_DILITHIUM, ei.Egg_ANTIMATTER, ei.Egg_DARK_MATTER}
+	usedFuel := 0.0
+	for _, egg := range eggOrder {
+		needed := plan.fuelPerEgg[egg]
+		usedFuel += needed
+		ratio := 0.0
+		if tankCapacity > 0 {
+			ratio = (needed / tankCapacity) * 100.0
+		}
+		eggEmoji, _ := ei.GetEggEmojiMarkdownIfExists(egg)
+		eggName := formatEggName(egg)
+		fmt.Fprintf(b, "- %s **%s**: Fill to **%s** (%.1f%% of tank)\n",
+			eggEmoji, eggName,
+			formatFuelAmount(needed, exactFuel),
+			ratio)
+	}
+
+	freeBuffer := tankCapacity - usedFuel
+	if freeBuffer < 0 {
+		freeBuffer = 0
+	}
+	bufferRatio := 0.0
+	if tankCapacity > 0 {
+		bufferRatio = (freeBuffer / tankCapacity) * 100.0
+	}
+	fmt.Fprintf(b, "- 🛡️ **Free Buffer Space**: **%s** (%.1f%% unused for rounding safety)\n",
+		formatFuelAmount(freeBuffer, exactFuel),
+		bufferRatio)
+	b.WriteString("-# 💡 *Tip: Fill slightly under each target so you don't accidentally overfill and lock out another fuel type!*\n")
 }
 
 // getVirtueEggStored returns the stored amount of a given virtue egg.
@@ -1620,7 +1987,24 @@ func renderSundayDubcapAdvisor(b *strings.Builder, activeMissions []*ei.MissionI
 
 		canRunFiller := !isVirtueFarm || isOnHumility
 		shortDurationSec := 1200.0 // Default 20m
-		if durParam, ok := ei.GetShipMissionParams(shipType, ei.MissionInfo_SHORT); ok && durParam.Seconds > 0 {
+		fillerName := "Short"
+
+		var fueledMission *ei.MissionInfo
+		if backup != nil && backup.GetArtifactsDb() != nil {
+			fueledMission = backup.GetArtifactsDb().GetFuelingMission()
+		}
+		if fueledMission != nil && len(fueledMission.GetFuel()) > 0 {
+			fShipType := fueledMission.GetShip()
+			fDurType := fueledMission.GetDurationType()
+			if durParam, ok := ei.GetShipMissionParams(fShipType, fDurType); ok && durParam.Seconds > 0 {
+				shortDurationSec = durParam.Seconds
+				fName := ei.MissionInfo_Spaceship_name[int32(fShipType)]
+				if int(fShipType) < len(ei.MissionArt.Ships) {
+					fName = ei.MissionArt.Ships[fShipType].Name
+				}
+				fillerName = fmt.Sprintf("%s %s (Fueled)", formatDurationTypeName(fDurType), fName)
+			}
+		} else if durParam, ok := ei.GetShipMissionParams(shipType, ei.MissionInfo_SHORT); ok && durParam.Seconds > 0 {
 			shortDurationSec = durParam.Seconds
 		}
 		shortDuration := time.Duration(shortDurationSec*ftlMult) * time.Second
@@ -1649,8 +2033,8 @@ func renderSundayDubcapAdvisor(b *strings.Builder, activeMissions []*ei.MissionI
 				leadTime := dubcapStart.Sub(now)
 				if canRunFiller && leadTime > shortDuration {
 					fillerEnd := now.Add(shortDuration)
-					fmt.Fprintf(b, "  - 💡 *Recommendation: Run a **Short** filler mission next; lands at <t:%d:t>, right in time for Dubcap!*\n",
-						fillerEnd.Unix())
+					fmt.Fprintf(b, "  - 💡 *Recommendation: Run a **%s** filler mission next; lands at <t:%d:t>, right in time for Dubcap!*\n",
+						fillerName, fillerEnd.Unix())
 				} else {
 					if i < launchesPossible {
 						if isVirtueFarm && !isOnHumility {
@@ -1676,8 +2060,8 @@ func renderSundayDubcapAdvisor(b *strings.Builder, activeMissions []*ei.MissionI
 
 			if canRunFiller && leadTime > shortDuration {
 				fillerEnd := returnTime.Add(shortDuration)
-				fmt.Fprintf(b, "  - 💡 *Recommendation: Run a **Short** filler mission next; lands at <t:%d:t>, right in time for Dubcap!*\n",
-					fillerEnd.Unix())
+				fmt.Fprintf(b, "  - 💡 *Recommendation: Run a **%s** filler mission next; lands at <t:%d:t>, right in time for Dubcap!*\n",
+					fillerName, fillerEnd.Unix())
 			} else {
 				if i < launchesPossible {
 					if isVirtueFarm && !isOnHumility {
@@ -1932,6 +2316,19 @@ func findNextAllStarsShip(backup *ei.Backup, pool []ei.MissionInfo_Spaceship) (s
 	}
 
 	return fmt.Sprintf("Short %s (Stars maxed ⭐)", shipName), bestShip, ei.MissionInfo_SHORT
+}
+
+func formatDurationTypeName(durType ei.MissionInfo_DurationType) string {
+	switch durType {
+	case ei.MissionInfo_LONG:
+		return "Standard"
+	case ei.MissionInfo_EPIC:
+		return "Extended"
+	case ei.MissionInfo_TUTORIAL:
+		return "Tutorial"
+	default:
+		return "Short"
+	}
 }
 
 func getGoalLabel(goal string) string {
