@@ -357,6 +357,49 @@ func isVirtueMission(m *ei.MissionInfo) bool {
 	return false
 }
 
+// hasStandardEggFuel returns true if any fuel egg is a standard home farm egg (edible through enlightenment).
+func hasStandardEggFuel(m *ei.MissionInfo) bool {
+	if m == nil {
+		return false
+	}
+	for _, f := range m.GetFuel() {
+		if f != nil {
+			egg := f.GetEgg()
+			if egg >= ei.Egg_EDIBLE && egg <= ei.Egg_ENLIGHTENMENT {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// getFuelingMission returns the fueled mission on the launch pad for the active farm type (Virtue or Home).
+func getFuelingMission(backup *ei.Backup, isVirtueFarm bool) *ei.MissionInfo {
+	if backup == nil || backup.GetArtifactsDb() == nil {
+		return nil
+	}
+	afxDB := backup.GetArtifactsDb()
+	if isVirtueFarm {
+		if afxDB.GetVirtueAfxDb() != nil && afxDB.GetVirtueAfxDb().GetFuelingMission() != nil {
+			vMission := afxDB.GetVirtueAfxDb().GetFuelingMission()
+			if !hasStandardEggFuel(vMission) && (isVirtueMission(vMission) || len(vMission.GetFuel()) > 0) {
+				return vMission
+			}
+		}
+		mainMission := afxDB.GetFuelingMission()
+		if mainMission != nil && isVirtueMission(mainMission) && !hasStandardEggFuel(mainMission) {
+			return mainMission
+		}
+		return nil
+	}
+
+	mainMission := afxDB.GetFuelingMission()
+	if mainMission != nil && !isVirtueMission(mainMission) {
+		return mainMission
+	}
+	return nil
+}
+
 // isExactOrBorderlineFuel checks if stored fuel is exactly at or barely above the needed amount
 // with no safe buffer against Egg, Inc.'s floating-point rounding bugs.
 func isExactOrBorderlineFuel(stored, needed float64) bool {
@@ -381,10 +424,18 @@ func buildPlannerDialog(targetID string, backup *ei.Backup, notice string) dc.Me
 	isVirtueFarm := false
 	var farmEgg = ei.Egg_UNKNOWN
 	var homeFarm *ei.Backup_Simulation
-	if len(backup.GetFarms()) > 0 && backup.GetFarms()[0] != nil {
-		homeFarm = backup.GetFarms()[0]
-	} else if backup.GetSim() != nil {
-		homeFarm = backup.GetSim()
+	for _, f := range backup.GetFarms() {
+		if f != nil && f.GetFarmType() == ei.FarmType_HOME {
+			homeFarm = f
+			break
+		}
+	}
+	if homeFarm == nil {
+		if len(backup.GetFarms()) > 0 && backup.GetFarms()[0] != nil {
+			homeFarm = backup.GetFarms()[0]
+		} else if backup.GetSim() != nil {
+			homeFarm = backup.GetSim()
+		}
 	}
 	if homeFarm != nil {
 		farmEgg = homeFarm.GetEggType()
@@ -565,61 +616,58 @@ func buildPlannerDialog(targetID string, backup *ei.Backup, notice string) dc.Me
 			fmt.Fprintf(&activeSec, "> -# ⏱️ %s | ✨ Quality: **%.2f** (Max: %.2f) | 📦 Cap: **%d**\n",
 				timeStr, calcQuality, calcMaxQuality, calcCapacity)
 		}
+	}
 
-		var fueledMission *ei.MissionInfo
-		if backup != nil && backup.GetArtifactsDb() != nil {
-			fueledMission = backup.GetArtifactsDb().GetFuelingMission()
+	fueledMission := getFuelingMission(backup, isVirtueFarm)
+	if fueledMission != nil && len(fueledMission.GetFuel()) > 0 {
+		fShipType := fueledMission.GetShip()
+		fDurType := fueledMission.GetDurationType()
+		fShipName := ei.MissionInfo_Spaceship_name[int32(fShipType)]
+		if int(fShipType) < len(ei.MissionArt.Ships) {
+			fShipName = ei.MissionArt.Ships[fShipType].Name
 		}
-		if fueledMission != nil && len(fueledMission.GetFuel()) > 0 {
-			fShipType := fueledMission.GetShip()
-			fDurType := fueledMission.GetDurationType()
-			fShipName := ei.MissionInfo_Spaceship_name[int32(fShipType)]
-			if int(fShipType) < len(ei.MissionArt.Ships) {
-				fShipName = ei.MissionArt.Ships[fShipType].Name
+		fShipArt := ""
+		if int(fShipType) < len(ei.MissionArt.Ships) {
+			fShipArt = ei.GetBotEmojiMarkdown(ei.MissionArt.Ships[fShipType].Art) + " "
+		}
+		fDurName := formatDurationTypeName(fDurType)
+		fLevel := fueledMission.GetLevel()
+		fStars := fmt.Sprintf("⭐%d", fLevel)
+		fTargetStr := ""
+		if target, ok := getTargetArtifact(fueledMission); ok {
+			if emoji := getTargetArtifactEmoji(target); emoji != "" {
+				fTargetStr = fmt.Sprintf(" • 🎯 %s", emoji)
+			} else {
+				fTargetStr = fmt.Sprintf(" • 🎯 %s", getTargetArtifactName(target))
 			}
-			fShipArt := ""
-			if int(fShipType) < len(ei.MissionArt.Ships) {
-				fShipArt = ei.GetBotEmojiMarkdown(ei.MissionArt.Ships[fShipType].Art) + " "
-			}
-			fDurName := formatDurationTypeName(fDurType)
-			fLevel := fueledMission.GetLevel()
-			fStars := fmt.Sprintf("⭐%d", fLevel)
-			fTargetStr := ""
-			if target, ok := getTargetArtifact(fueledMission); ok {
-				if emoji := getTargetArtifactEmoji(target); emoji != "" {
-					fTargetStr = fmt.Sprintf(" • 🎯 %s", emoji)
-				} else {
-					fTargetStr = fmt.Sprintf(" • 🎯 %s", getTargetArtifactName(target))
+		}
+
+		fDurSec := 0.0
+		if durParam, ok := ei.GetShipMissionParams(fShipType, fDurType); ok && durParam.Seconds > 0 {
+			fDurSec = durParam.Seconds * ftlMult
+		}
+		durStr := ""
+		if fDurSec > 0 {
+			durStr = fmt.Sprintf(" • ⏱️ %s", bottools.FmtDuration(time.Duration(fDurSec)*time.Second))
+		}
+
+		fmt.Fprintf(&activeSec, "\n🚀 **Fueled on Launch Pad**: %s**%s** (%s, %s)%s%s\n",
+			fShipArt, fShipName, fDurName, fStars, fTargetStr, durStr)
+
+		if !isVirtueFarm && len(activeMissions) > 0 && fDurSec > 0 {
+			activeSec.WriteString("🔮 **Projected Next Launches** (using fueled rocket):\n")
+			for i, m := range activeMissions {
+				returnSec := int64(m.GetStartTimeDerived() + m.GetDurationSeconds())
+				if returnSec == 0 && m.GetSecondsRemaining() > 0 {
+					returnSec = time.Now().Unix() + int64(m.GetSecondsRemaining())
 				}
-			}
-
-			fDurSec := 0.0
-			if durParam, ok := ei.GetShipMissionParams(fShipType, fDurType); ok && durParam.Seconds > 0 {
-				fDurSec = durParam.Seconds * ftlMult
-			}
-			durStr := ""
-			if fDurSec > 0 {
-				durStr = fmt.Sprintf(" • ⏱️ %s", bottools.FmtDuration(time.Duration(fDurSec)*time.Second))
-			}
-
-			fmt.Fprintf(&activeSec, "\n🚀 **Fueled on Launch Pad**: %s**%s** (%s, %s)%s%s\n",
-				fShipArt, fShipName, fDurName, fStars, fTargetStr, durStr)
-
-			if len(activeMissions) > 0 && fDurSec > 0 {
-				activeSec.WriteString("🔮 **Projected Next Launches** (using fueled rocket):\n")
-				for i, m := range activeMissions {
-					returnSec := int64(m.GetStartTimeDerived() + m.GetDurationSeconds())
-					if returnSec == 0 && m.GetSecondsRemaining() > 0 {
-						returnSec = time.Now().Unix() + int64(m.GetSecondsRemaining())
-					}
-					launchSec := returnSec
-					if time.Now().Unix() > launchSec {
-						launchSec = time.Now().Unix()
-					}
-					nextReturnSec := launchSec + int64(fDurSec)
-					fmt.Fprintf(&activeSec, "> - **Slot %d**: Launches <t:%d:t> → Returns <t:%d:t> (<t:%d:R>)\n",
-						i+1, launchSec, nextReturnSec, nextReturnSec)
+				launchSec := returnSec
+				if time.Now().Unix() > launchSec {
+					launchSec = time.Now().Unix()
 				}
+				nextReturnSec := launchSec + int64(fDurSec)
+				fmt.Fprintf(&activeSec, "> - **Slot %d**: Launches <t:%d:t> → Returns <t:%d:t> (<t:%d:R>)\n",
+					i+1, launchSec, nextReturnSec, nextReturnSec)
 			}
 		}
 	}
@@ -1909,10 +1957,18 @@ func renderSundayDubcapAdvisor(b *strings.Builder, activeMissions []*ei.MissionI
 	b.WriteString("### 🚀 Sunday Double Capacity Event (48h) Timing\n")
 
 	if farmEgg == ei.Egg_UNKNOWN && backup != nil {
-		if len(backup.GetFarms()) > 0 && backup.GetFarms()[0] != nil {
-			farmEgg = backup.GetFarms()[0].GetEggType()
-		} else if backup.GetSim() != nil {
-			farmEgg = backup.GetSim().GetEggType()
+		for _, f := range backup.GetFarms() {
+			if f != nil && f.GetFarmType() == ei.FarmType_HOME {
+				farmEgg = f.GetEggType()
+				break
+			}
+		}
+		if farmEgg == ei.Egg_UNKNOWN {
+			if len(backup.GetFarms()) > 0 && backup.GetFarms()[0] != nil {
+				farmEgg = backup.GetFarms()[0].GetEggType()
+			} else if backup.GetSim() != nil {
+				farmEgg = backup.GetSim().GetEggType()
+			}
 		}
 	}
 
@@ -1989,10 +2045,7 @@ func renderSundayDubcapAdvisor(b *strings.Builder, activeMissions []*ei.MissionI
 		shortDurationSec := 1200.0 // Default 20m
 		fillerName := "Short"
 
-		var fueledMission *ei.MissionInfo
-		if backup != nil && backup.GetArtifactsDb() != nil {
-			fueledMission = backup.GetArtifactsDb().GetFuelingMission()
-		}
+		fueledMission := getFuelingMission(backup, isVirtueFarm)
 		if fueledMission != nil && len(fueledMission.GetFuel()) > 0 {
 			fShipType := fueledMission.GetShip()
 			fDurType := fueledMission.GetDurationType()

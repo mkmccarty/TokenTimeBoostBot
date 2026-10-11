@@ -1300,3 +1300,136 @@ func TestFueledMissionPadAndNextLaunchProjection(t *testing.T) {
 		t.Errorf("Expected 'Slot 1' projection in dialog, got:\n%s", content)
 	}
 }
+
+func TestFueledMissionFarmIsolation(t *testing.T) {
+	dummyUser := "userPadIsolation"
+	backup := &ei.Backup{
+		Game: &ei.Backup_Game{
+			EpicResearch: []*ei.Backup_ResearchItem{},
+		},
+		ArtifactsDb: &ei.ArtifactsDB{
+			MissionInfos: []*ei.MissionInfo{},
+			VirtueAfxDb:  &ei.ArtifactsDB_VirtueDB{},
+		},
+	}
+
+	// 1. User is on Humility (Virtue) farm
+	eggHumility := ei.Egg_HUMILITY
+	homeFarmType := ei.FarmType_HOME
+	backup.Farms = []*ei.Backup_Simulation{{
+		EggType:  &eggHumility,
+		FarmType: &homeFarmType,
+	}}
+
+	// Fueled home-farm ship (Henerprise with regular eggs) in ArtifactsDb.FuelingMission
+	statusFueling := ei.MissionInfo_FUELING
+	shipHenerprise := ei.MissionInfo_HENERPRISE
+	durShort := ei.MissionInfo_SHORT
+	eggDilithium := ei.Egg_DILITHIUM
+	amt2T := 2e12
+	backup.ArtifactsDb.FuelingMission = &ei.MissionInfo{
+		Ship:         &shipHenerprise,
+		DurationType: &durShort,
+		Status:       &statusFueling,
+		Fuel: []*ei.MissionInfo_Fuel{
+			{Egg: &eggDilithium, Amount: &amt2T},
+		},
+	}
+
+	// Virtue pad is initially empty
+	backup.ArtifactsDb.VirtueAfxDb.FuelingMission = nil
+
+	msg := buildPlannerDialog(dummyUser, backup, "")
+	content := msg.Content
+	for _, sub := range msg.Components[0].(dc.Container).Components {
+		if text, ok := sub.(dc.TextDisplay); ok {
+			content += "\n" + text.Content
+		}
+	}
+
+	// On Virtue farm, home farm Henerprise must NOT appear as fueled on pad
+	if strings.Contains(content, "Henerprise") {
+		t.Errorf("Virtue farm should NOT show home farm fueled Henerprise, but dialog contained it:\n%s", content)
+	}
+	if strings.Contains(content, "Fueled on Launch Pad") {
+		t.Errorf("Virtue farm with no virtue ship fueled should NOT show 'Fueled on Launch Pad':\n%s", content)
+	}
+
+	// 2. Now set a Virtue fueled mission in VirtueAfxDb.FuelingMission
+	shipCorvette := ei.MissionInfo_CORELLIHEN_CORVETTE
+	durStandard := ei.MissionInfo_LONG
+	eggVirtue := ei.Egg_HUMILITY
+	amt1B := 1e9
+	backup.ArtifactsDb.VirtueAfxDb.FuelingMission = &ei.MissionInfo{
+		Ship:         &shipCorvette,
+		DurationType: &durStandard,
+		Status:       &statusFueling,
+		Fuel: []*ei.MissionInfo_Fuel{
+			{Egg: &eggVirtue, Amount: &amt1B},
+		},
+	}
+
+	// Add an active returning mission
+	statusExploring := ei.MissionInfo_EXPLORING
+	shipHenliner := ei.MissionInfo_ATREGGIES
+	durExtended := ei.MissionInfo_EPIC
+	startSec := float64(time.Now().Unix() - 1000)
+	durSec := 138240.0
+	backup.ArtifactsDb.MissionInfos = []*ei.MissionInfo{
+		{
+			Ship:             &shipHenliner,
+			DurationType:     &durExtended,
+			Status:           &statusExploring,
+			StartTimeDerived: &startSec,
+			DurationSeconds:  &durSec,
+		},
+	}
+
+	msgVirtue := buildPlannerDialog(dummyUser, backup, "")
+	contentVirtue := msgVirtue.Content
+	for _, sub := range msgVirtue.Components[0].(dc.Container).Components {
+		if text, ok := sub.(dc.TextDisplay); ok {
+			contentVirtue += "\n" + text.Content
+		}
+	}
+
+	// On Virtue farm, Virtue ship MUST appear
+	if !strings.Contains(contentVirtue, "Fueled on Launch Pad") {
+		t.Errorf("Virtue farm with fueled virtue mission should show 'Fueled on Launch Pad':\n%s", contentVirtue)
+	}
+	if !strings.Contains(contentVirtue, "Cornish-Hen Corvette") {
+		t.Errorf("Virtue farm should show 'Cornish-Hen Corvette' on pad:\n%s", contentVirtue)
+	}
+	if strings.Contains(contentVirtue, "Henerprise") {
+		t.Errorf("Virtue farm should still NOT show home farm fueled Henerprise:\n%s", contentVirtue)
+	}
+	if strings.Contains(contentVirtue, "Projected Next Launches") {
+		t.Errorf("Virtue farm should NOT show 'Projected Next Launches':\n%s", contentVirtue)
+	}
+
+	// 3. Switch player to Home farm (Universe egg)
+	eggUniverse := ei.Egg_UNIVERSE
+	backup.Farms[0].EggType = &eggUniverse
+
+	msgHome := buildPlannerDialog(dummyUser, backup, "")
+	contentHome := msgHome.Content
+	for _, sub := range msgHome.Components[0].(dc.Container).Components {
+		if text, ok := sub.(dc.TextDisplay); ok {
+			contentHome += "\n" + text.Content
+		}
+	}
+
+	// On Home farm, Henerprise MUST appear and Corvette MUST NOT appear
+	if !strings.Contains(contentHome, "Fueled on Launch Pad") {
+		t.Errorf("Home farm should show 'Fueled on Launch Pad':\n%s", contentHome)
+	}
+	if !strings.Contains(contentHome, "Henerprise") {
+		t.Errorf("Home farm should show fueled 'Henerprise' on pad:\n%s", contentHome)
+	}
+	if strings.Contains(contentHome, "Cornish-Hen Corvette") {
+		t.Errorf("Home farm should NOT show Virtue farm's Cornish-Hen Corvette:\n%s", contentHome)
+	}
+	if !strings.Contains(contentHome, "Projected Next Launches") {
+		t.Errorf("Home farm with active missions and fueled rocket should show 'Projected Next Launches':\n%s", contentHome)
+	}
+}
