@@ -18,56 +18,12 @@ func TestGetSlashLaunchPlannerCommand(t *testing.T) {
 	if cmd.Name != "launch-planner" {
 		t.Errorf("Expected cmd.Name to be 'launch-planner', got '%s'", cmd.Name)
 	}
-	if len(cmd.Options) < 4 {
-		t.Errorf("Expected at least 4 options, got %d", len(cmd.Options))
+	if len(cmd.Options) != 1 {
+		t.Fatalf("Expected exactly 1 option (alt), got %d", len(cmd.Options))
 	}
-
-	hasGoal := false
-	hasDubcap := false
-	hasAlt := false
-	hasTarget := false
-	hasExactFuel := false
-
-	for _, opt := range cmd.Options {
-		switch o := opt.(type) {
-		case dc.StringOption:
-			if o.Name == "goal" {
-				hasGoal = true
-				if len(o.Choices) != 4 {
-					t.Errorf("Expected 4 goal choices, got %d", len(o.Choices))
-				}
-			}
-			if o.Name == "alt" && o.Autocomplete {
-				hasAlt = true
-			}
-		case dc.BoolOption:
-			if o.Name == "dubcap" {
-				hasDubcap = true
-			}
-			if o.Name == "exact-fuel" {
-				hasExactFuel = true
-			}
-		case dc.IntOption:
-			if o.Name == "target-launches" {
-				hasTarget = true
-			}
-		}
-	}
-
-	if !hasGoal {
-		t.Error("Missing 'goal' option")
-	}
-	if !hasDubcap {
-		t.Error("Missing 'dubcap' option")
-	}
-	if !hasAlt {
-		t.Error("Missing 'alt' autocomplete option")
-	}
-	if !hasTarget {
-		t.Error("Missing 'target-launches' option")
-	}
-	if hasExactFuel {
-		t.Error("Unexpected 'exact-fuel' option; exact fuel is toggled via sticky button only")
+	opt, ok := cmd.Options[0].(dc.StringOption)
+	if !ok || opt.Name != "alt" || !opt.Autocomplete {
+		t.Errorf("Expected option to be autocomplete 'alt', got %#v", cmd.Options[0])
 	}
 }
 
@@ -1167,5 +1123,177 @@ func TestSundayDubcapAdvisorWiggleRoom(t *testing.T) {
 	outFueled := b.String()
 	if !strings.Contains(outFueled, "Tank fuel ready!") {
 		t.Errorf("Expected 'Tank fuel ready!' recommendation when sufficient virtue fuel is banked, got:\n%s", outFueled)
+	}
+}
+
+func TestEnlightenmentRunAdvisorOptimization(t *testing.T) {
+	dummyEI := "EI1234567890123456"
+	dummyUser := "userEnlightenment"
+	backupMaker := ei.NewBackupMaker(dummyEI, dummyUser)
+	backup := backupMaker.GetBackup()
+
+	// Ensure Atreggies is unlocked
+	dur := ei.MissionInfo_EPIC
+	status := ei.MissionInfo_ARCHIVED
+	shipAtreggies := ei.MissionInfo_ATREGGIES
+	backup.ArtifactsDb.MissionArchive = []*ei.MissionInfo{
+		{
+			Ship:         &shipAtreggies,
+			DurationType: &dur,
+			Status:       &status,
+		},
+	}
+
+	// 500T tank, 60 days
+	var b strings.Builder
+	renderEnlightenmentRunAdvisor(&b, backup, 500e12, 60, false)
+	out := b.String()
+
+	if !strings.Contains(out, "Goal**: 🧘 **Maximize Enlightenment Egg Run** (Target: **60 Days**)") {
+		t.Errorf("Expected target 60 days header, got:\n%s", out)
+	}
+	if !strings.Contains(out, "Extended Atreggies Henliner") {
+		t.Errorf("Expected Extended Atreggies Henliner in planned missions, got:\n%s", out)
+	}
+	if !strings.Contains(out, "Launch Spacing Strategy") {
+		t.Errorf("Expected Launch Spacing Strategy, got:\n%s", out)
+	}
+	if !strings.Contains(out, "Optimal Tank Fill Distribution") {
+		t.Errorf("Expected Optimal Tank Fill Distribution, got:\n%s", out)
+	}
+	if !strings.Contains(out, "Tachyon") || !strings.Contains(out, "Dilithium") || !strings.Contains(out, "Antimatter") || !strings.Contains(out, "Dark Matter") {
+		t.Errorf("Expected all 4 fuels in tank fill distribution, got:\n%s", out)
+	}
+	if !strings.Contains(out, "Free Buffer Space") {
+		t.Errorf("Expected Free Buffer Space in output, got:\n%s", out)
+	}
+
+	// Test with short run: 10 days (tank can easily support 100% ExLiners)
+	b.Reset()
+	renderEnlightenmentRunAdvisor(&b, backup, 500e12, 10, false)
+	out10 := b.String()
+	if !strings.Contains(out10, "Full High-Tier Coverage") {
+		t.Errorf("Expected 'Full High-Tier Coverage' for short 10-day run in 500T tank, got:\n%s", out10)
+	}
+}
+
+func TestEnlightenmentDaysMenuInPlannerDialog(t *testing.T) {
+	dummyEI := "EI1234567890123456"
+	dummyUser := "userEnlightenmentMenu"
+	backupMaker := ei.NewBackupMaker(dummyEI, dummyUser)
+	backup := backupMaker.GetBackup()
+
+	eggNormal := ei.Egg_UNIVERSE
+	homeFarmType := ei.FarmType_HOME
+	backup.Farms = []*ei.Backup_Simulation{{
+		EggType:  &eggNormal,
+		FarmType: &homeFarmType,
+	}}
+
+	// Set goal to Enlightenment
+	farmerstate.SetMiscSettingString(dummyUser, "launch_planner_goal", GoalEnlightenment)
+	farmerstate.SetMiscSettingString(dummyUser, "launch_planner_enlightenment_days", "75")
+
+	msg := buildPlannerDialog(dummyUser, backup, "")
+	container := msg.Components[0].(dc.Container)
+
+	foundDaysMenu := false
+	for _, sub := range container.Components {
+		if row, ok := sub.(dc.ActionRow); ok {
+			for _, comp := range row.Components {
+				if sm, ok := comp.(dc.SelectMenu); ok && strings.Contains(sm.CustomID, "launch_planner#enlightenment_days#") {
+					foundDaysMenu = true
+					// Verify that 75 Days is selected as default
+					foundDefault75 := false
+					for _, opt := range sm.Options {
+						if opt.Value == "75" && opt.Default {
+							foundDefault75 = true
+						}
+					}
+					if !foundDefault75 {
+						t.Error("Expected 75 Days option to be marked as Default")
+					}
+				}
+			}
+		}
+	}
+
+	if !foundDaysMenu {
+		t.Error("Expected enlightenment_days SelectMenu in dialog when goal is GoalEnlightenment")
+	}
+}
+
+func TestFueledMissionPadAndNextLaunchProjection(t *testing.T) {
+	dummyEI := "EI1234567890123456"
+	dummyUser := "userFueledPad"
+	backupMaker := ei.NewBackupMaker(dummyEI, dummyUser)
+	backup := backupMaker.GetBackup()
+
+	eggNormal := ei.Egg_UNIVERSE
+	homeFarmType := ei.FarmType_HOME
+	backup.Farms = []*ei.Backup_Simulation{{
+		EggType:  &eggNormal,
+		FarmType: &homeFarmType,
+	}}
+
+	// Setup returning Henliner mission
+	statusExploring := ei.MissionInfo_EXPLORING
+	shipHenliner := ei.MissionInfo_ATREGGIES
+	durExtended := ei.MissionInfo_EPIC
+	startSec := float64(time.Now().Unix() - 1000)
+	durSec := 138240.0
+	level8 := uint32(8)
+	backup.ArtifactsDb.MissionInfos = []*ei.MissionInfo{
+		{
+			Ship:             &shipHenliner,
+			DurationType:     &durExtended,
+			Status:           &statusExploring,
+			StartTimeDerived: &startSec,
+			DurationSeconds:  &durSec,
+			Level:            &level8,
+		},
+	}
+
+	// Setup fueled Henerprise on pad
+	statusFueling := ei.MissionInfo_FUELING
+	shipHenerprise := ei.MissionInfo_HENERPRISE
+	durShort := ei.MissionInfo_SHORT
+	level5 := uint32(5)
+	eggDilithium := ei.Egg_DILITHIUM
+	eggAntimatter := ei.Egg_ANTIMATTER
+	amt2T := 2e12
+	targetGeode := ei.ArtifactSpec_TAU_CETI_GEODE
+	backup.ArtifactsDb.FuelingMission = &ei.MissionInfo{
+		Ship:           &shipHenerprise,
+		DurationType:   &durShort,
+		Status:         &statusFueling,
+		Level:          &level5,
+		TargetArtifact: &targetGeode,
+		Fuel: []*ei.MissionInfo_Fuel{
+			{Egg: &eggDilithium, Amount: &amt2T},
+			{Egg: &eggAntimatter, Amount: &amt2T},
+		},
+	}
+
+	msg := buildPlannerDialog(dummyUser, backup, "")
+	content := msg.Content
+	container := msg.Components[0].(dc.Container)
+	for _, sub := range container.Components {
+		if text, ok := sub.(dc.TextDisplay); ok {
+			content += "\n" + text.Content
+		}
+	}
+
+	if !strings.Contains(content, "Fueled on Launch Pad") {
+		t.Errorf("Expected 'Fueled on Launch Pad' in dialog, got:\n%s", content)
+	}
+	if !strings.Contains(content, "Henerprise") || !strings.Contains(content, "Short") {
+		t.Errorf("Expected 'Henerprise' (Short) fueled on pad, got:\n%s", content)
+	}
+	if !strings.Contains(content, "Projected Next Launches") {
+		t.Errorf("Expected 'Projected Next Launches' in dialog, got:\n%s", content)
+	}
+	if !strings.Contains(content, "Slot 1") {
+		t.Errorf("Expected 'Slot 1' projection in dialog, got:\n%s", content)
 	}
 }
