@@ -142,10 +142,7 @@ func GetMaxClothedTEArtifactsWithSlotHint(backup *Backup, slotHint int) []*Compl
 }
 
 func resolveCTEArtifactSlotCount(backup *Backup, slotHint int) int {
-	maxSlots := 4
-	if game := backup.GetGame(); game != nil && game.GetPermitLevel() != 1 {
-		maxSlots = 2
-	}
+	maxSlots := GetMaxEquippedArtifacts(backup)
 
 	if slotHint > 0 {
 		if slotHint > maxSlots {

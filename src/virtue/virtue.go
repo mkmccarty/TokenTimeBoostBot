@@ -337,7 +337,8 @@ func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE
 
 	gemsOnHand := backup.GetFarms()[0].GetCashEarned() - backup.GetFarms()[0].GetCashSpent()
 	_, onlineRate, _, offlineRate := ei.GetInternalHatcheryFromBackup(farm.GetCommonResearch(), backup.GetGame(), artifactBuffs.IHR*colBuffs.IHR, allEov)
-	siloMinutes := ei.GetSiloMinutes(farm.GetSilosOwned(), backup.GetGame().GetEpicResearch())
+	silosOwned := ei.GetEffectiveSilos(backup, farm.GetSilosOwned())
+	siloMinutes := ei.GetSiloMinutes(silosOwned, backup.GetGame().GetEpicResearch())
 
 	fuelingEnabled := virtue.GetAfx().GetTankFillingEnabled()
 	if simulatedEgg != -1 {
@@ -360,10 +361,8 @@ func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE
 
 	// Handle tank limits if on virtue farm and fueling
 	if selectedEggIndex != -1 {
-		tankLevels := ei.GetFuelTankCapacities()
-		fuelingTankLevel := backup.GetArtifacts().GetTankLevel()
 		fuelLimits := virtue.GetAfx().GetTankLimits()
-		tankLimit := tankLevels[fuelingTankLevel]
+		tankLimit := ei.GetPlayerFuelTankCapacity(backup)
 
 		// Only use the last 5 elements of fuelLimits and tankLevels
 		if len(fuelLimits) > 5 {
@@ -829,10 +828,8 @@ func getVirtueLaunchedShips(backup *ei.Backup) string {
 
 	virtue := backup.GetVirtue()
 
-	tankLevels := ei.GetFuelTankCapacities()
-	fuelingTankLevel := backup.GetArtifacts().GetTankLevel()
 	fuelLimits := virtue.GetAfx().GetTankLimits()
-	tankLimit := tankLevels[fuelingTankLevel]
+	tankLimit := ei.GetPlayerFuelTankCapacity(backup)
 
 	// Only use the last 5 elements of fuelLimits and tankLevels
 	if len(fuelLimits) > 5 {

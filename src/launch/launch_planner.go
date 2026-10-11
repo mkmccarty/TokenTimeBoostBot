@@ -1021,14 +1021,7 @@ func renderVirtueFuelPlanning(b *strings.Builder, backup *ei.Backup, farmEgg ei.
 	}
 
 	afx := virtue.GetAfx()
-	tankLevel := 0
-	if backup.GetArtifacts() != nil {
-		tankLevel = int(backup.GetArtifacts().GetTankLevel())
-	}
-	if tankLevel >= len(tankLevels) {
-		tankLevel = len(tankLevels) - 1
-	}
-	tankCapacity := tankLevels[tankLevel]
+	tankCapacity := ei.GetPlayerFuelTankCapacity(backup)
 
 	fuels := afx.GetTankFuels()
 	if len(fuels) > 5 {
@@ -1372,11 +1365,8 @@ func renderNormalFuelPlanning(b *strings.Builder, backup *ei.Backup, farmEgg ei.
 		return
 	}
 
-	tankLevel := int(artifacts.GetTankLevel())
-	if tankLevel >= len(tankLevels) {
-		tankLevel = len(tankLevels) - 1
-	}
-	tankCapacity := tankLevels[tankLevel]
+	tankLevel := ei.GetPlayerFuelTankLevel(backup)
+	tankCapacity := ei.GetPlayerFuelTankCapacity(backup)
 
 	tankFuels := artifacts.GetTankFuels()
 	totalTankFuel := 0.0
@@ -1753,10 +1743,7 @@ func renderEnlightenmentRunAdvisor(b *strings.Builder, backup *ei.Backup, tankCa
 	tiers := getEnlightenmentTiers(backup, ftlMult)
 	plan := optimizeEnlightenmentLaunches(tiers, tankCapacity, float64(targetDays))
 
-	tankLevel := 0
-	if backup != nil && backup.GetArtifacts() != nil {
-		tankLevel = int(backup.GetArtifacts().GetTankLevel())
-	}
+	tankLevel := ei.GetPlayerFuelTankLevel(backup)
 
 	totalCycles := 0
 	totalShips := 0
@@ -1976,7 +1963,7 @@ func renderSundayDubcapAdvisor(b *strings.Builder, activeMissions []*ei.MissionI
 	isOnHumility := farmEgg == ei.Egg_HUMILITY
 
 	dubcapStart, dubcapEnd := getNextSundayEvent()
-	now := time.Now().UTC()
+	now := dubcapNowFunc().UTC()
 
 	isCurrentlyActive := now.After(dubcapStart) && now.Before(dubcapEnd)
 
@@ -2152,9 +2139,11 @@ func renderSundayDubcapAdvisor(b *strings.Builder, activeMissions []*ei.MissionI
 	}
 }
 
+var dubcapNowFunc = time.Now
+
 // getNextSundayEvent calculates the next Sunday 9 AM Pacific event window (lasting 48 hours).
 func getNextSundayEvent() (start time.Time, end time.Time) {
-	now := time.Now().UTC()
+	now := dubcapNowFunc().UTC()
 	pacificLoc, err := time.LoadLocation("America/Los_Angeles")
 	if err != nil {
 		pacificLoc = time.FixedZone("PDT", -7*3600)

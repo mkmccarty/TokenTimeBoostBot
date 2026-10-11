@@ -73,3 +73,39 @@ func TestFuelTankLevels(t *testing.T) {
 		}
 	}
 }
+
+func TestStandardPermitFuelTank(t *testing.T) {
+	// Pro permit with tank level 7
+	makerPro := ei.NewBackupMaker("EI1234567890123456", "proUser")
+	makerPro.SetPermitLevel(1)
+	backupPro := makerPro.GetBackup()
+	lvl7 := uint32(7)
+	backupPro.Artifacts.TankLevel = &lvl7
+
+	if !ei.HasProPermit(backupPro) {
+		t.Errorf("Expected HasProPermit true for permit level 1")
+	}
+	if got := ei.GetPlayerFuelTankLevel(backupPro); got != 7 {
+		t.Errorf("Pro permit: expected tank level 7, got %d", got)
+	}
+	if got := ei.GetPlayerFuelTankCapacity(backupPro); got != 500e12 {
+		t.Errorf("Pro permit: expected tank capacity 500T (500e12), got %e", got)
+	}
+
+	// Standard permit (permit level 0) with tank level 7 set in artifacts
+	makerStd := ei.NewBackupMaker("EI1234567890123456", "stdUser")
+	makerStd.SetPermitLevel(0)
+	backupStd := makerStd.GetBackup()
+	backupStd.Artifacts.TankLevel = &lvl7
+
+	if ei.HasProPermit(backupStd) {
+		t.Errorf("Expected HasProPermit false for permit level 0")
+	}
+	// Standard permit players must be limited to level 0 (2B capacity)
+	if got := ei.GetPlayerFuelTankLevel(backupStd); got != 0 {
+		t.Errorf("Standard permit: expected tank level 0, got %d", got)
+	}
+	if got := ei.GetPlayerFuelTankCapacity(backupStd); got != 2e9 {
+		t.Errorf("Standard permit: expected tank capacity 2B (2e9), got %e", got)
+	}
+}
