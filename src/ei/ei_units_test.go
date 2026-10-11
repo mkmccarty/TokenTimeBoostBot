@@ -38,6 +38,8 @@ func TestFormatEIValue(t *testing.T) {
 		{"Trimmed", 12345, map[string]any{"decimals": 3, "trim": true}, "12.345K"},
 		{"Trimmed Zero Decimal", 5e6, map[string]any{"decimals": 3, "trim": true}, "5M"},
 		{"Trimmed Some Decimal", 5.6e6, map[string]any{"decimals": 3, "trim": true}, "5.6M"},
+		{"Trimmed Zero Decimals 500T", 500e12, map[string]any{"decimals": 0, "trim": true}, "500T"},
+		{"Trimmed Two Decimals 500T", 500e12, map[string]any{"decimals": 2, "trim": true}, "500T"},
 		{"Scientific", 1.23e10, map[string]any{"decimals": 3, "scientific": true}, "12.300×10^9"}, // Note: oomFloor logic
 		{"NaN", math.NaN(), map[string]any{"decimals": 3}, "NaN"},
 		{"Infinity", math.Inf(1), map[string]any{"decimals": 3}, "infinity"},

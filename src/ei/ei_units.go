@@ -174,8 +174,9 @@ func FormatEIValue(x float64, options map[string]any) string {
 		numpart = strconv.FormatFloat(principal, 'g', 4, 64)
 	}
 
-	if trim {
-		numpart = strings.TrimRight(strings.TrimRight(numpart, "0"), ".")
+	if trim && strings.Contains(numpart, ".") {
+		numpart = strings.TrimRight(numpart, "0")
+		numpart = strings.TrimSuffix(numpart, ".")
 	}
 
 	if maxLength, ok := options["max_length"].(int); ok {
