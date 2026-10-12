@@ -745,9 +745,10 @@ func setupCommands() {
 			},
 		},
 		{
-			AppCmd:   farmerstate.GetSlashPrivacyCommand(slashPrivacy),
-			Category: CmdCategoryStandard,
-			Handler:  farmerstate.HandlePrivacy,
+			AppCmd:       farmerstate.GetSlashPrivacyCommand(slashPrivacy),
+			Category:     CmdCategoryStandard,
+			Handler:      farmerstate.HandlePrivacy,
+			Autocomplete: farmerstate.HandlePrivacyAutocomplete,
 		},
 		{
 			AppCmd:   boost.GetSlashBumpCommand(slashBump),
