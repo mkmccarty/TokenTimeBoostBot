@@ -90,6 +90,14 @@ func shouldProcessMember(lbType string, targetSet map[string]struct{}) bool {
 // Channels are updated concurrently using a bounded worker pool, while requests within each channel
 // are paced at optimal rate-limit throughput.
 func PostLeaderboards(client dc.Client, snapDate string, guildID string, target string, action string, onProgress func(string)) {
+	if client != nil {
+		if guildID != "" {
+			PruneGuildDepartedMembers(client, guildID)
+		} else {
+			PruneAllDepartedMembers(client)
+		}
+	}
+
 	var configs []LBConfig
 	var err error
 	if guildID != "" {

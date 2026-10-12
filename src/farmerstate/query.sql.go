@@ -827,6 +827,34 @@ func (q *Queries) GetLeaderboardForSnapDate(ctx context.Context, arg GetLeaderbo
 	return items, nil
 }
 
+const getLeaderboardOptInGuilds = `-- name: GetLeaderboardOptInGuilds :many
+SELECT DISTINCT guild_id FROM leaderboard_optin
+`
+
+// Returns all distinct guild IDs that have at least one opt-in.
+func (q *Queries) GetLeaderboardOptInGuilds(ctx context.Context) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, getLeaderboardOptInGuilds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var guild_id string
+		if err := rows.Scan(&guild_id); err != nil {
+			return nil, err
+		}
+		items = append(items, guild_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getLeaderboardOptInUsers = `-- name: GetLeaderboardOptInUsers :many
 SELECT DISTINCT user_id FROM leaderboard_optin
 `

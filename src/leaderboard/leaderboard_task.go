@@ -108,6 +108,9 @@ func RunLeaderboardCollection(client dc.Client, dryRun bool, guildID string, tar
 
 	var userIDs []string
 	if guildID != "" {
+		if client != nil {
+			PruneGuildDepartedMembers(client, guildID)
+		}
 		optins, err := farmerstate.GetLeaderboardOptInsForGuild(guildID)
 		if err == nil {
 			seen := make(map[string]bool)
@@ -118,26 +121,10 @@ func RunLeaderboardCollection(client dc.Client, dryRun bool, guildID string, tar
 				}
 			}
 		}
-
-		if client != nil {
-			var activeUserIDs []string
-			prunedCount := 0
-			for _, uid := range userIDs {
-				if _, err := client.GuildMember(guildID, uid); err != nil && dc.IsUnknownMember(err) {
-					prunedCount++
-					_ = farmerstate.DeleteAllLeaderboardOptInsForUserInGuild(guildID, uid)
-					_ = farmerstate.DeleteAllLeaderboardExclusionsForUserInGuild(guildID, uid)
-					farmerstate.RemoveGuildMembership(uid, guildID)
-					continue
-				}
-				activeUserIDs = append(activeUserIDs, uid)
-			}
-			if prunedCount > 0 {
-				log.Printf("leaderboard: pruned %d departed member(s) from guild %s opt-in list", prunedCount, guildID)
-			}
-			userIDs = activeUserIDs
-		}
 	} else {
+		if client != nil {
+			PruneAllDepartedMembers(client)
+		}
 		userIDs = GetAllOptInUserIDs()
 	}
 

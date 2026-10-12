@@ -145,6 +145,10 @@ SELECT * FROM suspect_missions WHERE user_id = ?;
 -- Returns all Discord user IDs who have at least one opt-in in any guild.
 SELECT DISTINCT user_id FROM leaderboard_optin;
 
+-- name: GetLeaderboardOptInGuilds :many
+-- Returns all distinct guild IDs that have at least one opt-in.
+SELECT DISTINCT guild_id FROM leaderboard_optin;
+
 -- name: GetLeaderboardOptInsForUser :many
 -- Returns all (guild_id, lb_type) pairs for a given user.
 SELECT guild_id, lb_type FROM leaderboard_optin

@@ -216,3 +216,68 @@ func TestRunLeaderboardCollection_MultiGuildUserLeavesOneGuild(t *testing.T) {
 		}
 	}
 }
+
+func TestRunLeaderboardCollection_GlobalRunPrunesAllGuilds(t *testing.T) {
+	guildA := "test_guild_global_a"
+	guildB := "test_guild_global_b"
+	user1 := "test_user_g1"
+	user2 := "test_user_g2"
+	user3 := "test_user_g3"
+
+	cleanup := func() {
+		for _, u := range []string{user1, user2, user3} {
+			_ = farmerstate.DeleteAllLeaderboardOptInsForUserInGuild(guildA, u)
+			_ = farmerstate.DeleteAllLeaderboardOptInsForUserInGuild(guildB, u)
+			_ = farmerstate.DeleteAllLeaderboardExclusionsForUserInGuild(guildA, u)
+			_ = farmerstate.DeleteAllLeaderboardExclusionsForUserInGuild(guildB, u)
+			_ = farmerstate.DeleteLeaderboardStatsForPlayer(u, LBContractExp)
+			farmerstate.RemoveGuildMembership(u, guildA)
+			farmerstate.RemoveGuildMembership(u, guildB)
+		}
+	}
+	cleanup()
+	t.Cleanup(cleanup)
+
+	// User1 is opted into both guilds
+	AddPlayerOptInTypes(guildA, user1, []string{LBContractExp})
+	AddPlayerOptInTypes(guildB, user1, []string{LBContractExp})
+	farmerstate.AddGuildMembership(user1, guildA)
+	farmerstate.AddGuildMembership(user1, guildB)
+
+	// User2 is opted into Guild A only
+	AddPlayerOptInTypes(guildA, user2, []string{LBContractExp})
+	farmerstate.AddGuildMembership(user2, guildA)
+
+	// User3 is opted into Guild B only
+	AddPlayerOptInTypes(guildB, user3, []string{LBContractExp})
+	farmerstate.AddGuildMembership(user3, guildB)
+
+	// fakeClient:
+	// - user1 is member in guildA, missing from guildB
+	// - user2 is missing from guildA (departed/banned)
+	// - user3 is member in guildB
+	fakeClient := dctest.New().
+		WithMember(guildA, user1, "User1", 0).
+		WithMember(guildB, user3, "User3", 0)
+
+	// Run global collection (guildID == "")
+	RunLeaderboardCollection(fakeClient, true, "", "", "update", nil)
+
+	// user1: should be retained in guildA, pruned from guildB
+	if len(GetPlayerOptInTypes(guildA, user1)) == 0 {
+		t.Fatalf("expected user1 to remain opted in to guildA")
+	}
+	if len(GetPlayerOptInTypes(guildB, user1)) != 0 {
+		t.Fatalf("expected user1 to be pruned from guildB")
+	}
+
+	// user2: should be pruned from guildA
+	if len(GetPlayerOptInTypes(guildA, user2)) != 0 {
+		t.Fatalf("expected user2 to be pruned from guildA")
+	}
+
+	// user3: should remain in guildB
+	if len(GetPlayerOptInTypes(guildB, user3)) == 0 {
+		t.Fatalf("expected user3 to remain opted in to guildB")
+	}
+}
