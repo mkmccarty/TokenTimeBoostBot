@@ -959,6 +959,7 @@ func renderCoopStatusStones(channelID string, contractID string, coopStatus *ei.
 		tStones := as.tachStones[ei.ArtifactSpec_INFERIOR] + as.tachStones[ei.ArtifactSpec_LESSER] + as.tachStones[ei.ArtifactSpec_NORMAL]
 		if as.quantWant != qStones || as.tachWant != tStones {
 			notes += "🧩"
+			needLegend = true
 			addLegend("🧩")
 			setContractEstimate = false
 		}
