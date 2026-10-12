@@ -525,6 +525,8 @@ func (e *ComponentEvent) Update(m Message) (err error) {
 			err = nil
 		}
 	}()
+	msg := m
+	e.LastResponse = &msg
 	if e.event == nil {
 		return nil
 	}

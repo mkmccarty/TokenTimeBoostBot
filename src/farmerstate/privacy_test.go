@@ -28,6 +28,9 @@ func TestGetSlashPrivacyCommand(t *testing.T) {
 				t.Errorf("alt option should have Autocomplete=true")
 			}
 		}
+		if bOpt, ok := opt.(dc.BoolOption); ok && bOpt.Name == "confirm-request" {
+			t.Errorf("confirm-request option should have been removed from /privacy")
+		}
 	}
 	if !foundAlt {
 		t.Fatalf("alt option not found in /privacy command options")
@@ -216,7 +219,30 @@ func TestHandlePrivacy_AltGetSettingsData(t *testing.T) {
 	PurgeAltLinks(mainUser, altUser)
 }
 
-func TestHandlePrivacy_AltRemoveData_Unconfirmed(t *testing.T) {
+func getComponentText(components []dc.LayoutComponent) string {
+	for _, c := range components {
+		if td, ok := c.(dc.TextDisplay); ok {
+			return td.Content
+		}
+	}
+	return ""
+}
+
+func getComponentButtons(components []dc.LayoutComponent) []dc.Button {
+	var buttons []dc.Button
+	for _, c := range components {
+		if ar, ok := c.(dc.ActionRow); ok {
+			for _, comp := range ar.Components {
+				if b, ok := comp.(dc.Button); ok {
+					buttons = append(buttons, b)
+				}
+			}
+		}
+	}
+	return buttons
+}
+
+func TestHandlePrivacy_AltRemoveData_ShowsConfirmationDialog(t *testing.T) {
 	mainUser := "100000000000000050"
 	altUser := "100000000000000051"
 
@@ -238,19 +264,90 @@ func TestHandlePrivacy_AltRemoveData_Unconfirmed(t *testing.T) {
 	if event.LastFollowup == nil {
 		t.Fatalf("expected a followup message")
 	}
-	if !strings.Contains(event.LastFollowup.Content, "You have not confirmed your data removal") {
-		t.Errorf("expected confirmation warning, got: %s", event.LastFollowup.Content)
+	if len(event.LastFollowup.Components) == 0 {
+		t.Fatalf("expected confirmation dialog components in followup message")
 	}
 
-	// Alt should still be linked
+	dialogText := getComponentText(event.LastFollowup.Components)
+	if !strings.Contains(dialogText, "Boost Bot Data Deletion Confirmation") {
+		t.Errorf("expected confirmation header, got: %s", dialogText)
+	}
+	if !strings.Contains(dialogText, altUser) {
+		t.Errorf("expected target alt user in confirmation text, got: %s", dialogText)
+	}
+	if !strings.Contains(dialogText, "Databases & Information to be Removed") {
+		t.Errorf("expected database summary list in confirmation text, got: %s", dialogText)
+	}
+
+	buttons := getComponentButtons(event.LastFollowup.Components)
+	if len(buttons) != 2 {
+		t.Fatalf("expected 2 buttons (DELETE and KEEP), got %d", len(buttons))
+	}
+	if buttons[0].Label != "DELETE" || buttons[0].Style != dc.ButtonDanger {
+		t.Errorf("expected first button to be DELETE danger, got %+v", buttons[0])
+	}
+	if buttons[1].Label != "KEEP" || buttons[1].Style != dc.ButtonSecondary {
+		t.Errorf("expected second button to be KEEP secondary, got %+v", buttons[1])
+	}
+
+	// Alt data should still be intact
 	if GetMiscSettingString(altUser, "AltController") != mainUser {
-		t.Errorf("AltController should still be set")
+		t.Errorf("AltController should still be set before confirmation")
 	}
 
 	PurgeAltLinks(mainUser, altUser)
 }
 
-func TestHandlePrivacy_AltRemoveData_Confirmed(t *testing.T) {
+func TestHandlePrivacyButton_Keep(t *testing.T) {
+	mainUser := "100000000000000052"
+	altUser := "100000000000000053"
+
+	SetMiscSettingString(altUser, "AltController", mainUser)
+
+	keepCustomID := fmt.Sprintf("privacy_btn#keep#%s#%s#false", mainUser, altUser)
+	btnEvent := dctest.ComponentButtonEventWithUser(keepCustomID, mainUser)
+	HandlePrivacyButton(btnEvent)
+
+	if btnEvent.LastResponse == nil {
+		t.Fatalf("expected response from HandlePrivacyButton")
+	}
+	respText := btnEvent.LastResponse.Content
+	if respText == "" {
+		respText = getComponentText(btnEvent.LastResponse.Components)
+	}
+	if !strings.Contains(respText, "Data removal cancelled. Your data has been kept.") {
+		t.Errorf("expected cancellation message, got: %s", respText)
+	}
+	if strings.Contains(respText, "Databases & Information to be Removed") {
+		t.Errorf("summary should be removed for KEEP option, got: %s", respText)
+	}
+
+	// Data must be kept
+	if GetMiscSettingString(altUser, "AltController") != mainUser {
+		t.Errorf("AltController should still be set after cancel")
+	}
+
+	PurgeAltLinks(mainUser, altUser)
+}
+
+func TestHandlePrivacyButton_Unauthorized(t *testing.T) {
+	mainUser := "100000000000000054"
+	altUser := "100000000000000055"
+	stranger := "100000000000000099"
+
+	delCustomID := fmt.Sprintf("privacy_btn#delete#%s#%s#false", mainUser, altUser)
+	btnEvent := dctest.ComponentButtonEventWithUser(delCustomID, stranger)
+	HandlePrivacyButton(btnEvent)
+
+	if btnEvent.LastResponse == nil {
+		t.Fatalf("expected response for unauthorized click")
+	}
+	if !strings.Contains(btnEvent.LastResponse.Content, "not authorized") {
+		t.Errorf("expected unauthorized error, got: %s", btnEvent.LastResponse.Content)
+	}
+}
+
+func TestHandlePrivacyButton_AltDelete_Confirmed(t *testing.T) {
 	mainUser := "100000000000000060"
 	altUser := "100000000000000061"
 
@@ -267,25 +364,22 @@ func TestHandlePrivacy_AltRemoveData_Confirmed(t *testing.T) {
 		t.Fatalf("setup failed: altUser should have AltController set")
 	}
 
-	payload := fmt.Sprintf(`{
-		"id": "1", "application_id": "2", "type": 2, "token": "test-token", "version": 1,
-		"channel": {"id": "3", "type": 0},
-		"user": {"id": %q, "username": "tester", "discriminator": "0"},
-		"data": {"id": "5", "name": "privacy", "type": 1, "options": [
-			{"name": "alt", "type": 3, "value": %q},
-			{"name": "remove-data", "type": 5, "value": true},
-			{"name": "confirm-request", "type": 5, "value": true}
-		]}
-	}`, mainUser, altUser)
+	delCustomID := fmt.Sprintf("privacy_btn#delete#%s#%s#false", mainUser, altUser)
+	btnEvent := dctest.ComponentButtonEventWithUser(delCustomID, mainUser)
+	HandlePrivacyButton(btnEvent)
 
-	event := commandEventFromPayload(payload)
-	HandlePrivacy(event)
-
-	if event.LastFollowup == nil {
-		t.Fatalf("expected a followup message")
+	if btnEvent.LastResponse == nil {
+		t.Fatalf("expected response from HandlePrivacyButton")
 	}
-	if !strings.Contains(event.LastFollowup.Content, "Alternate account settings data and alt links have been removed") {
-		t.Errorf("expected purge confirmation message, got: %s", event.LastFollowup.Content)
+	respText := btnEvent.LastResponse.Content
+	if respText == "" {
+		respText = getComponentText(btnEvent.LastResponse.Components)
+	}
+	if !strings.Contains(respText, "Alternate account settings data and alt links have been removed") {
+		t.Errorf("expected purge confirmation message, got: %s", respText)
+	}
+	if !strings.Contains(respText, "Databases & Information to be Removed") {
+		t.Errorf("expected summary to be preserved on deletion, got: %s", respText)
 	}
 
 	// Verify alt links and switches are purged
@@ -368,14 +462,13 @@ func TestHandlePrivacy_MainUserPurgesLinkedAlts(t *testing.T) {
 		t.Fatalf("expected 2 linked alts before purge, got %d", len(linkedBefore))
 	}
 
-	// Main user runs /privacy with remove-data and confirm-request (no alt param)
+	// Main user runs /privacy with remove-data: true (no alt param)
 	payload := fmt.Sprintf(`{
 		"id": "1", "application_id": "2", "type": 2, "token": "test-token", "version": 1,
 		"channel": {"id": "3", "type": 0},
 		"user": {"id": %q, "username": "tester", "discriminator": "0"},
 		"data": {"id": "5", "name": "privacy", "type": 1, "options": [
-			{"name": "remove-data", "type": 5, "value": true},
-			{"name": "confirm-request", "type": 5, "value": true}
+			{"name": "remove-data", "type": 5, "value": true}
 		]}
 	}`, mainUser)
 
@@ -385,8 +478,34 @@ func TestHandlePrivacy_MainUserPurgesLinkedAlts(t *testing.T) {
 	if event.LastFollowup == nil {
 		t.Fatalf("expected a followup message")
 	}
-	if !strings.Contains(event.LastFollowup.Content, "all linked alternate accounts' data have been removed") {
-		t.Errorf("expected mention of linked alts removal in: %s", event.LastFollowup.Content)
+	if len(event.LastFollowup.Components) == 0 {
+		t.Fatalf("expected confirmation dialog components")
+	}
+	dialogText := getComponentText(event.LastFollowup.Components)
+	if !strings.Contains(dialogText, "Linked Alternate Accounts That Will Also Be Deleted") {
+		t.Errorf("expected dialog to mention linked alternate accounts, got: %s", dialogText)
+	}
+	if !strings.Contains(dialogText, alt1) || !strings.Contains(dialogText, alt2) {
+		t.Errorf("expected dialog to list alt1 and alt2, got: %s", dialogText)
+	}
+
+	// Main user confirms via DELETE button
+	delCustomID := fmt.Sprintf("privacy_btn#delete#%s#%s#false", mainUser, mainUser)
+	btnEvent := dctest.ComponentButtonEventWithUser(delCustomID, mainUser)
+	HandlePrivacyButton(btnEvent)
+
+	if btnEvent.LastResponse == nil {
+		t.Fatalf("expected button response")
+	}
+	respText := btnEvent.LastResponse.Content
+	if respText == "" {
+		respText = getComponentText(btnEvent.LastResponse.Components)
+	}
+	if !strings.Contains(respText, "all linked alternate accounts' data have been removed") {
+		t.Errorf("expected mention of linked alts removal in: %s", respText)
+	}
+	if !strings.Contains(respText, "Databases & Information to be Removed") {
+		t.Errorf("expected summary to be preserved on deletion, got: %s", respText)
 	}
 
 	// Verify main data is purged
