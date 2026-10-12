@@ -17,24 +17,25 @@ import (
 
 // Leaderboard keys constants.
 const (
-	LBEarningsBonus  = "eb"
-	LBSoulEggs       = "soul_eggs"
-	LBProphecyEggs   = "prophecy_eggs"
-	LBTerrorEvents   = "terror_events"
-	LBEggsDelivered  = "eggs_delivered"
-	LBContractExp    = "contract_exp"
-	LBEggsTotal      = "eggs_total"
-	LBStandardPermit = "std_permit"
-	LBDrones         = "drones"
-	LBEliteDrones    = "elite_drones"
-	LBPrestiges      = "prestiges"
-	LBSoulMirrors    = "soul_mirrors"
-	LBVirtueShifts   = "virtue_shifts"
-	LBTETotal        = "te_total"
-	LBCTETotal       = "cte_total"
-	LBTEPerShift     = "te_per_shift"
-	LBSEPerPrestige  = "se_per_prestige"
-	LBCXPWeeklyDelta = "cxp_weekly"
+	LBEarningsBonus          = "eb"
+	LBPrestigedEarningsBonus = "prestiged_eb"
+	LBSoulEggs               = "soul_eggs"
+	LBProphecyEggs           = "prophecy_eggs"
+	LBTerrorEvents           = "terror_events"
+	LBEggsDelivered          = "eggs_delivered"
+	LBContractExp            = "contract_exp"
+	LBEggsTotal              = "eggs_total"
+	LBStandardPermit         = "std_permit"
+	LBDrones                 = "drones"
+	LBEliteDrones            = "elite_drones"
+	LBPrestiges              = "prestiges"
+	LBSoulMirrors            = "soul_mirrors"
+	LBVirtueShifts           = "virtue_shifts"
+	LBTETotal                = "te_total"
+	LBCTETotal               = "cte_total"
+	LBTEPerShift             = "te_per_shift"
+	LBSEPerPrestige          = "se_per_prestige"
+	LBCXPWeeklyDelta         = "cxp_weekly"
 	//LBAAASoloDuration = "aaa_solo_duration"
 	LBEggsCuriosity  = "egg_curiosity"
 	LBEggsIntegrity  = "egg_integrity"
@@ -110,7 +111,8 @@ type LBGroup struct {
 var AllLeaderboards = []LBDef{
 	{Key: LBSoulEggs, DisplayName: "Soul Eggs", HeaderName: "SE", Description: "Total soul eggs collected.", ValueFmt: "ei", HigherIsBetter: true, Source: SourceFirstContact, RetainRecentOnly: true},
 	{Key: LBProphecyEggs, DisplayName: "Prophecy Eggs", HeaderName: "PE", Description: "Total eggs of prophecy collected.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact, RetainRecentOnly: true},
-	{Key: LBEarningsBonus, DisplayName: "Earnings Bonus", Description: "Nekkid and Dressed earnings bonus.", ValueFmt: "eb", HigherIsBetter: true, Source: SourceFirstContact, RetainRecentOnly: true},
+	{Key: LBEarningsBonus, DisplayName: "Earnings Bonus", Description: "Nekkid and Dressed earnings bonus (includes pending TE).", ValueFmt: "eb", HigherIsBetter: true, Source: SourceFirstContact, RetainRecentOnly: true},
+	{Key: LBPrestigedEarningsBonus, DisplayName: "Prestiged Earnings Bonus", Description: "Nekkid and Dressed earnings bonus (excludes pending TE).", ValueFmt: "eb", HigherIsBetter: true, Source: SourceFirstContact, RetainRecentOnly: true},
 	{Key: LBVirtueShifts, DisplayName: "Virtue Shifts", HeaderName: "Shifts", Description: "Total virtue shifts completed.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact, RetainRecentOnly: true},
 	{Key: LBTETotal, DisplayName: "Total Truth Eggs", HeaderName: "TE", Description: "Sum of truth eggs across all virtues.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact, RetainRecentOnly: true},
 	{Key: LBCTETotal, DisplayName: "Total CTE", HeaderName: "CTE", Description: "Clothed Truth Egg equivalent for pending and current TE.", ValueFmt: "int", HigherIsBetter: true, Source: SourceFirstContact, RetainRecentOnly: true},
@@ -140,7 +142,7 @@ var AllGroups = []LBGroup{
 	{
 		Key:         "group_core",
 		DisplayName: "EB Stats",
-		Members:     []string{LBEarningsBonus, LBSoulEggs, LBProphecyEggs, LBTETotal, LBCTETotal, LBVirtueShifts, LBPrestiges},
+		Members:     []string{LBEarningsBonus, LBPrestigedEarningsBonus, LBSoulEggs, LBProphecyEggs, LBTETotal, LBCTETotal, LBVirtueShifts, LBPrestiges},
 	},
 	{
 		Key:         "group_cs_stats",
@@ -285,6 +287,7 @@ var legacyKeyAliases = map[string]string{
 	"cxp_weekly_delta":     LBCXPWeeklyDelta,
 	"group_prestige_stats": "group_misc",
 	LBVirtueTEEarnedSum:    LBVirtueEggsSum,
+	"eb_prestiged":         LBPrestigedEarningsBonus,
 }
 
 func resolveAlias(key string) string {

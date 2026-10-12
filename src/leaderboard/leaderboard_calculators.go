@@ -203,7 +203,7 @@ func RunCalculators(
 			emit(LBEntry{LBType: LBSoulEggs, Player: userID, GameName: gameName, SnapDate: snapDate, Value: game.GetSoulEggsD()})
 			emit(LBEntry{LBType: LBProphecyEggs, Player: userID, GameName: gameName, SnapDate: snapDate, Value: float64(game.GetEggsOfProphecy())})
 
-			// For Earnings Bonus, we need total Truth Eggs (EoV)
+			// For Earnings Bonus, we need total Truth Eggs (EoV) including pending TE
 			totalTE := 0.0
 			if virtue != nil {
 				deliveries := virtue.GetEggsDelivered()
@@ -220,6 +220,19 @@ func RunCalculators(
 				SnapDate: snapDate,
 				Value:    nakedEB,
 				Details:  fmt.Sprintf("dressed:%.6f", dressedEB),
+			})
+
+			// For Prestiged Earnings Bonus, we use credited/prestiged Truth Eggs (excludes pending TE)
+			prestigedTE := float64(ei.GetCurrentTruthEggs(backup))
+			prestigedNakedEB := ei.GetEarningsBonus(backup, prestigedTE)
+			prestigedDressedEB := ei.GetDressedEarningsBonus(backup, prestigedTE)
+			emit(LBEntry{
+				LBType:   LBPrestigedEarningsBonus,
+				Player:   userID,
+				GameName: gameName,
+				SnapDate: snapDate,
+				Value:    prestigedNakedEB,
+				Details:  fmt.Sprintf("dressed:%.6f", prestigedDressedEB),
 			})
 		}
 
