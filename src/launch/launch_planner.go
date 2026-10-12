@@ -1298,8 +1298,13 @@ func renderVirtueFuelPlanning(b *strings.Builder, backup *ei.Backup, farmEgg ei.
 				ei.FormatEIValue(u.amount, map[string]any{"decimals": 2, "trim": true}),
 				u.reason)
 		}
-		fmt.Fprintf(b, "-# 💡 Clearing unused or excess fuels in-game frees up **%s** of tank space to make room for required fuels!\n\n",
+		b.WriteString("-# 💡 **Things to think about**:\n")
+		fmt.Fprintf(b, "-# • Clearing unused or excess fuels in-game frees up **%s** of tank space to make room for required fuels.\n",
 			ei.FormatEIValue(totalUselessAmount, map[string]any{"decimals": 2, "trim": true}))
+		if tankCapacity >= 500e12 {
+			b.WriteString("-# • If you tank 10T of fuel (7 Extended Henerprises use 490T in a 500T tank), you can get an 8th Henerprise after 7 cycles.\n")
+		}
+		b.WriteString("\n")
 	}
 
 	// Fuel advice and plan
