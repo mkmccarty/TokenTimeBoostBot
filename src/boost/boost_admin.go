@@ -974,6 +974,8 @@ func adminMembersRemoveContent(e *dc.CommandEvent, guildID, guildName string) st
 				continue
 			}
 			farmerstate.RemoveGuildMembership(userID, guildID)
+			_ = farmerstate.DeleteAllLeaderboardOptInsForUserInGuild(guildID, userID)
+			_ = farmerstate.DeleteAllLeaderboardExclusionsForUserInGuild(guildID, userID)
 			affected = append(affected, fmt.Sprintf("<@%s>", userID))
 		}
 	}
@@ -988,6 +990,8 @@ func adminMembersRemoveContent(e *dc.CommandEvent, guildID, guildName string) st
 				continue
 			}
 			farmerstate.RemoveGuildMembership(userID, guildID)
+			_ = farmerstate.DeleteAllLeaderboardOptInsForUserInGuild(guildID, userID)
+			_ = farmerstate.DeleteAllLeaderboardExclusionsForUserInGuild(guildID, userID)
 			affected = append(affected, fmt.Sprintf("`%s`", userID))
 		}
 	}

@@ -3,6 +3,8 @@ package leaderboard
 import (
 	"strings"
 	"testing"
+
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 )
 
 func TestBuildAutocompleteChoices_DefaultShowsGroups(t *testing.T) {
@@ -48,5 +50,25 @@ func TestLeaderboardChoiceNameIncludesGroupTags(t *testing.T) {
 	name := leaderboardChoiceName(def)
 	if !strings.Contains(name, "(MISC)") {
 		t.Fatalf("expected group tag in choice name, got %q", name)
+	}
+}
+
+func TestAdminLBPruneCommandDefinition(t *testing.T) {
+	cmd := GetSlashAdminLBCommand("admin-lb")
+	foundPrune := false
+	for _, opt := range cmd.Options {
+		if sub, ok := opt.(dc.SubCommand); ok && sub.Name == "prune" {
+			foundPrune = true
+			if len(sub.Options) != 1 {
+				t.Fatalf("expected 1 option in prune subcommand, got %d", len(sub.Options))
+			}
+			if bOpt, ok := sub.Options[0].(dc.BoolOption); !ok || bOpt.Name != "redraw" {
+				t.Fatalf("expected redraw bool option in prune subcommand, got %v", sub.Options[0])
+			}
+			break
+		}
+	}
+	if !foundPrune {
+		t.Fatalf("expected prune subcommand in /admin-lb command definition")
 	}
 }

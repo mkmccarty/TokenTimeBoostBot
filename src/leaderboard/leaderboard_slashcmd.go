@@ -91,6 +91,16 @@ func GetSlashAdminLBCommand(cmd string) *dc.Command {
 					},
 				},
 			},
+			dc.SubCommand{
+				Name:        "prune",
+				Description: "Prune departed or banned members from the guild leaderboard opt-in list.",
+				Options: []dc.Option{
+					dc.BoolOption{
+						Name:        "redraw",
+						Description: "Redraw configured leaderboard messages after pruning. Default is true.",
+					},
+				},
+			},
 		},
 	}
 	return &command
@@ -185,6 +195,8 @@ func HandleAdminLB(client dc.Client, e *dc.CommandEvent) {
 		handleAdminRemove(e)
 	case "run":
 		handleRun(client, e)
+	case "prune":
+		handleAdminLBPrune(client, e)
 	case "backfill-eggday":
 		handleAdminBackfillEggDay(client, e)
 	default:
@@ -629,6 +641,31 @@ func handleRun(client dc.Client, e *dc.CommandEvent) {
 		}
 		_ = e.EditResponse(dc.Message{Content: finalMsg})
 	}()
+}
+
+func handleAdminLBPrune(client dc.Client, e *dc.CommandEvent) {
+	_ = e.Defer(true)
+	guildID := e.GuildID()
+	pruned := PruneGuildDepartedMembers(client, guildID)
+
+	redraw := true
+	if opt, ok := e.OptBool("prune-redraw"); ok {
+		redraw = opt
+	}
+
+	msg := fmt.Sprintf("Pruned %d departed/banned member(s) from the leaderboard opt-in list.", pruned)
+	if redraw && pruned > 0 {
+		snapDate := GetLatestSnapDateForGuild(guildID, LBContractExp)
+		if snapDate == "" {
+			snapDate = GetLatestSnapDate(LBContractExp)
+		}
+		if snapDate == "" {
+			snapDate = SnapDateNow()
+		}
+		PostLeaderboards(client, snapDate, guildID, "", "update", nil)
+		msg += " Leaderboard messages have been updated."
+	}
+	_ = e.EditResponse(dc.Message{Content: msg})
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

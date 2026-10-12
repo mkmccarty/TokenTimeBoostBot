@@ -18,6 +18,14 @@ func GetLeaderboardOptInUsers() ([]string, error) {
 	return queries.GetLeaderboardOptInUsers(ctx)
 }
 
+// GetLeaderboardOptInGuilds returns all distinct guild IDs that have at least one opt-in.
+func GetLeaderboardOptInGuilds() ([]string, error) {
+	if queries == nil {
+		return nil, nil
+	}
+	return queries.GetLeaderboardOptInGuilds(ctx)
+}
+
 // GetLeaderboardOptInsForUser returns all (guild_id, lb_type) pairs for a given user.
 func GetLeaderboardOptInsForUser(userID string) ([]GetLeaderboardOptInsForUserRow, error) {
 	if queries == nil {

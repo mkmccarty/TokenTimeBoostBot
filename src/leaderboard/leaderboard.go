@@ -7,6 +7,7 @@ import (
 	"log"
 	"sort"
 
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
@@ -513,6 +514,62 @@ func GetUserOptInGuilds(userID string) []string {
 		out = append(out, g)
 	}
 	return out
+}
+
+// PruneGuildDepartedMembers checks all opted-in users in a guild against Discord
+// and prunes anyone who is no longer a guild member (departed, kicked, or banned).
+// Returns the number of members pruned.
+func PruneGuildDepartedMembers(client dc.Client, guildID string) int {
+	if client == nil || guildID == "" {
+		return 0
+	}
+	optins, err := farmerstate.GetLeaderboardOptInsForGuild(guildID)
+	if err != nil {
+		return 0
+	}
+	seen := make(map[string]bool)
+	var userIDs []string
+	for _, o := range optins {
+		if !seen[o.UserID] {
+			seen[o.UserID] = true
+			userIDs = append(userIDs, o.UserID)
+		}
+	}
+
+	prunedCount := 0
+	for _, uid := range userIDs {
+		if _, err := client.GuildMember(guildID, uid); err != nil && dc.IsUnknownMember(err) {
+			prunedCount++
+			_ = farmerstate.DeleteAllLeaderboardOptInsForUserInGuild(guildID, uid)
+			_ = farmerstate.DeleteAllLeaderboardExclusionsForUserInGuild(guildID, uid)
+			farmerstate.RemoveGuildMembership(uid, guildID)
+			if len(GetUserOptInGuilds(uid)) == 0 {
+				_ = farmerstate.DeleteAllLeaderboardStatsForPlayer(uid)
+			}
+		}
+	}
+	if prunedCount > 0 {
+		log.Printf("leaderboard: pruned %d departed member(s) from guild %s opt-in list", prunedCount, guildID)
+	}
+	return prunedCount
+}
+
+// PruneAllDepartedMembers checks all guilds that have opt-ins and prunes departed/banned members.
+// Returns the total number of members pruned across all guilds.
+func PruneAllDepartedMembers(client dc.Client) int {
+	if client == nil {
+		return 0
+	}
+	guilds, err := farmerstate.GetLeaderboardOptInGuilds()
+	if err != nil {
+		log.Printf("leaderboard: failed to get opt-in guilds for pruning: %v", err)
+		return 0
+	}
+	totalPruned := 0
+	for _, gID := range guilds {
+		totalPruned += PruneGuildDepartedMembers(client, gID)
+	}
+	return totalPruned
 }
 
 // ─── Guild config helpers ─────────────────────────────────────────────────────

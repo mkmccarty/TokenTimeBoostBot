@@ -276,6 +276,9 @@ func CollectEggDayEndAndCalculate(client dc.Client, year int, dryRun bool, guild
 	log.Printf("eggday: collecting end stats for year %d (guild=%s)", year, guildID)
 	var userIDs []string
 	if guildID != "" {
+		if client != nil {
+			PruneGuildDepartedMembers(client, guildID)
+		}
 		optins, err := farmerstate.GetLeaderboardOptInsForGuild(guildID)
 		if err == nil {
 			seen := make(map[string]bool)
@@ -287,6 +290,9 @@ func CollectEggDayEndAndCalculate(client dc.Client, year int, dryRun bool, guild
 			}
 		}
 	} else {
+		if client != nil {
+			PruneAllDepartedMembers(client)
+		}
 		userIDs = GetAllOptInUserIDs()
 	}
 	if len(userIDs) == 0 {
