@@ -236,6 +236,7 @@ func getFarmer(userID string) *Farmer {
 // DeleteFarmer deletes a Farmer from the map and SQLite database tables
 func DeleteFarmer(userID string) {
 	stateMutex.Lock()
+	f := farmerstate[userID]
 	delete(farmerstate, userID)
 	stateMutex.Unlock()
 
@@ -250,6 +251,16 @@ func DeleteFarmer(userID string) {
 		_ = queries.DeleteUserTimers(ctx, userID)
 		_ = queries.DeleteUserSuspectMissions(ctx, userID)
 		_ = queries.DeleteUserLeaderboardStats(ctx, userID)
+		if f != nil {
+			if f.EggIncName != "" && f.EggIncName != userID {
+				_ = queries.DeleteUserLeaderboardStats(ctx, f.EggIncName)
+			}
+			if f.MiscSettingsString != nil {
+				if ign := f.MiscSettingsString["ei_ign"]; ign != "" && ign != userID && ign != f.EggIncName {
+					_ = queries.DeleteUserLeaderboardStats(ctx, ign)
+				}
+			}
+		}
 		_ = queries.DeleteUserLeaderboardOptIns(ctx, userID)
 		_ = queries.DeleteUserLeaderboardExclusions(ctx, userID)
 		_ = queries.DeleteUserWatches(ctx, userID)

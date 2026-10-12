@@ -313,6 +313,7 @@ var (
 		"active-contracts":        func(e *dc.ComponentEvent) { boost.HandleActiveContractsPage(botClient(), e) },
 		"admin-contract-list":     func(e *dc.ComponentEvent) { boost.HandleAdminContractListComponent(botClient(), e) },
 		"admin_exit":              func(e *dc.ComponentEvent) { boost.HandleAdminExitButton(botClient(), e) },
+		"privacy_btn":             farmerstate.HandlePrivacyButton,
 		"fd_signupStart":          func(e *dc.ComponentEvent) { boost.HandleSignupStart(botClient(), e) },
 		"fd_signupFarmer":         func(e *dc.ComponentEvent) { boost.HandleSignupFarmer(botClient(), e) },
 		"fd_signupBell":           func(e *dc.ComponentEvent) { boost.HandleSignupBell(botClient(), e) },
@@ -745,9 +746,10 @@ func setupCommands() {
 			},
 		},
 		{
-			AppCmd:   farmerstate.GetSlashPrivacyCommand(slashPrivacy),
-			Category: CmdCategoryStandard,
-			Handler:  farmerstate.HandlePrivacy,
+			AppCmd:       farmerstate.GetSlashPrivacyCommand(slashPrivacy),
+			Category:     CmdCategoryStandard,
+			Handler:      farmerstate.HandlePrivacy,
+			Autocomplete: farmerstate.HandlePrivacyAutocomplete,
 		},
 		{
 			AppCmd:   boost.GetSlashBumpCommand(slashBump),
