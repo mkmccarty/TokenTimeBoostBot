@@ -285,6 +285,12 @@ func TestBuildPlannerDialog_VirtueFarm(t *testing.T) {
 				if !strings.Contains(content, "Integrity") || !strings.Contains(content, "Humility") {
 					t.Error("Expected Integrity and Humility to be identified as useless tank fuel")
 				}
+				if !strings.Contains(content, "Things to think about") {
+					t.Error("Expected 'Things to think about' in tank waste recommendations")
+				}
+				if !strings.Contains(content, "8th Henerprise after 7 cycles") {
+					t.Error("Expected 8th Henerprise after 7 cycles tip in tank waste recommendations")
+				}
 			}
 		}
 	}
