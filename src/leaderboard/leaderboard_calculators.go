@@ -203,7 +203,7 @@ func RunCalculators(
 			emit(LBEntry{LBType: LBSoulEggs, Player: userID, GameName: gameName, SnapDate: snapDate, Value: game.GetSoulEggsD()})
 			emit(LBEntry{LBType: LBProphecyEggs, Player: userID, GameName: gameName, SnapDate: snapDate, Value: float64(game.GetEggsOfProphecy())})
 
-			// For Earnings Bonus, we need total Truth Eggs (EoV) including pending TE
+			// For Future Earnings Bonus, we need total Truth Eggs (EoV) including pending TE
 			totalTE := 0.0
 			if virtue != nil {
 				deliveries := virtue.GetEggsDelivered()
@@ -211,8 +211,21 @@ func RunCalculators(
 					totalTE += float64(ei.CountTruthEggTiersPassed(deliveries[i]))
 				}
 			}
-			nakedEB := ei.GetEarningsBonus(backup, totalTE)
-			dressedEB := ei.GetDressedEarningsBonus(backup, totalTE)
+			futureNakedEB := ei.GetEarningsBonus(backup, totalTE)
+			futureDressedEB := ei.GetDressedEarningsBonus(backup, totalTE)
+			emit(LBEntry{
+				LBType:   LBFutureEarningsBonus,
+				Player:   userID,
+				GameName: gameName,
+				SnapDate: snapDate,
+				Value:    futureNakedEB,
+				Details:  fmt.Sprintf("dressed:%.6f", futureDressedEB),
+			})
+
+			// For Earnings Bonus, we use credited/prestiged Truth Eggs (excludes pending TE)
+			prestigedTE := float64(ei.GetCurrentTruthEggs(backup))
+			nakedEB := ei.GetEarningsBonus(backup, prestigedTE)
+			dressedEB := ei.GetDressedEarningsBonus(backup, prestigedTE)
 			emit(LBEntry{
 				LBType:   LBEarningsBonus,
 				Player:   userID,
@@ -220,19 +233,6 @@ func RunCalculators(
 				SnapDate: snapDate,
 				Value:    nakedEB,
 				Details:  fmt.Sprintf("dressed:%.6f", dressedEB),
-			})
-
-			// For Prestiged Earnings Bonus, we use credited/prestiged Truth Eggs (excludes pending TE)
-			prestigedTE := float64(ei.GetCurrentTruthEggs(backup))
-			prestigedNakedEB := ei.GetEarningsBonus(backup, prestigedTE)
-			prestigedDressedEB := ei.GetDressedEarningsBonus(backup, prestigedTE)
-			emit(LBEntry{
-				LBType:   LBPrestigedEarningsBonus,
-				Player:   userID,
-				GameName: gameName,
-				SnapDate: snapDate,
-				Value:    prestigedNakedEB,
-				Details:  fmt.Sprintf("dressed:%.6f", prestigedDressedEB),
 			})
 		}
 

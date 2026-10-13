@@ -50,7 +50,7 @@ func TestRenderTable_AllLeaderboards(t *testing.T) {
 			}
 
 			switch {
-			case def.Key == LBEarningsBonus || def.Key == LBPrestigedEarningsBonus:
+			case def.Key == LBEarningsBonus || def.Key == LBFutureEarningsBonus:
 				row.Details = "dressed:23456"
 			case def.Key == LBCXPWeeklyDelta:
 				row.Details = "na"
@@ -127,7 +127,7 @@ func TestRenderTable_AllLeaderboards(t *testing.T) {
 				}
 			}
 
-			if def.Key == LBEarningsBonus || def.Key == LBPrestigedEarningsBonus {
+			if def.Key == LBEarningsBonus || def.Key == LBFutureEarningsBonus {
 				if !strings.Contains(colHeader, "Nekkid") || !strings.Contains(colHeader, "Dressed") {
 					t.Fatalf("expected EB columns for %s, got %q", def.Key, colHeader)
 				}

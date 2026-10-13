@@ -696,7 +696,7 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffs
 	rankWidth := runewidth.StringWidth(rankHeader)
 	maxValOnlyWidth := runewidth.StringWidth(shortDisplayName)
 
-	isEB := def.Key == LBEarningsBonus || def.Key == LBPrestigedEarningsBonus
+	isEB := def.Key == LBEarningsBonus || def.Key == LBFutureEarningsBonus
 	hasCTEComparisonColumn := def.Key == LBCTETotal
 	hasTEColumn := def.Key == LBEggsCuriosity || def.Key == LBEggsIntegrity || def.Key == LBEggsHumility || def.Key == LBEggsResilience || def.Key == LBEggsKindness || def.Key == LBVirtueEggsSum
 	teWidth := runewidth.StringWidth("TE")
