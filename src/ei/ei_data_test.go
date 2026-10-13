@@ -10,6 +10,7 @@ func TestGetBotEmojiURL(t *testing.T) {
 		EmoteMap = origMap
 	}()
 
+	EmoteMap = map[string]Emotes{
 		"egg_truth": {
 			Name:     "egg_truth",
 			ID:       "1418358003333201990",
