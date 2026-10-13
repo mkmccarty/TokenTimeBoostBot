@@ -445,6 +445,23 @@ func GetBotEmojiMarkdownIfExists(name string) (string, bool) {
 	return "", false
 }
 
+// GetBotEmojiURL returns the CDN URL for the given emoji name with the requested size (e.g. 128),
+// or an empty string if not found or the emoji ID is empty.
+func GetBotEmojiURL(name string, size int) string {
+	emoji, ok := getBotEmojiData(name)
+	if ok && emoji.ID != "" && emoji.ID != "0" {
+		format := "webp"
+		if emoji.Animated {
+			format = "gif"
+		}
+		if size <= 0 {
+			size = 128
+		}
+		return fmt.Sprintf("https://cdn.discordapp.com/emojis/%s.%s?size=%d", emoji.ID, format, size)
+	}
+	return ""
+}
+
 // GetEggEmojiMarkdownIfExists returns the markdown for an Egg emoji if available.
 func GetEggEmojiMarkdownIfExists(egg Egg) (string, bool) {
 	eggName, ok := Egg_name[int32(egg)]

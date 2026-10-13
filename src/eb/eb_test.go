@@ -760,11 +760,36 @@ func TestFindAltDiscordID(t *testing.T) {
 		t.Errorf("findAltDiscordID(%q) = %q; want %q", altNamed, got, userSnowflake)
 	}
 
-	// 4. Alt with no Discord ID
+	// 4. Alt with no Discord ID and no act-as links
 	altNoDiscord := "alt-no-discord-id"
 	if got := findAltDiscordID(altNoDiscord); got != "" {
 		t.Errorf("findAltDiscordID(%q) = %q; want empty string", altNoDiscord, got)
 	}
+
+	// 5. Alt whose controller has a single /act-as link
+	controllerSnowflake := "333333333333333333"
+	altSnowflake := "444444444444444444"
+	altViaActAs := "squirrel-alt"
+	_ = farmerstate.DeleteAllActAsLinks(controllerSnowflake)
+	farmerstate.SetMiscSettingString(altViaActAs, "ei_ign", "")
+	farmerstate.SetMiscSettingString(altViaActAs, "AltController", controllerSnowflake)
+	_ = farmerstate.AddActAsLink(controllerSnowflake, altSnowflake)
+	if got := findAltDiscordID(altViaActAs); got != altSnowflake {
+		t.Errorf("findAltDiscordID(%q) via controller single act-as link = %q; want %q", altViaActAs, got, altSnowflake)
+	}
+
+	// 6. Alt whose controller has multiple /act-as links, matched by IGN
+	altSnowflake2 := "555555555555555555"
+	_ = farmerstate.AddActAsLink(controllerSnowflake, altSnowflake2)
+	farmerstate.SetMiscSettingString(altSnowflake2, "ei_ign", "ChipmunkFarm")
+	farmerstate.SetMiscSettingString(altViaActAs, "ei_ign", "ChipmunkFarm")
+	if got := findAltDiscordID(altViaActAs); got != altSnowflake2 {
+		t.Errorf("findAltDiscordID(%q) via controller multiple act-as link matched by IGN = %q; want %q", altViaActAs, got, altSnowflake2)
+	}
+
+	// Clean up links
+	_ = farmerstate.RemoveActAsLink(controllerSnowflake, altSnowflake)
+	_ = farmerstate.RemoveActAsLink(controllerSnowflake, altSnowflake2)
 }
 
 func TestGetDiscordAvatarURL(t *testing.T) {
