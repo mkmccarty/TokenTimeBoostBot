@@ -60,7 +60,9 @@ func GetUserEggIncID(userID string) string {
 }
 
 // FindAltDiscordID returns the registered Discord user ID for an alt, if any.
-func FindAltDiscordID(altID string) string {
+// It checks direct Discord snowflake IDs, discord_id settings, exact in-game name
+// matches in farmer state, and /act-as account links for the alt or its controller.
+func FindAltDiscordID(altID string, callerIDs ...string) string {
 	altID = strings.TrimSpace(altID)
 	if altID == "" {
 		return ""
@@ -77,11 +79,66 @@ func FindAltDiscordID(altID string) string {
 	if dID, err := GetDiscordUserIDFromEiIgnExact(altID); err == nil && IsDiscordSnowflake(dID) {
 		return dID
 	}
-	if ign := strings.TrimSpace(GetMiscSettingString(altID, "ei_ign")); ign != "" {
-		if dID, err := GetDiscordUserIDFromEiIgnExact(ign); err == nil && IsDiscordSnowflake(dID) {
+	altIGN := strings.TrimSpace(GetMiscSettingString(altID, "ei_ign"))
+	if altIGN != "" {
+		if dID, err := GetDiscordUserIDFromEiIgnExact(altIGN); err == nil && IsDiscordSnowflake(dID) {
 			return dID
 		}
 	}
+
+	// Check /act-as links
+	// 1. Direct act-as links for altID
+	for _, id := range GetAllActAsLinkedUsers(altID) {
+		if IsDiscordSnowflake(id) {
+			return id
+		}
+	}
+
+	// 2. Controller act-as links
+	seenControllers := make(map[string]bool)
+	var controllers []string
+	if c := strings.TrimSpace(GetMiscSettingString(altID, "AltController")); c != "" {
+		controllers = append(controllers, c)
+		seenControllers[c] = true
+	}
+	for _, cid := range callerIDs {
+		cid = strings.TrimSpace(cid)
+		if cid != "" && !seenControllers[cid] {
+			controllers = append(controllers, cid)
+			seenControllers[cid] = true
+		}
+	}
+
+	altEID := strings.TrimSpace(GetMiscSettingString(altID, "encrypted_ei_id"))
+
+	for _, controller := range controllers {
+		linkedUsers := GetAllActAsLinkedUsers(controller)
+		var validSnowflakes []string
+		for _, u := range linkedUsers {
+			u = strings.TrimSpace(u)
+			if IsDiscordSnowflake(u) && u != controller {
+				validSnowflakes = append(validSnowflakes, u)
+			}
+		}
+
+		// Check for specific match by IGN or Egg Inc ID among linked users
+		for _, u := range validSnowflakes {
+			uIGN := strings.TrimSpace(GetMiscSettingString(u, "ei_ign"))
+			if uIGN != "" && (strings.EqualFold(uIGN, altID) || (altIGN != "" && strings.EqualFold(uIGN, altIGN))) {
+				return u
+			}
+			uEID := strings.TrimSpace(GetMiscSettingString(u, "encrypted_ei_id"))
+			if altEID != "" && uEID != "" && uEID == altEID {
+				return u
+			}
+		}
+
+		// If controller has exactly one linked /act-as account, associate that account with the alt
+		if len(validSnowflakes) == 1 {
+			return validSnowflakes[0]
+		}
+	}
+
 	return ""
 }
 

@@ -74,17 +74,14 @@ func ExecuteVirtueTarget(e dc.InteractionEvent, options dc.OptionValues, eggIncI
 
 	avatarURL := ""
 	if targetUserID != e.UserID() {
-		altDiscordID := farmerstate.FindAltDiscordID(targetUserID)
+		altDiscordID := farmerstate.FindAltDiscordID(targetUserID, e.UserID())
 		if altDiscordID != "" {
 			avatarURL = bottools.GetDiscordAvatarURL(e.Client(), e.GuildID(), altDiscordID)
-		}
-		if avatarURL == "" {
-			avatarURL = e.AvatarURL()
 		}
 	} else {
 		avatarURL = e.AvatarURL()
 		if avatarURL == "" && e.Client() != nil && e.GuildID() != "" {
-			avatarURL = bottools.GetDiscordAvatarURL(e.Client(), e.GuildID(), e.UserID())
+			avatarURL = bottools.GetDiscordAvatarURL(e.Client(), e.GuildID(), targetUserID)
 		}
 	}
 
@@ -117,7 +114,17 @@ func ExecuteVirtueTarget(e dc.InteractionEvent, options dc.OptionValues, eggIncI
 
 // ExecuteVirtue executes the /virtue display logic and responds to the interaction event.
 func ExecuteVirtue(e dc.InteractionEvent, options dc.OptionValues, eggIncID string, okayToSave bool) {
-	ExecuteVirtueTarget(e, options, eggIncID, okayToSave, e.UserID(), "")
+	effectiveUserID := farmerstate.GetEffectiveUserID(e.UserID(), e.ChannelID())
+	ExecuteVirtueTarget(e, options, eggIncID, okayToSave, effectiveUserID, "")
+}
+
+// defaultVirtueAvatarURL returns the dynamic avatar URL for virtue using the egg_truth emoji ID,
+// falling back to a static URL if the emoji is not found.
+func defaultVirtueAvatarURL() string {
+	if u := ei.GetBotEmojiURL("egg_truth", 128); u != "" {
+		return u
+	}
+	return "https://cdn.discordapp.com/emojis/1418022084205875210.webp?size=128"
 }
 
 func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE uint64, compact bool, avatarURL string) []dc.LayoutComponent {
@@ -775,7 +782,7 @@ func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE
 
 	avatar := avatarURL
 	if avatar == "" {
-		avatar = "https://cdn.discordapp.com/emojis/1418022084205875210.webp?size=128"
+		avatar = defaultVirtueAvatarURL()
 	}
 	components = append(components, dc.Section{
 		Components: []dc.TextDisplay{

@@ -234,7 +234,37 @@ func TestPrintVirtue_AvatarAccessory(t *testing.T) {
 		t.Errorf("expected thumbnail URL %q, got %q", avatarURL, thumb.URL)
 	}
 
-	// Test fallback when avatar URL is empty
+	// Test fallback when avatar URL is empty and egg_truth emoji is configured
+	origEmoteMap := ei.EmoteMap
+	defer func() {
+		ei.EmoteMap = origEmoteMap
+	}()
+	ei.EmoteMap = map[string]ei.Emotes{
+		"egg_truth": {
+			Name: "egg_truth",
+			ID:   "987654321012345678",
+		},
+	}
+
+	compsDynamic := printVirtue("user-test", backup, ei.Egg(-1), 0, true, "")
+	if len(compsDynamic) == 0 {
+		t.Fatalf("expected components on dynamic fallback, got empty")
+	}
+	sectionDynamic, ok := compsDynamic[0].(dc.Section)
+	if !ok {
+		t.Fatalf("expected first component to be dc.Section on dynamic fallback, got %T", compsDynamic[0])
+	}
+	thumbDynamic, ok := sectionDynamic.Accessory.(dc.Thumbnail)
+	if !ok {
+		t.Fatalf("expected section accessory to be dc.Thumbnail on dynamic fallback, got %T", sectionDynamic.Accessory)
+	}
+	wantDynamic := "https://cdn.discordapp.com/emojis/987654321012345678.webp?size=128"
+	if thumbDynamic.URL != wantDynamic {
+		t.Errorf("expected dynamic thumbnail URL %q, got %q", wantDynamic, thumbDynamic.URL)
+	}
+
+	// Test fallback when egg_truth emoji is not found
+	ei.EmoteMap = map[string]ei.Emotes{}
 	compsFallback := printVirtue("user-test", backup, ei.Egg(-1), 0, true, "")
 	if len(compsFallback) == 0 {
 		t.Fatalf("expected components on fallback, got empty")
@@ -247,8 +277,37 @@ func TestPrintVirtue_AvatarAccessory(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected section accessory to be dc.Thumbnail on fallback, got %T", sectionFallback.Accessory)
 	}
-	if thumbFallback.URL == "" {
-		t.Errorf("expected non-empty thumbnail URL on fallback")
+	wantFallback := "https://cdn.discordapp.com/emojis/1418022084205875210.webp?size=128"
+	if thumbFallback.URL != wantFallback {
+		t.Errorf("expected static fallback thumbnail URL %q, got %q", wantFallback, thumbFallback.URL)
+	}
+}
+
+func TestDefaultVirtueAvatarURL_Dynamic(t *testing.T) {
+	origEmoteMap := ei.EmoteMap
+	defer func() {
+		ei.EmoteMap = origEmoteMap
+	}()
+
+	// 1. When egg_truth emoji is present, URL is dynamically constructed from its ID
+	ei.EmoteMap = map[string]ei.Emotes{
+		"egg_truth": {
+			Name: "egg_truth",
+			ID:   "112233445566778899",
+		},
+	}
+	got := defaultVirtueAvatarURL()
+	want := "https://cdn.discordapp.com/emojis/112233445566778899.webp?size=128"
+	if got != want {
+		t.Errorf("defaultVirtueAvatarURL() = %q; want %q", got, want)
+	}
+
+	// 2. When egg_truth emoji is missing, falls back to the static default
+	ei.EmoteMap = map[string]ei.Emotes{}
+	gotMissing := defaultVirtueAvatarURL()
+	wantMissing := "https://cdn.discordapp.com/emojis/1418022084205875210.webp?size=128"
+	if gotMissing != wantMissing {
+		t.Errorf("defaultVirtueAvatarURL() on missing emoji = %q; want %q", gotMissing, wantMissing)
 	}
 }
 
@@ -351,4 +410,29 @@ func TestHandleVirtueActAs(t *testing.T) {
 	// Clean up
 	_ = farmerstate.ClearActAsSwitch(callerID, "3")
 	_ = farmerstate.RemoveActAsLink(callerID, altUser)
+}
+
+func TestFindAltDiscordID_ActAsLink(t *testing.T) {
+	mainUser := "111111111111111111"
+	altDiscordUser := "222222222222222222"
+	altNamed := "chipmunk-alt"
+
+	farmerstate.SetMiscSettingString(altNamed, "AltController", mainUser)
+	_ = farmerstate.AddActAsLink(mainUser, altDiscordUser)
+	defer func() {
+		_ = farmerstate.RemoveActAsLink(mainUser, altDiscordUser)
+	}()
+
+	// With AltController set, FindAltDiscordID should resolve the linked Discord account from /act-as
+	got := farmerstate.FindAltDiscordID(altNamed)
+	if got != altDiscordUser {
+		t.Errorf("FindAltDiscordID(%q) = %q; want %q", altNamed, got, altDiscordUser)
+	}
+
+	// Passing caller ID should also resolve it even if AltController wasn't set
+	farmerstate.SetMiscSettingString("orphan-alt", "AltController", "")
+	gotCaller := farmerstate.FindAltDiscordID("orphan-alt", mainUser)
+	if gotCaller != altDiscordUser {
+		t.Errorf("FindAltDiscordID(orphan-alt, %q) = %q; want %q", mainUser, gotCaller, altDiscordUser)
+	}
 }

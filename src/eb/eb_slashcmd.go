@@ -70,8 +70,8 @@ func GetSlashEbCommand(cmd string) *dc.Command {
 type AltAccount = farmerstate.AltAccount
 
 // findAltDiscordID returns the registered Discord user ID for an alt, if any.
-func findAltDiscordID(altID string) string {
-	return farmerstate.FindAltDiscordID(altID)
+func findAltDiscordID(altID string, callerIDs ...string) string {
+	return farmerstate.FindAltDiscordID(altID, callerIDs...)
 }
 
 // getDiscordAvatarURL looks up the avatar image URL for a given Discord user ID.

@@ -68,12 +68,9 @@ func ExecuteEbTarget(e dc.InteractionEvent, farmChoice string, eggIncID string, 
 
 	avatarURL := ""
 	if targetUserID != e.UserID() {
-		altDiscordID := findAltDiscordID(targetUserID)
+		altDiscordID := findAltDiscordID(targetUserID, e.UserID())
 		if altDiscordID != "" {
 			avatarURL = getDiscordAvatarURL(e.Client(), e.GuildID(), altDiscordID)
-		}
-		if avatarURL == "" && showAvatar {
-			avatarURL = e.AvatarURL()
 		}
 	} else if showAvatar {
 		avatarURL = e.AvatarURL()
@@ -96,7 +93,8 @@ func ExecuteEbTarget(e dc.InteractionEvent, farmChoice string, eggIncID string, 
 
 // ExecuteEb executes the EB display logic and responds to the interaction event.
 func ExecuteEb(e dc.InteractionEvent, farmChoice string, eggIncID string, showAvatar bool, okayToSave bool) {
-	ExecuteEbTarget(e, farmChoice, eggIncID, showAvatar, okayToSave, e.UserID(), "")
+	effectiveUserID := farmerstate.GetEffectiveUserID(e.UserID(), e.ChannelID())
+	ExecuteEbTarget(e, farmChoice, eggIncID, showAvatar, okayToSave, effectiveUserID, "")
 }
 
 // determineFarmIcons returns the icon to use for Home and Virtue farms based on the player's active farm.
