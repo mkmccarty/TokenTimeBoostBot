@@ -597,5 +597,3 @@ func TestHandleOregonTrailCommand_AddsUserToThread(t *testing.T) {
 		t.Errorf("expected AddThreadMember to be called for user %s, calls: %+v", userID, calls)
 	}
 }
-
-
