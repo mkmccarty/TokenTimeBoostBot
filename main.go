@@ -29,6 +29,7 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/launch"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/leaderboard"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/mint"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/oregontrail"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/server"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/tasks"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/version"
@@ -139,6 +140,7 @@ const slashChill string = "chill"
 const slashRoll string = "roll"
 const slashWatch string = "watch"
 const slashActAs string = "act-as"
+const slashOregonTrail string = "oregon-trail"
 
 // const slashSignup string = "signup"
 var bot = dc.NewBot()
@@ -288,6 +290,7 @@ var (
 		"m_save_order":    func(e *dc.ModalEvent) { boost.HandleSaveCustomOrderModalSubmit(botClient(), e) },
 		"m_publish_order": func(e *dc.ModalEvent) { boost.HandlePublishCustomOrderModalSubmit(botClient(), e) },
 		"m_actas_reg":     func(e *dc.ModalEvent) { farmerstate.HandleActAsRegisterModalSubmit(botClient(), e) },
+		"ot":              func(e *dc.ModalEvent) { oregontrail.HandleModal(botClient(), e) },
 	}
 
 	// Define the handlers for component interactions
@@ -359,6 +362,7 @@ var (
 		"watch-clear-confirm":     watch.HandleClearConfirm,
 		"watch-test-contract":     func(e *dc.ComponentEvent) { watch.HandleTestContract(botClient(), e) },
 		"watch-test-colleggtible": func(e *dc.ComponentEvent) { watch.HandleTestColleggtible(botClient(), e) },
+		"ot":                      func(e *dc.ComponentEvent) { oregontrail.HandleComponent(botClient(), e) },
 	}
 )
 
@@ -856,6 +860,12 @@ func setupCommands() {
 		Autocomplete: watch.HandleWatchAutoComplete,
 	})
 
+	commandRegistry = append(commandRegistry, CommandDef{
+		AppCmd:   oregontrail.GetSlashOregonTrailCommand(slashOregonTrail),
+		Category: CmdCategoryStandard,
+		Handler:  func(e *dc.CommandEvent) { oregontrail.HandleOregonTrailCommand(botClient(), e) },
+	})
+
 	for _, def := range commandRegistry {
 		if def.Handler != nil {
 			bot.OnCommand(def.AppCmd.Name, withCommandLogging(def.AppCmd.Name, def.Handler))
@@ -939,6 +949,7 @@ func registerGatewayHandlers() {
 		}))
 
 		mint.HandleMintCSVUpload(botClient(), e)
+		oregontrail.HandleMessage(botClient(), e)
 	})
 
 	bot.OnReactionAdd(func(e *dc.ReactionEvent) {
@@ -1027,6 +1038,8 @@ func connectWithRetry() error {
 
 func main() {
 	defer handleCrash()
+
+	_ = oregontrail.DownloadSource()
 
 	setupCommands()
 
