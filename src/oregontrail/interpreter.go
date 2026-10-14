@@ -545,11 +545,11 @@ type CodeAddr struct {
 
 // Program holds parsed line numbers and statements.
 type Program struct {
-	Lines       []int
-	LineStmts   map[int][]Statement
-	LineIndex   map[int]int
-	DataValues  []float64
-	InitStmts   []Statement // Unnumbered statements like DEFDBL, DIM executed before line 10
+	Lines      []int
+	LineStmts  map[int][]Statement
+	LineIndex  map[int]int
+	DataValues []float64
+	InitStmts  []Statement // Unnumbered statements like DEFDBL, DIM executed before line 10
 }
 
 // Env represents runtime state.
