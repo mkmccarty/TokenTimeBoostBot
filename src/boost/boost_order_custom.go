@@ -2509,7 +2509,7 @@ func getFuzzyExplanation(crit customCriterion) string {
 	return ""
 }
 
-// BuildBoostOrderPreviewMessage creates the boost order image preview message with Keep and Dismiss buttons.
+// BuildBoostOrderPreviewMessage creates the boost order image preview message with Refresh, Keep, and Dismiss buttons.
 func BuildBoostOrderPreviewMessage(contract *Contract) (dc.Message, error) {
 	if contract == nil {
 		return dc.Message{}, fmt.Errorf("contract is nil")
@@ -2567,6 +2567,12 @@ func BuildBoostOrderPreviewMessage(contract *Contract) (dc.Message, error) {
 
 	components = append(components, dc.ActionRow{
 		Components: []dc.InteractiveComponent{
+			dc.Button{
+				Label:    "Refresh",
+				Style:    dc.ButtonSecondary,
+				CustomID: "rc_#refresh#" + contract.ContractHash,
+				Emoji:    &dc.Emoji{Name: "🔄"},
+			},
 			dc.Button{
 				Label:    "Keep",
 				Style:    dc.ButtonSecondary,
