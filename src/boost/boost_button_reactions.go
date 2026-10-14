@@ -52,6 +52,19 @@ func HandleContractReactions(client dc.Client, e *dc.ComponentEvent) {
 		return
 	}
 
+	if cmd == "refresh" {
+		refreshCustomBoosters(client, contract)
+		msg, err := BuildBoostOrderPreviewMessage(contract)
+		if err != nil {
+			log.Printf("boost: failed to build boost order preview message: %v", err)
+			return
+		}
+		if err := e.EditResponse(msg); err != nil {
+			log.Printf("boost: failed to update boost order preview message: %v", err)
+		}
+		return
+	}
+
 	if cmd == "help" {
 		_ = e.Followup(dc.Message{})
 		buttonReactionHelp(client, e, contract)

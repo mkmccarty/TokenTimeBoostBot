@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc/dctest"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
@@ -1069,13 +1070,15 @@ func TestBuildBoostOrderPreviewMessage(t *testing.T) {
 		t.Fatalf("expected image file in preview message")
 	}
 
-	// Verify Keep and Dismiss buttons in action row
-	var keepBtn, dismissBtn *dc.Button
+	// Verify Refresh, Keep, and Dismiss buttons in action row
+	var refreshBtn, keepBtn, dismissBtn *dc.Button
 	for _, comp := range msg.Components {
 		if ar, ok := comp.(dc.ActionRow); ok {
 			for _, ic := range ar.Components {
 				if btn, ok := ic.(dc.Button); ok {
-					if strings.Contains(btn.CustomID, "#keep#") {
+					if strings.Contains(btn.CustomID, "#refresh#") {
+						refreshBtn = &btn
+					} else if strings.Contains(btn.CustomID, "#keep#") {
 						keepBtn = &btn
 					} else if strings.Contains(btn.CustomID, "#dismiss#") {
 						dismissBtn = &btn
@@ -1083,6 +1086,12 @@ func TestBuildBoostOrderPreviewMessage(t *testing.T) {
 				}
 			}
 		}
+	}
+
+	if refreshBtn == nil {
+		t.Errorf("expected Refresh button in action row")
+	} else if refreshBtn.CustomID != "rc_#refresh#preview-hash-456" {
+		t.Errorf("unexpected Refresh button CustomID: %s", refreshBtn.CustomID)
 	}
 
 	if keepBtn == nil {
@@ -1176,13 +1185,17 @@ func TestBuildBoostOrderPreviewMessage_AllBoostOrders(t *testing.T) {
 				}
 			}
 
-			// Verify Keep and Dismiss buttons exist
+			// Verify Refresh, Keep, and Dismiss buttons exist
+			hasRefresh := false
 			hasKeep := false
 			hasDismiss := false
 			for _, comp := range msg.Components {
 				if ar, ok := comp.(dc.ActionRow); ok {
 					for _, ic := range ar.Components {
 						if btn, ok := ic.(dc.Button); ok {
+							if strings.Contains(btn.CustomID, "#refresh#") {
+								hasRefresh = true
+							}
 							if strings.Contains(btn.CustomID, "#keep#") {
 								hasKeep = true
 							}
@@ -1193,11 +1206,43 @@ func TestBuildBoostOrderPreviewMessage_AllBoostOrders(t *testing.T) {
 					}
 				}
 			}
-			if !hasKeep || !hasDismiss {
-				t.Errorf("missing Keep or Dismiss button for %s", tc.name)
+			if !hasRefresh || !hasKeep || !hasDismiss {
+				t.Errorf("missing Refresh, Keep or Dismiss button for %s", tc.name)
 			}
 		})
 	}
+}
+
+func TestHandleContractReactions_Refresh(t *testing.T) {
+	contractHash := "test-refresh-hash"
+	c := &Contract{
+		ContractHash: contractHash,
+		ContractID:   "test-contract",
+		CoopID:       "test-coop",
+		BoostOrder:   ContractOrderIHRFuzzy,
+		Boosters:     make(map[string]*Booster),
+		Order:        []string{"u1"},
+	}
+	c.Boosters["u1"] = &Booster{
+		UserID:  "u1",
+		Nick:    "Farmer 1",
+		IHRRate: 5e9,
+	}
+
+	ContractsMutex.Lock()
+	Contracts[contractHash] = c
+	ContractsMutex.Unlock()
+	defer func() {
+		ContractsMutex.Lock()
+		delete(Contracts, contractHash)
+		ContractsMutex.Unlock()
+	}()
+
+	client := dctest.New()
+	event := dctest.ComponentButtonEvent("rc_#refresh#" + contractHash)
+
+	// Call HandleContractReactions with refresh button event
+	HandleContractReactions(client, event)
 }
 
 func TestCritReverse_Sorting(t *testing.T) {
