@@ -151,14 +151,13 @@ func GenerateContractSandboxURL(contract *Contract, players []SandboxPlayer) (st
 	return srSandboxBaseURL + data, nil
 }
 
-// SendSandboxDM builds and sends an SR Sandbox DM to a user.
-func SendSandboxDM(client dc.Client, contract *Contract, userID string) error {
+// BuildSandboxMessage builds the SR Sandbox message payload for a contract.
+func BuildSandboxMessage(contract *Contract) (dc.Message, error) {
 	sandboxURL, err := GenerateContractSandboxURL(contract, sandboxPlayersFromContract(contract))
 	if err != nil {
-		return err
+		return dc.Message{}, err
 	}
 
-	contractLink := fmt.Sprintf("https://discord.com/channels/%s/%s/%s", contract.Location[0].GuildID, contract.Location[0].ChannelID, contract.Location[0].ListMsgID)
 	contractName := contract.Name
 	if contractName == "" {
 		if contractInfo, ok := ei.EggIncContractsAll[contract.ContractID]; ok {
@@ -168,28 +167,58 @@ func SendSandboxDM(client dc.Client, contract *Contract, userID string) error {
 	if contractName == "" {
 		contractName = contract.ContractID
 	}
-	dmBody := fmt.Sprintf(
-		"SR Sandbox for %s\nCoop: %s\nSignup: %d/%d\nChannel: %s\n[Open contract thread](%s)\n[Open SR Sandbox](%s)",
-		contractName,
-		contract.CoopID,
-		len(contract.Boosters),
-		contract.CoopSize,
-		contract.Location[0].ChannelMention,
-		contractLink,
-		sandboxURL,
-	)
 
-	var files []dc.File
-	if len(dmBody) > 2000 {
-		dmBody = fmt.Sprintf(
-			"SR Sandbox for %s\nCoop: %s\nSignup: %d/%d\nChannel: %s\n[Open contract thread](%s)\nOpen SR Sandbox: URL is attached as a text file.",
+	var channelMention string
+	var contractLink string
+	if len(contract.Location) > 0 && contract.Location[0] != nil {
+		contractLink = fmt.Sprintf("https://discord.com/channels/%s/%s/%s", contract.Location[0].GuildID, contract.Location[0].ChannelID, contract.Location[0].ListMsgID)
+		channelMention = contract.Location[0].ChannelMention
+	}
+
+	var body string
+	if contractLink != "" {
+		body = fmt.Sprintf(
+			"SR Sandbox for %s\nCoop: %s\nSignup: %d/%d\nChannel: %s\n[Open contract thread](%s)\n[Open SR Sandbox](%s)",
 			contractName,
 			contract.CoopID,
 			len(contract.Boosters),
 			contract.CoopSize,
-			contract.Location[0].ChannelMention,
+			channelMention,
 			contractLink,
+			sandboxURL,
 		)
+	} else {
+		body = fmt.Sprintf(
+			"SR Sandbox for %s\nCoop: %s\nSignup: %d/%d\n[Open SR Sandbox](%s)",
+			contractName,
+			contract.CoopID,
+			len(contract.Boosters),
+			contract.CoopSize,
+			sandboxURL,
+		)
+	}
+
+	var files []dc.File
+	if len(body) > 2000 {
+		if contractLink != "" {
+			body = fmt.Sprintf(
+				"SR Sandbox for %s\nCoop: %s\nSignup: %d/%d\nChannel: %s\n[Open contract thread](%s)\nOpen SR Sandbox: URL is attached as a text file.",
+				contractName,
+				contract.CoopID,
+				len(contract.Boosters),
+				contract.CoopSize,
+				channelMention,
+				contractLink,
+			)
+		} else {
+			body = fmt.Sprintf(
+				"SR Sandbox for %s\nCoop: %s\nSignup: %d/%d\nOpen SR Sandbox: URL is attached as a text file.",
+				contractName,
+				contract.CoopID,
+				len(contract.Boosters),
+				contract.CoopSize,
+			)
+		}
 		files = []dc.File{
 			{
 				Name:        "sandbox_url.txt",
@@ -199,27 +228,38 @@ func SendSandboxDM(client dc.Client, contract *Contract, userID string) error {
 		}
 	}
 
+	return dc.Message{
+		Content: body,
+		Files:   files,
+	}, nil
+}
+
+// SendSandboxDM builds and sends an SR Sandbox DM to a user.
+func SendSandboxDM(client dc.Client, contract *Contract, userID string) error {
+	msg, err := BuildSandboxMessage(contract)
+	if err != nil {
+		return err
+	}
+
 	u, dmErr := client.CreateUserChannel(userID)
 	if dmErr != nil {
 		return dmErr
 	}
 
-	_, sendErr := client.SendMessage(u.ID, dc.Message{
-		Content:      dmBody,
-		Files:        files,
-		ComponentsV1: true,
-		Components: []dc.LayoutComponent{
-			dc.ActionRow{
-				Components: []dc.InteractiveComponent{
-					dc.Button{
-						Label:    "Dismiss",
-						Style:    dc.ButtonSecondary,
-						CustomID: "rc_#dismiss#" + contract.ContractHash,
-					},
+	msg.ComponentsV1 = true
+	msg.Components = []dc.LayoutComponent{
+		dc.ActionRow{
+			Components: []dc.InteractiveComponent{
+				dc.Button{
+					Label:    "Dismiss",
+					Style:    dc.ButtonSecondary,
+					CustomID: "rc_#dismiss#" + contract.ContractHash,
 				},
 			},
 		},
-	})
+	}
+
+	_, sendErr := client.SendMessage(u.ID, msg)
 	return sendErr
 }
 

@@ -219,16 +219,16 @@ func HandleMenuReactions(client dc.Client, e *dc.ComponentEvent) {
 			SuppressEmbeds: true,
 		})
 	case "sandbox":
-		_ = e.DeferUpdate()
-
-		err := SendSandboxDM(client, contract, userID)
+		msg, err := BuildSandboxMessage(contract)
 		if err != nil {
-			_ = e.Followup(dc.Message{
+			_ = e.Respond(dc.Message{
 				Content:   fmt.Sprintf("Unable to generate SR Sandbox link: %v", err),
 				Ephemeral: true,
 			})
 			return
 		}
+		msg.Ephemeral = true
+		_ = e.Respond(msg)
 	case "xpost":
 		var outputStrBuilder strings.Builder
 
