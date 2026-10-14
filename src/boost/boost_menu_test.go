@@ -448,3 +448,114 @@ func TestBoostMenuTokenLogEscaping(t *testing.T) {
 		}
 	}
 }
+
+func TestBuildSandboxMessage(t *testing.T) {
+	ei.EggIncContractsAll["test-contract"] = ei.EggIncContract{
+		ID:              "test-contract",
+		Name:            "Test Contract",
+		MinutesPerToken: 60,
+		LengthInSeconds: 86400,
+		TargetAmount:    []float64{100},
+	}
+	defer delete(ei.EggIncContractsAll, "test-contract")
+
+	contract := &Contract{
+		ContractHash:    "test-hash",
+		ContractID:      "test-contract",
+		CoopID:          "test-coop",
+		CoopSize:        3,
+		MinutesPerToken: 60,
+		LengthInSeconds: 86400,
+		Order:           []string{"u1"},
+		Boosters: map[string]*Booster{
+			"u1": {
+				UserID:   "u1",
+				Nick:     "TestUser",
+				Register: time.Now(),
+			},
+		},
+		Location: []*LocationData{
+			{
+				GuildID:        "g1",
+				ChannelID:      "c1",
+				ListMsgID:      "m1",
+				ChannelMention: "<#c1>",
+			},
+		},
+	}
+
+	msg, err := BuildSandboxMessage(contract)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(msg.Content, "SR Sandbox for Test Contract") {
+		t.Errorf("expected contract name in message, got: %s", msg.Content)
+	}
+	if !strings.Contains(msg.Content, "Coop: test-coop") {
+		t.Errorf("expected coop ID in message, got: %s", msg.Content)
+	}
+	if !strings.Contains(msg.Content, "[Open SR Sandbox](") {
+		t.Errorf("expected Open SR Sandbox link in message, got: %s", msg.Content)
+	}
+	if !strings.Contains(msg.Content, "[Open contract thread](https://discord.com/channels/g1/c1/m1)") {
+		t.Errorf("expected thread link in message, got: %s", msg.Content)
+	}
+}
+
+func TestBoostMenuSandboxEphemeralResponse(t *testing.T) {
+	ei.EggIncContractsAll["test-contract"] = ei.EggIncContract{
+		ID:              "test-contract",
+		Name:            "Test Contract",
+		MinutesPerToken: 60,
+		LengthInSeconds: 86400,
+		TargetAmount:    []float64{100},
+	}
+	defer delete(ei.EggIncContractsAll, "test-contract")
+
+	client := dctest.New()
+	contract := &Contract{
+		ContractHash:    "test-sandbox-hash",
+		ContractID:      "test-contract",
+		CoopID:          "test-coop",
+		CoopSize:        5,
+		MinutesPerToken: 60,
+		LengthInSeconds: 86400,
+		Order:           []string{"u1"},
+		Boosters: map[string]*Booster{
+			"u1": {
+				UserID:   "u1",
+				Nick:     "FarmerOne",
+				Register: time.Now(),
+			},
+		},
+		Location: []*LocationData{
+			{
+				GuildID:        "guild1",
+				ChannelID:      "chan1",
+				ListMsgID:      "msg1",
+				ChannelMention: "<#chan1>",
+			},
+		},
+	}
+	Contracts[contract.ContractHash] = contract
+	defer delete(Contracts, contract.ContractHash)
+
+	ev := dctest.ComponentSelectEvent("menu#"+contract.ContractHash, "sandbox")
+	HandleMenuReactions(client, ev)
+
+	if len(client.SentMessages) != 0 {
+		t.Errorf("expected no DM/channel message via client.SendMessage, got %d", len(client.SentMessages))
+	}
+	if ev.LastResponse == nil {
+		t.Fatalf("expected ev.LastResponse to be set")
+	}
+	if !ev.LastResponse.Ephemeral {
+		t.Errorf("expected response to be ephemeral, got false")
+	}
+	if !strings.Contains(ev.LastResponse.Content, "SR Sandbox") {
+		t.Errorf("expected response content to contain 'SR Sandbox', got %q", ev.LastResponse.Content)
+	}
+	if !strings.Contains(ev.LastResponse.Content, "test-coop") {
+		t.Errorf("expected response content to contain coop ID 'test-coop', got %q", ev.LastResponse.Content)
+	}
+}
