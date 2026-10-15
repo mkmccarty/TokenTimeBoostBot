@@ -34,32 +34,32 @@ func TestDeduplicateContributors(t *testing.T) {
 		{
 			name: "Duplicate EID - one exact case-insensitive match",
 			resolvedList: []resolvedContributor{
-				{name: "ClydeEg", discordID: "userClyde", eiID: "EI_SHARED"},
-				{name: "MadSheep", discordID: "userSheep", eiID: "EI_SHARED"},
+				{name: "FarmerAlpha", discordID: "userAlpha", eiID: "EI_SHARED"},
+				{name: "FarmerBeta", discordID: "userBeta", eiID: "EI_SHARED"},
 			},
 			storedIgns: map[string]string{
-				"userClyde": "ClydeEg",
-				"userSheep": "SomeOtherName", // Sheep doesn't match their stored ign
+				"userAlpha": "FarmerAlpha",
+				"userBeta":  "SomeOtherName", // FarmerBeta doesn't match their stored ign
 			},
 			wantList: []resolvedContributor{
-				{name: "ClydeEg", discordID: "userClyde", eiID: "EI_SHARED"},
+				{name: "FarmerAlpha", discordID: "userAlpha", eiID: "EI_SHARED"},
 			},
-			wantMissing: []string{"MadSheep"},
+			wantMissing: []string{"FarmerBeta"},
 		},
 		{
 			name: "Duplicate EID - case-insensitive match tie breaker (case-sensitive)",
 			resolvedList: []resolvedContributor{
-				{name: "clydeeg", discordID: "userClyde1", eiID: "EI_SHARED"},
-				{name: "ClydeEg", discordID: "userClyde2", eiID: "EI_SHARED"},
+				{name: "farmeralpha", discordID: "userAlpha1", eiID: "EI_SHARED"},
+				{name: "FarmerAlpha", discordID: "userAlpha2", eiID: "EI_SHARED"},
 			},
 			storedIgns: map[string]string{
-				"userClyde1": "ClydeEg", // matches case-insensitively but not case-sensitively
-				"userClyde2": "ClydeEg", // matches case-sensitively
+				"userAlpha1": "FarmerAlpha", // matches case-insensitively but not case-sensitively
+				"userAlpha2": "FarmerAlpha", // matches case-sensitively
 			},
 			wantList: []resolvedContributor{
-				{name: "ClydeEg", discordID: "userClyde2", eiID: "EI_SHARED"},
+				{name: "FarmerAlpha", discordID: "userAlpha2", eiID: "EI_SHARED"},
 			},
-			wantMissing: []string{"clydeeg"},
+			wantMissing: []string{"farmeralpha"},
 		},
 		{
 			name: "Duplicate EID - no matches",
