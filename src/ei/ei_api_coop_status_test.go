@@ -279,3 +279,32 @@ func TestGetCoopStatus_SavesSingleCopyWithoutTimestamp(t *testing.T) {
 		t.Fatalf("expected file name contract-x-coop-x.pb, got %s", entries[0].Name())
 	}
 }
+
+func TestGetCoopStatus_EnforcesLowercaseContractID(t *testing.T) {
+	setTestCwd(t)
+	resetCoopStatusCache(t)
+
+	validBody := coopStatusSuccessBody(t)
+	var receivedContractID string
+	setAuxbrainServer(t, func(w http.ResponseWriter, r *http.Request) {
+		_ = r.ParseForm()
+		dataParam := r.FormValue("data")
+		if raw, err := base64.StdEncoding.DecodeString(dataParam); err == nil {
+			req := &ContractCoopStatusRequest{}
+			if err := proto.Unmarshal(raw, req); err == nil {
+				receivedContractID = req.GetContractIdentifier()
+			}
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(validBody)
+	})
+
+	_, _, _, err := GetCoopStatusUncached("One-Wheel-EggR", "coop-x", "EI1234567890123456")
+	if err != nil {
+		t.Fatalf("GetCoopStatusUncached failed: %v", err)
+	}
+
+	if receivedContractID != "one-wheel-eggr" {
+		t.Fatalf("expected contract ID to be lowercased to 'one-wheel-eggr', got %q", receivedContractID)
+	}
+}
