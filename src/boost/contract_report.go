@@ -414,19 +414,29 @@ func ContractReport(
 	// resolve contractID, prefer the slash option.
 	var contractID string
 	if opt, ok := options.String("contract-id"); ok {
-		contractID = strings.ToLower(opt)
+		contractID = strings.TrimSpace(opt)
 		contractID = strings.ReplaceAll(contractID, " ", "")
 	}
 	// If absent, fall back to the channel's contract.
 	if contractID == "" {
 		c := FindContract(e.ChannelID())
 		if c != nil && c.ContractID != "" {
-			contractID = strings.ToLower(c.ContractID)
+			contractID = strings.TrimSpace(c.ContractID)
 			contractID = strings.ReplaceAll(contractID, " ", "")
 		} else {
 			return ErrNoChannelContract
 		}
 	}
+
+	// Canonicalize contractID against EggIncContractsAll (case-insensitive)
+	ei.EggIncContractsMutex.RLock()
+	for id := range ei.EggIncContractsAll {
+		if strings.EqualFold(id, contractID) {
+			contractID = id
+			break
+		}
+	}
+	ei.EggIncContractsMutex.RUnlock()
 
 	// decrypt user's EI
 	callerEI := ""
@@ -477,7 +487,7 @@ func ContractReport(
 			lcContractID = lc.GetEvaluation().GetContractIdentifier()
 		}
 		// Check if we have an evaluation with the given contract ID
-		if lcContractID == contractID {
+		if strings.EqualFold(lcContractID, contractID) {
 			if eval := lc.GetEvaluation(); eval != nil {
 				// We found the contract, check the evaluation version
 				callerEval = eval
@@ -536,7 +546,18 @@ func ContractReport(
 	evByName := evalsForContractParallel(evalsByName, contractID, coopID)
 
 	// contract lookup
+	ei.EggIncContractsMutex.RLock()
 	c := ei.EggIncContractsAll[contractID]
+	if c.ID == "" {
+		for id, contract := range ei.EggIncContractsAll {
+			if strings.EqualFold(id, contractID) {
+				c = contract
+				contractID = id
+				break
+			}
+		}
+	}
+	ei.EggIncContractsMutex.RUnlock()
 	if c.ID == "" {
 		return ErrInvalidContractID
 	}
@@ -995,7 +1016,7 @@ func evalForContract(archive []*ei.LocalContract, contractID, coopID string) *ei
 		} else if lcContractID == "" && lc.GetEvaluation() != nil {
 			lcContractID = lc.GetEvaluation().GetContractIdentifier()
 		}
-		if lcContractID == contractID && lc.GetEvaluation() != nil && lc.GetEvaluation().GetCoopIdentifier() == coopID {
+		if strings.EqualFold(lcContractID, contractID) && lc.GetEvaluation() != nil && strings.EqualFold(lc.GetEvaluation().GetCoopIdentifier(), coopID) {
 			return lc.GetEvaluation()
 		}
 	}
