@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -50,6 +51,7 @@ func init() {
 }
 
 func requestCoopStatus(contractID string, coopID string, eggIncID string, reqURL string, includeClientVersion bool) ([]byte, int, error) {
+	contractID = strings.ToLower(contractID)
 	enc := base64.StdEncoding
 	coopStatusRequest := ContractCoopStatusRequest{
 		ContractIdentifier: &contractID,
@@ -87,6 +89,7 @@ func requestCoopStatus(contractID string, coopID string, eggIncID string, reqURL
 }
 
 func getCoopStatus(contractID string, coopID string, eeidOverride string, bypassCache bool) (*ContractCoopStatusResponse, time.Time, string, error) {
+	contractID = strings.ToLower(contractID)
 	eggIncID := config.EIUserIDBasic
 	reqURL := "https://www.auxbrain.com/ei/coop_status_bot"
 	enc := base64.StdEncoding
@@ -107,6 +110,18 @@ func getCoopStatus(contractID string, coopID string, eeidOverride string, bypass
 
 		// read the contents of filename into protoData
 		fileInfo, err := os.Stat(fname)
+		if err != nil {
+			if entries, rerr := os.ReadDir("ttbb-data/pb"); rerr == nil {
+				target := strings.ToLower(fmt.Sprintf("%s-%s.pb", contractID, basename))
+				for _, entry := range entries {
+					if strings.ToLower(entry.Name()) == target {
+						fname = filepath.Join("ttbb-data/pb", entry.Name())
+						fileInfo, err = os.Stat(fname)
+						break
+					}
+				}
+			}
+		}
 		if err != nil {
 			return nil, timestamp, dataTimestampStr, err
 		}
@@ -340,6 +355,7 @@ func ClearCoopStatusCachedData() {
 // GetCoopStatusForCompletedContracts retrieves the coop status for a given contract and coop, but is intended for completed contracts
 // This saves the data in compressed form without a timestamp in the filename
 func GetCoopStatusForCompletedContracts(contractID string, coopID string, eeidOverride string) (*ContractCoopStatusResponse, time.Time, string, error) {
+	contractID = strings.ToLower(contractID)
 	eggIncID := config.EIUserIDBasic
 	reqURL := "https://www.auxbrain.com/ei/coop_status_bot"
 	enc := base64.StdEncoding
@@ -352,6 +368,18 @@ func GetCoopStatusForCompletedContracts(contractID string, coopID string, eeidOv
 	fname := fmt.Sprintf("ttbb-data/pb-completed/%s-%s.pb", contractID, coopID)
 	// read the contents of filename into protoData
 	fileInfo, err := os.Stat(fname)
+	if err != nil {
+		if entries, rerr := os.ReadDir("ttbb-data/pb-completed"); rerr == nil {
+			target := strings.ToLower(fmt.Sprintf("%s-%s.pb", contractID, coopID))
+			for _, entry := range entries {
+				if strings.ToLower(entry.Name()) == target {
+					fname = filepath.Join("ttbb-data/pb-completed", entry.Name())
+					fileInfo, err = os.Stat(fname)
+					break
+				}
+			}
+		}
+	}
 	if err == nil {
 		fileTimestamp := fileInfo.ModTime()
 

@@ -2,6 +2,7 @@ package ei
 
 import (
 	"log"
+	"strings"
 
 	"google.golang.org/protobuf/proto"
 )
@@ -17,6 +18,7 @@ import (
 // Returns:
 //   - (*LeaderboardResponse): the decoded leaderboard response, or nil on error.
 func GetLeaderboardFromAPI(eggIncID string, scope string, grade Contract_PlayerGrade) *LeaderboardResponse {
+	scope = strings.ToLower(scope)
 	eiUserID := DecryptEID(eggIncID)
 	reqURL := "https://www.auxbrain.com/ei_ctx/get_leaderboard"
 
