@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc/dctest"
 )
 
@@ -137,27 +136,37 @@ func TestBuildCRMessageComponentsTipAndButtons(t *testing.T) {
 	}
 
 	// First display (CRNoticeCount = 0): should contain helper tip
-	comps, _ := buildCRMessageComponents(c, "@CoopRole")
-	if len(comps) == 0 {
-		t.Fatalf("expected components, got none")
+	msg, _ := buildCRMessage(c, "@CoopRole")
+	if msg.Content == "" {
+		t.Fatalf("expected message Content, got none")
 	}
-	headerText, ok := comps[0].(dc.TextDisplay)
-	if !ok {
-		t.Fatalf("expected first component to be TextDisplay")
+	if !strings.HasPrefix(msg.Content, "**Player1** is requesting chicken runs @CoopRole!") {
+		t.Errorf("expected header to start with '**Player1** is requesting chicken runs @CoopRole!', got: %s", msg.Content)
 	}
-	if !slices.Contains([]rune(headerText.Content), rune('-')) || !strings.Contains(headerText.Content, "💡 Use the Boost Menu to indicate you aren't holding runs.") {
-		t.Errorf("expected header to contain helper tip when CRNoticeCount < 2, got: %s", headerText.Content)
+	if !slices.Contains([]rune(msg.Content), rune('-')) || !strings.Contains(msg.Content, "💡 Use the Boost Menu to indicate you aren't holding runs.") {
+		t.Errorf("expected header to contain helper tip when CRNoticeCount < 2, got: %s", msg.Content)
+	}
+	if !msg.ComponentsV1 {
+		t.Errorf("expected ComponentsV1 to be true")
+	}
+	if len(msg.Embeds) != 1 {
+		t.Fatalf("expected 1 embed, got %d", len(msg.Embeds))
+	}
+	if msg.Embeds[0].Title != "Active Chicken Run Requests" {
+		t.Errorf("expected embed title 'Active Chicken Run Requests', got %s", msg.Embeds[0].Title)
+	}
+
+	// Without role mention: mention should be omitted cleanly
+	msgNoRole, _ := buildCRMessage(c, "")
+	if !strings.HasPrefix(msgNoRole.Content, "**Player1** is requesting chicken runs!\n") {
+		t.Errorf("expected header without role to start with '**Player1** is requesting chicken runs!\\n', got: %s", msgNoRole.Content)
 	}
 
 	// After 2 displays (CRNoticeCount = 2): should NOT contain helper tip
 	c.CRNoticeCount = 2
-	comps2, _ := buildCRMessageComponents(c, "@CoopRole")
-	headerText2, ok := comps2[0].(dc.TextDisplay)
-	if !ok {
-		t.Fatalf("expected first component to be TextDisplay")
-	}
-	if strings.Contains(headerText2.Content, "Use the Boost Menu to indicate you aren't holding runs.") {
-		t.Errorf("expected header NOT to contain helper tip when CRNoticeCount >= 2, got: %s", headerText2.Content)
+	msg2, _ := buildCRMessage(c, "@CoopRole")
+	if strings.Contains(msg2.Content, "Use the Boost Menu to indicate you aren't holding runs.") {
+		t.Errorf("expected header NOT to contain helper tip when CRNoticeCount >= 2, got: %s", msg2.Content)
 	}
 }
 
@@ -179,26 +188,21 @@ func TestBuildCRMessageComponentsCompleted(t *testing.T) {
 		},
 	}
 
-	comps, allowedMentions := buildCRMessageComponents(c, "")
-	if len(comps) != 1 {
-		t.Fatalf("expected 1 container component when complete, got %d", len(comps))
-	}
+	msg, allowedMentions := buildCRMessage(c, "")
 	if len(allowedMentions) != 0 {
 		t.Errorf("expected no allowed mentions when all complete, got %v", allowedMentions)
 	}
-	container, ok := comps[0].(dc.Container)
-	if !ok {
-		t.Fatalf("expected component to be Container, got %T", comps[0])
+	if !msg.ComponentsV1 {
+		t.Errorf("expected ComponentsV1 to be true")
 	}
-	if len(container.Components) != 1 {
-		t.Fatalf("expected 1 text display inside container, got %d", len(container.Components))
+	if !msg.ClearComponents {
+		t.Errorf("expected ClearComponents to be true")
 	}
-	textDisplay, ok := container.Components[0].(dc.TextDisplay)
-	if !ok {
-		t.Fatalf("expected inner component to be TextDisplay, got %T", container.Components[0])
+	if len(msg.Embeds) != 1 {
+		t.Fatalf("expected 1 embed when complete, got %d", len(msg.Embeds))
 	}
-	if textDisplay.Content == "" || !strings.Contains(textDisplay.Content, "Player1") {
-		t.Errorf("expected completion message with Player1, got %q", textDisplay.Content)
+	if msg.Embeds[0].Description == "" || !strings.Contains(msg.Embeds[0].Description, "Player1") {
+		t.Errorf("expected completion message with Player1, got %q", msg.Embeds[0].Description)
 	}
 }
 

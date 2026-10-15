@@ -121,17 +121,15 @@ func bumpCRMessages(client dc.Client, contract *Contract) {
 
 	for _, location := range locations {
 		contract.mutex.Lock()
-		components, _ := buildCRMessageComponents(contract, location.RoleMention)
+		msg, _ := buildCRMessage(contract, location.RoleMention)
 		contract.mutex.Unlock()
 
-		if components == nil {
+		if msg.Content == "" && len(msg.Embeds) == 0 {
 			continue
 		}
 
-		newMsg, err := client.SendMessage(location.ChannelID, dc.Message{
-			Components:      components,
-			AllowedMentions: &dc.AllowedMentions{},
-		})
+		msg.AllowedMentions = &dc.AllowedMentions{}
+		newMsg, err := client.SendMessage(location.ChannelID, msg)
 		if err != nil {
 			log.Printf("bumpCRMessages send error: contractHash=%s channelID=%s error=%v",
 				contract.ContractHash, location.ChannelID, err)
@@ -145,15 +143,23 @@ func bumpCRMessages(client dc.Client, contract *Contract) {
 
 		if existingMsgID := crIDs[location.ChannelID]; existingMsgID != "" {
 			newMsgLink := fmt.Sprintf("https://discord.com/channels/%s/%s/%s", location.GuildID, location.ChannelID, newMsg.ID)
-			movedComponents := []dc.LayoutComponent{
-				dc.TextDisplay{Content: fmt.Sprintf("-# Chicken Run request moved: [View updated message](%s)", newMsgLink)},
-			}
+			moveText := fmt.Sprintf("-# Chicken Run request moved: [View updated message](%s)", newMsgLink)
 			if _, err := client.EditMessage(location.ChannelID, existingMsgID, dc.Message{
-				Components:      movedComponents,
+				Content:         moveText,
+				ComponentsV1:    true,
+				ClearComponents: true,
 				AllowedMentions: &dc.AllowedMentions{},
 			}); err != nil {
-				log.Printf("bumpCRMessages edit old error: contractHash=%s channelID=%s messageID=%s error=%v",
-					contract.ContractHash, location.ChannelID, existingMsgID, err)
+				movedComponents := []dc.LayoutComponent{
+					dc.TextDisplay{Content: moveText},
+				}
+				if _, err2 := client.EditMessage(location.ChannelID, existingMsgID, dc.Message{
+					Components:      movedComponents,
+					AllowedMentions: &dc.AllowedMentions{},
+				}); err2 != nil {
+					log.Printf("bumpCRMessages edit old error: contractHash=%s channelID=%s messageID=%s error=%v",
+						contract.ContractHash, location.ChannelID, existingMsgID, err2)
+				}
 			}
 		}
 	}
@@ -259,6 +265,11 @@ func sendNextNotification(client dc.Client, contract *Contract, pingUsers bool) 
 			continue
 		}
 
+		mentionSuffix := ""
+		if loc.RoleMention != "" {
+			mentionSuffix = " " + loc.RoleMention
+		}
+
 		switch contract.State {
 		case ContractStateWaiting, ContractStateBanker, ContractStateFastrun:
 			//addContractReactionsButtons(s, contract, loc.ChannelID, msg.ID)
@@ -280,7 +291,7 @@ func sendNextNotification(client dc.Client, contract *Contract, pingUsers bool) 
 						name = einame + contract.Boosters[currentBoosterID].Mention
 					}
 
-					str = fmt.Sprintf(loc.RoleMention+" send tokens to %s", name)
+					str = fmt.Sprintf("Send tokens to **%s** %s", name, mentionSuffix)
 				} else {
 					if contract.Banker.CurrentBanker == "" {
 						str = loc.RoleMention + " contract boosting complete. Hold your tokens for late joining farmers."
@@ -292,7 +303,7 @@ func sendNextNotification(client dc.Client, contract *Contract, pingUsers bool) 
 								einame += " " // Add a space to this
 							}
 							name := einame + contract.Boosters[contract.Banker.CurrentBanker].Mention
-							str = fmt.Sprintf(loc.RoleMention+" send tokens to our volunteer sink **%s**", name)
+							str = fmt.Sprintf("Send tokens to our volunteer sink **%s** %s", name, mentionSuffix)
 						}
 					}
 				}
