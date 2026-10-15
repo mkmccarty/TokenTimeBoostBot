@@ -749,11 +749,6 @@ func buildCRMessage(contract *Contract, roleMention string) (dc.Message, []strin
 	}, allAllowedMentions
 }
 
-// buildCRMessageComponents returns the layout components from buildCRMessage for backward compatibility.
-func buildCRMessageComponents(contract *Contract, roleMention string) ([]dc.LayoutComponent, []string) {
-	msg, mentions := buildCRMessage(contract, roleMention)
-	return msg.Components, mentions
-}
 
 func buttonReactionCRPing(client dc.Client, e *dc.ComponentEvent, contract *Contract, cUserID string) {
 	if contract == nil || e == nil || e.MessageID() == "" {
