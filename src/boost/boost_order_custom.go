@@ -656,7 +656,7 @@ func isBoosterHelper(b *Booster) bool {
 	if b == nil {
 		return false
 	}
-	return b.IsAlt || b.AltController != ""
+	return b.IsHelper || b.IsAlt || b.AltController != ""
 }
 
 func isBoosterMain(b *Booster) bool {

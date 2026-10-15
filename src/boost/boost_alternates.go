@@ -148,6 +148,7 @@ func HandleBoostOrderHelpersCommand(client dc.Client, e *dc.CommandEvent) {
 		var assignedNames []string
 		for _, uID := range matchedIDs {
 			if b := contract.Boosters[uID]; b != nil {
+				b.IsHelper = true
 				b.IsAlt = true
 				name := b.Nick
 				if name == "" {
@@ -253,7 +254,8 @@ func HandleBoostOrderHelpersCommand(client dc.Client, e *dc.CommandEvent) {
 		var clearedNames []string
 		if isAll {
 			for _, b := range contract.Boosters {
-				if b.IsAlt {
+				if b.IsHelper || b.IsAlt {
+					b.IsHelper = false
 					b.IsAlt = false
 					name := b.Nick
 					if name == "" {
@@ -268,7 +270,8 @@ func HandleBoostOrderHelpersCommand(client dc.Client, e *dc.CommandEvent) {
 		} else {
 			for _, uID := range matchedIDs {
 				if b := contract.Boosters[uID]; b != nil {
-					if b.IsAlt {
+					if b.IsHelper || b.IsAlt {
+						b.IsHelper = false
 						b.IsAlt = false
 						name := b.Nick
 						if name == "" {
@@ -335,7 +338,7 @@ func HandleBoostOrderHelpersCommand(client dc.Client, e *dc.CommandEvent) {
 			if name == "" {
 				name = uID
 			}
-			if b.IsAlt || b.AltController != "" {
+			if isBoosterHelper(b) {
 				helpers = append(helpers, name)
 			} else {
 				mains = append(mains, name)

@@ -204,6 +204,7 @@ type Booster struct {
 	Alts          []string // Array of alternate ids for the user
 	AltController string   // User ID of the controller of this alternate
 	IsAlt         bool     // True if designated as an alternate account in this contract
+	IsHelper      bool     // True if designated as a helper in this contract
 
 	BoostState             int                  // Indicates if current booster
 	TokensReceived         int                  // indicate number of boost tokens
