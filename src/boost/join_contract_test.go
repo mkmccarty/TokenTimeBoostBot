@@ -3,6 +3,7 @@ package boost
 import (
 	"fmt"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
@@ -18,13 +19,7 @@ func newJoinCommandEvent(guildID, channelID, callerID, farmerOpt, roleOpt string
 		opts = append(opts, fmt.Sprintf(`{"name": "role", "type": 3, "value": %q}`, roleOpt))
 	}
 
-	optionsJSON := "[]"
-	if len(opts) > 0 {
-		optionsJSON = fmt.Sprintf("[%s]", fmt.Sprintf(`%s`, fmt.Sprint(opts[0])))
-		for i := 1; i < len(opts); i++ {
-			optionsJSON = optionsJSON[:len(optionsJSON)-1] + ", " + opts[i] + "]"
-		}
-	}
+	optionsJSON := "[" + strings.Join(opts, ", ") + "]"
 
 	payload := fmt.Sprintf(`{
 		"id": "100",
