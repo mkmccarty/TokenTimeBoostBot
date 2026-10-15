@@ -749,7 +749,6 @@ func buildCRMessage(contract *Contract, roleMention string) (dc.Message, []strin
 	}, allAllowedMentions
 }
 
-
 func buttonReactionCRPing(client dc.Client, e *dc.ComponentEvent, contract *Contract, cUserID string) {
 	if contract == nil || e == nil || e.MessageID() == "" {
 		return
