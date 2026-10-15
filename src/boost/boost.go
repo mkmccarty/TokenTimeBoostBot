@@ -591,11 +591,13 @@ func FindContractByIDs(channelID string, contractID string, coopID string) *Cont
 }
 
 // AddContractMember adds a member to a contract
-func AddContractMember(client dc.Client, guildID string, channelID string, operator string, mention string, guest string, order int, alreadyBoosted bool) error {
+func AddContractMember(client dc.Client, guildID string, channelID string, operator string, mention string, guest string, order int, alreadyBoosted bool, role string) error {
 	var contract = FindContract(channelID)
 	if contract == nil {
 		return errors.New(errorNoContract)
 	}
+
+	isHelper := strings.EqualFold(role, "Helper")
 
 	if mention != "" {
 		userID := normalizeUserIDInput(mention)
@@ -611,9 +613,12 @@ func AddContractMember(client dc.Client, guildID string, channelID string, opera
 		if u.Bot {
 			return errors.New(errorBot)
 		}
-		_, err = AddFarmerToContract(client, contract, guildID, channelID, u.ID, order, false, alreadyBoosted)
+		b, err := AddFarmerToContract(client, contract, guildID, channelID, u.ID, order, false, alreadyBoosted)
 		if err != nil {
 			return err
+		}
+		if b != nil {
+			b.IsHelper = isHelper
 		}
 
 	}
@@ -656,9 +661,12 @@ func AddContractMember(client dc.Client, guildID string, channelID string, opera
 
 		previousBoosters := len(contract.Boosters)
 
-		_, err := AddFarmerToContract(client, contract, guildID, channelID, guest, order, false, alreadyBoosted)
+		b, err := AddFarmerToContract(client, contract, guildID, channelID, guest, order, false, alreadyBoosted)
 		if err != nil {
 			return err
+		}
+		if b != nil {
+			b.IsHelper = isHelper
 		}
 		for _, loc := range contract.Location {
 			var listStr = "Boost"
@@ -683,6 +691,7 @@ func AddContractMember(client dc.Client, guildID string, channelID string, opera
 		}
 	}
 
+	reorderBoosters(contract)
 	AutoUpdateThreadName(client, contract)
 
 	return nil

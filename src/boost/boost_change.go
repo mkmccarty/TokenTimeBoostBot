@@ -50,6 +50,14 @@ func GetSlashJoinContractCommand(cmd string) *dc.Command {
 			Name:        "already-boosted",
 			Description: "Add farmer in an already boosted state.",
 		},
+		dc.StringOption{
+			Name:        "role",
+			Description: "Role of farmer in boost order. Default is Main.",
+			Choices: []dc.Choice[string]{
+				{Name: "Main", Value: "Main"},
+				{Name: "Helper", Value: "Helper"},
+			},
+		},
 	}
 	return &command
 }

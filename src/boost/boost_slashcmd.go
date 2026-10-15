@@ -286,6 +286,7 @@ func HandleJoinCommand(client dc.Client, e *dc.CommandEvent) {
 	var str = "Joining Member"
 	var tokenWant = 0
 	var alreadyBoosted = false
+	var role = "Main"
 
 	if opt, ok := e.OptString("farmer"); ok {
 		farmerInput = opt
@@ -307,6 +308,14 @@ func HandleJoinCommand(client dc.Client, e *dc.CommandEvent) {
 		alreadyBoosted = opt
 		if alreadyBoosted {
 			str += " (already boosted)"
+		}
+	}
+	if opt, ok := e.OptString("role"); ok && opt != "" {
+		role = opt
+		if strings.EqualFold(role, "Helper") {
+			str += " as Helper"
+		} else {
+			str += " as Main"
 		}
 	}
 
@@ -331,7 +340,7 @@ func HandleJoinCommand(client dc.Client, e *dc.CommandEvent) {
 					farmerstate.SetTokens(normalizeUserIDInput(p.Mention), tokenWant)
 				}
 			}
-			var err = AddContractMember(client, e.GuildID(), e.ChannelID(), callerMention(e), p.Mention, p.Guest, orderValue, alreadyBoosted)
+			var err = AddContractMember(client, e.GuildID(), e.ChannelID(), callerMention(e), p.Mention, p.Guest, orderValue, alreadyBoosted, role)
 			if err != nil {
 				str = err.Error()
 			}
@@ -341,6 +350,7 @@ func HandleJoinCommand(client dc.Client, e *dc.CommandEvent) {
 	// Refresh the boost list to show updated TE for TE-ordered contracts
 	contract := FindContract(e.ChannelID())
 	if contract != nil {
+		reorderBoosters(contract)
 		refreshBoostListMessage(client, contract, false)
 		saveData(contract.ContractHash)
 	}
