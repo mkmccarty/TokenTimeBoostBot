@@ -3,6 +3,8 @@ package boost
 import (
 	"reflect"
 	"testing"
+
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
 
 func TestDeduplicateContributors(t *testing.T) {
@@ -108,5 +110,47 @@ func TestDeduplicateContributors(t *testing.T) {
 				t.Errorf("deduplicateContributors missing = %v, want %v", gotMissing, tc.wantMissing)
 			}
 		})
+	}
+}
+
+func TestEvalForContract_CaseInsensitive(t *testing.T) {
+	contractID := "one-wheel-eggR"
+	coopID := "stardust"
+
+	eval := &ei.ContractEvaluation{
+		ContractIdentifier: &contractID,
+		CoopIdentifier:     &coopID,
+	}
+
+	archive := []*ei.LocalContract{
+		{
+			ContractIdentifier: &contractID,
+			Evaluation:         eval,
+		},
+	}
+
+	// Test 1: exact match
+	if got := evalForContract(archive, "one-wheel-eggR", "stardust"); got == nil {
+		t.Errorf("expected match for exact case")
+	}
+
+	// Test 2: lowercase contractID
+	if got := evalForContract(archive, "one-wheel-eggr", "stardust"); got == nil {
+		t.Errorf("expected match for lowercase contractID")
+	}
+
+	// Test 3: mixed case coopID
+	if got := evalForContract(archive, "one-wheel-eggR", "Stardust"); got == nil {
+		t.Errorf("expected match for mixed case coopID")
+	}
+
+	// Test 4: non-matching contractID
+	if got := evalForContract(archive, "other-contract", "stardust"); got != nil {
+		t.Errorf("expected nil for different contractID")
+	}
+
+	// Test 5: non-matching coopID
+	if got := evalForContract(archive, "one-wheel-eggR", "other-coop"); got != nil {
+		t.Errorf("expected nil for different coopID")
 	}
 }
