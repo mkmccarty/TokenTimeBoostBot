@@ -421,22 +421,19 @@ func buttonReactionRunChickens(client dc.Client, contract *Contract, cUserID str
 			sendSuccess := false
 			for _, location := range contract.Location {
 				contract.mutex.Lock()
-				components, _ := buildCRMessageComponents(contract, location.RoleMention)
+				msg, _ := buildCRMessage(contract, location.RoleMention)
 				existingMsgID := contract.CRMessageIDs[location.ChannelID]
 				contract.mutex.Unlock()
 
-				if components == nil {
+				if msg.Content == "" && len(msg.Embeds) == 0 {
 					continue
 				}
 
 				// Always post a new message to bump the CR requests
-				newMsg, err := client.SendMessage(location.ChannelID, dc.Message{
-					Components: components,
-					// Ping everyone with the first
-					AllowedMentions: &dc.AllowedMentions{
-						Parse: []dc.MentionType{dc.MentionRoles, dc.MentionUsers},
-					},
-				})
+				msg.AllowedMentions = &dc.AllowedMentions{
+					Parse: []dc.MentionType{dc.MentionRoles, dc.MentionUsers},
+				}
+				newMsg, err := client.SendMessage(location.ChannelID, msg)
 				if err != nil {
 					log.Printf("Error sending CR message: contractHash=%s channelID=%s userID=%s error=%v",
 						contract.ContractHash, location.ChannelID, userID, err)
@@ -452,15 +449,24 @@ func buttonReactionRunChickens(client dc.Client, contract *Contract, cUserID str
 				if existingMsgID != "" {
 					// Replace old message with a redirect to the new one
 					newMsgLink := fmt.Sprintf("https://discord.com/channels/%s/%s/%s", location.GuildID, location.ChannelID, newMsg.ID)
-					movedComponents := []dc.LayoutComponent{
-						dc.TextDisplay{Content: fmt.Sprintf("-# Chicken Run request moved: [View updated message](%s)", newMsgLink)},
-					}
+					moveText := fmt.Sprintf("-# Chicken Run request moved: [View updated message](%s)", newMsgLink)
 					if _, err := client.EditMessage(location.ChannelID, existingMsgID, dc.Message{
-						Components:      movedComponents,
+						Content:         moveText,
+						ComponentsV1:    true,
+						ClearComponents: true,
 						AllowedMentions: &dc.AllowedMentions{},
 					}); err != nil {
-						log.Printf("Error editing old CR message: contractHash=%s channelID=%s messageID=%s error=%v",
-							contract.ContractHash, location.ChannelID, existingMsgID, err)
+						// Fallback in case old message was Components V2
+						movedComponents := []dc.LayoutComponent{
+							dc.TextDisplay{Content: moveText},
+						}
+						if _, err2 := client.EditMessage(location.ChannelID, existingMsgID, dc.Message{
+							Components:      movedComponents,
+							AllowedMentions: &dc.AllowedMentions{},
+						}); err2 != nil {
+							log.Printf("Error editing old CR message: contractHash=%s channelID=%s messageID=%s error=%v",
+								contract.ContractHash, location.ChannelID, existingMsgID, err2)
+						}
 					}
 				}
 			}
@@ -550,9 +556,9 @@ func getChickenRunAccentColor(contract *Contract) int {
 	return crColorFromPct(worstPct)
 }
 
-// buildCRMessageComponents builds the components for the chicken run message.
+// buildCRMessage builds the V1 message (Content + Embed + ActionRows) for the chicken run message.
 // Also returns the combined set of user IDs that should receive mention highlights (players still missing runs).
-func buildCRMessageComponents(contract *Contract, roleMention string) ([]dc.LayoutComponent, []string) {
+func buildCRMessage(contract *Contract, roleMention string) (dc.Message, []string) {
 	// Collect requesters within the last 10 minutes, sorted by RunChickensTime (oldest request first).
 	requesters := make([]string, 0, len(contract.Boosters))
 	for id, b := range contract.Boosters {
@@ -568,7 +574,7 @@ func buildCRMessageComponents(contract *Contract, roleMention string) ([]dc.Layo
 		return contract.Boosters[a].RunChickensTime.Compare(contract.Boosters[b].RunChickensTime)
 	})
 	if len(requesters) == 0 {
-		return nil, nil
+		return dc.Message{}, nil
 	}
 
 	// Find the most recent requester by RunChickensTime
@@ -591,17 +597,14 @@ func buildCRMessageComponents(contract *Contract, roleMention string) ([]dc.Layo
 	}
 
 	worstPct := 0.0
-	containerComps := make([]dc.ContainerSubComponent, 0, len(requesters)+1)
+	var requesterLines []string
 	var buttons []dc.InteractiveComponent
 	var selectOptions []dc.SelectOption
 	var allAllowedMentions []string
 
-	// Add a TextDisplay for a header
-	containerComps = append(containerComps, dc.TextDisplay{Content: "### Active Chicken Run Requests"})
-
 	buttonLabelCount := make(map[string]int)
 
-	// Build a TextDisplay and button for each requester, up to 10 buttons total.
+	// Build a line and button for each requester, up to 10 buttons total.
 	for _, reqID := range requesters {
 		booster := contract.Boosters[reqID]
 		if booster == nil {
@@ -646,7 +649,7 @@ func buildCRMessageComponents(contract *Contract, roleMention string) ([]dc.Layo
 				fmt.Fprintf(&sb, "\n-# _  _↳ Ran: %s", strings.Join(alreadyRun, " "))
 			}
 		}
-		containerComps = append(containerComps, dc.TextDisplay{Content: sb.String()})
+		requesterLines = append(requesterLines, sb.String())
 
 		// One button per incomplete requester, max 10 total (up to 2 rows of 5)
 		if len(buttons) < 10 {
@@ -675,15 +678,19 @@ func buildCRMessageComponents(contract *Contract, roleMention string) ([]dc.Layo
 		tipText = "\n-# 💡 Use the Boost Menu to indicate you aren't holding runs."
 	}
 
+	mentionSuffix := ""
+	if roleMention != "" {
+		mentionSuffix = " " + roleMention
+	}
+
 	pingHeader := fmt.Sprintf(
-		"%s **%s** is requesting chicken runs!\n-# Check for trucks and incoming tokens before visiting.%s\n",
-		roleMention, latestName, tipText,
+		"**%s** is requesting chicken runs%s!\n-# Check for trucks and incoming tokens before visiting.%s\n",
+		latestName, mentionSuffix, tipText,
 	)
 	accentColor := crColorFromPct(worstPct)
-	var components []dc.LayoutComponent
 
-	// All requesters done, collapse into a single container with completion notice
-	if len(containerComps) == 1 {
+	// All requesters done, collapse into a single embed with completion notice
+	if len(requesterLines) == 0 {
 		prefix := ""
 		if roleMention != "" {
 			prefix = roleMention + " "
@@ -693,21 +700,19 @@ func buildCRMessageComponents(contract *Contract, roleMention string) ([]dc.Layo
 			name = "Contract"
 		}
 		completionMsg := fmt.Sprintf("-# %s**%s**'s chicken run request is complete!", prefix, name)
-		components = []dc.LayoutComponent{
-			dc.Container{
-				AccentColor: accentColor,
-				Components:  []dc.ContainerSubComponent{dc.TextDisplay{Content: completionMsg}},
+		return dc.Message{
+			Embeds: []dc.Embed{
+				{
+					Description: completionMsg,
+					Color:       accentColor,
+				},
 			},
-		}
-	} else {
-		components = []dc.LayoutComponent{
-			dc.TextDisplay{Content: pingHeader},
-			dc.Container{
-				AccentColor: accentColor,
-				Components:  containerComps,
-			},
-		}
+			ComponentsV1:    true,
+			ClearComponents: true,
+		}, nil
 	}
+
+	var components []dc.LayoutComponent
 
 	// Up to 2 rows of 5 buttons
 	for i := 0; i < len(buttons); i += 5 {
@@ -730,7 +735,24 @@ func buildCRMessageComponents(contract *Contract, roleMention string) ([]dc.Layo
 		})
 	}
 
-	return components, allAllowedMentions
+	embed := dc.Embed{
+		Title:       "Active Chicken Run Requests",
+		Description: strings.Join(requesterLines, "\n"),
+		Color:       accentColor,
+	}
+
+	return dc.Message{
+		Content:      pingHeader,
+		Embeds:       []dc.Embed{embed},
+		Components:   components,
+		ComponentsV1: true,
+	}, allAllowedMentions
+}
+
+// buildCRMessageComponents returns the layout components from buildCRMessage for backward compatibility.
+func buildCRMessageComponents(contract *Contract, roleMention string) ([]dc.LayoutComponent, []string) {
+	msg, mentions := buildCRMessage(contract, roleMention)
+	return msg.Components, mentions
 }
 
 func buttonReactionCRPing(client dc.Client, e *dc.ComponentEvent, contract *Contract, cUserID string) {
@@ -896,11 +918,9 @@ func buttonReactionRanChicken(client dc.Client, e *dc.ComponentEvent, contract *
 		}
 	}
 
-	components, allowedMentions := buildCRMessageComponents(contract, roleMention)
-	if _, err := client.EditMessage(e.ChannelID(), e.MessageID(), dc.Message{
-		Components:      components,
-		AllowedMentions: &dc.AllowedMentions{Users: allowedMentions},
-	}); err != nil {
+	msg, allowedMentions := buildCRMessage(contract, roleMention)
+	msg.AllowedMentions = &dc.AllowedMentions{Users: allowedMentions}
+	if _, err := client.EditMessage(e.ChannelID(), e.MessageID(), msg); err != nil {
 		log.Printf("ChannelMessageEditComplex error: contractHash=%s messageID=%s error=%v",
 			contract.ContractHash, e.MessageID(), err)
 	}
@@ -996,11 +1016,9 @@ func buttonReactionRanCoop(client dc.Client, e *dc.ComponentEvent, contract *Con
 			}
 		}
 
-		components, allowedMentions := buildCRMessageComponents(contract, roleMention)
-		if _, err := client.EditMessage(e.ChannelID(), targetMsgID, dc.Message{
-			Components:      components,
-			AllowedMentions: &dc.AllowedMentions{Users: allowedMentions},
-		}); err != nil {
+		msg, allowedMentions := buildCRMessage(contract, roleMention)
+		msg.AllowedMentions = &dc.AllowedMentions{Users: allowedMentions}
+		if _, err := client.EditMessage(e.ChannelID(), targetMsgID, msg); err != nil {
 			log.Printf("EditMessage error: contractHash=%s messageID=%s error=%v",
 				contract.ContractHash, targetMsgID, err)
 		}
