@@ -131,7 +131,7 @@ Because the T4L owner and the 70-craft & 50-craft players all tie at 50 effort, 
 
 In Boost Bot, players in a contract have one of two roles:
 * **Main**: Primary player accounts (the default for all participants).
-* **Helper**: Alternate/helper accounts (designated alts or accounts marked via `/boost-order-helpers`).
+* **Helper**: Accounts designated with the helper role (via `/boost-order-helpers` or `/contract-member add ... role:Helper`). Alternate accounts are not automatically helpers.
 
 Players and coordinators manage helper designations using:
 * `/boost-order-helpers set [farmers:...]` (leave `farmers` blank to designate yourself; coordinators can specify other farmers)

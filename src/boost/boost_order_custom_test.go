@@ -902,8 +902,13 @@ func TestCustomOrderTableColumns_OnlyActiveCriteria(t *testing.T) {
 func TestCustomOrderRolePriority(t *testing.T) {
 	contract := &Contract{
 		State: ContractStateSignup,
-		Order: []string{"altUser", "regularUser", "quantUser", "gussetUser", "siabUser"},
+		Order: []string{"helperUser", "altUser", "regularUser", "quantUser", "gussetUser", "siabUser"},
 		Boosters: map[string]*Booster{
+			"helperUser": {
+				UserID:   "helperUser",
+				IsHelper: true,
+				IHRRate:  10000,
+			},
 			"altUser": {
 				UserID:        "altUser",
 				AltController: "mainUser",
@@ -939,9 +944,14 @@ func TestCustomOrderRolePriority(t *testing.T) {
 	if regStr != "Main" || regColor != "green" {
 		t.Errorf("expected Main role, got %s / %s", regStr, regColor)
 	}
+	// An alt without IsHelper is a Main, NOT a Helper
 	altStr, altColor := getBoosterRoleString(contract.Boosters["altUser"])
-	if altStr != "Helper" || altColor != "red" {
-		t.Errorf("expected Helper role, got %s / %s", altStr, altColor)
+	if altStr != "Main" || altColor != "green" {
+		t.Errorf("expected altUser without IsHelper to have Main role, got %s / %s", altStr, altColor)
+	}
+	helperStr, helperColor := getBoosterRoleString(contract.Boosters["helperUser"])
+	if helperStr != "Helper" || helperColor != "red" {
+		t.Errorf("expected Helper role, got %s / %s", helperStr, helperColor)
 	}
 	siabStr, siabColor := getBoosterRoleString(contract.Boosters["siabUser"])
 	if siabStr != "Main" || siabColor != "green" {
@@ -951,15 +961,15 @@ func TestCustomOrderRolePriority(t *testing.T) {
 	// 2. Verify sort order: Mains first, Helper last
 	lines := []string{"<ROLE"}
 	sorted := sortCustomRemaining(contract, contract.Order, lines, false)
-	if sorted[len(sorted)-1] != "altUser" {
-		t.Fatalf("expected altUser (Helper) to be last, got order %v", sorted)
+	if sorted[len(sorted)-1] != "helperUser" {
+		t.Fatalf("expected helperUser (Helper) to be last, got order %v", sorted)
 	}
 
 	// >ROLE puts Helper first
 	linesReverse := []string{">ROLE"}
 	sortedReverse := sortCustomRemaining(contract, contract.Order, linesReverse, false)
-	if sortedReverse[0] != "altUser" {
-		t.Fatalf("expected altUser (Helper) to be first with >ROLE, got order %v", sortedReverse)
+	if sortedReverse[0] != "helperUser" {
+		t.Fatalf("expected helperUser (Helper) to be first with >ROLE, got order %v", sortedReverse)
 	}
 
 	// 3. Verify IF MAIN and IF HELPER conditions
@@ -967,16 +977,22 @@ func TestCustomOrderRolePriority(t *testing.T) {
 	if !mainCrit.matchesRole(contract.Boosters["regularUser"]) {
 		t.Errorf("expected regularUser to match IF MAIN")
 	}
+	if !mainCrit.matchesRole(contract.Boosters["altUser"]) {
+		t.Errorf("expected altUser to match IF MAIN")
+	}
 	if !mainCrit.matchesRole(contract.Boosters["siabUser"]) {
 		t.Errorf("expected siabUser to match IF MAIN")
 	}
-	if mainCrit.matchesRole(contract.Boosters["altUser"]) {
-		t.Errorf("did not expect altUser to match IF MAIN")
+	if mainCrit.matchesRole(contract.Boosters["helperUser"]) {
+		t.Errorf("did not expect helperUser to match IF MAIN")
 	}
 
 	helperCrit := parseCustomCriterion("IF HELPER <IHR ELSE >TOKENS")
-	if !helperCrit.matchesRole(contract.Boosters["altUser"]) {
-		t.Errorf("expected altUser to match IF HELPER")
+	if !helperCrit.matchesRole(contract.Boosters["helperUser"]) {
+		t.Errorf("expected helperUser to match IF HELPER")
+	}
+	if helperCrit.matchesRole(contract.Boosters["altUser"]) {
+		t.Errorf("did not expect altUser to match IF HELPER")
 	}
 	if helperCrit.matchesRole(contract.Boosters["regularUser"]) {
 		t.Errorf("did not expect regularUser to match IF HELPER")
