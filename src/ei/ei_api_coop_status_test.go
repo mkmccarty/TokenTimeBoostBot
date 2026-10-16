@@ -280,7 +280,7 @@ func TestGetCoopStatus_SavesSingleCopyWithoutTimestamp(t *testing.T) {
 	}
 }
 
-func TestGetCoopStatus_EnforcesLowercaseContractID(t *testing.T) {
+func TestGetCoopStatus_PreservesContractIDCasing(t *testing.T) {
 	setTestCwd(t)
 	resetCoopStatusCache(t)
 
@@ -304,7 +304,7 @@ func TestGetCoopStatus_EnforcesLowercaseContractID(t *testing.T) {
 		t.Fatalf("GetCoopStatusUncached failed: %v", err)
 	}
 
-	if receivedContractID != "one-wheel-eggr" {
-		t.Fatalf("expected contract ID to be lowercased to 'one-wheel-eggr', got %q", receivedContractID)
+	if receivedContractID != "One-Wheel-EggR" {
+		t.Fatalf("expected contract ID casing to be preserved as 'One-Wheel-EggR', got %q", receivedContractID)
 	}
 }
