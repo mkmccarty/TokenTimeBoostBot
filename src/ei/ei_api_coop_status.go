@@ -51,7 +51,6 @@ func init() {
 }
 
 func requestCoopStatus(contractID string, coopID string, eggIncID string, reqURL string, includeClientVersion bool) ([]byte, int, error) {
-	contractID = strings.ToLower(contractID)
 	enc := base64.StdEncoding
 	coopStatusRequest := ContractCoopStatusRequest{
 		ContractIdentifier: &contractID,
@@ -89,7 +88,6 @@ func requestCoopStatus(contractID string, coopID string, eggIncID string, reqURL
 }
 
 func getCoopStatus(contractID string, coopID string, eeidOverride string, bypassCache bool) (*ContractCoopStatusResponse, time.Time, string, error) {
-	contractID = strings.ToLower(contractID)
 	eggIncID := config.EIUserIDBasic
 	reqURL := "https://www.auxbrain.com/ei/coop_status_bot"
 	enc := base64.StdEncoding
@@ -355,7 +353,6 @@ func ClearCoopStatusCachedData() {
 // GetCoopStatusForCompletedContracts retrieves the coop status for a given contract and coop, but is intended for completed contracts
 // This saves the data in compressed form without a timestamp in the filename
 func GetCoopStatusForCompletedContracts(contractID string, coopID string, eeidOverride string) (*ContractCoopStatusResponse, time.Time, string, error) {
-	contractID = strings.ToLower(contractID)
 	eggIncID := config.EIUserIDBasic
 	reqURL := "https://www.auxbrain.com/ei/coop_status_bot"
 	enc := base64.StdEncoding
