@@ -53,7 +53,7 @@ func parseHexColor(hex string) int {
 }
 
 // ExecuteEbTarget executes the EB display logic for a specific target user ID with optional notice.
-func ExecuteEbTarget(e dc.InteractionEvent, farmChoice string, eggIncID string, showAvatar bool, okayToSave bool, targetUserID string, notice string) {
+func ExecuteEbTarget(e dc.InteractionEvent, farmChoice string, eggIncID string, okayToSave bool, targetUserID string, notice string) {
 	_ = e.Defer(false)
 
 	backup, _ := ei.GetFirstContactFromAPI(eggIncID, targetUserID, okayToSave)
@@ -72,7 +72,7 @@ func ExecuteEbTarget(e dc.InteractionEvent, farmChoice string, eggIncID string, 
 		if altDiscordID != "" {
 			avatarURL = getDiscordAvatarURL(e.Client(), e.GuildID(), altDiscordID)
 		}
-	} else if showAvatar {
+	} else {
 		avatarURL = e.AvatarURL()
 		if avatarURL == "" && e.Client() != nil && e.GuildID() != "" {
 			avatarURL = getDiscordAvatarURL(e.Client(), e.GuildID(), e.UserID())
@@ -92,9 +92,9 @@ func ExecuteEbTarget(e dc.InteractionEvent, farmChoice string, eggIncID string, 
 }
 
 // ExecuteEb executes the EB display logic and responds to the interaction event.
-func ExecuteEb(e dc.InteractionEvent, farmChoice string, eggIncID string, showAvatar bool, okayToSave bool) {
+func ExecuteEb(e dc.InteractionEvent, farmChoice string, eggIncID string, okayToSave bool) {
 	effectiveUserID := farmerstate.GetEffectiveUserID(e.UserID(), e.ChannelID())
-	ExecuteEbTarget(e, farmChoice, eggIncID, showAvatar, okayToSave, effectiveUserID, "")
+	ExecuteEbTarget(e, farmChoice, eggIncID, okayToSave, effectiveUserID, "")
 }
 
 // determineFarmIcons returns the icon to use for Home and Virtue farms based on the player's active farm.
