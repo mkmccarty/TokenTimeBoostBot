@@ -11,12 +11,11 @@ import (
 )
 
 const (
-	FarmHome                  = "Home"
-	FarmVirtue                = "Virtue"
-	FarmHomeAndVirtue         = "Home & Virtue"
-	DefaultFarmChoice         = FarmHomeAndVirtue
-	StickySettingEbFarm       = "eb-farm"
-	StickySettingEbShowAvatar = "eb-show-avatar"
+	FarmHome            = "Home"
+	FarmVirtue          = "Virtue"
+	FarmHomeAndVirtue   = "Home & Virtue"
+	DefaultFarmChoice   = FarmHomeAndVirtue
+	StickySettingEbFarm = "eb-farm"
 )
 
 func init() {
@@ -49,11 +48,6 @@ func GetSlashEbCommand(cmd string) *dc.Command {
 					{Name: FarmHome, Value: FarmHome},
 					{Name: FarmVirtue, Value: FarmVirtue},
 				},
-			},
-			dc.BoolOption{
-				Name:        "show-avatar",
-				Description: "Show player's avatar image. Default is false. (sticky)",
-				Required:    false,
 			},
 			dc.StringOption{
 				Name:         "alt",
@@ -160,14 +154,6 @@ func HandleEb(e *dc.CommandEvent) {
 		}
 	}
 
-	showAvatar := false
-	if opt, ok := e.OptBool("show-avatar"); ok {
-		showAvatar = opt
-		farmerstate.SetMiscSettingFlag(userID, StickySettingEbShowAvatar, showAvatar)
-	} else {
-		showAvatar = farmerstate.GetMiscSettingFlag(userID, StickySettingEbShowAvatar)
-	}
-
 	altParam, _ := e.OptString("alt")
 	targetID, eggIncID, notice := resolveAltSelection(userID, altParam)
 
@@ -194,7 +180,7 @@ func HandleEb(e *dc.CommandEvent) {
 		return
 	}
 
-	ExecuteEbTarget(e, farmChoice, eggIncID, showAvatar, true, targetID, notice)
+	ExecuteEbTarget(e, farmChoice, eggIncID, true, targetID, notice)
 }
 
 // HandleEbModal handles the modal submission when a user provides their Egg Inc ID.
@@ -211,14 +197,6 @@ func HandleEbModal(e *dc.ModalEvent, options dc.OptionValues, encryptedID string
 		if saved != "" {
 			farmChoice = NormalizeFarmChoice(saved)
 		}
-	}
-
-	showAvatar := false
-	if opt, ok := options.Bool("show-avatar"); ok {
-		showAvatar = opt
-		farmerstate.SetMiscSettingFlag(userID, StickySettingEbShowAvatar, showAvatar)
-	} else {
-		showAvatar = farmerstate.GetMiscSettingFlag(userID, StickySettingEbShowAvatar)
 	}
 
 	altParam, _ := options.String("alt")
@@ -251,5 +229,5 @@ func HandleEbModal(e *dc.ModalEvent, options dc.OptionValues, encryptedID string
 		return
 	}
 
-	ExecuteEbTarget(e, farmChoice, eggIncID, showAvatar, okayToSave, targetID, notice)
+	ExecuteEbTarget(e, farmChoice, eggIncID, okayToSave, targetID, notice)
 }

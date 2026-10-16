@@ -47,8 +47,8 @@ func TestGetSlashEbCommand(t *testing.T) {
 	if cmd.Name != "eb" {
 		t.Errorf("cmd.Name = %q; want eb", cmd.Name)
 	}
-	if len(cmd.Options) != 3 {
-		t.Fatalf("expected 3 options, got %d", len(cmd.Options))
+	if len(cmd.Options) != 2 {
+		t.Fatalf("expected 2 options, got %d", len(cmd.Options))
 	}
 	strOpt, ok := cmd.Options[0].(dc.StringOption)
 	if !ok {
@@ -66,19 +66,9 @@ func TestGetSlashEbCommand(t *testing.T) {
 			t.Errorf("choice %d = %v; want %s", i, strOpt.Choices[i], exp)
 		}
 	}
-	boolOpt, ok := cmd.Options[1].(dc.BoolOption)
+	altOpt, ok := cmd.Options[1].(dc.StringOption)
 	if !ok {
-		t.Fatalf("expected option 1 to be dc.BoolOption, got %T", cmd.Options[1])
-	}
-	if boolOpt.Name != "show-avatar" {
-		t.Errorf("option Name = %q; want show-avatar", boolOpt.Name)
-	}
-	if boolOpt.Required {
-		t.Errorf("expected show-avatar option to not be required")
-	}
-	altOpt, ok := cmd.Options[2].(dc.StringOption)
-	if !ok {
-		t.Fatalf("expected option 2 to be dc.StringOption, got %T", cmd.Options[2])
+		t.Fatalf("expected option 1 to be dc.StringOption, got %T", cmd.Options[1])
 	}
 	if altOpt.Name != "alt" {
 		t.Errorf("option Name = %q; want alt", altOpt.Name)
@@ -517,27 +507,6 @@ func TestBuildEbComponents_WithoutAvatar(t *testing.T) {
 	}
 	if !strings.Contains(headerDisplay.Content, "## FarmerBob") {
 		t.Errorf("expected header content to contain title, got: %s", headerDisplay.Content)
-	}
-}
-
-func TestEbStickyShowAvatar(t *testing.T) {
-	testUser := "user-test-avatar"
-	// Verify default is false
-	defaultVal := farmerstate.GetMiscSettingFlag(testUser, StickySettingEbShowAvatar)
-	if defaultVal {
-		t.Errorf("expected default show-avatar to be false, got true")
-	}
-
-	// Set to true and verify it persists
-	farmerstate.SetMiscSettingFlag(testUser, StickySettingEbShowAvatar, true)
-	if !farmerstate.GetMiscSettingFlag(testUser, StickySettingEbShowAvatar) {
-		t.Errorf("expected show-avatar to be true after setting")
-	}
-
-	// Set back to false and verify it persists
-	farmerstate.SetMiscSettingFlag(testUser, StickySettingEbShowAvatar, false)
-	if farmerstate.GetMiscSettingFlag(testUser, StickySettingEbShowAvatar) {
-		t.Errorf("expected show-avatar to be false after setting")
 	}
 }
 
