@@ -831,6 +831,37 @@ func TestReorderBoosters_SignupAndReverse_Helpers(t *testing.T) {
 	}
 }
 
+func TestReorderBoosters_LinkedAltIsNotHelper(t *testing.T) {
+	// A contract with a coordinator and an alt added as progenitor in 2nd place.
+	// When another user joins, the linked alt must NOT be treated as a helper
+	// and must retain its 2nd position in ContractOrderSignup.
+	contract := &Contract{
+		State:      ContractStateSignup,
+		BoostOrder: ContractOrderSignup,
+		Order:      []string{"user-main", "alt-progenitor", "user-joiner"},
+		Boosters: map[string]*Booster{
+			"user-main": {
+				UserID: "user-main",
+				Alts:   []string{"alt-progenitor"},
+			},
+			"alt-progenitor": {
+				UserID:        "alt-progenitor",
+				AltController: "user-main",
+				IsAlt:         false,
+				IsHelper:      false,
+			},
+			"user-joiner": {
+				UserID: "user-joiner",
+			},
+		},
+	}
+	reorderBoosters(contract)
+	expected := []string{"user-main", "alt-progenitor", "user-joiner"}
+	if !slices.Equal(contract.Order, expected) {
+		t.Fatalf("reorderBoosters(Signup with linked alt) = %v, want %v", contract.Order, expected)
+	}
+}
+
 func TestBoostOrderSortRemaining_HelperSortsAfterMains(t *testing.T) {
 	contract := &Contract{
 		Boosters: map[string]*Booster{
