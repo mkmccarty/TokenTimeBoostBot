@@ -2,7 +2,7 @@
 
 UNAME_A = `uname -m`
 UNAME_S = `uname -s`
-GO_VERSION = 1.27.2
+GO_VERSION = 1.27.3
 GOLANGCI_LINT_VERSION=v2.14.0
 
 # Fallback GOROOT if system environment GOROOT points to non-existent directory
