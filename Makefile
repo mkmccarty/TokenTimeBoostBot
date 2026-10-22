@@ -40,15 +40,20 @@ help:
 	@echo "Usage:"
 	@sed -n 's/^##//p' ${MAKEFILE_LIST} | column -t -s ':' |  sed -e 's/^/ /'
 
-## tag-week: tag the current commit with the current ISO week (vYYYY.WW)
+## tag-week: tag main/upstream with the current ISO week (vYYYY.WW)
 .PHONY: tag-week
 tag-week:
 	@TAG="v$$(date -u +'%G.%V')"; \
+	TARGET=$$(git merge-base HEAD origin/main 2>/dev/null || git rev-parse -q --verify origin/main 2>/dev/null || git rev-parse -q --verify main 2>/dev/null || echo HEAD); \
 	if git rev-parse -q --verify "refs/tags/$$TAG" >/dev/null 2>&1; then \
-		echo "Tag $$TAG already exists."; \
+		echo "Tag $$TAG already exists on $$(git rev-parse --short refs/tags/$$TAG)."; \
+		if ! git merge-base --is-ancestor refs/tags/$$TAG HEAD 2>/dev/null; then \
+			echo "Tag $$TAG is not in HEAD ancestry (e.g. on a discarded virtual commit). Retargeting to $$TARGET..."; \
+			git tag -f -a "$$TAG" $$TARGET -m "Weekly CalVer tag $$TAG" && echo "Updated $$TAG to $$TARGET."; \
+		fi \
 	else \
-		git tag -a "$$TAG" -m "Weekly CalVer tag $$TAG" && \
-		echo "Created tag $$TAG. Push with: git push origin $$TAG"; \
+		git tag -a "$$TAG" $$TARGET -m "Weekly CalVer tag $$TAG" && \
+		echo "Created tag $$TAG on $$TARGET. Push with: git push origin $$TAG"; \
 	fi
 
 .PHONY: confirm
