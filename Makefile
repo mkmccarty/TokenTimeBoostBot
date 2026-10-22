@@ -28,8 +28,7 @@ PI=$(BINARY_NAME)_linux_arm6
 PI64=$(BINARY_NAME)_linux_arm64
 BSD=$(BINARY_NAME)_freebsd_amd64
 
-#VERSION=$(shell git describe --tags --always --long --dirty)
-VERSION=$(shell git describe --tags --always --long --dirty)
+VERSION ?= $(shell git describe --tags --always --long --dirty 2>/dev/null || echo "v$$(date -u +'%G.%V')-dev")
 
 # ==================================================================================== #
 # HELPERS
@@ -40,6 +39,17 @@ VERSION=$(shell git describe --tags --always --long --dirty)
 help:
 	@echo "Usage:"
 	@sed -n 's/^##//p' ${MAKEFILE_LIST} | column -t -s ':' |  sed -e 's/^/ /'
+
+## tag-week: tag the current commit with the current ISO week (vYYYY.WW)
+.PHONY: tag-week
+tag-week:
+	@TAG="v$$(date -u +'%G.%V')"; \
+	if git rev-parse -q --verify "refs/tags/$$TAG" >/dev/null 2>&1; then \
+		echo "Tag $$TAG already exists."; \
+	else \
+		git tag -a "$$TAG" -m "Weekly CalVer tag $$TAG" && \
+		echo "Created tag $$TAG. Push with: git push origin $$TAG"; \
+	fi
 
 .PHONY: confirm
 confirm:

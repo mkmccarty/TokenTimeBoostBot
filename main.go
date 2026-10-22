@@ -187,6 +187,22 @@ func init() {
 	}
 
 	version.Version = Version
+	if version.Release == "" {
+		if idx := strings.Index(Version, "-"); idx != -1 {
+			version.Release = Version[:idx]
+		} else {
+			version.Release = Version
+		}
+	}
+	if version.GitHash == "" {
+		if idx := strings.LastIndex(Version, "-g"); idx != -1 {
+			hash := Version[idx+2:]
+			if dirtyIdx := strings.Index(hash, "-dirty"); dirtyIdx != -1 {
+				hash = hash[:dirtyIdx]
+			}
+			version.GitHash = hash
+		}
+	}
 	log.Printf("Starting Discord Bot: %s (%s)\n", version.Release, Version)
 	// For the daemon Log
 	fmt.Printf("Starting Discord Bot: %s (%s) at %s\n", version.Release, Version, time.Now().Format(time.RFC3339))
