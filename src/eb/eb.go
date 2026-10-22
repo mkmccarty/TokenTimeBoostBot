@@ -53,7 +53,7 @@ func parseHexColor(hex string) int {
 }
 
 // ExecuteEbTarget executes the EB display logic for a specific target user ID with optional notice.
-func ExecuteEbTarget(e dc.InteractionEvent, farmChoice string, eggIncID string, okayToSave bool, targetUserID string, notice string) {
+func ExecuteEbTarget(e dc.InteractionEvent, farmChoice string, eggIncID string, okayToSave bool, targetUserID string, notice string, actAsNotice ...string) {
 	_ = e.Defer(false)
 
 	backup, _ := ei.GetFirstContactFromAPI(eggIncID, targetUserID, okayToSave)
@@ -84,6 +84,16 @@ func ExecuteEbTarget(e dc.InteractionEvent, farmChoice string, eggIncID string, 
 		components = append([]dc.LayoutComponent{
 			dc.TextDisplay{Content: notice},
 		}, components...)
+	}
+
+	actAsText := ""
+	if len(actAsNotice) > 0 {
+		actAsText = actAsNotice[0]
+	}
+	if actAsText != "" {
+		components = append(components, dc.TextDisplay{
+			Content: "-# " + actAsText,
+		})
 	}
 
 	_ = e.Followup(dc.Message{
