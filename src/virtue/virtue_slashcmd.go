@@ -160,17 +160,12 @@ func HandleVirtue(e *dc.CommandEvent) {
 	altParam, _ := e.OptString("alt")
 	targetID, altEggIncID, notice := farmerstate.ResolveAltSelection(userID, altParam, "Eggs of Virtue")
 
+	var actAsNotice string
 	if isActAs && altParam == "" {
-		var actAsNotice string
 		if farmerstate.IsActAsForever(expiresAt) {
 			actAsNotice = fmt.Sprintf("Acting as <@%s> via /act-as", effectiveUserID)
 		} else {
 			actAsNotice = fmt.Sprintf("Acting as <@%s> via /act-as (expires <t:%d:R>)", effectiveUserID, expiresAt.Unix())
-		}
-		if notice != "" {
-			notice = actAsNotice + "\n" + notice
-		} else {
-			notice = actAsNotice
 		}
 	}
 
@@ -184,7 +179,7 @@ func HandleVirtue(e *dc.CommandEvent) {
 		return
 	}
 
-	ExecuteVirtueTarget(e, e.Options(), eggIncID, true, targetID, notice)
+	ExecuteVirtueTarget(e, e.Options(), eggIncID, true, targetID, notice, actAsNotice)
 }
 
 // HandleVirtueModal handles the modal submission when a user provides their Egg Inc ID.
@@ -195,17 +190,12 @@ func HandleVirtueModal(e *dc.ModalEvent, options dc.OptionValues, encryptedID st
 	altParam, _ := options.String("alt")
 	targetID, altEggIncID, notice := farmerstate.ResolveAltSelection(userID, altParam, "Eggs of Virtue")
 
+	var actAsNotice string
 	if isActAs && altParam == "" {
-		var actAsNotice string
 		if farmerstate.IsActAsForever(expiresAt) {
 			actAsNotice = fmt.Sprintf("Acting as <@%s> via /act-as", effectiveUserID)
 		} else {
 			actAsNotice = fmt.Sprintf("Acting as <@%s> via /act-as (expires <t:%d:R>)", effectiveUserID, expiresAt.Unix())
-		}
-		if notice != "" {
-			notice = actAsNotice + "\n" + notice
-		} else {
-			notice = actAsNotice
 		}
 	}
 
@@ -221,7 +211,7 @@ func HandleVirtueModal(e *dc.ModalEvent, options dc.OptionValues, encryptedID st
 		return
 	}
 
-	ExecuteVirtueTarget(e, options, eggIncID, okayToSave, targetID, notice)
+	ExecuteVirtueTarget(e, options, eggIncID, okayToSave, targetID, notice, actAsNotice)
 }
 
 func virtueHelpText() string {

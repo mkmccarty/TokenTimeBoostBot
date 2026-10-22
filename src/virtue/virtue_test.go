@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -280,6 +281,39 @@ func TestPrintVirtue_AvatarAccessory(t *testing.T) {
 	wantFallback := "https://cdn.discordapp.com/emojis/1418022084205875210.webp?size=128"
 	if thumbFallback.URL != wantFallback {
 		t.Errorf("expected static fallback thumbnail URL %q, got %q", wantFallback, thumbFallback.URL)
+	}
+}
+
+func TestPrintVirtue_ActAsFooter(t *testing.T) {
+	maker := ei.NewBackupMaker("EI1234567890123456", "TestUser")
+	backup := maker.GetBackup()
+
+	// 1. Without ActAs notice
+	compsWithout := printVirtue("user-test", backup, ei.Egg(-1), 0, true, "", "")
+	if len(compsWithout) == 0 {
+		t.Fatalf("expected components, got empty")
+	}
+	lastCompWithout, ok := compsWithout[len(compsWithout)-1].(dc.TextDisplay)
+	if !ok {
+		t.Fatalf("expected last component to be dc.TextDisplay, got %T", compsWithout[len(compsWithout)-1])
+	}
+	if strings.Contains(lastCompWithout.Content, "via /act-as") {
+		t.Errorf("expected no act-as footer when actAsNotice is empty, got: %s", lastCompWithout.Content)
+	}
+
+	// 2. With ActAs notice
+	actAsNotice := "Acting as <@EI1234567890123456> via /act-as (expires in 15 minutes)"
+	compsWith := printVirtue("user-test", backup, ei.Egg(-1), 0, true, "", actAsNotice)
+	if len(compsWith) == 0 {
+		t.Fatalf("expected components, got empty")
+	}
+	lastCompWith, ok := compsWith[len(compsWith)-1].(dc.TextDisplay)
+	if !ok {
+		t.Fatalf("expected last component to be dc.TextDisplay, got %T", compsWith[len(compsWith)-1])
+	}
+	expectedFooterLine := "-# " + actAsNotice
+	if !strings.Contains(lastCompWith.Content, expectedFooterLine) {
+		t.Errorf("expected act-as footer line %q, got: %s", expectedFooterLine, lastCompWith.Content)
 	}
 }
 

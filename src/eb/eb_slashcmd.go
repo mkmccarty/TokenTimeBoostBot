@@ -157,17 +157,12 @@ func HandleEb(e *dc.CommandEvent) {
 	altParam, _ := e.OptString("alt")
 	targetID, eggIncID, notice := resolveAltSelection(userID, altParam)
 
+	var actAsNotice string
 	if isActAs && altParam == "" {
-		var actAsNotice string
 		if farmerstate.IsActAsForever(expiresAt) {
 			actAsNotice = fmt.Sprintf("Acting as <@%s> via /act-as", effectiveUserID)
 		} else {
 			actAsNotice = fmt.Sprintf("Acting as <@%s> via /act-as (expires <t:%d:R>)", effectiveUserID, expiresAt.Unix())
-		}
-		if notice != "" {
-			notice = actAsNotice + "\n" + notice
-		} else {
-			notice = actAsNotice
 		}
 	}
 
@@ -180,7 +175,7 @@ func HandleEb(e *dc.CommandEvent) {
 		return
 	}
 
-	ExecuteEbTarget(e, farmChoice, eggIncID, true, targetID, notice)
+	ExecuteEbTarget(e, farmChoice, eggIncID, true, targetID, notice, actAsNotice)
 }
 
 // HandleEbModal handles the modal submission when a user provides their Egg Inc ID.
@@ -202,17 +197,12 @@ func HandleEbModal(e *dc.ModalEvent, options dc.OptionValues, encryptedID string
 	altParam, _ := options.String("alt")
 	targetID, altEggIncID, notice := resolveAltSelection(userID, altParam)
 
+	var actAsNotice string
 	if isActAs && altParam == "" {
-		var actAsNotice string
 		if farmerstate.IsActAsForever(expiresAt) {
 			actAsNotice = fmt.Sprintf("Acting as <@%s> via /act-as", effectiveUserID)
 		} else {
 			actAsNotice = fmt.Sprintf("Acting as <@%s> via /act-as (expires <t:%d:R>)", effectiveUserID, expiresAt.Unix())
-		}
-		if notice != "" {
-			notice = actAsNotice + "\n" + notice
-		} else {
-			notice = actAsNotice
 		}
 	}
 
@@ -229,5 +219,5 @@ func HandleEbModal(e *dc.ModalEvent, options dc.OptionValues, encryptedID string
 		return
 	}
 
-	ExecuteEbTarget(e, farmChoice, eggIncID, okayToSave, targetID, notice)
+	ExecuteEbTarget(e, farmChoice, eggIncID, okayToSave, targetID, notice, actAsNotice)
 }

@@ -34,7 +34,7 @@ func Virtue(e dc.InteractionEvent, options dc.OptionValues, eiID string, okayToS
 }
 
 // ExecuteVirtueTarget executes the /virtue display logic for a specific target user ID with optional notice.
-func ExecuteVirtueTarget(e dc.InteractionEvent, options dc.OptionValues, eggIncID string, okayToSave bool, targetUserID string, notice string) {
+func ExecuteVirtueTarget(e dc.InteractionEvent, options dc.OptionValues, eggIncID string, okayToSave bool, targetUserID string, notice string, actAsNotice ...string) {
 	simulatedEgg := ei.Egg(-1)
 	var components []dc.LayoutComponent
 
@@ -85,12 +85,16 @@ func ExecuteVirtueTarget(e dc.InteractionEvent, options dc.OptionValues, eggIncI
 		}
 	}
 
+	actAsText := ""
+	if len(actAsNotice) > 0 {
+		actAsText = actAsNotice[0]
+	}
 	if len(backup.GetFarms()) > 0 {
 		farm := backup.GetFarms()[0]
 		if farm != nil {
 			farmType := farm.GetFarmType()
 			if farmType == ei.FarmType_HOME {
-				components = printVirtue(targetUserID, backup, simulatedEgg, targetTE, compact, avatarURL)
+				components = printVirtue(targetUserID, backup, simulatedEgg, targetTE, compact, avatarURL, actAsText)
 			}
 		}
 	}
@@ -98,6 +102,11 @@ func ExecuteVirtueTarget(e dc.InteractionEvent, options dc.OptionValues, eggIncI
 		components = append(components, dc.TextDisplay{
 			Content: "Your home farm isn't currently producing Eggs of Virtue. Switch to an Egg of Virtue on your home farm to see this information.",
 		})
+		if actAsText != "" {
+			components = append(components, dc.TextDisplay{
+				Content: "-# " + actAsText,
+			})
+		}
 	}
 
 	if notice != "" {
@@ -127,7 +136,11 @@ func defaultVirtueAvatarURL() string {
 	return "https://cdn.discordapp.com/emojis/1418022084205875210.webp?size=128"
 }
 
-func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE uint64, compact bool, avatarURL string) []dc.LayoutComponent {
+func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE uint64, compact bool, avatarURL string, actAsNotice ...string) []dc.LayoutComponent {
+	actAsText := ""
+	if len(actAsNotice) > 0 {
+		actAsText = actAsNotice[0]
+	}
 	var components []dc.LayoutComponent
 	divider := true
 	spacing := dc.SeparatorSpacingSmall
@@ -709,6 +722,9 @@ func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE
 		fmt.Fprintf(&footer, "-# Report:%s  Backup Sync:%s\n",
 			bottools.WrapTimestamp(time.Now().Unix(), bottools.TimestampShortTime),
 			bottools.WrapTimestamp(syncTime.Unix(), bottools.TimestampShortTime))
+	}
+	if actAsText != "" {
+		fmt.Fprintf(&footer, "-# %s\n", actAsText)
 	}
 
 	// Line for fuel
