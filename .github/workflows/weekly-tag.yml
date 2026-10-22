@@ -1,0 +1,46 @@
+name: Weekly CalVer Tag
+
+on:
+  schedule:
+    # Run every Monday at 00:00 UTC
+    - cron: '0 0 * * 1'
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Ensure weekly CalVer tag exists
+        run: |
+          TAG="v$(date -u +'%G.%V')"
+          echo "Target tag for current ISO week: $TAG"
+
+          git fetch --tags --force
+
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists locally."
+            exit 0
+          fi
+
+          if git ls-remote --tags origin "refs/tags/$TAG" | grep -q "$TAG"; then
+            echo "Tag $TAG already exists on remote origin."
+            exit 0
+          fi
+
+          echo "Tag $TAG does not exist. Creating and pushing tag..."
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Automated weekly CalVer tag $TAG"
+          git push origin "$TAG" || echo "Tag $TAG was pushed concurrently."
+          echo "Weekly CalVer tag $TAG is now active."

@@ -31,5 +31,9 @@ secure_hasher
 # Go workspace file
 go.work
 .*
+!/.github/
+/.github/*
+!/.github/workflows/
+!/.github/workflows/**
 __*
 Saved

@@ -69,6 +69,8 @@ func TestLdflagsVersionRegex(t *testing.T) {
 		want    string
 	}{
 		{`-s -w -X main.Version=v7.0-203-ge42cb8920-dirty`, `v7.0-203-ge42cb8920-dirty`},
+		{`-s -w -X main.Version=v2026.42-3-g1a2b3c4-dirty`, `v2026.42-3-g1a2b3c4-dirty`},
+		{`-X main.Version=v2026.42-0-gefa60477d`, `v2026.42-0-gefa60477d`},
 		{`-X main.Version=v7.0-100`, `v7.0-100`},
 		{`-X 'main.Version=v7.0-99'`, `v7.0-99`},
 		{`-X "main.Version=v7.0-98"`, `v7.0-98`},
