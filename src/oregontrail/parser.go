@@ -437,9 +437,10 @@ func findMatchingParen(s string) int {
 		if ch == '"' {
 			inQuote = !inQuote
 		} else if !inQuote {
-			if ch == '(' {
+			switch ch {
+			case '(':
 				depth++
-			} else if ch == ')' {
+			case ')':
 				depth--
 				if depth == 0 {
 					return i
