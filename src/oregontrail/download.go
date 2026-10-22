@@ -38,7 +38,7 @@ func DownloadSource() error {
 	if err != nil {
 		return fmt.Errorf("failed to download oregon.bas: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("downloading oregon.bas returned status %s", resp.Status)
