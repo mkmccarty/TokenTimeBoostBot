@@ -2,7 +2,6 @@ package oregontrail
 
 import (
 	"fmt"
-	"os"
 	"strings"
 	"testing"
 
@@ -11,13 +10,19 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc/dctest"
 )
 
-func TestParseOregonBas(t *testing.T) {
-	data, err := os.ReadFile("../../ttbb-data/oregon.bas")
+func getTestProgramSource(t *testing.T) string {
+	t.Helper()
+	src, err := GetProgramSource()
 	if err != nil {
-		t.Fatalf("failed to read oregon.bas: %v", err)
+		t.Skipf("skipping test: oregon.bas not available: %v", err)
 	}
+	return src
+}
 
-	prog, err := ParseProgram(string(data))
+func TestParseOregonBas(t *testing.T) {
+	src := getTestProgramSource(t)
+
+	prog, err := ParseProgram(src)
 	if err != nil {
 		t.Fatalf("ParseProgram failed: %v", err)
 	}
@@ -34,12 +39,9 @@ func TestParseOregonBas(t *testing.T) {
 }
 
 func TestInterpreterBasicFlow(t *testing.T) {
-	data, err := os.ReadFile("../../ttbb-data/oregon.bas")
-	if err != nil {
-		t.Fatalf("failed to read oregon.bas: %v", err)
-	}
+	src := getTestProgramSource(t)
 
-	prog, err := ParseProgram(string(data))
+	prog, err := ParseProgram(src)
 	if err != nil {
 		t.Fatalf("ParseProgram failed: %v", err)
 	}
@@ -156,12 +158,9 @@ func TestInterpreterBasicFlow(t *testing.T) {
 }
 
 func TestInstructions(t *testing.T) {
-	data, err := os.ReadFile("../../ttbb-data/oregon.bas")
-	if err != nil {
-		t.Fatalf("failed to read oregon.bas: %v", err)
-	}
+	src := getTestProgramSource(t)
 
-	prog, err := ParseProgram(string(data))
+	prog, err := ParseProgram(src)
 	if err != nil {
 		t.Fatalf("ParseProgram failed: %v", err)
 	}
@@ -186,12 +185,9 @@ func TestInstructions(t *testing.T) {
 }
 
 func TestHuntingAndEating(t *testing.T) {
-	data, err := os.ReadFile("../../ttbb-data/oregon.bas")
-	if err != nil {
-		t.Fatalf("failed to read oregon.bas: %v", err)
-	}
+	src := getTestProgramSource(t)
 
-	prog, err := ParseProgram(string(data))
+	prog, err := ParseProgram(src)
 	if err != nil {
 		t.Fatalf("ParseProgram failed: %v", err)
 	}
@@ -254,6 +250,9 @@ func TestHuntingAndEating(t *testing.T) {
 func TestSessionScrollbackAndInstructions(t *testing.T) {
 	sess, err := StartSession("dummy-test-user", "dummy-chan", "")
 	if err != nil {
+		if strings.Contains(err.Error(), "oregon.bas") {
+			t.Skipf("skipping test: %v", err)
+		}
 		t.Fatalf("StartSession failed: %v", err)
 	}
 
@@ -295,6 +294,9 @@ func TestBreakOffOldText(t *testing.T) {
 	fake := &dctest.FakeClient{}
 	sess, err := StartSession("dummy-breakoff-user", "dummy-chan", "")
 	if err != nil {
+		if strings.Contains(err.Error(), "oregon.bas") {
+			t.Skipf("skipping test: %v", err)
+		}
 		t.Fatalf("StartSession failed: %v", err)
 	}
 
@@ -362,6 +364,9 @@ func TestBreakOffOldText(t *testing.T) {
 func TestNumberButtonsForOptions(t *testing.T) {
 	sess, err := StartSession("dummy-buttons-user", "dummy-chan", "")
 	if err != nil {
+		if strings.Contains(err.Error(), "oregon.bas") {
+			t.Skipf("skipping test: %v", err)
+		}
 		t.Fatalf("StartSession failed: %v", err)
 	}
 
@@ -447,6 +452,9 @@ func TestNumberButtonsForOptions(t *testing.T) {
 func TestStatusLinePurchasesAndUnusedCash(t *testing.T) {
 	sess, err := StartSession("test-user-status", "chan-1", "")
 	if err != nil {
+		if strings.Contains(err.Error(), "oregon.bas") {
+			t.Skipf("skipping test: %v", err)
+		}
 		t.Fatalf("failed to start session: %v", err)
 	}
 

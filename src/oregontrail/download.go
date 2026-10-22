@@ -13,7 +13,7 @@ import (
 
 const (
 	// OregonBasURL is the raw source URL for the original 1975 Oregon Trail BASIC source.
-	OregonBasURL = "https://raw.githubusercontent.com/clintmoyer/oregon-trail/master/src-1975/oregon.bas"
+	OregonBasURL = "https://raw.githubusercontent.com/clintmoyer/oregon-trail/master/oregon.bas"
 	// OregonBasLocalPath is the data file path in ttbb-data.
 	OregonBasLocalPath = "ttbb-data/oregon.bas"
 )
@@ -22,6 +22,25 @@ var (
 	progMu     sync.RWMutex
 	cachedProg *Program
 )
+
+// resolveOregonBasPath returns the local path to oregon.bas.
+// It checks standard locations (e.g. current directory or repo root when running in package tests).
+func resolveOregonBasPath() string {
+	candidates := []string{
+		OregonBasLocalPath,
+		filepath.Join("..", "..", OregonBasLocalPath),
+		filepath.Join("..", OregonBasLocalPath),
+	}
+	for _, p := range candidates {
+		if fi, err := os.Stat(p); err == nil && !fi.IsDir() && fi.Size() > 0 {
+			return p
+		}
+	}
+	if _, err := os.Stat(filepath.Join("..", "..", "go.mod")); err == nil {
+		return filepath.Join("..", "..", OregonBasLocalPath)
+	}
+	return OregonBasLocalPath
+}
 
 // DownloadSource downloads the raw BASIC source during launch.
 func DownloadSource() error {
@@ -53,17 +72,18 @@ func DownloadSource() error {
 		return fmt.Errorf("downloaded oregon.bas is empty")
 	}
 
+	localPath := resolveOregonBasPath()
 	// Ensure destination directory exists
-	dir := filepath.Dir(OregonBasLocalPath)
+	dir := filepath.Dir(localPath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("failed to create directory for oregon.bas: %w", err)
 	}
 
-	if err := os.WriteFile(OregonBasLocalPath, body, 0644); err != nil {
-		return fmt.Errorf("failed to write %s: %w", OregonBasLocalPath, err)
+	if err := os.WriteFile(localPath, body, 0644); err != nil {
+		return fmt.Errorf("failed to write %s: %w", localPath, err)
 	}
 
-	log.Printf("oregontrail: successfully downloaded %s (%d bytes)", OregonBasLocalPath, len(body))
+	log.Printf("oregontrail: successfully downloaded %s (%d bytes)", localPath, len(body))
 
 	// Invalidate cached program so it reloads fresh
 	progMu.Lock()
@@ -76,7 +96,8 @@ func DownloadSource() error {
 // GetProgramSource returns the source code of oregon.bas from ttbb-data/oregon.bas,
 // downloading it first if it does not yet exist.
 func GetProgramSource() (string, error) {
-	data, err := os.ReadFile(OregonBasLocalPath)
+	localPath := resolveOregonBasPath()
+	data, err := os.ReadFile(localPath)
 	if err == nil && len(data) > 0 {
 		return string(data), nil
 	}
@@ -86,9 +107,10 @@ func GetProgramSource() (string, error) {
 		return "", fmt.Errorf("oregon.bas not found and download failed: %w", err)
 	}
 
-	data, err = os.ReadFile(OregonBasLocalPath)
+	localPath = resolveOregonBasPath()
+	data, err = os.ReadFile(localPath)
 	if err != nil {
-		return "", fmt.Errorf("failed to read %s: %w", OregonBasLocalPath, err)
+		return "", fmt.Errorf("failed to read %s: %w", localPath, err)
 	}
 	return string(data), nil
 }
