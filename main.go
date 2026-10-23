@@ -118,7 +118,6 @@ const slashLeaderboard string = "leaderboard"
 const slashTimer string = "timer"
 const slashDashboard string = "dashboard"
 const slashArtifact string = "artifact"
-const slashScoreExplorer string = "score-explorer"
 const slashRemoveDMMessage string = "remove-dm-message"
 const slashPrivacy string = "privacy"
 const slashRerun string = "rerun"
@@ -319,7 +318,6 @@ var (
 		"as_":                     func(e *dc.ComponentEvent) { boost.HandleArtifactReactions(botClient(), e) },
 		"fd_stones":               func(e *dc.ComponentEvent) { boost.HandleStonesPage(botClient(), e) },
 		"fd_teamwork":             boost.HandleTeamworkPage,
-		"fd_playground":           boost.HandleScoreExplorerPage,
 		"bo_order":                func(e *dc.ComponentEvent) { boost.HandleBoostOrderReactions(botClient(), e) },
 		"bo_custom":               func(e *dc.ComponentEvent) { boost.HandleCustomOrderReactions(botClient(), e) },
 		"bo_define":               func(e *dc.ComponentEvent) { boost.HandleDefineCustomOrderReactions(botClient(), e) },
@@ -574,12 +572,6 @@ func setupCommands() {
 			Category:     CmdCategoryStandard,
 			Handler:      func(e *dc.CommandEvent) { boost.HandleArtifactCommand(botClient(), e) },
 			Autocomplete: boost.HandleArtifactAltAutoComplete,
-		},
-		{
-			AppCmd:       boost.GetSlashScoreExplorerCommand(slashScoreExplorer),
-			Category:     CmdCategoryStandard,
-			Handler:      boost.HandleScoreExplorerCommand,
-			Autocomplete: boost.HandleAllContractsAutoComplete,
 		},
 		{
 			AppCmd:   boost.GetSlashChangeSpeedRunSinkCommand(slashChangeSpeedRunSink),

@@ -119,6 +119,10 @@ func sqliteInit() {
 			_, _ = db.ExecContext(ctx, stmt)
 		}
 	}
+
+	// Remove obsolete scoreCalcParams from farmer_state JSON values
+	_, _ = db.ExecContext(ctx, "UPDATE farmer_state SET value = json_remove(value, '$.MiscSettingsString.scoreCalcParams') WHERE json_extract(value, '$.MiscSettingsString.scoreCalcParams') IS NOT NULL;")
+
 	queries = New(db)
 	go dbFlusher()
 }
