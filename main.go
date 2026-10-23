@@ -340,6 +340,7 @@ var (
 		"dashboard_btn":           func(e *dc.ComponentEvent) { dashboard.HandleDashboardComponent(botClient(), e) },
 		"mint_preview":            mint.HandleMintPreview,
 		"chart":                   boost.HandleChartReactions,
+		"rerun_lb":                boost.HandleLeaderboardRerunReactions,
 		"lb_list":                 leaderboard.HandleLBListComponent,
 		"lb_stats":                leaderboard.HandleLBStatsComponent,
 		"lb_p":                    leaderboard.HandleLBPageButton,
