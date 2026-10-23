@@ -97,12 +97,12 @@ func GetSlashRerunEvalCommand(cmd string) *dc.Command {
 			Options: []dc.Option{
 				dc.StringOption{
 					Name:        "model",
-					Description: "Scoring model: leaderboard or standard, with/without dubcap (sticky)",
+					Description: "Scoring model: leaderboard or standard, with/without GG (sticky)",
 					Choices: []dc.Choice[string]{
 						{Name: "Leaderboard", Value: RerunLBModelLeaderboard},
-						{Name: "Leaderboard (Dubcap)", Value: RerunLBModelLeaderboardDubcap},
+						{Name: "Leaderboard (GG)", Value: RerunLBModelLeaderboardGG},
 						{Name: "Standard", Value: RerunLBModelStandard},
-						{Name: "Standard (Dubcap)", Value: RerunLBModelStandardDubcap},
+						{Name: "Standard (GG)", Value: RerunLBModelStandardGG},
 					},
 				},
 				refreshOption,

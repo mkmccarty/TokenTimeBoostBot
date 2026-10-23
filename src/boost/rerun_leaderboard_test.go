@@ -51,10 +51,10 @@ func TestGetContractPotentialScore(t *testing.T) {
 		t.Errorf("expected Leaderboard score 120000, got %f", got)
 	}
 
-	// 2. Leaderboard Dubcap -> max(CxpMaxGG, CxpMaxSiabGG) = 115000
-	scoreLBDubcap := getContractPotentialScore(c, RerunLBModelLeaderboardDubcap)
-	if scoreLBDubcap != 115000.0 {
-		t.Errorf("expected Leaderboard Dubcap score 115000, got %f", scoreLBDubcap)
+	// 2. Leaderboard GG -> max(CxpMaxGG, CxpMaxSiabGG) = 115000
+	scoreLBGG := getContractPotentialScore(c, RerunLBModelLeaderboardGG)
+	if scoreLBGG != 115000.0 {
+		t.Errorf("expected Leaderboard GG score 115000, got %f", scoreLBGG)
 	}
 
 	// 3. Standard -> at least c.Cxp
@@ -399,15 +399,15 @@ func TestHandleLeaderboardRerunReactions(t *testing.T) {
 	}
 
 	// 2. Model change
-	modelEv := dctest.ComponentSelectEventWithUser("rerun_lb#model#"+sessionID, dummyUser, RerunLBModelStandardDubcap)
+	modelEv := dctest.ComponentSelectEventWithUser("rerun_lb#model#"+sessionID, dummyUser, RerunLBModelStandardGG)
 	HandleLeaderboardRerunReactions(modelEv)
 
-	if session.model != RerunLBModelStandardDubcap {
-		t.Errorf("expected model %s, got %s", RerunLBModelStandardDubcap, session.model)
+	if session.model != RerunLBModelStandardGG {
+		t.Errorf("expected model %s, got %s", RerunLBModelStandardGG, session.model)
 	}
 	stickyModel := farmerstate.GetMiscSettingString(dummyUser, rerunLBModelMiscKey)
-	if stickyModel != RerunLBModelStandardDubcap {
-		t.Errorf("expected sticky model %s, got %s", RerunLBModelStandardDubcap, stickyModel)
+	if stickyModel != RerunLBModelStandardGG {
+		t.Errorf("expected sticky model %s, got %s", RerunLBModelStandardGG, stickyModel)
 	}
 
 	// 3. Unauthorized user
@@ -572,22 +572,58 @@ func TestContractPotentialScore_ModelHierarchy(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			std := getContractPotentialScore(tc.c, RerunLBModelStandard)
-			stdDubcap := getContractPotentialScore(tc.c, RerunLBModelStandardDubcap)
+			stdGG := getContractPotentialScore(tc.c, RerunLBModelStandardGG)
 			lb := getContractPotentialScore(tc.c, RerunLBModelLeaderboard)
-			lbDubcap := getContractPotentialScore(tc.c, RerunLBModelLeaderboardDubcap)
+			lbGG := getContractPotentialScore(tc.c, RerunLBModelLeaderboardGG)
 
 			if std > lb {
 				t.Errorf("expected Standard (%.0f) <= Leaderboard (%.0f)", std, lb)
 			}
-			if stdDubcap > lbDubcap {
-				t.Errorf("expected Standard Dubcap (%.0f) <= Leaderboard Dubcap (%.0f)", stdDubcap, lbDubcap)
+			if stdGG > lbGG {
+				t.Errorf("expected Standard GG (%.0f) <= Leaderboard GG (%.0f)", stdGG, lbGG)
 			}
-			if std > stdDubcap {
-				t.Errorf("expected Standard (%.0f) <= Standard Dubcap (%.0f)", std, stdDubcap)
+			if std > stdGG {
+				t.Errorf("expected Standard (%.0f) <= Standard GG (%.0f)", std, stdGG)
 			}
-			if lb > lbDubcap {
-				t.Errorf("expected Leaderboard (%.0f) <= Leaderboard Dubcap (%.0f)", lb, lbDubcap)
+			if lb > lbGG {
+				t.Errorf("expected Leaderboard (%.0f) <= Leaderboard GG (%.0f)", lb, lbGG)
 			}
 		})
+	}
+}
+
+func TestNormalizeRerunLBModel(t *testing.T) {
+	tests := []struct {
+		input       string
+		expected    string
+		expectLabel string
+	}{
+		{"leaderboard", RerunLBModelLeaderboard, "Leaderboard"},
+		{"lb", RerunLBModelLeaderboard, "Leaderboard"},
+		{"leaderboard_gg", RerunLBModelLeaderboardGG, "Leaderboard (GG)"},
+		{"leaderboard-gg", RerunLBModelLeaderboardGG, "Leaderboard (GG)"},
+		{"lb_gg", RerunLBModelLeaderboardGG, "Leaderboard (GG)"},
+		{"gg", RerunLBModelLeaderboardGG, "Leaderboard (GG)"},
+		{"dubcap", RerunLBModelLeaderboardGG, "Leaderboard (GG)"},
+		{"leaderboard_dubcap", RerunLBModelLeaderboardGG, "Leaderboard (GG)"},
+		{"standard", RerunLBModelStandard, "Standard"},
+		{"std", RerunLBModelStandard, "Standard"},
+		{"standard_gg", RerunLBModelStandardGG, "Standard (GG)"},
+		{"standard-gg", RerunLBModelStandardGG, "Standard (GG)"},
+		{"std_gg", RerunLBModelStandardGG, "Standard (GG)"},
+		{"standard_dubcap", RerunLBModelStandardGG, "Standard (GG)"},
+		{"standard-dubcap", RerunLBModelStandardGG, "Standard (GG)"},
+		{"unknown", RerunLBModelLeaderboard, "Leaderboard"},
+	}
+
+	for _, tt := range tests {
+		got := normalizeRerunLBModel(tt.input)
+		if got != tt.expected {
+			t.Errorf("normalizeRerunLBModel(%q) = %q, want %q", tt.input, got, tt.expected)
+		}
+		label := rerunLBModelLabel(tt.input)
+		if label != tt.expectLabel {
+			t.Errorf("rerunLBModelLabel(%q) = %q, want %q", tt.input, label, tt.expectLabel)
+		}
 	}
 }
