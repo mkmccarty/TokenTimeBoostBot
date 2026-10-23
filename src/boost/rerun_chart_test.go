@@ -3,9 +3,11 @@ package boost
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc/dctest"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
 
 func TestBuildSeasonNavButtons_UniqueCustomIDs(t *testing.T) {
@@ -206,5 +208,127 @@ func TestHandleChartReactions_Finish(t *testing.T) {
 	chartSessionsMutex.Unlock()
 	if !stillExists {
 		t.Errorf("expected session with different user to remain")
+	}
+}
+
+func TestPrintContractChart_ThresholdIncludesUnplayedContracts(t *testing.T) {
+	ei.EggIncContractsMutex.Lock()
+	origAll := ei.EggIncContractsAll
+	ei.EggIncContractsAll = make(map[string]ei.EggIncContract)
+
+	now := time.Now()
+	idRun := "test-contract-run"
+	idUnplayed := "test-contract-unplayed"
+	idPerfect := "test-contract-perfect"
+	idPred := "test-contract-pred"
+	idV1 := "test-contract-v1"
+
+	ei.EggIncContractsAll[idRun] = ei.EggIncContract{
+		ID:              idRun,
+		Name:            "Played Contract",
+		ContractVersion: 2,
+		CxpMax:          100000.0,
+		ValidUntil:      now.Add(24 * time.Hour),
+	}
+	ei.EggIncContractsAll[idUnplayed] = ei.EggIncContract{
+		ID:              idUnplayed,
+		Name:            "Unplayed Contract",
+		ContractVersion: 2,
+		CxpMax:          80000.0,
+		ValidUntil:      now.Add(24 * time.Hour),
+	}
+	ei.EggIncContractsAll[idPerfect] = ei.EggIncContract{
+		ID:              idPerfect,
+		Name:            "Perfect Contract",
+		ContractVersion: 2,
+		CxpMax:          100000.0,
+		ValidUntil:      now.Add(24 * time.Hour),
+	}
+	ei.EggIncContractsAll[idPred] = ei.EggIncContract{
+		ID:              idPred,
+		Name:            "Predicted Contract",
+		ContractVersion: 2,
+		Predicted:       true,
+		CxpMax:          90000.0,
+		ValidUntil:      now.Add(24 * time.Hour),
+	}
+	ei.EggIncContractsAll[idV1] = ei.EggIncContract{
+		ID:              idV1,
+		Name:            "V1 Contract",
+		ContractVersion: 1,
+		CxpMax:          0.0,
+		ValidUntil:      now.Add(24 * time.Hour),
+	}
+	ei.EggIncContractsMutex.Unlock()
+
+	defer func() {
+		ei.EggIncContractsMutex.Lock()
+		ei.EggIncContractsAll = origAll
+		ei.EggIncContractsMutex.Unlock()
+	}()
+
+	runCxp := 70000.0
+	perfectCxp := 100000.0
+
+	archive := []*ei.LocalContract{
+		{
+			ContractIdentifier: &idRun,
+			Evaluation: &ei.ContractEvaluation{
+				ContractIdentifier: &idRun,
+				Cxp:                &runCxp,
+			},
+		},
+		{
+			ContractIdentifier: &idPerfect,
+			Evaluation: &ei.ContractEvaluation{
+				ContractIdentifier: &idPerfect,
+				Cxp:                &perfectCxp,
+			},
+		},
+	}
+
+	// percent = 10 -> filters to < 90% (100 - 10) of speedrun potential
+	components := printContractChart("user1", archive, 10, 1, nil, nil, false, "")
+	if len(components) == 0 {
+		t.Fatalf("expected non-empty components")
+	}
+
+	var allText strings.Builder
+	for _, comp := range components {
+		if td, ok := comp.(dc.TextDisplay); ok {
+			allText.WriteString(td.Content)
+			allText.WriteString("\n")
+		}
+	}
+	fullOutput := allText.String()
+
+	// Should include header with 90% (100 - 10)
+	if !strings.Contains(fullOutput, "less than 90% of speedrun potential") {
+		t.Errorf("expected header to contain 'less than 90%%%% of speedrun potential', got: %s", fullOutput)
+	}
+
+	// idRun had 70% < 90% -> should be included
+	if !strings.Contains(fullOutput, idRun) {
+		t.Errorf("expected played contract %s with 70%% score to be included", idRun)
+	}
+
+	// idUnplayed was NOT in archive -> should be included with 0% score (< 90%)
+	if !strings.Contains(fullOutput, idUnplayed) {
+		t.Errorf("expected unplayed contract %s to be included in threshold chart", idUnplayed)
+	}
+
+	// idPerfect had 100% >= 90% -> should NOT be included
+	if strings.Contains(fullOutput, idPerfect) {
+		t.Errorf("expected perfect score contract %s to be excluded", idPerfect)
+	}
+
+	// idPred was predicted -> should NOT be included
+	if strings.Contains(fullOutput, idPred) {
+		t.Errorf("expected predicted contract %s to be excluded", idPred)
+	}
+
+	// idV1 was version 1 -> should NOT be included
+	if strings.Contains(fullOutput, idV1) {
+		t.Errorf("expected v1 contract %s to be excluded", idV1)
 	}
 }
