@@ -20,24 +20,28 @@ import (
 const (
 	// RerunLBModelLeaderboard evaluates rerun potential with max of Leggy Set / SIAB.
 	RerunLBModelLeaderboard = "leaderboard"
-	// RerunLBModelLeaderboardDubcap evaluates rerun potential with max of Leggy Set GG / SIAB GG.
-	RerunLBModelLeaderboardDubcap = "leaderboard_dubcap"
+	// RerunLBModelLeaderboardGG evaluates rerun potential with max of Leggy Set GG / SIAB GG.
+	RerunLBModelLeaderboardGG = "leaderboard_gg"
 	// RerunLBModelStandard evaluates rerun potential with standard scoring (c.Cxp / SIAB).
 	RerunLBModelStandard = "standard"
-	// RerunLBModelStandardDubcap evaluates rerun potential with standard scoring under dubcap (GG).
-	RerunLBModelStandardDubcap = "standard_dubcap"
+	// RerunLBModelStandardGG evaluates rerun potential with standard scoring under generous gift (GG).
+	RerunLBModelStandardGG = "standard_gg"
+
+	// Deprecated aliases for backwards compatibility with any stored settings
+	RerunLBModelLeaderboardDubcap = RerunLBModelLeaderboardGG
+	RerunLBModelStandardDubcap    = RerunLBModelStandardGG
 
 	rerunLBModelMiscKey = "rerunLeaderboardScoringModel"
 )
 
 func normalizeRerunLBModel(m string) string {
 	switch strings.ToLower(strings.TrimSpace(m)) {
-	case RerunLBModelLeaderboardDubcap, "leaderboard-dubcap", "lb_dubcap", "dubcap", "gg":
-		return RerunLBModelLeaderboardDubcap
+	case RerunLBModelLeaderboardGG, "leaderboard-gg", "lb_gg", "gg", "leaderboard_dubcap", "leaderboard-dubcap", "lb_dubcap", "dubcap":
+		return RerunLBModelLeaderboardGG
 	case RerunLBModelStandard, "std":
 		return RerunLBModelStandard
-	case RerunLBModelStandardDubcap, "standard-dubcap", "std_dubcap":
-		return RerunLBModelStandardDubcap
+	case RerunLBModelStandardGG, "standard-gg", "std_gg", "standard_dubcap", "standard-dubcap", "std_dubcap":
+		return RerunLBModelStandardGG
 	case RerunLBModelLeaderboard, "lb":
 		fallthrough
 	default:
@@ -47,12 +51,12 @@ func normalizeRerunLBModel(m string) string {
 
 func rerunLBModelLabel(m string) string {
 	switch normalizeRerunLBModel(m) {
-	case RerunLBModelLeaderboardDubcap:
-		return "Leaderboard (Dubcap)"
+	case RerunLBModelLeaderboardGG:
+		return "Leaderboard (GG)"
 	case RerunLBModelStandard:
 		return "Standard"
-	case RerunLBModelStandardDubcap:
-		return "Standard (Dubcap)"
+	case RerunLBModelStandardGG:
+		return "Standard (GG)"
 	default:
 		return "Leaderboard"
 	}
@@ -82,7 +86,7 @@ func getContractPotentialScore(c ei.EggIncContract, model string) float64 {
 		}
 		return maxCxp
 
-	case RerunLBModelLeaderboardDubcap:
+	case RerunLBModelLeaderboardGG:
 		maxCxp := c.CxpMaxGG
 		if c.CxpMaxSiabGG > maxCxp {
 			maxCxp = c.CxpMaxSiabGG
@@ -103,8 +107,8 @@ func getContractPotentialScore(c ei.EggIncContract, model string) float64 {
 		}
 		return std
 
-	case RerunLBModelStandardDubcap:
-		lbGG := getContractPotentialScore(c, RerunLBModelLeaderboardDubcap)
+	case RerunLBModelStandardGG:
+		lbGG := getContractPotentialScore(c, RerunLBModelLeaderboardGG)
 		if c.EstimatedDurationMax > 0 && c.EstimatedDurationMaxGG > 0 && c.EstimatedDurationLower > 0 &&
 			len(c.Grade) > int(ei.Contract_GRADE_AAA) && len(c.Grade[ei.Contract_GRADE_AAA].TargetAmount) > 0 && len(c.TargetAmount) > 0 {
 			ratio := float64(c.EstimatedDurationMaxGG) / float64(c.EstimatedDurationMax)
@@ -463,9 +467,9 @@ func buildLeaderboardRerunControls(session *lbRerunSession) []dc.LayoutComponent
 				Default: normModel == RerunLBModelLeaderboard,
 			},
 			{
-				Label:   "Leaderboard (Dubcap)",
-				Value:   RerunLBModelLeaderboardDubcap,
-				Default: normModel == RerunLBModelLeaderboardDubcap,
+				Label:   "Leaderboard (GG)",
+				Value:   RerunLBModelLeaderboardGG,
+				Default: normModel == RerunLBModelLeaderboardGG,
 			},
 			{
 				Label:   "Standard",
@@ -473,9 +477,9 @@ func buildLeaderboardRerunControls(session *lbRerunSession) []dc.LayoutComponent
 				Default: normModel == RerunLBModelStandard,
 			},
 			{
-				Label:   "Standard (Dubcap)",
-				Value:   RerunLBModelStandardDubcap,
-				Default: normModel == RerunLBModelStandardDubcap,
+				Label:   "Standard (GG)",
+				Value:   RerunLBModelStandardGG,
+				Default: normModel == RerunLBModelStandardGG,
 			},
 		},
 	}
