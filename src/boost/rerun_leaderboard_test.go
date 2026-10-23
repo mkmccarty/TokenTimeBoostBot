@@ -311,9 +311,12 @@ func TestRenderLeaderboardRerunSession(t *testing.T) {
 	}
 	farmerstate.SetMiscSettingString(dummyUser, "ei_ign", "TestPlayer \ue10c")
 
-	comps := renderLeaderboardRerunSession(session)
+	comps, files := renderLeaderboardRerunSession(session)
 	if len(comps) == 0 {
 		t.Fatalf("expected components to be non-empty")
+	}
+	if len(files) != 0 {
+		t.Errorf("expected 0 files in desktop view, got %d", len(files))
 	}
 
 	var textBuilder strings.Builder
@@ -350,9 +353,28 @@ func TestRenderLeaderboardRerunSession(t *testing.T) {
 		t.Errorf("expected past seasons footnote in table output, got: %s", out)
 	}
 
-	// Test Mobile Friendly rendering
+	// Test Mobile Friendly rendering as an image
 	session.mobileFriendly = true
-	compsMobile := renderLeaderboardRerunSession(session)
+	compsMobile, filesMobile := renderLeaderboardRerunSession(session)
+	if len(filesMobile) != 1 {
+		t.Fatalf("expected 1 file attached in mobile view, got %d", len(filesMobile))
+	}
+	if filesMobile[0].Name != "rerun_leaderboard.png" {
+		t.Errorf("expected file name rerun_leaderboard.png, got %s", filesMobile[0].Name)
+	}
+
+	var hasMediaGallery bool
+	for _, comp := range compsMobile {
+		if mg, ok := comp.(dc.MediaGallery); ok {
+			if len(mg.Items) > 0 && mg.Items[0].URL == "attachment://rerun_leaderboard.png" {
+				hasMediaGallery = true
+			}
+		}
+	}
+	if !hasMediaGallery {
+		t.Errorf("expected MediaGallery referencing attachment://rerun_leaderboard.png in mobile view")
+	}
+
 	textBuilder.Reset()
 	for _, comp := range compsMobile {
 		if td, ok := comp.(dc.TextDisplay); ok {
@@ -361,11 +383,38 @@ func TestRenderLeaderboardRerunSession(t *testing.T) {
 		}
 	}
 	outMobile := textBuilder.String()
-	if !strings.Contains(outMobile, "**All Time**") || !strings.Contains(outMobile, "Rerun ∆:") || !strings.Contains(outMobile, "Sum:") {
-		t.Errorf("expected mobile format with Rerun ∆ and Sum, got: %s", outMobile)
+	if !strings.Contains(outMobile, "Potential Leaderboard Rerun") {
+		t.Errorf("expected title in mobile output, got: %s", outMobile)
 	}
 	if !strings.Contains(outMobile, "Past season scores are fixed on the in-game leaderboard") {
 		t.Errorf("expected past seasons footnote in mobile output, got: %s", outMobile)
+	}
+}
+
+func TestRenderLeaderboardRerunTableImage(t *testing.T) {
+	rows := []rerunLBRow{
+		{
+			seasonName: "All Time",
+			seasonID:   "all-time",
+			current:    1234567,
+			delta:      123456,
+			sum:        1358023,
+		},
+		{
+			seasonName: "2024 Fall",
+			seasonID:   "fall-2024",
+			current:    500000,
+			delta:      0,
+			sum:        500000,
+		},
+	}
+
+	imgBytes, err := RenderLeaderboardRerunTableImage(rows)
+	if err != nil {
+		t.Fatalf("RenderLeaderboardRerunTableImage failed: %v", err)
+	}
+	if len(imgBytes) == 0 {
+		t.Fatal("RenderLeaderboardRerunTableImage returned empty bytes")
 	}
 }
 

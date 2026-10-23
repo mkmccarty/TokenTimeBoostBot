@@ -1,6 +1,7 @@
 package boost
 
 import (
+	"bytes"
 	"fmt"
 	"log"
 	"math"
@@ -170,14 +171,14 @@ func cleanupLBRerunSessions() {
 	}
 }
 
-func printLeaderboardRerun(userID string, archive []*ei.LocalContract, model string, mobileFriendly bool) []dc.LayoutComponent {
+func printLeaderboardRerun(userID string, archive []*ei.LocalContract, model string, mobileFriendly bool) ([]dc.LayoutComponent, []dc.File) {
 	cleanupLBRerunSessions()
 
 	if archive == nil {
 		log.Print("No archived contracts found in Egg Inc API response")
 		return []dc.LayoutComponent{dc.TextDisplay{
 			Content: "No archived contracts found in Egg Inc API response",
-		}}
+		}}, nil
 	}
 
 	session := &lbRerunSession{
@@ -341,7 +342,43 @@ func formatDelta(delta float64) string {
 	return fmt.Sprintf("+%s", bottools.FormatIntWithCommas(dRound))
 }
 
-func renderLeaderboardRerunSession(session *lbRerunSession) []dc.LayoutComponent {
+// RenderLeaderboardRerunTableImage renders the rerun leaderboard table data as a PNG image.
+func RenderLeaderboardRerunTableImage(rows []rerunLBRow) ([]byte, error) {
+	cols := []TableImageColumn{
+		{Label: "Season", Align: bottools.StringAlignLeft},
+		{Label: "Current", Align: bottools.StringAlignRight},
+		{Label: "Rerun ∆", Align: bottools.StringAlignRight},
+		{Label: "Sum", Align: bottools.StringAlignRight},
+	}
+
+	tableRows := make([]TableImageRow, 0, len(rows))
+	for i, r := range rows {
+		curStr := bottools.FormatIntWithCommas(int(math.Round(r.current)))
+		deltaStr := formatDelta(r.delta)
+		sumStr := bottools.FormatIntWithCommas(int(math.Round(r.sum)))
+
+		deltaColor := ""
+		if r.delta > 0 {
+			deltaColor = "green"
+		} else if r.delta < 0 {
+			deltaColor = "red"
+		}
+
+		tableRows = append(tableRows, TableImageRow{
+			Cells: []TableImageCell{
+				{Text: r.seasonName, Color: ""},
+				{Text: curStr, Color: ""},
+				{Text: deltaStr, Color: deltaColor},
+				{Text: sumStr, Color: ""},
+			},
+			DividerAfter: i == 0,
+		})
+	}
+
+	return RenderTableImage(cols, tableRows)
+}
+
+func renderLeaderboardRerunSession(session *lbRerunSession) ([]dc.LayoutComponent, []dc.File) {
 	rows := calculateLeaderboardRerunRows(session.archive, session.model)
 	ign := farmerstate.GetMiscSettingString(session.userID, "ei_ign")
 	userHeader := ""
@@ -350,31 +387,34 @@ func renderLeaderboardRerunSession(session *lbRerunSession) []dc.LayoutComponent
 	}
 
 	var components []dc.LayoutComponent
+	var files []dc.File
 	var builder strings.Builder
 
 	fmt.Fprintf(&builder, "## Potential Leaderboard Rerun\n-# Model: **%s**%s\n",
 		rerunLBModelLabel(session.model), userHeader)
 
+	imageRendered := false
 	if session.mobileFriendly {
-		for i, r := range rows {
-			curStr := bottools.FormatIntWithCommas(int(math.Round(r.current)))
-			deltaStr := formatDelta(r.delta)
-			sumStr := bottools.FormatIntWithCommas(int(math.Round(r.sum)))
-
-			if i == 0 {
-				fmt.Fprintf(&builder, "**%s**\nCurrent: **%s** | Rerun ∆: **%s** | Sum: **%s**\n",
-					r.seasonName, curStr, deltaStr, sumStr)
-			} else {
-				fmt.Fprintf(&builder, "\n**%s**\nCurrent: **%s** | Rerun ∆: **%s** | Sum: **%s**\n",
-					r.seasonName, curStr, deltaStr, sumStr)
-			}
-
-			if builder.Len() > 1800 {
-				components = append(components, dc.TextDisplay{Content: builder.String()})
-				builder.Reset()
-			}
+		imgBytes, err := RenderLeaderboardRerunTableImage(rows)
+		if err != nil {
+			log.Printf("Error rendering rerun leaderboard image: %v", err)
+		} else if len(imgBytes) > 0 {
+			filename := "rerun_leaderboard.png"
+			files = append(files, dc.File{
+				Name:        filename,
+				ContentType: "image/png",
+				Reader:      bytes.NewReader(imgBytes),
+			})
+			components = append(components, dc.TextDisplay{Content: builder.String()})
+			builder.Reset()
+			components = append(components, dc.MediaGallery{
+				Items: []dc.MediaItem{{URL: "attachment://" + filename}},
+			})
+			imageRendered = true
 		}
-	} else {
+	}
+
+	if !imageRendered {
 		maxSeason := runewidth.StringWidth("Season")
 		maxCurrent := runewidth.StringWidth("Current")
 		maxDelta := runewidth.StringWidth("Rerun ∆")
@@ -448,7 +488,7 @@ func renderLeaderboardRerunSession(session *lbRerunSession) []dc.LayoutComponent
 	}
 
 	components = append(components, buildLeaderboardRerunControls(session)...)
-	return components
+	return components, files
 }
 
 func buildLeaderboardRerunControls(session *lbRerunSession) []dc.LayoutComponent {
@@ -555,6 +595,8 @@ func HandleLeaderboardRerunReactions(e *dc.ComponentEvent) {
 		return
 	}
 
+	_ = e.DeferUpdate()
+
 	switch action {
 	case "model":
 		vals := e.Values()
@@ -567,8 +609,11 @@ func HandleLeaderboardRerunReactions(e *dc.ComponentEvent) {
 		farmerstate.SetMiscSettingString(session.userID, "rerunMobileFriendly", strconv.FormatBool(session.mobileFriendly))
 	}
 
-	components := renderLeaderboardRerunSession(session)
-	_ = e.Update(dc.Message{
+	components, files := renderLeaderboardRerunSession(session)
+	if err := e.EditResponse(dc.Message{
 		Components: components,
-	})
+		Files:      files,
+	}); err != nil {
+		log.Printf("Error editing rerun leaderboard interaction response: %v", err)
+	}
 }
