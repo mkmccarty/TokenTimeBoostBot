@@ -481,6 +481,24 @@ func renderLeaderboardRerunSession(session *lbRerunSession) ([]dc.LayoutComponen
 		builder.WriteString("```\n")
 	}
 
+	tokenEmoji := ei.GetBotEmojiMarkdown("token")
+	normModel := normalizeRerunLBModel(session.model)
+	switch normModel {
+	case RerunLBModelLeaderboard:
+		leggyTokens, _ := calcLeggyBoost(DefaultLeggyTE)
+		fmt.Fprintf(&builder, "-# Leggy set %.0f TE, %.0f IHR & %.0f delivery stone sets, 1.0 fair share, %.0f%s boost.\n",
+			DefaultLeggyTE, DefaultLeggyIHRSlots, DefaultLeggyDeliverySlots, leggyTokens, tokenEmoji)
+	case RerunLBModelLeaderboardGG:
+		fmt.Fprintf(&builder, "-# Leggy set %.0f TE, %.0f IHR & %.0f delivery stone sets, 1.0 fair share, 6%s boost.\n",
+			DefaultLeggyTE, DefaultLeggyIHRSlots, DefaultLeggyDeliverySlots, tokenEmoji)
+	case RerunLBModelStandard:
+		fmt.Fprintf(&builder, "-# Standard scoring %.0f TE, 1.0 fair share, 20/0 deflector.\n",
+			DefaultLeggyTE)
+	case RerunLBModelStandardGG:
+		fmt.Fprintf(&builder, "-# Standard scoring %.0f TE, 1.0 fair share, 20/0 deflector (GG).\n",
+			DefaultLeggyTE)
+	}
+
 	builder.WriteString("-# Past season scores are fixed on the in-game leaderboard ~3 weeks after the season ends\n")
 
 	if builder.Len() > 0 {
