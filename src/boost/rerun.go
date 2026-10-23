@@ -91,6 +91,25 @@ func GetSlashRerunEvalCommand(cmd string) *dc.Command {
 				resetOption,
 			},
 		},
+		dc.SubCommand{
+			Name:        "leaderboard",
+			Description: "Summarize potential leaderboard score if contracts are rerun",
+			Options: []dc.Option{
+				dc.StringOption{
+					Name:        "model",
+					Description: "Scoring model: leaderboard or standard, with/without dubcap (sticky)",
+					Choices: []dc.Choice[string]{
+						{Name: "Leaderboard", Value: RerunLBModelLeaderboard},
+						{Name: "Leaderboard (Dubcap)", Value: RerunLBModelLeaderboardDubcap},
+						{Name: "Standard", Value: RerunLBModelStandard},
+						{Name: "Standard (Dubcap)", Value: RerunLBModelStandardDubcap},
+					},
+				},
+				refreshOption,
+				mobileOption,
+				resetOption,
+			},
+		},
 	}
 	return &command
 }
@@ -254,6 +273,9 @@ func RerunEval(e dc.InteractionEvent, options dc.OptionValues, eiID string, okay
 	if opt, ok := options.Bool("season-refresh"); ok {
 		forceRefresh = opt
 	}
+	if opt, ok := options.Bool("leaderboard-refresh"); ok {
+		forceRefresh = opt
+	}
 
 	// Quick reply to buy us some time
 	_ = e.Defer(false)
@@ -273,6 +295,9 @@ func RerunEval(e dc.InteractionEvent, options dc.OptionValues, eiID string, okay
 	} else if opt, ok := options.Bool("season-mobile-friendly"); ok {
 		mobileFriendly = opt
 		farmerstate.SetMiscSettingString(userID, "rerunMobileFriendly", strconv.FormatBool(mobileFriendly))
+	} else if opt, ok := options.Bool("leaderboard-mobile-friendly"); ok {
+		mobileFriendly = opt
+		farmerstate.SetMiscSettingString(userID, "rerunMobileFriendly", strconv.FormatBool(mobileFriendly))
 	} else if val := farmerstate.GetMiscSettingString(userID, "rerunMobileFriendly"); val != "" {
 		mobileFriendly, _ = strconv.ParseBool(val)
 	}
@@ -287,7 +312,23 @@ func RerunEval(e dc.InteractionEvent, options dc.OptionValues, eiID string, okay
 	archive, _ := ei.GetContractArchiveFromAPI(eggIncID, userID, forceRefresh, okayToSave)
 
 	var components []dc.LayoutComponent
-	if len(contractIDList) == 1 {
+	if sub, ok := options.Subcommand(); ok && sub == "leaderboard" {
+		model := ""
+		if opt, ok := options.String("leaderboard-model"); ok && opt != "" {
+			model = opt
+			farmerstate.SetMiscSettingString(userID, rerunLBModelMiscKey, model)
+		} else if opt, ok := options.String("model"); ok && opt != "" {
+			model = opt
+			farmerstate.SetMiscSettingString(userID, rerunLBModelMiscKey, model)
+		} else {
+			model = farmerstate.GetMiscSettingString(userID, rerunLBModelMiscKey)
+		}
+		if model == "" {
+			model = RerunLBModelLeaderboard
+		}
+
+		components = printLeaderboardRerun(userID, archive, model, mobileFriendly)
+	} else if len(contractIDList) == 1 {
 		components = printActiveContractDetails(userID, archive, contractIDList[0])
 	} else {
 		components = printContractChart(userID, archive, percent, page, contractIDList, contractDayMap, mobileFriendly, seasonScope)

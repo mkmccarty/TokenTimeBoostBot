@@ -17,7 +17,7 @@ import (
 var optionsHandlersRead = map[string][]string{
 	"GetSlashContractReportCommand": {"reset", "token-details", "missing-players", "as-image", "contract-id"},
 	"GetSlashRegisterCommand":       {"reset"},
-	"GetSlashRerunEvalCommand":      {"reset", "refresh", "mobile-friendly", "season"},
+	"GetSlashRerunEvalCommand":      {"reset", "refresh", "mobile-friendly", "season", "model"},
 	"GetSlashEstimateTime":          {"contract-id", "include-leggy", "show-gg", "te-override"},
 	"GetSlashHelpCommand":           {"attributions"},
 	"GetSlashCsEstimates":           {"contract-id", "coop-id", "sr-mode", "as-image", "private-reply"},
