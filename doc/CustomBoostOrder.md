@@ -134,8 +134,8 @@ In Boost Bot, players in a contract have one of two roles:
 * **Helper**: Accounts designated with the helper role (via `/boost-order-helpers` or `/contract-member add ... role:Helper`). Alternate accounts are not automatically helpers.
 
 Players and coordinators manage helper designations using:
-* `/boost-order-helpers set [farmers:...]` (leave `farmers` blank to designate yourself; coordinators can specify other farmers)
-* `/boost-order-helpers clear [farmers:...]` (leave `farmers` blank to clear yourself and linked alts; coordinators can specify other farmers or 'all')
+* `/boost-order-helpers set [farmers:...] [sticky:true/false] [role:Helper/Main]` (leave `farmers` blank to designate yourself; coordinators can specify other farmers; set `sticky:true` to apply helper/main role to future contract joins)
+* `/boost-order-helpers clear [farmers:...] [sticky:true/false]` (leave `farmers` blank to clear yourself and linked alts; coordinators can specify other farmers or 'all'; set `sticky:true` to remove sticky helper designation)
 * `/boost-order-helpers list` (list current helper designations)
 
 > [!NOTE]

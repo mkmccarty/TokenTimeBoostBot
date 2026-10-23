@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
 // GetSlashBoostOrderHelpersCommand returns the definition of the /boost-order-helpers command.
@@ -22,6 +23,20 @@ func GetSlashBoostOrderHelpersCommand(cmd string) *dc.Command {
 					Description: "List, mentions, or boost numbers of farmers to mark as helpers (leave blank for yourself)",
 					Required:    false,
 				},
+				dc.BoolOption{
+					Name:        "sticky",
+					Description: "Make helper setting sticky for future contract joins",
+					Required:    false,
+				},
+				dc.StringOption{
+					Name:        "role",
+					Description: "Role of farmer in boost order. Default is Helper.",
+					Required:    false,
+					Choices: []dc.Choice[string]{
+						{Name: "Helper", Value: "Helper"},
+						{Name: "Main", Value: "Main"},
+					},
+				},
 			},
 		},
 		dc.SubCommand{
@@ -31,6 +46,11 @@ func GetSlashBoostOrderHelpersCommand(cmd string) *dc.Command {
 				dc.StringOption{
 					Name:        "farmers",
 					Description: "Farmers to remove helper status from, 'all', or leave blank for yourself and alts",
+					Required:    false,
+				},
+				dc.BoolOption{
+					Name:        "sticky",
+					Description: "Remove sticky helper setting for future contract joins",
 					Required:    false,
 				},
 			},
@@ -91,6 +111,12 @@ func HandleBoostOrderHelpersCommand(client dc.Client, e *dc.CommandEvent) {
 	case "set":
 		farmersInput, _ := e.OptString("farmers")
 		farmersInput = strings.TrimSpace(farmersInput)
+		sticky, _ := e.OptBool("sticky")
+		roleOpt, hasRole := e.OptString("role")
+		isHelper := true
+		if hasRole && strings.EqualFold(roleOpt, "Main") {
+			isHelper = false
+		}
 
 		var matchedIDs []string
 		var notFound []string
@@ -148,8 +174,8 @@ func HandleBoostOrderHelpersCommand(client dc.Client, e *dc.CommandEvent) {
 		var assignedNames []string
 		for _, uID := range matchedIDs {
 			if b := contract.Boosters[uID]; b != nil {
-				b.IsHelper = true
-				b.IsAlt = true
+				b.IsHelper = isHelper
+				b.IsAlt = isHelper
 				name := b.Nick
 				if name == "" {
 					name = b.Name
@@ -166,11 +192,31 @@ func HandleBoostOrderHelpersCommand(client dc.Client, e *dc.CommandEvent) {
 		saveData(contract.ContractHash)
 		refreshBoostListMessage(client, contract, false)
 
+		if sticky {
+			for _, uID := range matchedIDs {
+				farmerstate.SetOrderHelper(uID, isHelper)
+			}
+		}
+
 		var msg string
-		if len(assignedNames) == 1 {
-			msg = fmt.Sprintf("✅ Designated as helper for boost ordering: **%s**", assignedNames[0])
+		if isHelper {
+			if len(assignedNames) == 1 {
+				msg = fmt.Sprintf("✅ Designated as helper for boost ordering: **%s**", assignedNames[0])
+			} else {
+				msg = fmt.Sprintf("✅ Designated as helpers for boost ordering: **%s**", strings.Join(assignedNames, ", "))
+			}
+			if sticky {
+				msg += "\n-# Saved as sticky helper for future contracts."
+			}
 		} else {
-			msg = fmt.Sprintf("✅ Designated as helpers for boost ordering: **%s**", strings.Join(assignedNames, ", "))
+			if len(assignedNames) == 1 {
+				msg = fmt.Sprintf("✅ Designated as Main for boost ordering: **%s**", assignedNames[0])
+			} else {
+				msg = fmt.Sprintf("✅ Designated as Main for boost ordering: **%s**", strings.Join(assignedNames, ", "))
+			}
+			if sticky {
+				msg += "\n-# Removed sticky helper setting for future contracts."
+			}
 		}
 		if len(notFound) > 0 {
 			msg += fmt.Sprintf("\n-# Not found in contract: %s", strings.Join(notFound, ", "))
@@ -179,6 +225,7 @@ func HandleBoostOrderHelpersCommand(client dc.Client, e *dc.CommandEvent) {
 
 	case "clear":
 		farmersInput, _ := e.OptString("farmers")
+		sticky, _ := e.OptBool("sticky")
 		trimmed := strings.TrimSpace(strings.ToLower(farmersInput))
 
 		var matchedIDs []string
@@ -252,8 +299,9 @@ func HandleBoostOrderHelpersCommand(client dc.Client, e *dc.CommandEvent) {
 
 		contract.mutex.Lock()
 		var clearedNames []string
+		var clearedIDs []string
 		if isAll {
-			for _, b := range contract.Boosters {
+			for uID, b := range contract.Boosters {
 				if b.IsHelper || b.IsAlt {
 					b.IsHelper = false
 					b.IsAlt = false
@@ -265,6 +313,7 @@ func HandleBoostOrderHelpersCommand(client dc.Client, e *dc.CommandEvent) {
 						name = b.UserID
 					}
 					clearedNames = append(clearedNames, name)
+					clearedIDs = append(clearedIDs, uID)
 				}
 			}
 		} else {
@@ -281,13 +330,36 @@ func HandleBoostOrderHelpersCommand(client dc.Client, e *dc.CommandEvent) {
 							name = uID
 						}
 						clearedNames = append(clearedNames, name)
+						clearedIDs = append(clearedIDs, uID)
 					}
 				}
 			}
 		}
 		contract.mutex.Unlock()
 
+		if sticky {
+			for _, uID := range clearedIDs {
+				farmerstate.SetOrderHelper(uID, false)
+			}
+		}
+
 		if len(clearedNames) == 0 {
+			if sticky && len(matchedIDs) > 0 {
+				clearedSticky := false
+				for _, uID := range matchedIDs {
+					if farmerstate.GetOrderHelper(uID) {
+						farmerstate.SetOrderHelper(uID, false)
+						clearedSticky = true
+					}
+				}
+				if clearedSticky {
+					_ = e.Respond(dc.Message{
+						Content:   "Removed sticky helper setting for future contracts.",
+						Ephemeral: true,
+					})
+					return
+				}
+			}
 			if trimmed == "" {
 				if len(matchedIDs) > 1 {
 					_ = e.Respond(dc.Message{
@@ -314,6 +386,9 @@ func HandleBoostOrderHelpersCommand(client dc.Client, e *dc.CommandEvent) {
 		refreshBoostListMessage(client, contract, false)
 
 		msg := fmt.Sprintf("Cleared helper designation for: **%s**", strings.Join(clearedNames, ", "))
+		if sticky {
+			msg += "\n-# Removed sticky helper setting for future contracts."
+		}
 		if len(notFound) > 0 {
 			msg += fmt.Sprintf("\n-# Not found in contract: %s", strings.Join(notFound, ", "))
 		}

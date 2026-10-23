@@ -319,3 +319,30 @@ func TestSetPermitLevelAndGetPermitLevel(t *testing.T) {
 		t.Errorf("expected out-of-bounds permit level to fallback to 1, got %d", GetPermitLevel(userID))
 	}
 }
+
+func TestSetOrderHelperAndGetOrderHelper(t *testing.T) {
+	userID := "userA-order-helper-test"
+
+	// Default should be false
+	if GetOrderHelper(userID) {
+		t.Errorf("expected default GetOrderHelper to be false")
+	}
+
+	// Set to true
+	SetOrderHelper(userID, true)
+	if !GetOrderHelper(userID) {
+		t.Errorf("expected GetOrderHelper to be true after SetOrderHelper(true)")
+	}
+
+	// Set to false (removes the setting)
+	SetOrderHelper(userID, false)
+	if GetOrderHelper(userID) {
+		t.Errorf("expected GetOrderHelper to be false after SetOrderHelper(false)")
+	}
+
+	// Ensure key is actually deleted from MiscSettingsFlag
+	f := getFarmer(userID)
+	if _, exists := f.MiscSettingsFlag["OrderHelper"]; exists {
+		t.Errorf("expected OrderHelper key to be removed from MiscSettingsFlag map")
+	}
+}

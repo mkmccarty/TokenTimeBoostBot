@@ -286,7 +286,7 @@ func HandleJoinCommand(client dc.Client, e *dc.CommandEvent) {
 	var str = "Joining Member"
 	var tokenWant = 0
 	var alreadyBoosted = false
-	var role = "Main"
+	var role = ""
 
 	if opt, ok := e.OptString("farmer"); ok {
 		farmerInput = opt
@@ -318,6 +318,10 @@ func HandleJoinCommand(client dc.Client, e *dc.CommandEvent) {
 			str += " as Main"
 		}
 	}
+	sticky, hasSticky := e.OptBool("sticky")
+	if hasSticky && sticky && role != "" {
+		str += " (sticky)"
+	}
 
 	_ = e.Defer(true)
 
@@ -338,6 +342,15 @@ func HandleJoinCommand(client dc.Client, e *dc.CommandEvent) {
 					farmerstate.SetTokens(p.Guest, tokenWant)
 				} else if p.Mention != "" {
 					farmerstate.SetTokens(normalizeUserIDInput(p.Mention), tokenWant)
+				}
+			}
+			if hasSticky && sticky && role != "" {
+				targetID := p.Guest
+				if p.Mention != "" {
+					targetID = normalizeUserIDInput(p.Mention)
+				}
+				if targetID != "" {
+					farmerstate.SetOrderHelper(targetID, strings.EqualFold(role, "Helper"))
 				}
 			}
 			var err = AddContractMember(client, e.GuildID(), e.ChannelID(), callerMention(e), p.Mention, p.Guest, orderValue, alreadyBoosted, role)

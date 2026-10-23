@@ -58,6 +58,10 @@ func GetSlashJoinContractCommand(cmd string) *dc.Command {
 				{Name: "Helper", Value: "Helper"},
 			},
 		},
+		dc.BoolOption{
+			Name:        "sticky",
+			Description: "Make role setting sticky for future contract joins",
+		},
 	}
 	return &command
 }

@@ -617,7 +617,7 @@ func AddContractMember(client dc.Client, guildID string, channelID string, opera
 		if err != nil {
 			return err
 		}
-		if b != nil {
+		if b != nil && role != "" {
 			b.IsHelper = isHelper
 		}
 
@@ -665,7 +665,7 @@ func AddContractMember(client dc.Client, guildID string, channelID string, opera
 		if err != nil {
 			return err
 		}
-		if b != nil {
+		if b != nil && role != "" {
 			b.IsHelper = isHelper
 		}
 		for _, loc := range contract.Location {
@@ -855,6 +855,9 @@ func AddFarmerToContract(client dc.Client, contract *Contract, guildID string, c
 			b.TECount, _ = strconv.Atoi(te)
 		}
 		b.DisableEphemeralLog = farmerstate.GetMiscSettingFlag(userID, "DisableEphemeralLog")
+		if farmerstate.GetOrderHelper(userID) || (b.Name != "" && b.Name != userID && farmerstate.GetOrderHelper(b.Name)) {
+			b.IsHelper = true
+		}
 
 		if contract.State != ContractStateSignup {
 			if contract.Style&ContractFlag4Tokens != 0 {
@@ -1508,6 +1511,7 @@ func JoinContract(client dc.Client, guildID string, channelID string, userID str
 		if err != nil {
 			return err
 		}
+		reorderBoosters(contract)
 
 	}
 
