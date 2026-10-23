@@ -437,7 +437,7 @@ func renderLeaderboardRerunSession(session *lbRerunSession) []dc.LayoutComponent
 		builder.WriteString("```\n")
 	}
 
-	builder.WriteString("-# Past season scores are fixed on the in-game leaderboard once ~3 weeks past the season; rerun gains only adjust All Time.\n")
+	builder.WriteString("-# Past season scores are fixed on the in-game leaderboard ~3 weeks after the season ends\n")
 
 	if builder.Len() > 0 {
 		components = append(components, dc.TextDisplay{Content: builder.String()})

@@ -2463,3 +2463,59 @@ func TestRemoveFarmerByMention_NonActiveBoosterLeavesDoesNotAffectCurrent(t *tes
 		t.Errorf("contract.State = %v, want ContractStateFastrun", contract.State)
 	}
 }
+
+func TestAddFarmerToContract_EscapesMarkdownCharacters(t *testing.T) {
+	client := dctest.New().
+		WithGuild("guild1", "Guild 1").
+		WithChannel("channel1", "guild1", "contract-channel").
+		WithUser("100000000000000091", "lil_lashes_", "lil_lashes_").
+		WithMember("guild1", "100000000000000091", "lil_lashes_", 0).
+		WithUser("100000000000000092", "star_player*", "star_player*")
+
+	contract := &Contract{
+		ContractID:   "test-contract",
+		CoopID:       "test-coop",
+		ContractHash: "test-hash-markdown",
+		Location: []*LocationData{
+			{GuildID: "guild1", ChannelID: "channel1"},
+		},
+		CreatorID: []string{"creator-user"},
+		Order:    []string{},
+		Boosters: make(map[string]*Booster),
+		CoopSize: 10,
+		State:    ContractStateSignup,
+	}
+
+	ContractsMutex.Lock()
+	Contracts[contract.ContractHash] = contract
+	ContractsMutex.Unlock()
+	defer func() {
+		ContractsMutex.Lock()
+		delete(Contracts, contract.ContractHash)
+		ContractsMutex.Unlock()
+	}()
+
+	b1, err := AddFarmerToContract(client, contract, "guild1", "channel1", "100000000000000091", ContractOrderSignup, false, false)
+	if err != nil || b1 == nil {
+		t.Fatalf("AddFarmerToContract failed for user 1: %v", err)
+	}
+
+	if b1.Nick != `lil\_lashes\_` {
+		t.Errorf("b1.Nick = %q, want %q", b1.Nick, `lil\_lashes\_`)
+	}
+	if b1.DisplayName() != `lil\_lashes\_` {
+		t.Errorf("b1.DisplayName() = %q, want %q", b1.DisplayName(), `lil\_lashes\_`)
+	}
+
+	b2, err := AddFarmerToContract(client, contract, "guild1", "channel1", "100000000000000092", ContractOrderSignup, false, false)
+	if err != nil || b2 == nil {
+		t.Fatalf("AddFarmerToContract failed for user 2: %v", err)
+	}
+
+	if b2.Nick != `star\_player\*` {
+		t.Errorf("b2.Nick = %q, want %q", b2.Nick, `star\_player\*`)
+	}
+	if b2.DisplayName() != `star\_player\*` {
+		t.Errorf("b2.DisplayName() = %q, want %q", b2.DisplayName(), `star\_player\*`)
+	}
+}

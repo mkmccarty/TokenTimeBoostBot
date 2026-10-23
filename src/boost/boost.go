@@ -818,7 +818,13 @@ func AddFarmerToContract(client dc.Client, contract *Contract, guildID string, c
 					b.Nick = b.UserName
 				}
 			}
+			if b.Name == "" {
+				b.Name = b.Nick
+			}
 		}
+
+		b.Nick = bottools.EscapeDiscordMarkdown(b.Nick)
+		b.Name = bottools.EscapeDiscordMarkdown(b.Name)
 
 		b.GuildID = guildID
 		// Get Guild Name
