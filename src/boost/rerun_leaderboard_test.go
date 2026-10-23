@@ -349,6 +349,9 @@ func TestRenderLeaderboardRerunSession(t *testing.T) {
 	if !strings.Contains(out, "TestPlayer 👽") {
 		t.Errorf("expected normalized alien emoji in user header, got: %s", out)
 	}
+	if !strings.Contains(out, "Leggy set 100 TE, 8 IHR & 10 delivery stone sets, 1.0 fair share, 5") {
+		t.Errorf("expected leggy set footer in table output, got: %s", out)
+	}
 	if !strings.Contains(out, "Past season scores are fixed on the in-game leaderboard") {
 		t.Errorf("expected past seasons footnote in table output, got: %s", out)
 	}
@@ -386,8 +389,26 @@ func TestRenderLeaderboardRerunSession(t *testing.T) {
 	if !strings.Contains(outMobile, "Potential Leaderboard Rerun") {
 		t.Errorf("expected title in mobile output, got: %s", outMobile)
 	}
+	if !strings.Contains(outMobile, "Leggy set 100 TE, 8 IHR & 10 delivery stone sets, 1.0 fair share, 5") {
+		t.Errorf("expected leggy set footer in mobile output, got: %s", outMobile)
+	}
 	if !strings.Contains(outMobile, "Past season scores are fixed on the in-game leaderboard") {
 		t.Errorf("expected past seasons footnote in mobile output, got: %s", outMobile)
+	}
+
+	// Test Leaderboard GG footer
+	session.model = RerunLBModelLeaderboardGG
+	compsGG, _ := renderLeaderboardRerunSession(session)
+	textBuilder.Reset()
+	for _, comp := range compsGG {
+		if td, ok := comp.(dc.TextDisplay); ok {
+			textBuilder.WriteString(td.Content)
+			textBuilder.WriteString("\n")
+		}
+	}
+	outGG := textBuilder.String()
+	if !strings.Contains(outGG, "Leggy set 100 TE, 8 IHR & 10 delivery stone sets, 1.0 fair share, 6") {
+		t.Errorf("expected GG 6-token footer in output, got: %s", outGG)
 	}
 }
 

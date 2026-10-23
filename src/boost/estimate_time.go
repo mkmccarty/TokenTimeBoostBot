@@ -479,8 +479,24 @@ func GetContractEstimateString(contractID string, includeLeggySet bool, showGG b
 			if isShortContract {
 				boostTokensDisplay = 8.0
 			}
-			str += fmt.Sprintf("-# Leggy set %.0f TE, %.0f IHR & %.0f delivery stone sets, %s fair share, %.0f%s boost.\n",
-				teVal, DefaultLeggyIHRSlots, DefaultLeggyDeliverySlots, fairShareStr, boostTokensDisplay, ei.GetBotEmojiMarkdown("token"))
+			if ggicon != "" && includeLeggySet {
+				ggTokens := 6.0
+				if isShortContract {
+					ggTokens = 8.0
+				}
+				str += fmt.Sprintf("-# Leggy set %.0f TE, %.0f IHR & %.0f delivery stone sets, %s fair share, %.0f%s boost (%.0f%s for GG).\n",
+					teVal, DefaultLeggyIHRSlots, DefaultLeggyDeliverySlots, fairShareStr, boostTokensDisplay, ei.GetBotEmojiMarkdown("token"), ggTokens, ei.GetBotEmojiMarkdown("token"))
+			} else if ggicon != "" {
+				ggTokens := 6.0
+				if isShortContract {
+					ggTokens = 8.0
+				}
+				str += fmt.Sprintf("-# Leggy set %.0f TE, %.0f IHR & %.0f delivery stone sets, %s fair share, %.0f%s boost.\n",
+					teVal, DefaultLeggyIHRSlots, DefaultLeggyDeliverySlots, fairShareStr, ggTokens, ei.GetBotEmojiMarkdown("token"))
+			} else {
+				str += fmt.Sprintf("-# Leggy set %.0f TE, %.0f IHR & %.0f delivery stone sets, %s fair share, %.0f%s boost.\n",
+					teVal, DefaultLeggyIHRSlots, DefaultLeggyDeliverySlots, fairShareStr, boostTokensDisplay, ei.GetBotEmojiMarkdown("token"))
+			}
 
 		}
 		if footerAboutCR && c.MaxCoopSize > 1 {
