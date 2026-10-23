@@ -31,7 +31,8 @@ type TableImageCell struct {
 }
 
 type TableImageRow struct {
-	Cells []TableImageCell
+	Cells        []TableImageCell
+	DividerAfter bool
 }
 
 type loadedFont struct {
@@ -202,8 +203,16 @@ func RenderTableImage(cols []TableImageColumn, rows []TableImageRow) ([]byte, er
 	dividerToRowGap := 6
 	headerH := ascent + descent + headerGap
 
+	dividerExtraH := 0
+	dividerGap := 6
+	for _, row := range rows {
+		if row.DividerAfter {
+			dividerExtraH += dividerGap*2 + 1
+		}
+	}
+
 	imgW := colX[len(cols)] + padX
-	imgH := padY*2 + headerH + dividerToRowGap + len(rows)*rowH
+	imgH := padY*2 + headerH + dividerToRowGap + len(rows)*rowH + dividerExtraH
 
 	img := image.NewRGBA(image.Rect(0, 0, imgW, imgH))
 	draw.Draw(img, img.Bounds(), &image.Uniform{bgColor}, image.Point{}, draw.Src)
@@ -240,13 +249,21 @@ func RenderTableImage(cols []TableImageColumn, rows []TableImageRow) ([]byte, er
 	}
 
 	// Draw Data Rows
-	firstRowY := divY + dividerToRowGap + ascent
-	for rIdx, row := range rows {
-		rowY := firstRowY + rIdx*rowH
+	currentY := divY + dividerToRowGap + ascent
+	for _, row := range rows {
 		for cIdx, cell := range row.Cells {
 			if cIdx < len(cols) {
-				drawCellTextAt(cell.Text, cIdx, rowY, getColor(cell.Color))
+				drawCellTextAt(cell.Text, cIdx, currentY, getColor(cell.Color))
 			}
+		}
+		if row.DividerAfter {
+			lineY := currentY + descent + dividerGap
+			for x := padX; x < imgW-padX; x++ {
+				img.Set(x, lineY, dividerColor)
+			}
+			currentY += rowH + dividerGap*2 + 1
+		} else {
+			currentY += rowH
 		}
 	}
 

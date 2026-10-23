@@ -573,6 +573,8 @@ func (e *ComponentEvent) Followup(m Message) error {
 
 // EditResponse replaces the interaction's original response.
 func (e *ComponentEvent) EditResponse(m Message) error {
+	msg := m
+	e.LastResponse = &msg
 	if e.client == nil {
 		return nil
 	}

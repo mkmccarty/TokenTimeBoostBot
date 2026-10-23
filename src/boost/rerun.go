@@ -312,6 +312,7 @@ func RerunEval(e dc.InteractionEvent, options dc.OptionValues, eiID string, okay
 	archive, _ := ei.GetContractArchiveFromAPI(eggIncID, userID, forceRefresh, okayToSave)
 
 	var components []dc.LayoutComponent
+	var files []dc.File
 	if sub, ok := options.Subcommand(); ok && sub == "leaderboard" {
 		model := ""
 		if opt, ok := options.String("leaderboard-model"); ok && opt != "" {
@@ -327,14 +328,14 @@ func RerunEval(e dc.InteractionEvent, options dc.OptionValues, eiID string, okay
 			model = RerunLBModelLeaderboard
 		}
 
-		components = printLeaderboardRerun(userID, archive, model, mobileFriendly)
+		components, files = printLeaderboardRerun(userID, archive, model, mobileFriendly)
 	} else if len(contractIDList) == 1 {
 		components = printActiveContractDetails(userID, archive, contractIDList[0])
 	} else {
 		components = printContractChart(userID, archive, percent, page, contractIDList, contractDayMap, mobileFriendly, seasonScope)
 	}
 
-	if err = e.Followup(dc.Message{Components: components}); err != nil {
+	if err = e.Followup(dc.Message{Components: components, Files: files}); err != nil {
 		log.Println("Error sending follow-up message:", err)
 	}
 
