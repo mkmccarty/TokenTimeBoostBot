@@ -5,6 +5,7 @@ import (
 	"log"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/mattn/go-runewidth"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
@@ -18,22 +19,9 @@ type leaderboardSeason struct {
 	value string
 }
 
-var leaderboardFallbackSeasons = []leaderboardSeason{
-	{"All Time", "ALL_TIME"},
-	{"Summer 2026", "summer_2026"},
-	{"Spring 2026", "spring_2026"},
-	{"Winter 2026", "winter_2026"},
-	{"Fall 2025", "fall_2025"},
-	{"Summer 2025", "summer_2025"},
-	{"Spring 2025", "spring_2025"},
-	{"Winter 2025", "winter_2025"},
-	{"Fall 2024", "fall_2024"},
-	{"Summer 2024", "summer_2024"},
-	{"Spring 2024", "spring_2024"},
-	{"Winter 2024", "winter_2024"},
-	{"Fall 2023", "fall_2023"},
-	{"Summer 2023", "summer_2023"},
-	{"Spring 2023", "spring_2023"},
+// leaderboardFallbackSeasons returns seasons derived dynamically from contracts.
+func leaderboardFallbackSeasons() []leaderboardSeason {
+	return leaderboardSeasons()
 }
 
 const leaderboardAllTimeScope = "ALL_TIME"
@@ -60,7 +48,7 @@ func leaderboardSeasonLabel(seasonID string) string {
 		return seasonID
 	}
 
-	return fmt.Sprintf("%s %s", seasonName, parts[1])
+	return fmt.Sprintf("%s %s", parts[1], seasonName)
 }
 
 func leaderboardParseSeasonID(seasonID string) (string, int, bool) {
@@ -95,15 +83,53 @@ func leaderboardSeasonIndex(name string) int {
 	return -1
 }
 
+// leaderboardEarliestSeason finds the earliest season defined in contracts,
+// falling back to spring 2023 when no seasonal contracts are present.
+func leaderboardEarliestSeason() (string, int) {
+	bestName := ""
+	bestYear := 0
+	bestIdx := -1
+
+	consider := func(seasonID string) {
+		name, year, ok := leaderboardParseSeasonID(seasonID)
+		if !ok {
+			return
+		}
+
+		idx := leaderboardSeasonIndex(name)
+		if bestYear == 0 || year < bestYear || (year == bestYear && idx < bestIdx) {
+			bestName = name
+			bestYear = year
+			bestIdx = idx
+		}
+	}
+
+	for _, c := range ei.GetEggIncContractsSlice() {
+		consider(c.SeasonID)
+	}
+
+	ei.EggIncContractsMutex.RLock()
+	for _, c := range ei.EggIncContractsAll {
+		consider(c.SeasonID)
+	}
+	ei.EggIncContractsMutex.RUnlock()
+
+	if bestName == "" {
+		return leaderboardSeasonStartName, leaderboardSeasonStartYear
+	}
+	return bestName, bestYear
+}
+
 func leaderboardIsBeforeStart(name string, year int) bool {
-	if year < leaderboardSeasonStartYear {
+	startName, startYear := leaderboardEarliestSeason()
+	if year < startYear {
 		return true
 	}
-	if year > leaderboardSeasonStartYear {
+	if year > startYear {
 		return false
 	}
 
-	return leaderboardSeasonIndex(name) < leaderboardSeasonIndex(leaderboardSeasonStartName)
+	return leaderboardSeasonIndex(name) < leaderboardSeasonIndex(startName)
 }
 
 func leaderboardPreviousSeason(name string, year int) (string, int, bool) {
@@ -121,14 +147,7 @@ func leaderboardPreviousSeason(name string, year int) (string, int, bool) {
 	return leaderboardSeasonOrder[idx], year, true
 }
 
-func leaderboardMostRecentSeason() (string, int, bool) {
-	if currentName, currentYear, _ := ei.GetEggIncCurrentSeason(); currentYear >= leaderboardSeasonStartYear {
-		currentName = strings.ToLower(strings.TrimSpace(currentName))
-		if leaderboardSeasonIndex(currentName) >= 0 {
-			return currentName, currentYear, true
-		}
-	}
-
+func leaderboardMostRecentSeason(extraSeasonIDs ...string) (string, int, bool) {
 	bestName := ""
 	bestYear := 0
 	bestIdx := -1
@@ -147,27 +166,52 @@ func leaderboardMostRecentSeason() (string, int, bool) {
 		}
 	}
 
+	if currentName, currentYear, _ := ei.GetEggIncCurrentSeason(); currentYear >= leaderboardSeasonStartYear {
+		consider(leaderboardSeasonID(currentName, currentYear))
+	}
+	consider(ei.EggIncCurrentSeason.ID)
+
 	for _, c := range ei.GetEggIncContractsSlice() {
 		consider(c.SeasonID)
 	}
-	for _, s := range leaderboardFallbackSeasons {
-		consider(s.value)
+
+	ei.EggIncContractsMutex.RLock()
+	for _, c := range ei.EggIncContractsAll {
+		consider(c.SeasonID)
+	}
+	ei.EggIncContractsMutex.RUnlock()
+
+	for _, sID := range extraSeasonIDs {
+		consider(sID)
 	}
 
 	if bestName == "" {
-		return "", 0, false
+		now := time.Now()
+		year := now.Year()
+		name := "winter"
+		switch now.Month() {
+		case time.January, time.February, time.March:
+			name = "winter"
+		case time.April, time.May, time.June:
+			name = "spring"
+		case time.July, time.August, time.September:
+			name = "summer"
+		case time.October, time.November, time.December:
+			name = "fall"
+		}
+		return name, year, true
 	}
 
 	return bestName, bestYear, true
 }
 
-// leaderboardSeasons returns all known seasonal scopes from periodicals-loaded contracts,
-// with All Time always pinned first. Falls back to a static list until data is loaded.
-func leaderboardSeasons() []leaderboardSeason {
+// leaderboardSeasons returns all known seasonal scopes derived dynamically from contracts,
+// with All Time always pinned first.
+func leaderboardSeasons(extraSeasonIDs ...string) []leaderboardSeason {
 	seasons := []leaderboardSeason{{name: "All Time", value: leaderboardAllTimeScope}}
 	seen := map[string]struct{}{leaderboardAllTimeScope: {}}
 
-	if name, year, ok := leaderboardMostRecentSeason(); ok {
+	if name, year, ok := leaderboardMostRecentSeason(extraSeasonIDs...); ok {
 		for !leaderboardIsBeforeStart(name, year) {
 			seasonID := leaderboardSeasonID(name, year)
 			if _, exists := seen[seasonID]; !exists {
@@ -186,13 +230,21 @@ func leaderboardSeasons() []leaderboardSeason {
 		}
 	}
 
-	if len(seasons) > 1 {
-		return seasons
+	for _, extra := range extraSeasonIDs {
+		extra = strings.ToLower(strings.TrimSpace(extra))
+		if extra == "" || extra == strings.ToLower(leaderboardAllTimeScope) {
+			continue
+		}
+		if _, exists := seen[extra]; !exists {
+			seasons = append(seasons, leaderboardSeason{
+				name:  leaderboardSeasonLabel(extra),
+				value: extra,
+			})
+			seen[extra] = struct{}{}
+		}
 	}
 
-	fallback := make([]leaderboardSeason, len(leaderboardFallbackSeasons))
-	copy(fallback, leaderboardFallbackSeasons)
-	return fallback
+	return seasons
 }
 
 // GetSlashLeaderboard returns the /leaderboard command
