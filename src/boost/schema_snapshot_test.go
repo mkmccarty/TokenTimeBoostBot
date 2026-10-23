@@ -44,7 +44,6 @@ var commandDefinitions = map[string]func(string) *dc.Command{
 	"GetSlashRegisterCommand":            GetSlashRegisterCommand,
 	"GetSlashRenameThread":               GetSlashRenameThread,
 	"GetSlashRerunEvalCommand":           GetSlashRerunEvalCommand,
-	"GetSlashScoreExplorerCommand":       GetSlashScoreExplorerCommand,
 	"GetSlashSkipCommand":                GetSlashSkipCommand,
 	"GetSlashSpeedrunCommand":            GetSlashSpeedrunCommand,
 	"GetSlashStones":                     GetSlashStones,

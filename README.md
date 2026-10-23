@@ -50,7 +50,6 @@ Install your bot into your discord server with this URL:
 ### Reporting and Analysis
 
 * `/contract-report` - Generate a report for a contract.
-* `/score-explorer` - Open score explorer tools for a contract.
 * `/teamwork` - Run teamwork evaluation.
 * `/speedrun` - Run speedrun-related calculations/tools.
 * `/estimate-contract-time` - Estimate contract completion time.
