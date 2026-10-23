@@ -263,7 +263,6 @@ func TestCalculateLeaderboardRerunRows_ExcludesFirstContract(t *testing.T) {
 	}
 }
 
-
 func TestRenderLeaderboardRerunSession(t *testing.T) {
 	dummyUser := "100000000000000001"
 	now := time.Now()

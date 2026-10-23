@@ -2480,10 +2480,10 @@ func TestAddFarmerToContract_EscapesMarkdownCharacters(t *testing.T) {
 			{GuildID: "guild1", ChannelID: "channel1"},
 		},
 		CreatorID: []string{"creator-user"},
-		Order:    []string{},
-		Boosters: make(map[string]*Booster),
-		CoopSize: 10,
-		State:    ContractStateSignup,
+		Order:     []string{},
+		Boosters:  make(map[string]*Booster),
+		CoopSize:  10,
+		State:     ContractStateSignup,
 	}
 
 	ContractsMutex.Lock()
