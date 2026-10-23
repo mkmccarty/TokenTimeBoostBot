@@ -433,6 +433,35 @@ func GetMiscSettingFlag(userID string, key string) bool {
 	return f.MiscSettingsFlag[key]
 }
 
+// DeleteMiscSettingFlag removes a sticky setting flag
+func DeleteMiscSettingFlag(userID string, key string) {
+	f := getFarmer(userID)
+	stateMutex.Lock()
+	defer stateMutex.Unlock()
+
+	if f.MiscSettingsFlag == nil {
+		return
+	}
+	if !f.DataPrivacy {
+		delete(f.MiscSettingsFlag, key)
+		saveSqliteData(userID, f)
+	}
+}
+
+// SetOrderHelper sets or removes the sticky helper setting for a farmer.
+func SetOrderHelper(userID string, isHelper bool) {
+	if isHelper {
+		SetMiscSettingFlag(userID, "OrderHelper", true)
+	} else {
+		DeleteMiscSettingFlag(userID, "OrderHelper")
+	}
+}
+
+// GetOrderHelper returns whether the farmer has a sticky helper setting.
+func GetOrderHelper(userID string) bool {
+	return GetMiscSettingFlag(userID, "OrderHelper")
+}
+
 // SetMiscSettingString sets a key-value sticky setting
 func SetMiscSettingString(userID string, key string, value string) {
 	f := getFarmer(userID)
