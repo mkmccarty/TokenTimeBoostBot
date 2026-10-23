@@ -76,6 +76,37 @@ func cleanupChartSessions() {
 	}
 }
 
+func makeUnplayedChartRow(c ei.EggIncContract, generousGift bool, dayLabel string) chartRow {
+	maxCxp := c.CxpMax
+	if generousGift {
+		maxCxp = c.CxpMaxGG
+	}
+	hasSiab := false
+	if generousGift {
+		if c.CxpMaxSiabGG > c.CxpMaxGG {
+			maxCxp = c.CxpMaxSiabGG
+			hasSiab = true
+		}
+	} else {
+		if c.CxpMaxSiab > c.CxpMax {
+			maxCxp = c.CxpMaxSiab
+			hasSiab = true
+		}
+	}
+
+	return chartRow{
+		contractID:  c.ID,
+		cxp:         0.0,
+		maxCxp:      maxCxp,
+		gap:         maxCxp,
+		percent:     0.0,
+		validUntil:  c.ValidUntil.Unix(),
+		dayLabel:    dayLabel,
+		hasSiab:     hasSiab,
+		maxCoopSize: c.MaxCoopSize,
+	}
+}
+
 func printContractChart(userID string, archive []*ei.LocalContract, percent int, page int, contractIDList []string, contractDayMap map[string]string, mobileFriendly bool, seasonScope string) []dc.LayoutComponent {
 	cleanupChartSessions()
 	var rows []chartRow
@@ -187,43 +218,11 @@ func printContractChart(userID string, archive []*ei.LocalContract, percent int,
 				continue
 			}
 			if c.ContractVersion == 2 {
-				evaluationCxp := 0.0
-				maxCxp := c.CxpMax
-				if generousGift {
-					maxCxp = c.CxpMaxGG
-				}
-				hasSiab := false
-				if generousGift {
-					if c.CxpMaxSiabGG > c.CxpMaxGG {
-						maxCxp = c.CxpMaxSiabGG
-						if c.CxpMaxSiabGG > evaluationCxp {
-							hasSiab = true
-						}
-					}
-				} else {
-					if c.CxpMaxSiab > c.CxpMax {
-						maxCxp = c.CxpMaxSiab
-						if c.CxpMaxSiab > evaluationCxp {
-							hasSiab = true
-						}
-					}
-				}
-
 				dayLabel := ""
 				if len(contractDayMap) > 0 {
 					dayLabel = contractDayMap[contractID]
 				}
-				rows = append(rows, chartRow{
-					contractID:  contractID,
-					cxp:         evaluationCxp,
-					maxCxp:      maxCxp,
-					gap:         maxCxp - evaluationCxp,
-					percent:     0.0,
-					validUntil:  c.ValidUntil.Unix(),
-					dayLabel:    dayLabel,
-					hasSiab:     hasSiab,
-					maxCoopSize: c.MaxCoopSize,
-				})
+				rows = append(rows, makeUnplayedChartRow(c, generousGift, dayLabel))
 			}
 		}
 	}
@@ -240,39 +239,51 @@ func printContractChart(userID string, archive []*ei.LocalContract, percent int,
 				continue
 			}
 			if c.ContractVersion == 2 {
-				evaluationCxp := 0.0
-				maxCxp := c.CxpMax
-				if generousGift {
-					maxCxp = c.CxpMaxGG
-				}
-				hasSiab := false
-				if generousGift {
-					if c.CxpMaxSiabGG > c.CxpMaxGG {
-						maxCxp = c.CxpMaxSiabGG
-						if c.CxpMaxSiabGG > evaluationCxp {
-							hasSiab = true
-						}
-					}
-				} else {
-					if c.CxpMaxSiab > c.CxpMax {
-						maxCxp = c.CxpMaxSiab
-						if c.CxpMaxSiab > evaluationCxp {
-							hasSiab = true
-						}
-					}
-				}
-
-				rows = append(rows, chartRow{
-					contractID:  contractID,
-					cxp:         evaluationCxp,
-					maxCxp:      maxCxp,
-					gap:         maxCxp - evaluationCxp,
-					percent:     0.0,
-					validUntil:  c.ValidUntil.Unix(),
-					hasSiab:     hasSiab,
-					maxCoopSize: c.MaxCoopSize,
-				})
+				rows = append(rows, makeUnplayedChartRow(c, generousGift, ""))
 			}
+		}
+	}
+
+	// For the threshold chart, add zero-score rows for contracts the user
+	// has not yet run.
+	if percent >= 0 {
+		var unplayed []ei.EggIncContract
+		ei.EggIncContractsMutex.RLock()
+		if len(contractIDList) > 0 {
+			for _, contractID := range contractIDList {
+				if processedIDs[contractID] {
+					continue
+				}
+				c, ok := ei.EggIncContractsAll[contractID]
+				if !ok || c.Predicted || c.ContractVersion != 2 {
+					continue
+				}
+				unplayed = append(unplayed, c)
+			}
+		} else {
+			for _, c := range ei.EggIncContractsAll {
+				if c.Predicted || c.ID == "" || c.ID == "first-contract" {
+					continue
+				}
+				if processedIDs[c.ID] {
+					continue
+				}
+				if c.ContractVersion == 2 {
+					unplayed = append(unplayed, c)
+				}
+			}
+		}
+		ei.EggIncContractsMutex.RUnlock()
+
+		sort.Slice(unplayed, func(i, j int) bool {
+			if unplayed[i].ValidUntil.Equal(unplayed[j].ValidUntil) {
+				return unplayed[i].ID < unplayed[j].ID
+			}
+			return unplayed[i].ValidUntil.After(unplayed[j].ValidUntil)
+		})
+
+		for _, c := range unplayed {
+			rows = append(rows, makeUnplayedChartRow(c, generousGift, ""))
 		}
 	}
 
@@ -403,35 +414,56 @@ func renderChartSession(session *chartSession) []dc.LayoutComponent {
 			return displayRows[i].validUntil > displayRows[j].validUntil
 		case "gap":
 			if displayRows[i].gap == displayRows[j].gap {
+				if displayRows[i].validUntil == displayRows[j].validUntil {
+					return displayRows[i].contractID < displayRows[j].contractID
+				}
 				return displayRows[i].validUntil > displayRows[j].validUntil
 			}
 			return displayRows[i].gap > displayRows[j].gap
 		case "gap_asc":
 			if displayRows[i].gap == displayRows[j].gap {
+				if displayRows[i].validUntil == displayRows[j].validUntil {
+					return displayRows[i].contractID < displayRows[j].contractID
+				}
 				return displayRows[i].validUntil > displayRows[j].validUntil
 			}
 			return displayRows[i].gap < displayRows[j].gap
 		case "percent":
 			if displayRows[i].percent == displayRows[j].percent {
+				if displayRows[i].validUntil == displayRows[j].validUntil {
+					return displayRows[i].contractID < displayRows[j].contractID
+				}
 				return displayRows[i].validUntil > displayRows[j].validUntil
 			}
 			return displayRows[i].percent < displayRows[j].percent
 		case "percent_desc":
 			if displayRows[i].percent == displayRows[j].percent {
+				if displayRows[i].validUntil == displayRows[j].validUntil {
+					return displayRows[i].contractID < displayRows[j].contractID
+				}
 				return displayRows[i].validUntil > displayRows[j].validUntil
 			}
 			return displayRows[i].percent > displayRows[j].percent
 		case "cs":
 			if displayRows[i].cxp == displayRows[j].cxp {
+				if displayRows[i].validUntil == displayRows[j].validUntil {
+					return displayRows[i].contractID < displayRows[j].contractID
+				}
 				return displayRows[i].validUntil > displayRows[j].validUntil
 			}
 			return displayRows[i].cxp > displayRows[j].cxp
 		case "cs_asc":
 			if displayRows[i].cxp == displayRows[j].cxp {
+				if displayRows[i].validUntil == displayRows[j].validUntil {
+					return displayRows[i].contractID < displayRows[j].contractID
+				}
 				return displayRows[i].validUntil > displayRows[j].validUntil
 			}
 			return displayRows[i].cxp < displayRows[j].cxp
 		case "date_asc":
+			if displayRows[i].validUntil == displayRows[j].validUntil {
+				return displayRows[i].contractID < displayRows[j].contractID
+			}
 			return displayRows[i].validUntil < displayRows[j].validUntil
 		case "name":
 			cI, _ := ei.GetEggIncContract(displayRows[i].contractID)
@@ -476,6 +508,9 @@ func renderChartSession(session *chartSession) []dc.LayoutComponent {
 		case "date":
 			fallthrough
 		default:
+			if displayRows[i].validUntil == displayRows[j].validUntil {
+				return displayRows[i].contractID < displayRows[j].contractID
+			}
 			return displayRows[i].validUntil > displayRows[j].validUntil
 		}
 	})
@@ -506,7 +541,7 @@ func renderChartSession(session *chartSession) []dc.LayoutComponent {
 	case -200:
 		builder.WriteString("## Displaying contract scores for future predictions")
 	default:
-		fmt.Fprintf(&builder, "## Displaying contract scores less than %d%% of speedrun potential", session.percent)
+		fmt.Fprintf(&builder, "## Displaying contract scores less than %d%% of speedrun potential", 100-session.percent)
 	}
 	if session.generousGift {
 		builder.WriteString(" (Generous Gift)")
@@ -719,31 +754,7 @@ func buildSeasonRows(session *chartSession, newScope string) []chartRow {
 		if !ok || c.ContractVersion != 2 {
 			continue
 		}
-		maxCxp := c.CxpMax
-		if session.generousGift {
-			maxCxp = c.CxpMaxGG
-		}
-		hasSiab := false
-		if session.generousGift {
-			if c.CxpMaxSiabGG > c.CxpMaxGG {
-				maxCxp = c.CxpMaxSiabGG
-				hasSiab = true
-			}
-		} else {
-			if c.CxpMaxSiab > c.CxpMax {
-				maxCxp = c.CxpMaxSiab
-				hasSiab = true
-			}
-		}
-		rows = append(rows, chartRow{
-			contractID:  contractID,
-			maxCxp:      maxCxp,
-			gap:         maxCxp,
-			percent:     0.0,
-			validUntil:  c.ValidUntil.Unix(),
-			hasSiab:     hasSiab,
-			maxCoopSize: c.MaxCoopSize,
-		})
+		rows = append(rows, makeUnplayedChartRow(c, session.generousGift, ""))
 	}
 	return rows
 }
