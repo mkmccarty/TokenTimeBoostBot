@@ -10,6 +10,7 @@ import (
 	"time"
 	"uuid"
 
+	"github.com/mattn/go-runewidth"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
@@ -95,23 +96,17 @@ func getContractPotentialScore(c ei.EggIncContract, model string) float64 {
 		return maxCxp
 
 	case RerunLBModelStandard:
-		stdCxp := c.Cxp
-		if c.EstimatedDurationLower > 0 {
-			siabScore := float64(getContractScoreEstimateWithDuration(c, ei.Contract_GRADE_AAA,
-				c.EstimatedDurationLower,
-				fairShare,
-				100, int(c.EstimatedDurationLower.Minutes()),
-				20, 0,
-				c.ChickenRuns,
-				100, 5))
-			if siabScore > stdCxp {
-				stdCxp = siabScore
-			}
+		lb := getContractPotentialScore(c, RerunLBModelLeaderboard)
+		std := c.Cxp
+		if std > lb && lb > 0 {
+			std = lb
 		}
-		return stdCxp
+		return std
 
 	case RerunLBModelStandardDubcap:
-		if c.EstimatedDurationMax > 0 && c.EstimatedDurationMaxGG > 0 && c.EstimatedDurationLower > 0 {
+		lbGG := getContractPotentialScore(c, RerunLBModelLeaderboardDubcap)
+		if c.EstimatedDurationMax > 0 && c.EstimatedDurationMaxGG > 0 && c.EstimatedDurationLower > 0 &&
+			len(c.Grade) > int(ei.Contract_GRADE_AAA) && len(c.Grade[ei.Contract_GRADE_AAA].TargetAmount) > 0 && len(c.TargetAmount) > 0 {
 			ratio := float64(c.EstimatedDurationMaxGG) / float64(c.EstimatedDurationMax)
 			durGG := time.Duration(float64(c.EstimatedDurationLower) * ratio)
 			stdGG := float64(getContractScoreEstimateWithDuration(c, ei.Contract_GRADE_AAA,
@@ -121,19 +116,18 @@ func getContractPotentialScore(c ei.EggIncContract, model string) float64 {
 				20, 0,
 				c.ChickenRuns,
 				100, 5))
-			stdGGSiab := float64(getContractScoreEstimateWithDuration(c, ei.Contract_GRADE_AAA,
-				durGG,
-				fairShare,
-				100, int(durGG.Minutes()),
-				20, 0,
-				c.ChickenRuns,
-				100, 5))
-			score := max(stdGG, stdGGSiab)
-			if score > 0 {
-				return score
+			if stdGG > lbGG && lbGG > 0 {
+				stdGG = lbGG
+			}
+			if stdGG > 0 {
+				return stdGG
 			}
 		}
-		return getContractPotentialScore(c, RerunLBModelStandard)
+		std := getContractPotentialScore(c, RerunLBModelStandard)
+		if std > lbGG && lbGG > 0 {
+			std = lbGG
+		}
+		return std
 	}
 
 	return c.CxpMax
@@ -273,10 +267,8 @@ func calculateLeaderboardRerunRows(archive []*ei.LocalContract, model string) []
 		seasonName: "All Time",
 		seasonID:   leaderboardAllTimeScope,
 	}
-	for id, score := range userScores {
-		if c, ok := allV2Contracts[id]; ok && c.ContractVersion == 2 {
-			allTimeRow.current += score
-		}
+	for _, score := range userScores {
+		allTimeRow.current += score
 	}
 	for _, c := range allV2Contracts {
 		pot := getContractPotentialScore(c, model)
@@ -288,10 +280,18 @@ func calculateLeaderboardRerunRows(archive []*ei.LocalContract, model string) []
 	}
 	allTimeRow.sum = allTimeRow.current + allTimeRow.delta
 
+	var extraSeasons []string
+	for _, sID := range userSeasons {
+		extraSeasons = append(extraSeasons, sID)
+	}
+	for sID := range contractsBySeason {
+		extraSeasons = append(extraSeasons, sID)
+	}
+
 	rows := []rerunLBRow{allTimeRow}
 
 	// Calculate rows for each season across all contracts
-	for _, s := range leaderboardSeasons() {
+	for _, s := range leaderboardSeasons(extraSeasons...) {
 		if s.value == leaderboardAllTimeScope {
 			continue
 		}
@@ -342,7 +342,7 @@ func renderLeaderboardRerunSession(session *lbRerunSession) []dc.LayoutComponent
 	ign := farmerstate.GetMiscSettingString(session.userID, "ei_ign")
 	userHeader := ""
 	if ign != "" {
-		userHeader = fmt.Sprintf(" • User: **%s**", ign)
+		userHeader = fmt.Sprintf(" • User: **%s**", ei.NormalizePlayerNameForDisplay(ign))
 	}
 
 	var components []dc.LayoutComponent
@@ -358,10 +358,10 @@ func renderLeaderboardRerunSession(session *lbRerunSession) []dc.LayoutComponent
 			sumStr := bottools.FormatIntWithCommas(int(math.Round(r.sum)))
 
 			if i == 0 {
-				fmt.Fprintf(&builder, "**%s**\nCurrent: **%s** | Delta: **%s** | Sum: **%s**\n",
+				fmt.Fprintf(&builder, "**%s**\nCurrent: **%s** | Rerun ∆: **%s** | Sum: **%s**\n",
 					r.seasonName, curStr, deltaStr, sumStr)
 			} else {
-				fmt.Fprintf(&builder, "\n**%s**\nCurrent: **%s** | Delta: **%s** | Sum: **%s**\n",
+				fmt.Fprintf(&builder, "\n**%s**\nCurrent: **%s** | Rerun ∆: **%s** | Sum: **%s**\n",
 					r.seasonName, curStr, deltaStr, sumStr)
 			}
 
@@ -371,10 +371,10 @@ func renderLeaderboardRerunSession(session *lbRerunSession) []dc.LayoutComponent
 			}
 		}
 	} else {
-		maxSeason := len("Season")
-		maxCurrent := len("Current")
-		maxDelta := len("Delta")
-		maxSum := len("Sum")
+		maxSeason := runewidth.StringWidth("Season")
+		maxCurrent := runewidth.StringWidth("Current")
+		maxDelta := runewidth.StringWidth("Rerun ∆")
+		maxSum := runewidth.StringWidth("Sum")
 
 		type formattedRow struct {
 			season  string
@@ -391,28 +391,28 @@ func renderLeaderboardRerunSession(session *lbRerunSession) []dc.LayoutComponent
 				delta:   formatDelta(r.delta),
 				sum:     bottools.FormatIntWithCommas(int(math.Round(r.sum))),
 			}
-			if len(fr.season) > maxSeason {
-				maxSeason = len(fr.season)
+			if w := runewidth.StringWidth(fr.season); w > maxSeason {
+				maxSeason = w
 			}
-			if len(fr.current) > maxCurrent {
-				maxCurrent = len(fr.current)
+			if w := runewidth.StringWidth(fr.current); w > maxCurrent {
+				maxCurrent = w
 			}
-			if len(fr.delta) > maxDelta {
-				maxDelta = len(fr.delta)
+			if w := runewidth.StringWidth(fr.delta); w > maxDelta {
+				maxDelta = w
 			}
-			if len(fr.sum) > maxSum {
-				maxSum = len(fr.sum)
+			if w := runewidth.StringWidth(fr.sum); w > maxSum {
+				maxSum = w
 			}
 			fRows = append(fRows, fr)
 		}
 
-		header := fmt.Sprintf("%s | %s | %s | %s",
+		header := fmt.Sprintf("%s  %s  %s  %s",
 			bottools.AlignString("Season", maxSeason, bottools.StringAlignLeft),
 			bottools.AlignString("Current", maxCurrent, bottools.StringAlignRight),
-			bottools.AlignString("Delta", maxDelta, bottools.StringAlignRight),
+			bottools.AlignString("Rerun ∆", maxDelta, bottools.StringAlignRight),
 			bottools.AlignString("Sum", maxSum, bottools.StringAlignRight),
 		)
-		sep := strings.Repeat("—", len(header))
+		sep := strings.Repeat("—", runewidth.StringWidth(header))
 
 		builder.WriteString("```\n")
 		builder.WriteString(header)
@@ -421,7 +421,7 @@ func renderLeaderboardRerunSession(session *lbRerunSession) []dc.LayoutComponent
 		builder.WriteString("\n")
 
 		for i, fr := range fRows {
-			line := fmt.Sprintf("%s | %s | %s | %s",
+			line := fmt.Sprintf("%s  %s  %s  %s",
 				bottools.AlignString(fr.season, maxSeason, bottools.StringAlignLeft),
 				bottools.AlignString(fr.current, maxCurrent, bottools.StringAlignRight),
 				bottools.AlignString(fr.delta, maxDelta, bottools.StringAlignRight),
@@ -436,6 +436,8 @@ func renderLeaderboardRerunSession(session *lbRerunSession) []dc.LayoutComponent
 		}
 		builder.WriteString("```\n")
 	}
+
+	builder.WriteString("-# Past season scores are fixed on the in-game leaderboard once ~3 weeks past the season; rerun gains only adjust All Time.\n")
 
 	if builder.Len() > 0 {
 		components = append(components, dc.TextDisplay{Content: builder.String()})
