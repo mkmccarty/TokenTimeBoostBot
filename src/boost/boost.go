@@ -502,12 +502,16 @@ func isOldBoostListMessage(contract *Contract, channelID string, messageID strin
 	if contract == nil || channelID == "" || messageID == "" {
 		return false
 	}
+	if contract.CRMessageIDs != nil {
+		for _, crMsgID := range contract.CRMessageIDs {
+			if crMsgID == messageID {
+				return false
+			}
+		}
+	}
 	for _, loc := range contract.Location {
 		if loc.ChannelID == channelID {
 			if messageID == loc.ListMsgID || messageID == loc.ReactionID {
-				return false
-			}
-			if contract.CRMessageIDs != nil && contract.CRMessageIDs[channelID] == messageID {
 				return false
 			}
 			return slices.Contains(loc.MessageIDs, messageID)
@@ -520,6 +524,20 @@ func isOldBoostListMessage(contract *Contract, channelID string, messageID strin
 func cleanupOldBoostListMessage(client dc.Client, contract *Contract, channelID string, messageID string) {
 	if client == nil || contract == nil || channelID == "" || messageID == "" {
 		return
+	}
+	if contract.CRMessageIDs != nil {
+		for _, crMsgID := range contract.CRMessageIDs {
+			if crMsgID == messageID {
+				log.Printf("cleanupOldBoostListMessage: refused to delete chicken run message %s in channel %s for contract %s",
+					messageID, channelID, contract.ContractHash)
+				return
+			}
+		}
+	}
+	if loc := contract.findLocation(channelID); loc != nil {
+		if loc.ListMsgID == messageID || loc.ReactionID == messageID {
+			return
+		}
 	}
 	log.Printf("cleanupOldBoostListMessage: deleting stale boost list message %s in channel %s for contract %s",
 		messageID, channelID, contract.ContractHash)

@@ -1,6 +1,7 @@
 package boost
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -301,3 +302,58 @@ func TestStaleBoostList_RocketEmojiReactionCleansUpWithoutAdvancing(t *testing.T
 		t.Errorf("expected userB to remain unboosted, got %v", contract.Boosters[userBID].BoostState)
 	}
 }
+
+func TestChickenRunMessage_NotDeletedOnReactionOrButton(t *testing.T) {
+	contractHash := "test-cr-msg-safety"
+	chanID := "200000000000000001"
+	activeListID := "300000000000000100"
+	oldListID := "300000000000000090"
+	signupID := "300000000000000001"
+	crMsgID := "300000000000000999"
+	userAID := "400000000000000001"
+	userBID := "400000000000000002"
+
+	contract := setupStaleTestContract(contractHash, chanID, activeListID, oldListID, signupID)
+	contract.CRMessageIDs = map[string]string{
+		chanID: crMsgID,
+	}
+	defer func() {
+		ContractsMutex.Lock()
+		delete(Contracts, contractHash)
+		ContractsMutex.Unlock()
+	}()
+
+	client := dctest.New()
+
+	// 1. User B clicks RanChicken button on crMsgID
+	crButtonEvent := dctest.ComponentButtonEventFull("100000000000000001", chanID, crMsgID, userBID, fmt.Sprintf("rc_#RanChicken#%s#%s", userAID, contractHash))
+	HandleContractReactions(client, crButtonEvent)
+
+	// Verify DeleteMessage was NEVER called for the CR message
+	for _, call := range client.CallsTo("DeleteMessage") {
+		if len(call.Args) >= 2 && call.Args[1] == crMsgID {
+			t.Fatalf("DeleteMessage was unexpectedly called for CR message %s", crMsgID)
+		}
+	}
+
+	// 2. User B clicks CRPing on crMsgID
+	crPingEvent := dctest.ComponentButtonEventFull("100000000000000001", chanID, crMsgID, userBID, fmt.Sprintf("rc_#CRPing#%s", contractHash))
+	HandleContractReactions(client, crPingEvent)
+
+	for _, call := range client.CallsTo("DeleteMessage") {
+		if len(call.Args) >= 2 && call.Args[1] == crMsgID {
+			t.Fatalf("DeleteMessage was unexpectedly called for CR message %s after CRPing", crMsgID)
+		}
+	}
+
+	// 3. User B reacts with an emoji on crMsgID
+	rxEvent := dctest.ReactionEvent("100000000000000001", chanID, crMsgID, userBID, "👍")
+	ReactionAdd(client, rxEvent)
+
+	for _, call := range client.CallsTo("DeleteMessage") {
+		if len(call.Args) >= 2 && call.Args[1] == crMsgID {
+			t.Fatalf("DeleteMessage was unexpectedly called for CR message %s after reaction", crMsgID)
+		}
+	}
+}
+

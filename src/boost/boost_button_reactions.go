@@ -91,19 +91,16 @@ func HandleContractReactions(client dc.Client, e *dc.ComponentEvent) {
 
 	redraw := false
 
-	// Check if this interaction came from an old/stale boost list message
-	isStale := isOldBoostListMessage(contract, e.ChannelID(), e.MessageID())
-	if !isStale {
-		if loc := contract.findLocation(e.ChannelID()); loc != nil {
-			if loc.ListMsgID != "" && e.MessageID() != loc.ListMsgID && e.MessageID() != loc.ReactionID {
-				isStale = true
-			}
+	// Check if this interaction came from an old/stale boost list message.
+	// Only boost list buttons can come from a boost list message; non-list interactions
+	// (such as Chicken Run messages or availability menus) must never be treated as stale boost lists.
+	isStale := false
+	if isBoostListButtonCommand(cmd) {
+		isStale = isOldBoostListMessage(contract, e.ChannelID(), e.MessageID())
+		if isStale {
+			cleanupOldBoostListMessage(client, contract, e.ChannelID(), e.MessageID())
+			redraw = true
 		}
-	}
-
-	if isStale {
-		cleanupOldBoostListMessage(client, contract, e.ChannelID(), e.MessageID())
-		redraw = true
 	}
 
 	switch cmd {
@@ -206,6 +203,16 @@ func HandleContractReactions(client dc.Client, e *dc.ComponentEvent) {
 
 	if redraw {
 		refreshBoostListMessage(client, contract, false)
+	}
+}
+
+// isBoostListButtonCommand returns true if the button command originates from the boost list message.
+func isBoostListButtonCommand(cmd string) bool {
+	switch cmd {
+	case "boost", "token", "2token", "bag", "truck", "tango", "leg", "swap", "last", "cr", "check", "complain", "notoken":
+		return true
+	default:
+		return false
 	}
 }
 
