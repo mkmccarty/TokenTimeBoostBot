@@ -91,63 +91,26 @@ func HandleContractReactions(client dc.Client, e *dc.ComponentEvent) {
 
 	redraw := false
 
-	// Check if this interaction came from an old/stale boost list message.
-	// Only boost list buttons can come from a boost list message; non-list interactions
-	// (such as Chicken Run messages or availability menus) must never be treated as stale boost lists.
-	isStale := false
-	if isBoostListButtonCommand(cmd) {
-		isStale = isOldBoostListMessage(contract, e.ChannelID(), e.MessageID())
-		if isStale {
-			cleanupOldBoostListMessage(client, contract, e.ChannelID(), e.MessageID())
-			redraw = true
-		}
-	}
-
 	switch cmd {
 	case "boost":
-		if isStale {
-			redraw = true
-		} else {
-			loc := contract.findLocation(e.ChannelID())
-			if loc != nil && e.MessageID() == loc.ListMsgID {
-				redraw = buttonReactionBoost(client, e.GuildID(), e.ChannelID(), contract, userID)
-			}
+		if e.MessageID() == contract.Location[0].ListMsgID {
+			redraw = buttonReactionBoost(client, e.GuildID(), e.ChannelID(), contract, userID)
 		}
 	case "bag":
-		var r bool
-		_, r = buttonReactionBag(client, e.GuildID(), e.ChannelID(), contract, userID)
-		if r || isStale {
-			redraw = true
-		}
+		_, redraw = buttonReactionBag(client, e.GuildID(), e.ChannelID(), contract, userID)
 	case "token":
-		var r bool
-		_, r = buttonReactionToken(client, e.GuildID(), e.ChannelID(), contract, userID, 1, "")
-		if r || isStale {
-			redraw = true
-		}
+		_, redraw = buttonReactionToken(client, e.GuildID(), e.ChannelID(), contract, userID, 1, "")
 		sendOrUpdateUserReactionSummary(e, contract, userID)
 	case "2token":
-		var r bool
-		_, r = buttonReactionToken(client, e.GuildID(), e.ChannelID(), contract, userID, 2, "")
-		if r || isStale {
-			redraw = true
-		}
+		_, redraw = buttonReactionToken(client, e.GuildID(), e.ChannelID(), contract, userID, 2, "")
 		sendOrUpdateUserReactionSummary(e, contract, userID)
 	case "swap":
-		if !isStale {
-			redraw = buttonReactionSwap(client, e.GuildID(), e.ChannelID(), contract, userID)
-		}
+		redraw = buttonReactionSwap(client, e.GuildID(), e.ChannelID(), contract, userID)
 	case "last":
-		if !isStale {
-			_, redraw = buttonReactionLast(client, e.GuildID(), e.ChannelID(), contract, userID)
-		}
+		_, redraw = buttonReactionLast(client, e.GuildID(), e.ChannelID(), contract, userID)
 	case "cr":
 		var str string
-		var r bool
-		r, str = buttonReactionRunChickens(client, contract, userID)
-		if r || isStale {
-			redraw = true
-		}
+		redraw, str = buttonReactionRunChickens(client, contract, userID)
 		// Ack the message for every other command
 		_ = e.Followup(dc.Message{
 			Content:   str,
@@ -203,16 +166,6 @@ func HandleContractReactions(client dc.Client, e *dc.ComponentEvent) {
 
 	if redraw {
 		refreshBoostListMessage(client, contract, false)
-	}
-}
-
-// isBoostListButtonCommand returns true if the button command originates from the boost list message.
-func isBoostListButtonCommand(cmd string) bool {
-	switch cmd {
-	case "boost", "token", "2token", "bag", "truck", "tango", "leg", "swap", "last", "cr", "check", "complain", "notoken":
-		return true
-	default:
-		return false
 	}
 }
 
