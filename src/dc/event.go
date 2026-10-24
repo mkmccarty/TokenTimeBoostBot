@@ -839,6 +839,18 @@ func reactionEventFrom(r *events.GenericReaction) *ReactionEvent {
 	return event
 }
 
+// NewReactionEvent creates a ReactionEvent with the specified fields (useful for testing).
+func NewReactionEvent(guildID, channelID, messageID, userID, emojiName, emojiID string) *ReactionEvent {
+	return &ReactionEvent{
+		guildID:   guildID,
+		channelID: channelID,
+		messageID: messageID,
+		userID:    userID,
+		emojiName: emojiName,
+		emojiID:   emojiID,
+	}
+}
+
 // MessageID is the message the reaction is on.
 func (e *ReactionEvent) MessageID() string { return e.messageID }
 
