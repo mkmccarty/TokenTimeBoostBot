@@ -84,7 +84,18 @@ func RedrawBoostList(client dc.Client, guildID string, channelID string) error {
 	buttonComponents := getContractReactionsComponents(contract)
 	for _, loc := range contract.Location {
 		if loc.GuildID == guildID && loc.ChannelID == channelID {
-			_ = client.DeleteMessage(loc.ChannelID, loc.ListMsgID)
+			oldMsgID := loc.ListMsgID
+			if oldMsgID != "" {
+				if err := client.DeleteMessage(loc.ChannelID, oldMsgID); err != nil {
+					log.Printf("RedrawBoostList: unable to delete old boost list message %s in channel %s for contract %s: %v",
+						oldMsgID, loc.ChannelID, contract.ContractHash, err)
+					time.AfterFunc(2*time.Second, func() {
+						if retryErr := client.DeleteMessage(loc.ChannelID, oldMsgID); retryErr != nil {
+							log.Printf("RedrawBoostList: retry delete old boost list message %s failed: %v", oldMsgID, retryErr)
+						}
+					})
+				}
+			}
 			var components []dc.LayoutComponent
 			listComp := DrawBoostList(contract)
 			components = append(components, listComp...)
@@ -232,7 +243,18 @@ func sendNextNotification(client dc.Client, contract *Contract, pingUsers bool) 
 			if contract.State == ContractStateArchive {
 				_ = client.UnpinMessage(loc.ChannelID, loc.ReactionID)
 			}
-			_ = client.DeleteMessage(loc.ChannelID, loc.ListMsgID)
+			oldMsgID := loc.ListMsgID
+			if oldMsgID != "" {
+				if err := client.DeleteMessage(loc.ChannelID, oldMsgID); err != nil {
+					log.Printf("sendNextNotification: unable to delete old boost list message %s in channel %s for contract %s: %v",
+						oldMsgID, loc.ChannelID, contract.ContractHash, err)
+					time.AfterFunc(2*time.Second, func() {
+						if retryErr := client.DeleteMessage(loc.ChannelID, oldMsgID); retryErr != nil {
+							log.Printf("sendNextNotification: retry delete old boost list message %s failed: %v", oldMsgID, retryErr)
+						}
+					})
+				}
+			}
 
 			// Compose the message without a Ping
 			listComp := DrawBoostList(contract)

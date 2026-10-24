@@ -27,6 +27,12 @@ func ReactionAdd(client dc.Client, e *dc.ReactionEvent) string {
 		return returnVal
 	}
 
+	isStale := isOldBoostListMessage(contract, e.ChannelID(), e.MessageID())
+	if isStale {
+		cleanupOldBoostListMessage(client, contract, e.ChannelID(), e.MessageID())
+		redraw = true
+	}
+
 	defer saveData(contract.ContractHash)
 
 	if emojiName == "⚙️" || emojiName == "⚙" {
@@ -107,25 +113,30 @@ func ReactionAdd(client dc.Client, e *dc.ReactionEvent) string {
 
 			switch e.EmojiName() {
 			case boostIconName:
-				if e.MessageID() == contract.Location[0].ListMsgID {
+				loc := contract.findLocation(e.ChannelID())
+				if loc != nil && e.MessageID() == loc.ListMsgID {
 					result := buttonReactionBoost(client, e.GuildID(), e.ChannelID(), contract, userID)
 					if result {
 						return returnVal
 					}
 				}
 			case "🔃":
-				result := buttonReactionSwap(client, e.GuildID(), e.ChannelID(), contract, userID)
-				if result {
-					return returnVal
+				if !isStale {
+					result := buttonReactionSwap(client, e.GuildID(), e.ChannelID(), contract, userID)
+					if result {
+						return returnVal
+					}
 				}
 			case "⤵️":
-				willReturn := false
-				willReturn, redraw = buttonReactionLast(client, e.GuildID(), e.ChannelID(), contract, userID)
-				if willReturn {
-					return returnVal
+				if !isStale {
+					willReturn := false
+					willReturn, redraw = buttonReactionLast(client, e.GuildID(), e.ChannelID(), contract, userID)
+					if willReturn {
+						return returnVal
+					}
 				}
 			case "🚽":
-				if contract.Boosters[userID].BoostState == BoostStateUnboosted {
+				if !isStale && contract.Boosters[userID].BoostState == BoostStateUnboosted {
 					// Bounds check: ensure currentBoosterIdx is valid before using it
 					if currentBoosterIdx < 0 {
 						_, _ = client.SendMessage(e.ChannelID(), dc.Message{Content: "Unable to move booster right now because the current booster position could not be determined."})
@@ -214,7 +225,11 @@ func ReactionAdd(client dc.Client, e *dc.ReactionEvent) string {
 		userID := e.UserID()
 
 		if strings.ToLower(e.EmojiName()) == tokenReactionStr {
-			_, redraw = buttonReactionToken(client, e.GuildID(), e.ChannelID(), contract, userID, 1, "")
+			var r bool
+			_, r = buttonReactionToken(client, e.GuildID(), e.ChannelID(), contract, userID, 1, "")
+			if r || isStale {
+				redraw = true
+			}
 		}
 	} else {
 		keepReaction = false

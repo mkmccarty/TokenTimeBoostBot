@@ -316,6 +316,12 @@ func (f *FakeClient) DeleteMessage(channelID, messageID string) error {
 	return f.DeleteErr
 }
 
+// RemoveMessageReaction records the reaction removal.
+func (f *FakeClient) RemoveMessageReaction(channelID, messageID, emojiID, userID string) error {
+	f.record("RemoveMessageReaction", channelID, messageID, emojiID, userID)
+	return nil
+}
+
 // CreateGuildRole records the request and hands back a role with a fresh ID,
 // which is what a guild that accepted the create looks like.
 func (f *FakeClient) CreateGuildRole(guildID string, params dc.RoleParams) (*dc.Role, error) {

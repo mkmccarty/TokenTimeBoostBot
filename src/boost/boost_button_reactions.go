@@ -91,26 +91,66 @@ func HandleContractReactions(client dc.Client, e *dc.ComponentEvent) {
 
 	redraw := false
 
+	// Check if this interaction came from an old/stale boost list message
+	isStale := isOldBoostListMessage(contract, e.ChannelID(), e.MessageID())
+	if !isStale {
+		if loc := contract.findLocation(e.ChannelID()); loc != nil {
+			if loc.ListMsgID != "" && e.MessageID() != loc.ListMsgID && e.MessageID() != loc.ReactionID {
+				isStale = true
+			}
+		}
+	}
+
+	if isStale {
+		cleanupOldBoostListMessage(client, contract, e.ChannelID(), e.MessageID())
+		redraw = true
+	}
+
 	switch cmd {
 	case "boost":
-		if e.MessageID() == contract.Location[0].ListMsgID {
-			redraw = buttonReactionBoost(client, e.GuildID(), e.ChannelID(), contract, userID)
+		if isStale {
+			redraw = true
+		} else {
+			loc := contract.findLocation(e.ChannelID())
+			if loc != nil && e.MessageID() == loc.ListMsgID {
+				redraw = buttonReactionBoost(client, e.GuildID(), e.ChannelID(), contract, userID)
+			}
 		}
 	case "bag":
-		_, redraw = buttonReactionBag(client, e.GuildID(), e.ChannelID(), contract, userID)
+		var r bool
+		_, r = buttonReactionBag(client, e.GuildID(), e.ChannelID(), contract, userID)
+		if r || isStale {
+			redraw = true
+		}
 	case "token":
-		_, redraw = buttonReactionToken(client, e.GuildID(), e.ChannelID(), contract, userID, 1, "")
+		var r bool
+		_, r = buttonReactionToken(client, e.GuildID(), e.ChannelID(), contract, userID, 1, "")
+		if r || isStale {
+			redraw = true
+		}
 		sendOrUpdateUserReactionSummary(e, contract, userID)
 	case "2token":
-		_, redraw = buttonReactionToken(client, e.GuildID(), e.ChannelID(), contract, userID, 2, "")
+		var r bool
+		_, r = buttonReactionToken(client, e.GuildID(), e.ChannelID(), contract, userID, 2, "")
+		if r || isStale {
+			redraw = true
+		}
 		sendOrUpdateUserReactionSummary(e, contract, userID)
 	case "swap":
-		redraw = buttonReactionSwap(client, e.GuildID(), e.ChannelID(), contract, userID)
+		if !isStale {
+			redraw = buttonReactionSwap(client, e.GuildID(), e.ChannelID(), contract, userID)
+		}
 	case "last":
-		_, redraw = buttonReactionLast(client, e.GuildID(), e.ChannelID(), contract, userID)
+		if !isStale {
+			_, redraw = buttonReactionLast(client, e.GuildID(), e.ChannelID(), contract, userID)
+		}
 	case "cr":
 		var str string
-		redraw, str = buttonReactionRunChickens(client, contract, userID)
+		var r bool
+		r, str = buttonReactionRunChickens(client, contract, userID)
+		if r || isStale {
+			redraw = true
+		}
 		// Ack the message for every other command
 		_ = e.Followup(dc.Message{
 			Content:   str,

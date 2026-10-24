@@ -483,6 +483,49 @@ func setChickenRunMessageID(contract *Contract, channelID, messageID string) {
 	saveData(contract.ContractHash)
 }
 
+// findLocation returns the LocationData for the given channelID, or nil if not found.
+func (c *Contract) findLocation(channelID string) *LocationData {
+	if c == nil || channelID == "" {
+		return nil
+	}
+	for _, loc := range c.Location {
+		if loc.ChannelID == channelID {
+			return loc
+		}
+	}
+	return nil
+}
+
+// isOldBoostListMessage checks if messageID belongs to contract in channelID as a former boost list message
+// that is no longer the active boost list.
+func isOldBoostListMessage(contract *Contract, channelID string, messageID string) bool {
+	if contract == nil || channelID == "" || messageID == "" {
+		return false
+	}
+	for _, loc := range contract.Location {
+		if loc.ChannelID == channelID {
+			if messageID == loc.ListMsgID || messageID == loc.ReactionID {
+				return false
+			}
+			if contract.CRMessageIDs != nil && contract.CRMessageIDs[channelID] == messageID {
+				return false
+			}
+			return slices.Contains(loc.MessageIDs, messageID)
+		}
+	}
+	return false
+}
+
+// cleanupOldBoostListMessage deletes an old boost list message from Discord.
+func cleanupOldBoostListMessage(client dc.Client, contract *Contract, channelID string, messageID string) {
+	if client == nil || contract == nil || channelID == "" || messageID == "" {
+		return
+	}
+	log.Printf("cleanupOldBoostListMessage: deleting stale boost list message %s in channel %s for contract %s",
+		messageID, channelID, contract.ContractHash)
+	_ = client.DeleteMessage(channelID, messageID)
+}
+
 func getTokenCountString(tokenStr string, tokensWanted int, tokensReceived int) (string, string) {
 	countStr := ""
 	signupCountStr := ""
