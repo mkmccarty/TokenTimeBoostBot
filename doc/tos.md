@@ -1,10 +1,10 @@
 # Terms of Service
 
-By inviting Boost Bot to your discord server you agree that you have read, understood, and accepted these terms. You are also responsible for informing the members in your discord server about these terms. If you do not agree with any of these terms, you are prohibited from using or adding any version of Xenon to your server.
+By inviting Boost Bot to your discord server you agree that you have read, understood, and accepted these terms. You are also responsible for informing the members in your discord server about these terms. If you do not agree with any of these terms, you are prohibited from using or adding Boost Bot to your server.
 
 ## Disclaimer
 
-You are strictly prohibited to use Boost Bot against the ToS of discord or for illegal purposes. We are doing our best to prevent these activities, while trying to provide the best user experience as possible.
+You are strictly prohibited from using Boost Bot against the Discord Terms of Service or for illegal purposes. We are doing our best to prevent these activities, while trying to provide the best user experience as possible.
 
 ## Availability
 

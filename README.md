@@ -103,3 +103,11 @@ Install your bot into your discord server with this URL:
 * `/admin-set-guild-setting` - Set a guild setting.
 * `/admin-get-guild-settings` - Get guild settings.
 * `/status-message` - Set the next bot status message.
+
+## License
+
+This project is dedicated to the public domain under the [Creative Commons CC0 1.0 Universal](LICENSE) license.
+
+### Disclaimer
+
+Egg, Inc. and its related assets and trademarks are the property of Auxbrain, Inc. Boost Bot is an independent community project not affiliated with or endorsed by Auxbrain.
