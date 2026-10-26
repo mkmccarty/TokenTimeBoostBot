@@ -2227,7 +2227,7 @@ func getSelectedVirtueShips(targetID string, unlocked []ei.MissionInfo_Spaceship
 		parts := strings.Split(saved, ",")
 		var pool []ei.MissionInfo_Spaceship
 		for _, p := range parts {
-			if id, err := strconv.Atoi(strings.TrimSpace(p)); err == nil {
+			if id, err := strconv.ParseInt(strings.TrimSpace(p), 10, 32); err == nil {
 				ship := ei.MissionInfo_Spaceship(id)
 				if unlockedMap[ship] {
 					pool = append(pool, ship)
