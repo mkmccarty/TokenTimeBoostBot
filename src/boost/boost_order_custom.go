@@ -2101,10 +2101,41 @@ func getCustomOrderTableColumns(contract *Contract, lines []string) []TableImage
 	return cols
 }
 
-// RenderCustomOrderTableImage renders a PNG table image of the custom boost order.
-func RenderCustomOrderTableImage(contract *Contract, lines []string) ([]byte, error) {
+type boostOrderTableData struct {
+	orderName    string
+	hierarchy    []AMQPHierarchyCriterion
+	columns      []TableImageColumn
+	columnLabels []string
+	rows         []TableImageRow
+	boosters     []AMQPBoosterOrderEntry
+}
+
+func extractBoostOrderTableData(contract *Contract, lines []string) (*boostOrderTableData, error) {
 	if contract == nil {
 		return nil, fmt.Errorf("contract is nil")
+	}
+
+	orderName := "Custom Boost Order"
+	if contract.BoostOrder != ContractOrderCustom {
+		if int(contract.BoostOrder) < len(contractOrderNames) {
+			orderName = contractOrderNames[contract.BoostOrder]
+		}
+	} else {
+		orderName = strings.TrimPrefix(GetContractCustomOrderName(contract), "CBO: ")
+	}
+
+	hierarchy := make([]AMQPHierarchyCriterion, 0, len(lines))
+	for i, l := range lines {
+		trimmed := strings.TrimSpace(l)
+		if trimmed != "" {
+			crit := parseCustomCriterion(trimmed)
+			exp := getFuzzyExplanation(crit)
+			hierarchy = append(hierarchy, AMQPHierarchyCriterion{
+				Index:       i + 1,
+				Rule:        trimmed,
+				Explanation: exp,
+			})
+		}
 	}
 
 	for userID, b := range contract.Boosters {
@@ -2128,8 +2159,13 @@ func RenderCustomOrderTableImage(contract *Contract, lines []string) ([]byte, er
 		}
 	}
 
-	unselected := append([]string(nil), contract.Order...)
-	sortedIDs := sortCustomRemaining(contract, unselected, lines, false)
+	var sortedIDs []string
+	if contract.State != ContractStateSignup && len(contract.Order) > 0 {
+		sortedIDs = append([]string(nil), contract.Order...)
+	} else {
+		unselected := append([]string(nil), contract.Order...)
+		sortedIDs = sortCustomRemaining(contract, unselected, lines, false)
+	}
 
 	var criteria [4]customCriterion
 	for i := 0; i < 4; i++ {
@@ -2142,7 +2178,14 @@ func RenderCustomOrderTableImage(contract *Contract, lines []string) ([]byte, er
 
 	activeCols, cols := buildCustomOrderTableColDefs(contract, criteria)
 
-	var tableRows []TableImageRow
+	columnLabels := make([]string, len(cols))
+	for i, c := range cols {
+		columnLabels[i] = c.Label
+	}
+
+	tableRows := make([]TableImageRow, 0, len(sortedIDs))
+	boosters := make([]AMQPBoosterOrderEntry, 0, len(sortedIDs))
+
 	for idx, userID := range sortedIDs {
 		b := contract.Boosters[userID]
 		if b == nil {
@@ -2160,26 +2203,85 @@ func RenderCustomOrderTableImage(contract *Contract, lines []string) ([]byte, er
 		}
 
 		signupIdx := 0
-		for i, id := range contract.Order {
-			if id == userID {
-				signupIdx = i
-				break
+		if len(contract.OriginalOrder) > 0 {
+			for i, id := range contract.OriginalOrder {
+				if id == userID {
+					signupIdx = i
+					break
+				}
+			}
+		} else {
+			for i, id := range contract.Order {
+				if id == userID {
+					signupIdx = i
+					break
+				}
 			}
 		}
 
+		posStr := fmt.Sprintf("%d", idx+1)
 		cells := []TableImageCell{
-			{Text: fmt.Sprintf("%d", idx+1), Color: ""},
+			{Text: posStr, Color: ""},
 			{Text: name, Color: ""},
 		}
 
+		row := []string{posStr, name}
+		values := make(map[string]string, len(cols))
+		values["#"] = posStr
+		values["Player"] = name
+
 		for _, ac := range activeCols {
-			cells = append(cells, ac.evalCell(b, signupIdx))
+			cell := ac.evalCell(b, signupIdx)
+			cells = append(cells, cell)
+			row = append(row, cell.Text)
+			values[ac.col.Label] = cell.Text
 		}
 
 		tableRows = append(tableRows, TableImageRow{Cells: cells})
+		boosters = append(boosters, AMQPBoosterOrderEntry{
+			Position: idx + 1,
+			UserID:   userID,
+			Nick:     name,
+			Values:   values,
+			Row:      row,
+		})
 	}
 
-	return RenderTableImage(cols, tableRows)
+	return &boostOrderTableData{
+		orderName:    orderName,
+		hierarchy:    hierarchy,
+		columns:      cols,
+		columnLabels: columnLabels,
+		rows:         tableRows,
+		boosters:     boosters,
+	}, nil
+}
+
+// RenderCustomOrderTableImage renders a PNG table image of the custom boost order.
+func RenderCustomOrderTableImage(contract *Contract, lines []string) ([]byte, error) {
+	data, err := extractBoostOrderTableData(contract, lines)
+	if err != nil {
+		return nil, err
+	}
+	return RenderTableImage(data.columns, data.rows)
+}
+
+// BuildAMQPBoostOrder constructs the full boost order structure matching the ⚙️ response.
+func BuildAMQPBoostOrder(contract *Contract) *AMQPBoostOrder {
+	if contract == nil {
+		return nil
+	}
+	lines := GetContractBoostOrderLines(contract)
+	data, err := extractBoostOrderTableData(contract, lines)
+	if err != nil {
+		return nil
+	}
+	return &AMQPBoostOrder{
+		OrderName: data.orderName,
+		Hierarchy: data.hierarchy,
+		Columns:   data.columnLabels,
+		Boosters:  data.boosters,
+	}
 }
 
 // BuildCustomOrderMessage formats the preview catalyst message with table image and action buttons.

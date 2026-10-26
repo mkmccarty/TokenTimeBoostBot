@@ -192,18 +192,43 @@ func PublishAMQPBoostStatus(guildID string, url string, contractID string, coopI
 	}()
 }
 
+// AMQPHierarchyCriterion represents a single line in the boost order hierarchy.
+type AMQPHierarchyCriterion struct {
+	Index       int    `json:"index"`
+	Rule        string `json:"rule"`
+	Explanation string `json:"explanation,omitempty"`
+}
+
+// AMQPBoosterOrderEntry represents a player's entry in the boost order table.
+type AMQPBoosterOrderEntry struct {
+	Position int               `json:"position"`
+	UserID   string            `json:"user_id"`
+	Nick     string            `json:"nick"`
+	Values   map[string]string `json:"values"`
+	Row      []string          `json:"row"`
+}
+
+// AMQPBoostOrder represents the complete boost order structure matching the ⚙️ response.
+type AMQPBoostOrder struct {
+	OrderName string                   `json:"order_name"`
+	Hierarchy []AMQPHierarchyCriterion `json:"hierarchy,omitempty"`
+	Columns   []string                 `json:"columns"`
+	Boosters  []AMQPBoosterOrderEntry  `json:"boosters"`
+}
+
 // AMQPContractStartMessage represents details of a contract when started.
 type AMQPContractStartMessage struct {
-	Event           string    `json:"event"`
-	ContractID      string    `json:"contract_id"`
-	CoopID          string    `json:"coop_id"`
-	ChannelID       string    `json:"channel_id"`
-	StartTime       time.Time `json:"start_time"`
-	CoopSize        int       `json:"coop_size"`
-	DeliveryTarget  float64   `json:"delivery_target"`
-	GenerousGifts   string    `json:"generous_gifts"`
-	GGMultiplier    float64   `json:"gg_multiplier,omitempty"`
-	MinutesPerToken int       `json:"minutes_per_token"`
+	Event           string          `json:"event"`
+	ContractID      string          `json:"contract_id"`
+	CoopID          string          `json:"coop_id"`
+	ChannelID       string          `json:"channel_id"`
+	StartTime       time.Time       `json:"start_time"`
+	CoopSize        int             `json:"coop_size"`
+	DeliveryTarget  float64         `json:"delivery_target"`
+	GenerousGifts   string          `json:"generous_gifts"`
+	GGMultiplier    float64         `json:"gg_multiplier,omitempty"`
+	MinutesPerToken int             `json:"minutes_per_token"`
+	BoostOrder      *AMQPBoostOrder `json:"boost_order,omitempty"`
 }
 
 // PublishAMQPContractStart publishes a contract start event to the guild's AMQP queue.
@@ -250,16 +275,17 @@ func PublishAMQPNonToken(guildID string, url string, contractID string, coopID s
 
 // AMQPContractUpdateMessage represents details of a contract when updated/reset.
 type AMQPContractUpdateMessage struct {
-	Event           string    `json:"event"`
-	ContractID      string    `json:"contract_id"`
-	CoopID          string    `json:"coop_id"`
-	ChannelID       string    `json:"channel_id"`
-	StartTime       time.Time `json:"start_time"`
-	CoopSize        int       `json:"coop_size"`
-	DeliveryTarget  float64   `json:"delivery_target"`
-	GenerousGifts   string    `json:"generous_gifts"`
-	GGMultiplier    float64   `json:"gg_multiplier,omitempty"`
-	MinutesPerToken int       `json:"minutes_per_token"`
+	Event           string          `json:"event"`
+	ContractID      string          `json:"contract_id"`
+	CoopID          string          `json:"coop_id"`
+	ChannelID       string          `json:"channel_id"`
+	StartTime       time.Time       `json:"start_time"`
+	CoopSize        int             `json:"coop_size"`
+	DeliveryTarget  float64         `json:"delivery_target"`
+	GenerousGifts   string          `json:"generous_gifts"`
+	GGMultiplier    float64         `json:"gg_multiplier,omitempty"`
+	MinutesPerToken int             `json:"minutes_per_token"`
+	BoostOrder      *AMQPBoostOrder `json:"boost_order,omitempty"`
 }
 
 // PublishAMQPContractUpdate publishes a contract update/reset event to the guild's AMQP queue.
@@ -318,6 +344,7 @@ func CheckAndPublishAMQPContractUpdate(contract *Contract) {
 		GenerousGifts:   generousGifts,
 		GGMultiplier:    ggMultiplier,
 		MinutesPerToken: contract.MinutesPerToken,
+		BoostOrder:      BuildAMQPBoostOrder(contract),
 	})
 }
 

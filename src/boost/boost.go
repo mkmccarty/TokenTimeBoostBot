@@ -1949,6 +1949,7 @@ func StartContractBoosting(client dc.Client, guildID string, channelID string, u
 					GenerousGifts:   generousGifts,
 					GGMultiplier:    ggMultiplier,
 					MinutesPerToken: contract.MinutesPerToken,
+					BoostOrder:      BuildAMQPBoostOrder(contract),
 				})
 			}
 		}
