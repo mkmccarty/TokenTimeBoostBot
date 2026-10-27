@@ -661,6 +661,7 @@ func CreateContract(client dc.Client, contractID string, coopID string, playStyl
 	//GlobalContracts[ContractHash] = append(GlobalContracts[ContractHash], loc)
 	contract.Boosters = make(map[string]*Booster)
 	contract.CRMessageIDs = make(map[string]string)
+	contract.PreviousScore = make(map[string]float64)
 	contract.ContractID = contractID
 	contract.CoopID = coopID
 	contract.PlayStyle = playStyle
