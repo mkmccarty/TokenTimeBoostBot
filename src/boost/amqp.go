@@ -439,11 +439,16 @@ func findPreviousCXPScore(archive []*ei.LocalContract, contractID, currentCoopID
 // GatherContractPreviousScores fetches the CXP score from the previous time each player ran the contract,
 // saving it into contract.PreviousScore and each booster's PreviousScore.
 func GatherContractPreviousScores(contract *Contract) {
-	if contract == nil || len(contract.Boosters) == 0 {
+	if contract == nil {
 		return
 	}
 
 	contract.mutex.Lock()
+	if len(contract.Boosters) == 0 {
+		contract.mutex.Unlock()
+		return
+	}
+
 	if contract.PreviousScore == nil {
 		contract.PreviousScore = make(map[string]float64)
 	}
@@ -491,6 +496,8 @@ func GatherContractPreviousScores(contract *Contract) {
 			eggIncID: eggIncID,
 		})
 	}
+	contractID := contract.ContractID
+	coopID := contract.CoopID
 	contract.mutex.Unlock()
 
 	if len(jobs) == 0 {
@@ -511,8 +518,11 @@ func GatherContractPreviousScores(contract *Contract) {
 			}
 
 			archive, _ := ei.GetContractArchiveFromAPI(j.eggIncID, j.userID, false, true)
-			if score, found := findPreviousCXPScore(archive, contract.ContractID, contract.CoopID); found {
+			if score, found := findPreviousCXPScore(archive, contractID, coopID); found {
 				contract.mutex.Lock()
+				if contract.PreviousScore == nil {
+					contract.PreviousScore = make(map[string]float64)
+				}
 				contract.PreviousScore[j.userID] = score
 				if b, ok := contract.Boosters[j.userID]; ok && b != nil {
 					b.PreviousScore = score
@@ -555,6 +565,8 @@ func FetchBoosterPreviousScore(contract *Contract, userID string) {
 		contract.mutex.Unlock()
 		return
 	}
+	contractID := contract.ContractID
+	coopID := contract.CoopID
 	contract.mutex.Unlock()
 
 	go func() {
@@ -579,7 +591,7 @@ func FetchBoosterPreviousScore(contract *Contract, userID string) {
 		}
 
 		archive, _ := ei.GetContractArchiveFromAPI(eggIncID, userID, false, true)
-		if score, found := findPreviousCXPScore(archive, contract.ContractID, contract.CoopID); found {
+		if score, found := findPreviousCXPScore(archive, contractID, coopID); found {
 			contract.mutex.Lock()
 			if contract.PreviousScore == nil {
 				contract.PreviousScore = make(map[string]float64)
