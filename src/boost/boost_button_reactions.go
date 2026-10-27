@@ -910,16 +910,16 @@ func buttonReactionRanChicken(client dc.Client, e *dc.ComponentEvent, contract *
 	}
 
 	contract.mutex.Lock()
-	defer contract.mutex.Unlock()
-
 	userBooster := contract.Boosters[cUserID]
 	if userBooster == nil {
+		contract.mutex.Unlock()
 		log.Printf("buttonReactionRanChicken missing booster entry for reacting user: contractHash=%s requesterUserID=%s reactingUserID=%s",
 			contract.ContractHash, requesterUserID, cUserID)
 		return
 	}
 
 	if contract.Boosters[requesterUserID] == nil {
+		contract.mutex.Unlock()
 		log.Printf("buttonReactionRanChicken missing booster entry for requester: contractHash=%s requesterUserID=%s reactingUserID=%s",
 			contract.ContractHash, requesterUserID, cUserID)
 		return
@@ -927,6 +927,7 @@ func buttonReactionRanChicken(client dc.Client, e *dc.ComponentEvent, contract *
 
 	// Already ran for this requester?
 	if slices.Contains(userBooster.RanChickensOn, requesterUserID) {
+		contract.mutex.Unlock()
 		return
 	}
 
@@ -949,6 +950,7 @@ func buttonReactionRanChicken(client dc.Client, e *dc.ComponentEvent, contract *
 	}
 
 	newColor := getChickenRunAccentColor(contract)
+	contract.mutex.Unlock()
 
 	// Find role mention for this channel to rebuild the header
 	var roleMention string
@@ -1009,10 +1011,9 @@ func buttonReactionRanCoop(client dc.Client, e *dc.ComponentEvent, contract *Con
 	}
 
 	contract.mutex.Lock()
-	defer contract.mutex.Unlock()
-
 	userBooster := contract.Boosters[cUserID]
 	if userBooster == nil {
+		contract.mutex.Unlock()
 		log.Printf("buttonReactionRanCoop missing booster entry for reacting user: contractHash=%s reactingUserID=%s",
 			contract.ContractHash, cUserID)
 		return
@@ -1040,6 +1041,7 @@ func buttonReactionRanCoop(client dc.Client, e *dc.ComponentEvent, contract *Con
 	}
 
 	newColor := getChickenRunAccentColor(contract)
+	contract.mutex.Unlock()
 
 	// Determine the CR message ID to update for this channel
 	targetMsgID := contract.CRMessageIDs[e.ChannelID()]
