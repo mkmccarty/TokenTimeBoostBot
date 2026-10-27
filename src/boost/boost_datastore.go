@@ -350,8 +350,6 @@ func saveSqliteData(contract *Contract) {
 		return
 	}
 
-	contract.mutex.Lock()
-
 	// Check if AMQP Publish is enabled and configured
 	if contract.Style&ContractFlagAMQP != 0 {
 		guildID := contract.Location[0].GuildID
@@ -405,7 +403,6 @@ func saveSqliteData(contract *Contract) {
 
 	// Save the contract data to SQLite
 	contractJSON, err := json.Marshal(contract)
-	contract.mutex.Unlock()
 	if err != nil {
 		log.Printf("Error marshaling contract data: %v", err)
 		return
