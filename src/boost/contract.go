@@ -661,6 +661,7 @@ func CreateContract(client dc.Client, contractID string, coopID string, playStyl
 	//GlobalContracts[ContractHash] = append(GlobalContracts[ContractHash], loc)
 	contract.Boosters = make(map[string]*Booster)
 	contract.CRMessageIDs = make(map[string]string)
+	contract.PreviousScore = make(map[string]float64)
 	contract.ContractID = contractID
 	contract.CoopID = coopID
 	contract.PlayStyle = playStyle
@@ -803,7 +804,11 @@ func HandleContractSettingsReactions(client dc.Client, e *dc.ComponentEvent) {
 			// If threshold was selected alongside other features like amqp, update AMQP flag before showing modal
 			if contract := FindContractByHash(contractHash); contract != nil {
 				if slices.Contains(dataValues, "amqp") {
+					wasAMQP := contract.Style&ContractFlagAMQP != 0
 					contract.Style |= ContractFlagAMQP
+					if !wasAMQP {
+						go GatherContractPreviousScores(contract)
+					}
 				} else {
 					contract.Style &= ^ContractFlagAMQP
 				}
@@ -848,7 +853,11 @@ func HandleContractSettingsReactions(client dc.Client, e *dc.ComponentEvent) {
 
 		// AMQP is independent of token quantity
 		if slices.Contains(values, "amqp") {
+			wasAMQP := contract.Style&ContractFlagAMQP != 0
 			contract.Style |= ContractFlagAMQP
+			if !wasAMQP {
+				go GatherContractPreviousScores(contract)
+			}
 		} else {
 			contract.Style &= ^ContractFlagAMQP
 		}

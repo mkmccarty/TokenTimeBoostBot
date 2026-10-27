@@ -420,3 +420,219 @@ func TestBuildAMQPBoostOrder_StartedContractPreservesOrder(t *testing.T) {
 			bo.Boosters[0].UserID, bo.Boosters[1].UserID)
 	}
 }
+
+func TestFindPreviousCXPScore(t *testing.T) {
+	cID := "test-contract"
+	coopPast := "past-coop"
+	coopCurrent := "current-coop"
+	cxpPast1 := 10500.5
+	cxpPast2 := 12500.0
+	cxpCurrent := 5000.0
+
+	archive := []*ei.LocalContract{
+		{
+			ContractIdentifier: &cID,
+			Evaluation: &ei.ContractEvaluation{
+				ContractIdentifier: &cID,
+				CoopIdentifier:     &coopPast,
+				Cxp:                &cxpPast1,
+			},
+		},
+		{
+			ContractIdentifier: &cID,
+			Evaluation: &ei.ContractEvaluation{
+				ContractIdentifier: &cID,
+				CoopIdentifier:     &coopPast,
+				Cxp:                &cxpPast2, // higher score
+			},
+		},
+		{
+			ContractIdentifier: &cID,
+			Evaluation: &ei.ContractEvaluation{
+				ContractIdentifier: &cID,
+				CoopIdentifier:     &coopCurrent,
+				Cxp:                &cxpCurrent,
+			},
+		},
+	}
+
+	// Should skip current coop and pick the highest past score
+	score, found := findPreviousCXPScore(archive, "TEST-CONTRACT", "current-coop")
+	if !found {
+		t.Fatalf("Expected to find previous CXP score")
+	}
+	if score != cxpPast2 {
+		t.Errorf("Expected score %f, got %f", cxpPast2, score)
+	}
+
+	// When current coop doesn't match any, all matching are eligible
+	score, found = findPreviousCXPScore(archive, "test-contract", "other-coop")
+	if !found {
+		t.Fatalf("Expected to find previous CXP score")
+	}
+	if score != cxpPast2 {
+		t.Errorf("Expected score %f, got %f", cxpPast2, score)
+	}
+
+	// Non-matching contract
+	score, found = findPreviousCXPScore(archive, "unmatched-contract", "")
+	if found || score != 0 {
+		t.Errorf("Expected not found for unmatched contract, got found=%v, score=%f", found, score)
+	}
+
+	// Empty archive
+	score, found = findPreviousCXPScore(nil, "test-contract", "")
+	if found || score != 0 {
+		t.Errorf("Expected not found for nil archive, got found=%v, score=%f", found, score)
+	}
+}
+
+func TestAMQPContractStartMessage_PreviousScoreJSON(t *testing.T) {
+	startMsg := AMQPContractStartMessage{
+		Event:           "contract_start",
+		ContractID:      "test-contract",
+		CoopID:          "test-coop",
+		PreviousScore:   map[string]float64{"userA": 12345.5, "userB": 9876.0},
+		MinutesPerToken: 60,
+	}
+
+	data, err := json.Marshal(startMsg)
+	if err != nil {
+		t.Fatalf("Failed to marshal AMQPContractStartMessage: %v", err)
+	}
+
+	var raw map[string]interface{}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		t.Fatalf("Failed to unmarshal JSON into map: %v", err)
+	}
+
+	prevScoreRaw, ok := raw["previous_score"]
+	if !ok {
+		t.Fatalf("Expected 'previous_score' key in JSON output: %s", string(data))
+	}
+	prevMap, ok := prevScoreRaw.(map[string]interface{})
+	if !ok {
+		t.Fatalf("Expected 'previous_score' to be map, got %T", prevScoreRaw)
+	}
+	if prevMap["userA"] != 12345.5 || prevMap["userB"] != 9876.0 {
+		t.Errorf("Unexpected previous_score values: %+v", prevMap)
+	}
+
+	var parsed AMQPContractStartMessage
+	if err := json.Unmarshal(data, &parsed); err != nil {
+		t.Fatalf("Failed to unmarshal back to struct: %v", err)
+	}
+	if len(parsed.PreviousScore) != 2 || parsed.PreviousScore["userA"] != 12345.5 {
+		t.Errorf("Struct unmarshal mismatch: %+v", parsed.PreviousScore)
+	}
+}
+
+func TestBuildAMQPBoostOrder_PopulatesPreviousScore(t *testing.T) {
+	contract := &Contract{
+		ContractID: "test-c",
+		CoopID:     "test-coop",
+		BoostOrder: ContractOrderSignup,
+		Order:      []string{"userA", "userB"},
+		PreviousScore: map[string]float64{
+			"userB": 9999.0, // Pre-populated in contract
+		},
+		Boosters: map[string]*Booster{
+			"userA": {
+				UserID:        "userA",
+				Nick:          "Player A",
+				PreviousScore: 12345.0, // Set directly on booster
+			},
+			"userB": {
+				UserID: "userB",
+				Nick:   "Player B",
+			},
+		},
+	}
+
+	bo := BuildAMQPBoostOrder(contract)
+	if bo == nil {
+		t.Fatalf("Expected non-nil AMQPBoostOrder")
+	}
+	if len(bo.Boosters) != 2 {
+		t.Fatalf("Expected 2 boosters, got %d", len(bo.Boosters))
+	}
+
+	if bo.Boosters[0].PreviousScore != 12345.0 {
+		t.Errorf("Expected booster 0 previous score 12345.0, got %f", bo.Boosters[0].PreviousScore)
+	}
+	if bo.Boosters[1].PreviousScore != 9999.0 {
+		t.Errorf("Expected booster 1 previous score 9999.0 from contract map, got %f", bo.Boosters[1].PreviousScore)
+	}
+
+	// Verify JSON serialization includes previous_score
+	data, err := json.Marshal(bo.Boosters[0])
+	if err != nil {
+		t.Fatalf("Failed to marshal booster order entry: %v", err)
+	}
+	var raw map[string]interface{}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		t.Fatalf("Failed to unmarshal booster order entry json: %v", err)
+	}
+	if raw["previous_score"] != 12345.0 {
+		t.Errorf("Expected previous_score in json, got %+v", raw["previous_score"])
+	}
+}
+
+func TestGatherContractPreviousScores_SyncsExisting(t *testing.T) {
+	contract := &Contract{
+		ContractID: "c1",
+		CoopID:     "coop1",
+		Boosters: map[string]*Booster{
+			"userA": {UserID: "userA", Nick: "Player A", PreviousScore: 5000.0},
+			"userB": {UserID: "userB", Nick: "Player B"},
+		},
+		PreviousScore: map[string]float64{
+			"userB": 7500.0,
+		},
+	}
+
+	GatherContractPreviousScores(contract)
+
+	// userA's score from booster should be synced to contract.PreviousScore
+	if contract.PreviousScore["userA"] != 5000.0 {
+		t.Errorf("Expected contract.PreviousScore[userA] = 5000.0, got %f", contract.PreviousScore["userA"])
+	}
+	// userB's score from contract.PreviousScore should be synced to booster
+	if contract.Boosters["userB"].PreviousScore != 7500.0 {
+		t.Errorf("Expected booster userB.PreviousScore = 7500.0, got %f", contract.Boosters["userB"].PreviousScore)
+	}
+}
+
+func TestFetchBoosterPreviousScore_SyncsExisting(t *testing.T) {
+	contract := &Contract{
+		ContractID: "c1",
+		CoopID:     "coop1",
+		Boosters: map[string]*Booster{
+			"userA": {UserID: "userA", Nick: "Player A"},
+		},
+		PreviousScore: map[string]float64{
+			"userA": 8888.0,
+		},
+	}
+
+	FetchBoosterPreviousScore(contract, "userA")
+
+	if contract.Boosters["userA"].PreviousScore != 8888.0 {
+		t.Errorf("Expected booster userA.PreviousScore to be synced to 8888.0, got %f", contract.Boosters["userA"].PreviousScore)
+	}
+
+	// Conversely, if booster has score but contract map doesn't
+	contract2 := &Contract{
+		ContractID: "c2",
+		CoopID:     "coop2",
+		Boosters: map[string]*Booster{
+			"userB": {UserID: "userB", Nick: "Player B", PreviousScore: 4444.0},
+		},
+	}
+
+	FetchBoosterPreviousScore(contract2, "userB")
+
+	if contract2.PreviousScore["userB"] != 4444.0 {
+		t.Errorf("Expected contract2.PreviousScore[userB] to be synced to 4444.0, got %f", contract2.PreviousScore["userB"])
+	}
+}

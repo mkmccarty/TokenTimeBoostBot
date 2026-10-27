@@ -4,10 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -201,11 +204,12 @@ type AMQPHierarchyCriterion struct {
 
 // AMQPBoosterOrderEntry represents a player's entry in the boost order table.
 type AMQPBoosterOrderEntry struct {
-	Position int               `json:"position"`
-	UserID   string            `json:"user_id"`
-	Nick     string            `json:"nick"`
-	Values   map[string]string `json:"values"`
-	Row      []string          `json:"row"`
+	Position      int               `json:"position"`
+	UserID        string            `json:"user_id"`
+	Nick          string            `json:"nick"`
+	PreviousScore float64           `json:"previous_score,omitempty"`
+	Values        map[string]string `json:"values"`
+	Row           []string          `json:"row"`
 }
 
 // AMQPBoostOrder represents the complete boost order structure matching the ⚙️ response.
@@ -218,17 +222,18 @@ type AMQPBoostOrder struct {
 
 // AMQPContractStartMessage represents details of a contract when started.
 type AMQPContractStartMessage struct {
-	Event           string          `json:"event"`
-	ContractID      string          `json:"contract_id"`
-	CoopID          string          `json:"coop_id"`
-	ChannelID       string          `json:"channel_id"`
-	StartTime       time.Time       `json:"start_time"`
-	CoopSize        int             `json:"coop_size"`
-	DeliveryTarget  float64         `json:"delivery_target"`
-	GenerousGifts   string          `json:"generous_gifts"`
-	GGMultiplier    float64         `json:"gg_multiplier,omitempty"`
-	MinutesPerToken int             `json:"minutes_per_token"`
-	BoostOrder      *AMQPBoostOrder `json:"boost_order,omitempty"`
+	Event           string             `json:"event"`
+	ContractID      string             `json:"contract_id"`
+	CoopID          string             `json:"coop_id"`
+	ChannelID       string             `json:"channel_id"`
+	StartTime       time.Time          `json:"start_time"`
+	CoopSize        int                `json:"coop_size"`
+	DeliveryTarget  float64            `json:"delivery_target"`
+	GenerousGifts   string             `json:"generous_gifts"`
+	GGMultiplier    float64            `json:"gg_multiplier,omitempty"`
+	MinutesPerToken int                `json:"minutes_per_token"`
+	PreviousScore   map[string]float64 `json:"previous_score,omitempty"`
+	BoostOrder      *AMQPBoostOrder    `json:"boost_order,omitempty"`
 }
 
 // PublishAMQPContractStart publishes a contract start event to the guild's AMQP queue.
@@ -275,17 +280,18 @@ func PublishAMQPNonToken(guildID string, url string, contractID string, coopID s
 
 // AMQPContractUpdateMessage represents details of a contract when updated/reset.
 type AMQPContractUpdateMessage struct {
-	Event           string          `json:"event"`
-	ContractID      string          `json:"contract_id"`
-	CoopID          string          `json:"coop_id"`
-	ChannelID       string          `json:"channel_id"`
-	StartTime       time.Time       `json:"start_time"`
-	CoopSize        int             `json:"coop_size"`
-	DeliveryTarget  float64         `json:"delivery_target"`
-	GenerousGifts   string          `json:"generous_gifts"`
-	GGMultiplier    float64         `json:"gg_multiplier,omitempty"`
-	MinutesPerToken int             `json:"minutes_per_token"`
-	BoostOrder      *AMQPBoostOrder `json:"boost_order,omitempty"`
+	Event           string             `json:"event"`
+	ContractID      string             `json:"contract_id"`
+	CoopID          string             `json:"coop_id"`
+	ChannelID       string             `json:"channel_id"`
+	StartTime       time.Time          `json:"start_time"`
+	CoopSize        int                `json:"coop_size"`
+	DeliveryTarget  float64            `json:"delivery_target"`
+	GenerousGifts   string             `json:"generous_gifts"`
+	GGMultiplier    float64            `json:"gg_multiplier,omitempty"`
+	MinutesPerToken int                `json:"minutes_per_token"`
+	PreviousScore   map[string]float64 `json:"previous_score,omitempty"`
+	BoostOrder      *AMQPBoostOrder    `json:"boost_order,omitempty"`
 }
 
 // PublishAMQPContractUpdate publishes a contract update/reset event to the guild's AMQP queue.
@@ -344,6 +350,7 @@ func CheckAndPublishAMQPContractUpdate(contract *Contract) {
 		GenerousGifts:   generousGifts,
 		GGMultiplier:    ggMultiplier,
 		MinutesPerToken: contract.MinutesPerToken,
+		PreviousScore:   contract.PreviousScore,
 		BoostOrder:      BuildAMQPBoostOrder(contract),
 	})
 }
@@ -396,4 +403,204 @@ func CheckAndPublishAMQPBoosterChange(contract *Contract, userID string, nick st
 		Nick:       nick,
 		Time:       time.Now(),
 	})
+}
+
+// findPreviousCXPScore extracts the CXP score from an archive for a specific contractID,
+// skipping entries matching currentCoopID.
+func findPreviousCXPScore(archive []*ei.LocalContract, contractID, currentCoopID string) (float64, bool) {
+	var maxScore float64
+	var found bool
+	for _, lc := range archive {
+		lcContractID := lc.GetContractIdentifier()
+		if lcContractID == "" && lc.GetContract() != nil {
+			lcContractID = lc.GetContract().GetIdentifier()
+		} else if lcContractID == "" && lc.GetEvaluation() != nil {
+			lcContractID = lc.GetEvaluation().GetContractIdentifier()
+		}
+		if !strings.EqualFold(lcContractID, contractID) {
+			continue
+		}
+		eval := lc.GetEvaluation()
+		if eval == nil {
+			continue
+		}
+		if currentCoopID != "" && strings.EqualFold(eval.GetCoopIdentifier(), currentCoopID) {
+			continue
+		}
+		cxp := eval.GetCxp()
+		if !found || cxp > maxScore {
+			maxScore = cxp
+			found = true
+		}
+	}
+	return maxScore, found
+}
+
+// GatherContractPreviousScores fetches the CXP score from the previous time each player ran the contract,
+// saving it into contract.PreviousScore and each booster's PreviousScore.
+func GatherContractPreviousScores(contract *Contract) {
+	if contract == nil {
+		return
+	}
+
+	contract.mutex.Lock()
+	if len(contract.Boosters) == 0 {
+		contract.mutex.Unlock()
+		return
+	}
+
+	if contract.PreviousScore == nil {
+		contract.PreviousScore = make(map[string]float64)
+	}
+
+	// Sync any scores already present in contract.PreviousScore to Boosters
+	for userID, score := range contract.PreviousScore {
+		if b, ok := contract.Boosters[userID]; ok && b != nil && b.PreviousScore == 0 {
+			b.PreviousScore = score
+		}
+	}
+
+	type playerJob struct {
+		userID   string
+		eggIncID string
+	}
+
+	var jobs []playerJob
+	for userID, b := range contract.Boosters {
+		if b != nil && b.PreviousScore > 0 {
+			contract.PreviousScore[userID] = b.PreviousScore
+			continue
+		}
+		if contract.PreviousScore[userID] > 0 {
+			if b != nil {
+				b.PreviousScore = contract.PreviousScore[userID]
+			}
+			continue
+		}
+
+		eiCipher := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
+		if eiCipher == "" && !dc.IsSnowflake(userID) {
+			if discordID, err := farmerstate.GetDiscordUserIDFromEiIgnExact(userID); err == nil && discordID != "" {
+				eiCipher = farmerstate.GetMiscSettingString(discordID, "encrypted_ei_id")
+			}
+		}
+		if eiCipher == "" {
+			continue
+		}
+		eggIncID := ei.DecryptEID(eiCipher)
+		if len(eggIncID) != 18 || !strings.HasPrefix(eggIncID, "EI") {
+			continue
+		}
+		jobs = append(jobs, playerJob{
+			userID:   userID,
+			eggIncID: eggIncID,
+		})
+	}
+	contractID := contract.ContractID
+	coopID := contract.CoopID
+	contract.mutex.Unlock()
+
+	if len(jobs) == 0 {
+		return
+	}
+
+	maxParallelJobs := max(min(len(jobs), maxParallel), 1)
+	jobsCh := make(chan playerJob, len(jobs))
+	var wg sync.WaitGroup
+
+	worker := func() {
+		defer wg.Done()
+		for j := range jobsCh {
+			if ign := farmerstate.GetMiscSettingString(j.userID, "ei_ign"); ign == "" {
+				if backup, _ := ei.GetFirstContactFromAPI(j.eggIncID, j.userID, true); backup != nil {
+					farmerstate.SetFarmerBackupDetails(j.userID, backup)
+				}
+			}
+
+			archive, _ := ei.GetContractArchiveFromAPI(j.eggIncID, j.userID, false, true)
+			if score, found := findPreviousCXPScore(archive, contractID, coopID); found {
+				contract.mutex.Lock()
+				if contract.PreviousScore == nil {
+					contract.PreviousScore = make(map[string]float64)
+				}
+				contract.PreviousScore[j.userID] = score
+				if b, ok := contract.Boosters[j.userID]; ok && b != nil {
+					b.PreviousScore = score
+				}
+				contract.mutex.Unlock()
+			}
+		}
+	}
+
+	wg.Add(maxParallelJobs)
+	for i := 0; i < maxParallelJobs; i++ {
+		go worker()
+	}
+	for _, j := range jobs {
+		jobsCh <- j
+	}
+	close(jobsCh)
+	wg.Wait()
+}
+
+// FetchBoosterPreviousScore fetches the previous CXP score for a single player in a goroutine if not already present.
+func FetchBoosterPreviousScore(contract *Contract, userID string) {
+	if contract == nil || userID == "" {
+		return
+	}
+
+	contract.mutex.Lock()
+	if contract.PreviousScore != nil && contract.PreviousScore[userID] > 0 {
+		if b, ok := contract.Boosters[userID]; ok && b != nil && b.PreviousScore == 0 {
+			b.PreviousScore = contract.PreviousScore[userID]
+		}
+		contract.mutex.Unlock()
+		return
+	}
+	if b, ok := contract.Boosters[userID]; ok && b != nil && b.PreviousScore > 0 {
+		if contract.PreviousScore == nil {
+			contract.PreviousScore = make(map[string]float64)
+		}
+		contract.PreviousScore[userID] = b.PreviousScore
+		contract.mutex.Unlock()
+		return
+	}
+	contractID := contract.ContractID
+	coopID := contract.CoopID
+	contract.mutex.Unlock()
+
+	go func() {
+		eiCipher := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
+		if eiCipher == "" && !dc.IsSnowflake(userID) {
+			if discordID, err := farmerstate.GetDiscordUserIDFromEiIgnExact(userID); err == nil && discordID != "" {
+				eiCipher = farmerstate.GetMiscSettingString(discordID, "encrypted_ei_id")
+			}
+		}
+		if eiCipher == "" {
+			return
+		}
+		eggIncID := ei.DecryptEID(eiCipher)
+		if len(eggIncID) != 18 || !strings.HasPrefix(eggIncID, "EI") {
+			return
+		}
+
+		if ign := farmerstate.GetMiscSettingString(userID, "ei_ign"); ign == "" {
+			if backup, _ := ei.GetFirstContactFromAPI(eggIncID, userID, true); backup != nil {
+				farmerstate.SetFarmerBackupDetails(userID, backup)
+			}
+		}
+
+		archive, _ := ei.GetContractArchiveFromAPI(eggIncID, userID, false, true)
+		if score, found := findPreviousCXPScore(archive, contractID, coopID); found {
+			contract.mutex.Lock()
+			if contract.PreviousScore == nil {
+				contract.PreviousScore = make(map[string]float64)
+			}
+			contract.PreviousScore[userID] = score
+			if b, ok := contract.Boosters[userID]; ok && b != nil {
+				b.PreviousScore = score
+			}
+			contract.mutex.Unlock()
+		}
+	}()
 }

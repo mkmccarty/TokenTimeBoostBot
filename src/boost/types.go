@@ -234,6 +234,7 @@ type Booster struct {
 	NonTokenReactionTimes  []time.Time          // Timestamps of no-token button interactions
 	NonTokenMsgID          string               // Last ephemeral message ID for user reaction summary log
 	DisableEphemeralLog    bool                 // Toggle for user ephemeral reaction summary log
+	PreviousScore          float64              `json:"previous_score,omitempty"` // CXP score from previous time player ran contract
 }
 
 // DisplayName returns the booster's display name, falling back through Nick, Name, UserName, GlobalName, and UserID.
@@ -362,6 +363,7 @@ type Contract struct {
 	ActualStartTime            time.Time // Actual start time for token tracking
 	ValidFrom                  time.Time // Base time used for offsets (9 AM PT of creation day)
 	RegisteredNum              int
+	PreviousScore              map[string]float64  `json:"previous_score,omitempty"` // Previous CXP score by UserID
 	Boosters                   map[string]*Booster // Boosters Registered
 	CRMessageIDs               map[string]string   // CR reqest messageIDs
 	CRNoticeCount              int                 // Number of times CR dialog has been displayed
