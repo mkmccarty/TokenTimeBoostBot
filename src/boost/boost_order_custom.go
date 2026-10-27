@@ -2237,13 +2237,19 @@ func extractBoostOrderTableData(contract *Contract, lines []string) (*boostOrder
 			values[ac.col.Label] = cell.Text
 		}
 
+		prevScore := b.PreviousScore
+		if prevScore == 0 && contract.PreviousScore != nil {
+			prevScore = contract.PreviousScore[userID]
+		}
+
 		tableRows = append(tableRows, TableImageRow{Cells: cells})
 		boosters = append(boosters, AMQPBoosterOrderEntry{
-			Position: idx + 1,
-			UserID:   userID,
-			Nick:     name,
-			Values:   values,
-			Row:      row,
+			Position:      idx + 1,
+			UserID:        userID,
+			Nick:          name,
+			PreviousScore: prevScore,
+			Values:        values,
+			Row:           row,
 		})
 	}
 

@@ -1065,6 +1065,10 @@ func AddFarmerToContract(client dc.Client, contract *Contract, guildID string, c
 		contract.RegisteredNum = len(contract.Boosters)
 		farmerstate.SetLastSeen(userID)
 
+		if contract.Style&ContractFlagAMQP != 0 {
+			FetchBoosterPreviousScore(contract, b.UserID)
+		}
+
 		// If the BoostBot is the creator, the first person joining becomes
 		// the coordinator
 		if contract.CreatorID[0] == config.DiscordAppID {
@@ -1949,6 +1953,7 @@ func StartContractBoosting(client dc.Client, guildID string, channelID string, u
 					GenerousGifts:   generousGifts,
 					GGMultiplier:    ggMultiplier,
 					MinutesPerToken: contract.MinutesPerToken,
+					PreviousScore:   contract.PreviousScore,
 					BoostOrder:      BuildAMQPBoostOrder(contract),
 				})
 			}

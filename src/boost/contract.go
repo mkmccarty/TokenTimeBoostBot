@@ -803,7 +803,11 @@ func HandleContractSettingsReactions(client dc.Client, e *dc.ComponentEvent) {
 			// If threshold was selected alongside other features like amqp, update AMQP flag before showing modal
 			if contract := FindContractByHash(contractHash); contract != nil {
 				if slices.Contains(dataValues, "amqp") {
+					wasAMQP := contract.Style&ContractFlagAMQP != 0
 					contract.Style |= ContractFlagAMQP
+					if !wasAMQP {
+						go GatherContractPreviousScores(contract)
+					}
 				} else {
 					contract.Style &= ^ContractFlagAMQP
 				}
@@ -848,7 +852,11 @@ func HandleContractSettingsReactions(client dc.Client, e *dc.ComponentEvent) {
 
 		// AMQP is independent of token quantity
 		if slices.Contains(values, "amqp") {
+			wasAMQP := contract.Style&ContractFlagAMQP != 0
 			contract.Style |= ContractFlagAMQP
+			if !wasAMQP {
+				go GatherContractPreviousScores(contract)
+			}
 		} else {
 			contract.Style &= ^ContractFlagAMQP
 		}
