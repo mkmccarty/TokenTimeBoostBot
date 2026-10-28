@@ -488,8 +488,8 @@ func buttonReactionRunChickens(client dc.Client, contract *Contract, cUserID str
 				}
 
 				sendSuccess = true
-				contract.mutex.Lock()
 				setChickenRunMessageID(contract, location.ChannelID, newMsg.ID)
+				contract.mutex.Lock()
 				contract.CRNoticeCount++
 				contract.mutex.Unlock()
 
@@ -816,14 +816,14 @@ func buttonReactionCRPing(client dc.Client, e *dc.ComponentEvent, contract *Cont
 	requesterUserID := values[0]
 
 	contract.mutex.Lock()
-	defer contract.mutex.Unlock()
-
 	if contract.Boosters[requesterUserID] == nil {
+		contract.mutex.Unlock()
 		return
 	}
 
 	_, _, pingIDs := buildChickenRunLists(contract, requesterUserID)
 	if len(pingIDs) == 0 {
+		contract.mutex.Unlock()
 		_ = e.Followup(dc.Message{
 			Content:   "No players remaining.",
 			Ephemeral: true,
@@ -853,6 +853,7 @@ func buttonReactionCRPing(client dc.Client, e *dc.ComponentEvent, contract *Cont
 	if mb := contract.Boosters[presserID]; mb != nil && mb.Mention != "" {
 		presserMention = mb.Mention
 	}
+	contract.mutex.Unlock()
 
 	msgLink := fmt.Sprintf("https://discord.com/channels/%s/%s/%s", e.GuildID(), e.ChannelID(), e.MessageID())
 	content := fmt.Sprintf(
