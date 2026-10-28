@@ -9,9 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
 
@@ -286,10 +284,6 @@ func EncodeSandboxData(cxpToggle bool, targetEgg float64, tokenTimer string, con
 		numPlayers:  numPlayers,
 		btvTarget:   btvTarget,
 		players:     players,
-	}
-
-	if config.IsDevBot() {
-		spew.Dump(input)
 	}
 
 	d1, d2, err := gatherData(input)
