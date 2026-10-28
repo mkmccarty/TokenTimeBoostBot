@@ -358,3 +358,58 @@ func TestChickenRunUserInContractRestriction(t *testing.T) {
 		t.Errorf("direct buttonReactionRanChicken should not add creator to RanChickensOn")
 	}
 }
+
+func TestBumpCRMessagesAndSetChickenRunMessageIDDeadlock(t *testing.T) {
+	client := dctest.New()
+	c := &Contract{
+		ContractHash: "test-cr-bump-hash",
+		Location: []*LocationData{
+			{
+				ChannelID:   "chan-1",
+				GuildID:     "guild-1",
+				RoleMention: "@role",
+			},
+		},
+		Order: []string{"userA", "userB"},
+		Boosters: map[string]*Booster{
+			"userA": {
+				UserID:          "userA",
+				Nick:            "PlayerA",
+				Mention:         "<@userA>",
+				RunChickensTime: time.Now(),
+			},
+			"userB": {
+				UserID:  "userB",
+				Nick:    "PlayerB",
+				Mention: "<@userB>",
+			},
+		},
+		CRMessageIDs: make(map[string]string),
+	}
+
+	ContractsMutex.Lock()
+	Contracts[c.ContractHash] = c
+	ContractsMutex.Unlock()
+	defer func() {
+		ContractsMutex.Lock()
+		delete(Contracts, c.ContractHash)
+		ContractsMutex.Unlock()
+	}()
+
+	done := make(chan struct{})
+	go func() {
+		bumpCRMessages(client, c)
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		// success, no deadlock
+	case <-time.After(3 * time.Second):
+		t.Fatal("bumpCRMessages deadlocked")
+	}
+
+	if c.CRMessageIDs["chan-1"] == "" {
+		t.Errorf("expected CRMessageIDs for chan-1 to be set, got empty")
+	}
+}

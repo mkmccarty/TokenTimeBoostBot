@@ -147,8 +147,8 @@ func bumpCRMessages(client dc.Client, contract *Contract) {
 			continue
 		}
 
-		contract.mutex.Lock()
 		setChickenRunMessageID(contract, location.ChannelID, newMsg.ID)
+		contract.mutex.Lock()
 		contract.CRNoticeCount++
 		contract.mutex.Unlock()
 

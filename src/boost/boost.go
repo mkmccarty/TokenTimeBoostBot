@@ -475,10 +475,16 @@ func SetReactionID(contract *Contract, channelID string, reactionID string) {
 // setChickenRunMessageID stores the consolidated CR message ID for a channel.
 // Key is channelID, value is the Discord message ID.
 func setChickenRunMessageID(contract *Contract, channelID, messageID string) {
+	if contract == nil {
+		return
+	}
+	contract.mutex.Lock()
 	if contract.CRMessageIDs == nil {
 		contract.CRMessageIDs = make(map[string]string)
 	}
 	contract.CRMessageIDs[channelID] = messageID
+	contract.mutex.Unlock()
+
 	// Save to the disk
 	saveData(contract.ContractHash)
 }
@@ -1042,6 +1048,10 @@ func AddFarmerToContract(client dc.Client, contract *Contract, guildID string, c
 			}
 
 			contract.mutex.Lock()
+			contract.Order = removeDuplicates(contract.Order)
+			contract.OrderRevision++
+			contract.mutex.Unlock()
+
 			for _, el := range contract.Location {
 				if (guildID == "" || el.GuildID == guildID) && dc.IsSnowflake(b.UserID) {
 					if el.GuildContractRole.ID != "" {
@@ -1049,10 +1059,6 @@ func AddFarmerToContract(client dc.Client, contract *Contract, guildID string, c
 					}
 				}
 			}
-
-			contract.Order = removeDuplicates(contract.Order)
-			contract.OrderRevision++
-			contract.mutex.Unlock()
 
 			for _, el := range contract.Location {
 				if (guildID == "" || el.GuildID == guildID) && dc.IsSnowflake(b.UserID) {
