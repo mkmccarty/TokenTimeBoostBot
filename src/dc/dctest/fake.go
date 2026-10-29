@@ -55,6 +55,8 @@ type FakeClient struct {
 
 	// SentMessages records the full dc.Message payloads passed to SendMessage.
 	SentMessages []dc.Message
+	// EditedMessages records the full dc.Message payloads passed to EditMessage.
+	EditedMessages []dc.Message
 
 	// SendErr, EditErr, DeleteErr and ChannelEditErr are returned by the respective client methods.
 	SendErr        error
@@ -271,6 +273,9 @@ func (f *FakeClient) SendMessage(channelID string, m dc.Message) (*dc.MessageRef
 
 // EditMessage records the edit and echoes the new content back.
 func (f *FakeClient) EditMessage(channelID, messageID string, m dc.Message) (*dc.MessageRef, error) {
+	f.mu.Lock()
+	f.EditedMessages = append(f.EditedMessages, m)
+	f.mu.Unlock()
 	f.record("EditMessage", channelID, messageID, m.Content)
 	if f.EditErr != nil {
 		return nil, f.EditErr

@@ -70,6 +70,32 @@ func TestDisgoMessageUpdateClearComponents(t *testing.T) {
 	}
 }
 
+// Editing a message without embeds leaves the embeds already on it in
+// place, so a handler that only takes its embeds away has to send an empty
+// list rather than none at all.
+func TestDisgoMessageUpdateClearEmbeds(t *testing.T) {
+	cleared := Message{Content: "done", ClearEmbeds: true}.toMessageUpdate()
+	if cleared.Embeds == nil {
+		t.Fatal("ClearEmbeds must send an embeds list")
+	}
+	if len(*cleared.Embeds) != 0 {
+		t.Errorf("want an empty embeds list, got %#v", *cleared.Embeds)
+	}
+
+	untouched := Message{Content: "done"}.toMessageUpdate()
+	if untouched.Embeds != nil {
+		t.Errorf("an edit with no embeds should leave them alone, got %#v", *untouched.Embeds)
+	}
+
+	emptySlice := Message{Content: "done", Embeds: []Embed{}}.toMessageUpdate()
+	if emptySlice.Embeds == nil {
+		t.Fatal("empty Embeds slice must send an embeds list")
+	}
+	if len(*emptySlice.Embeds) != 0 {
+		t.Errorf("want an empty embeds list, got %#v", *emptySlice.Embeds)
+	}
+}
+
 func TestDisgoMessageUpdateAlwaysSendsContent(t *testing.T) {
 	// A components v2 edit blanks the content, and that blanking has to reach
 	// Discord or the old text stays under the new components.

@@ -159,6 +159,7 @@ func bumpCRMessages(client dc.Client, contract *Contract) {
 				Content:         moveText,
 				ComponentsV1:    true,
 				ClearComponents: true,
+				ClearEmbeds:     true,
 				AllowedMentions: &dc.AllowedMentions{},
 			}); err != nil {
 				movedComponents := []dc.LayoutComponent{
@@ -166,6 +167,7 @@ func bumpCRMessages(client dc.Client, contract *Contract) {
 				}
 				if _, err2 := client.EditMessage(location.ChannelID, existingMsgID, dc.Message{
 					Components:      movedComponents,
+					ClearEmbeds:     true,
 					AllowedMentions: &dc.AllowedMentions{},
 				}); err2 != nil {
 					log.Printf("bumpCRMessages edit old error: contractHash=%s channelID=%s messageID=%s error=%v",

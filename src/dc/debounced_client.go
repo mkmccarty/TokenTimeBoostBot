@@ -1,6 +1,7 @@
 package dc
 
 import (
+	"log"
 	"sync"
 	"time"
 )
@@ -96,7 +97,9 @@ func (d *MessageEditDebouncer) flushKey(key string) {
 	d.mu.Unlock()
 
 	if entry != nil && d.executeFn != nil {
-		_, _ = d.executeFn(entry.channelID, entry.messageID, entry.msg)
+		if _, err := d.executeFn(entry.channelID, entry.messageID, entry.msg); err != nil {
+			log.Printf("debounced EditMessage error: channelID=%s messageID=%s error=%v", entry.channelID, entry.messageID, err)
+		}
 	}
 }
 
@@ -115,7 +118,9 @@ func (d *MessageEditDebouncer) Flush() {
 
 	if d.executeFn != nil {
 		for _, entry := range entries {
-			_, _ = d.executeFn(entry.channelID, entry.messageID, entry.msg)
+			if _, err := d.executeFn(entry.channelID, entry.messageID, entry.msg); err != nil {
+				log.Printf("debounced EditMessage error during Flush: channelID=%s messageID=%s error=%v", entry.channelID, entry.messageID, err)
+			}
 		}
 	}
 }
