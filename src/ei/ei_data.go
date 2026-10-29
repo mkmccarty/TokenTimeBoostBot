@@ -83,6 +83,7 @@ type ContractGrade struct {
 	ModifierVehicleCost  float64
 	ModifierResearchCost float64
 	ModifierHabCost      float64
+	Modifiers            []*GameModifier `json:"modifiers,omitempty"`
 	BasePoints           float64
 }
 
@@ -150,6 +151,7 @@ type EggIncContract struct {
 	ModifierVehicleCost       float64
 	ModifierResearchCost      float64
 	ModifierHabCost           float64
+	RawModifiers              []*GameModifier `json:"raw_modifiers,omitempty"`
 	ValidFrom                 time.Time
 	ValidUntil                time.Time
 	HasPE                     bool

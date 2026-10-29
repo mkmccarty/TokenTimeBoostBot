@@ -408,6 +408,10 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 			}
 		}
 		//		}
+		if len(s.GetModifiers()) > 0 {
+			c.Grade[grade].Modifiers = s.GetModifiers()
+			c.RawModifiers = s.GetModifiers()
+		}
 		c.Grade[grade].TargetAmount = c.TargetAmount
 		c.Grade[grade].ModifierIHR = c.ModifierIHR
 		c.Grade[grade].ModifierELR = c.ModifierELR
@@ -598,6 +602,9 @@ func PopulateContractFromProto(contractProtoBuf *ei.Contract) ei.EggIncContract 
 }
 
 func updateContractWithEggIncData(client dc.Client, contract *Contract) {
+	if mods := GetContractModifiers(contract.ContractID); len(mods) > 0 {
+		contract.Modifiers = mods
+	}
 	if len(contract.ThematicComplaints) == 0 {
 		if themed, err := GetThematicComplaintsForContract(contract.ContractID); err == nil && len(themed) > 0 {
 			contract.ThematicComplaints = append([]string(nil), themed...)
