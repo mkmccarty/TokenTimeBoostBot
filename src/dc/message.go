@@ -93,6 +93,12 @@ type Message struct {
 	// place, so a handler that only takes its buttons away has to say so.
 	// It has no effect on a message being sent.
 	ClearComponents bool
+
+	// ClearEmbeds strips every embed off the message being edited.
+	// Editing a message without embeds leaves the ones already on it in
+	// place, so a handler that takes its embeds away has to say so.
+	// It has no effect on a message being sent.
+	ClearEmbeds bool
 }
 
 // componentsV2 reports whether the message is sent under Discord's components

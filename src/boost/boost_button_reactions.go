@@ -501,6 +501,7 @@ func buttonReactionRunChickens(client dc.Client, contract *Contract, cUserID str
 						Content:         moveText,
 						ComponentsV1:    true,
 						ClearComponents: true,
+						ClearEmbeds:     true,
 						AllowedMentions: &dc.AllowedMentions{},
 					}); err != nil {
 						// Fallback in case old message was Components V2
@@ -509,6 +510,7 @@ func buttonReactionRunChickens(client dc.Client, contract *Contract, cUserID str
 						}
 						if _, err2 := client.EditMessage(location.ChannelID, existingMsgID, dc.Message{
 							Components:      movedComponents,
+							ClearEmbeds:     true,
 							AllowedMentions: &dc.AllowedMentions{},
 						}); err2 != nil {
 							log.Printf("Error editing old CR message: contractHash=%s channelID=%s messageID=%s error=%v",
@@ -624,15 +626,26 @@ func buildCRMessage(contract *Contract, roleMention string) (dc.Message, []strin
 		return dc.Message{}, nil
 	}
 
-	// Find the most recent requester by RunChickensTime
+	// Find the most recent incomplete requester by RunChickensTime, or latest overall if all complete
 	var latestRequester *Booster
 	for _, id := range requesters {
 		b := contract.Boosters[id]
 		if b == nil {
 			continue
 		}
-		if latestRequester == nil || b.RunChickensTime.After(latestRequester.RunChickensTime) {
-			latestRequester = b
+		_, missing, _ := buildChickenRunLists(contract, id)
+		if len(missing) > 0 {
+			if latestRequester == nil || b.RunChickensTime.After(latestRequester.RunChickensTime) {
+				latestRequester = b
+			}
+		}
+	}
+	if latestRequester == nil {
+		for _, id := range requesters {
+			b := contract.Boosters[id]
+			if b != nil && (latestRequester == nil || b.RunChickensTime.After(latestRequester.RunChickensTime)) {
+				latestRequester = b
+			}
 		}
 	}
 	latestName := ""
@@ -650,6 +663,8 @@ func buildCRMessage(contract *Contract, roleMention string) (dc.Message, []strin
 	var allAllowedMentions []string
 
 	buttonLabelCount := make(map[string]int)
+
+	hasIncomplete := false
 
 	// Build a line and button for each requester, up to 10 buttons total.
 	for _, reqID := range requesters {
@@ -677,16 +692,15 @@ func buildCRMessage(contract *Contract, roleMention string) (dc.Message, []strin
 			worstPct = pct
 		}
 
-		// Drop fully-completed requesters from the message
-		if len(missing) == 0 {
-			continue
+		if len(missing) > 0 {
+			hasIncomplete = true
 		}
 
 		var sb strings.Builder
 		fmt.Fprintf(&sb, "%s **%s (%d/%d)**", bottools.NumberToEmoji(len(missing)), name, len(alreadyRun), total)
 		switch contract.PlayStyle {
 		case ContractPlaystyleLeaderboard, ContractPlaystyleFastrun:
-			if len(missing) < 11 {
+			if len(missing) > 0 && len(missing) < 11 {
 				fmt.Fprintf(&sb, "\n-# _  _↳ Waiting: %s", strings.Join(missing, " "))
 			}
 		case ContractPlaystyleChill, ContractPlaystyleACOCooperative:
@@ -699,7 +713,7 @@ func buildCRMessage(contract *Contract, roleMention string) (dc.Message, []strin
 		requesterLines = append(requesterLines, sb.String())
 
 		// One button per incomplete requester, max 10 total (up to 2 rows of 5)
-		if len(buttons) < 10 {
+		if len(missing) > 0 && len(buttons) < 10 {
 			label := runewidth.Truncate(name, 16, "")
 			buttonLabelCount[label]++
 			// Truncating to 16 chars can produce duplicate labels, append a number to keep them distinct
@@ -714,10 +728,12 @@ func buildCRMessage(contract *Contract, roleMention string) (dc.Message, []strin
 			})
 		}
 
-		selectOptions = append(selectOptions, dc.SelectOption{
-			Label: name + " Runners",
-			Value: reqID,
-		})
+		if len(missing) > 0 {
+			selectOptions = append(selectOptions, dc.SelectOption{
+				Label: name + " Runners",
+				Value: reqID,
+			})
+		}
 	}
 
 	var tipText string
@@ -737,16 +753,36 @@ func buildCRMessage(contract *Contract, roleMention string) (dc.Message, []strin
 	accentColor := crColorFromPct(worstPct)
 
 	// All requesters done, collapse into a single embed with completion notice
-	if len(requesterLines) == 0 {
+	if !hasIncomplete {
 		prefix := ""
 		if roleMention != "" {
 			prefix = roleMention + " "
 		}
-		name := latestName
-		if name == "" {
-			name = "Contract"
+		names := make([]string, 0, len(requesters))
+		for _, reqID := range requesters {
+			b := contract.Boosters[reqID]
+			if b == nil {
+				continue
+			}
+			name := b.Nick
+			if ign := farmerstate.GetMiscSettingString(reqID, "ei_ign"); ign != "" {
+				name = ign
+			}
+			names = append(names, fmt.Sprintf("**%s**", name))
 		}
-		completionMsg := fmt.Sprintf("-# %s**%s**'s chicken run request is complete!", prefix, name)
+
+		var completionMsg string
+		switch len(names) {
+		case 0:
+			completionMsg = fmt.Sprintf("-# %sContract's chicken run request is complete!", prefix)
+		case 1:
+			completionMsg = fmt.Sprintf("-# %s%s's chicken run request is complete!", prefix, names[0])
+		case 2:
+			completionMsg = fmt.Sprintf("-# %s%s and %s's chicken run requests are complete!", prefix, names[0], names[1])
+		default:
+			completionMsg = fmt.Sprintf("-# %s%s, and %s's chicken run requests are complete!", prefix, strings.Join(names[:len(names)-1], ", "), names[len(names)-1])
+		}
+
 		return dc.Message{
 			Embeds: []dc.Embed{
 				{

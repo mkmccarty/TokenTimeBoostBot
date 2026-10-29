@@ -165,7 +165,10 @@ func (m Message) disgoComponentList() []discord.LayoutComponent {
 }
 
 func (m Message) disgoEmbedList() []discord.Embed {
-	var embeds []discord.Embed
+	if m.Embeds == nil {
+		return nil
+	}
+	embeds := make([]discord.Embed, 0, len(m.Embeds))
 	for _, embed := range m.Embeds {
 		embeds = append(embeds, embed.disgoEmbed())
 	}
@@ -213,7 +216,11 @@ func (m Message) toMessageUpdate() discord.MessageUpdate {
 	if components != nil {
 		update.Components = &components
 	}
-	if embeds := m.disgoEmbedList(); embeds != nil {
+	embeds := m.disgoEmbedList()
+	if embeds == nil && m.ClearEmbeds {
+		embeds = []discord.Embed{}
+	}
+	if embeds != nil {
 		update.Embeds = &embeds
 	}
 	if files := m.disgoFileList(); files != nil {

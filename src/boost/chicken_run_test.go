@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc/dctest"
 )
 
@@ -203,6 +204,109 @@ func TestBuildCRMessageComponentsCompleted(t *testing.T) {
 	}
 	if msg.Embeds[0].Description == "" || !strings.Contains(msg.Embeds[0].Description, "Player1") {
 		t.Errorf("expected completion message with Player1, got %q", msg.Embeds[0].Description)
+	}
+}
+
+func TestBuildCRMessageMultipleRequestersCarriedAlongUntilAllComplete(t *testing.T) {
+	c := &Contract{
+		ContractHash: "test-hash-multi-requester",
+		Order:        []string{"400000000000000001", "400000000000000002", "400000000000000003"},
+		PlayStyle:    ContractPlaystyleLeaderboard,
+		Boosters: map[string]*Booster{
+			"400000000000000001": {
+				UserID:          "400000000000000001",
+				Nick:            "Player1",
+				UserName:        "player1",
+				Mention:         "<@400000000000000001>",
+				RunChickensTime: time.Now().Add(-2 * time.Minute),
+			},
+			"400000000000000002": {
+				UserID:          "400000000000000002",
+				Nick:            "Player2",
+				UserName:        "player2",
+				Mention:         "<@400000000000000002>",
+				RunChickensTime: time.Now().Add(-1 * time.Minute),
+			},
+			"400000000000000003": {
+				UserID:        "400000000000000003",
+				Nick:          "Player3",
+				UserName:      "player3",
+				Mention:       "<@400000000000000003>",
+				RanChickensOn: []string{"400000000000000001"},
+			},
+		},
+	}
+	// user2 also ran on user1
+	c.Boosters["400000000000000002"].RanChickensOn = []string{"400000000000000001"}
+
+	// State: user1 has runs from user2 and user3 -> user1 has 0 missing (complete!).
+	// user2 has runs from neither user1 nor user3 -> user2 has 2 missing (incomplete).
+	msg, allowedMentions := buildCRMessage(c, "@role")
+
+	// 1. Check that the dialog is NOT collapsed to completion because user2 is still waiting
+	if msg.ClearComponents {
+		t.Errorf("expected ClearComponents to be false while user2 is still waiting")
+	}
+	if len(msg.Embeds) != 1 {
+		t.Fatalf("expected 1 embed, got %d", len(msg.Embeds))
+	}
+
+	// 2. Both Player1 and Player2 must be listed in the embed description
+	desc := msg.Embeds[0].Description
+	if !strings.Contains(desc, "Player1") {
+		t.Errorf("expected completed Player1 to be carried along in embed, got: %s", desc)
+	}
+	if !strings.Contains(desc, "Player2") {
+		t.Errorf("expected incomplete Player2 to be listed in embed, got: %s", desc)
+	}
+	if !strings.Contains(desc, "0️⃣ **Player1 (2/2)**") {
+		t.Errorf("expected Player1 to be listed with 0 missing, got: %s", desc)
+	}
+
+	// 3. Only Player2 should have a button, Player1 should not have a button
+	if len(msg.Components) == 0 {
+		t.Fatalf("expected components for incomplete requester")
+	}
+	row, ok := msg.Components[0].(dc.ActionRow)
+	if !ok {
+		t.Fatalf("expected ActionRow, got %T", msg.Components[0])
+	}
+	if len(row.Components) != 1 {
+		t.Fatalf("expected exactly 1 button for Player2, got %d", len(row.Components))
+	}
+	btn, ok := row.Components[0].(dc.Button)
+	if !ok || !strings.Contains(btn.CustomID, "400000000000000002") {
+		t.Errorf("expected button for user2, got button customID=%s", btn.CustomID)
+	}
+
+	// 4. Header should indicate Player2 is requesting (since user2 is incomplete)
+	if !strings.Contains(msg.Content, "Player2") {
+		t.Errorf("expected ping header to name Player2 who still needs runs, got: %s", msg.Content)
+	}
+	if len(allowedMentions) == 0 {
+		t.Errorf("expected allowed mentions for user2's missing runners")
+	}
+
+	// 5. Now user1 and user3 run on user2, completing all runs for everyone
+	c.Boosters["400000000000000001"].RanChickensOn = append(c.Boosters["400000000000000001"].RanChickensOn, "400000000000000002")
+	c.Boosters["400000000000000003"].RanChickensOn = append(c.Boosters["400000000000000003"].RanChickensOn, "400000000000000002")
+
+	msgCompleted, mentionsCompleted := buildCRMessage(c, "@role")
+	if len(mentionsCompleted) != 0 {
+		t.Errorf("expected no allowed mentions when all completed, got %v", mentionsCompleted)
+	}
+	if !msgCompleted.ClearComponents {
+		t.Errorf("expected ClearComponents to be true when all completed")
+	}
+	if len(msgCompleted.Embeds) != 1 {
+		t.Fatalf("expected 1 embed when complete, got %d", len(msgCompleted.Embeds))
+	}
+	compDesc := msgCompleted.Embeds[0].Description
+	if !strings.Contains(compDesc, "Player1") || !strings.Contains(compDesc, "Player2") {
+		t.Errorf("expected completion message to include both Player1 and Player2, got: %s", compDesc)
+	}
+	if !strings.Contains(compDesc, "requests are complete") {
+		t.Errorf("expected plural 'requests are complete', got: %s", compDesc)
 	}
 }
 
@@ -411,5 +515,106 @@ func TestBumpCRMessagesAndSetChickenRunMessageIDDeadlock(t *testing.T) {
 
 	if c.CRMessageIDs["chan-1"] == "" {
 		t.Errorf("expected CRMessageIDs for chan-1 to be set, got empty")
+	}
+}
+
+func TestChickenRunMigrationCleansUpOldMessage(t *testing.T) {
+	client := dctest.New()
+	c := &Contract{
+		ContractHash: "test-cr-migration-hash",
+		Location: []*LocationData{
+			{
+				ChannelID:   "chan-1",
+				GuildID:     "guild-1",
+				RoleMention: "@role",
+			},
+		},
+		Order: []string{"userA", "userB"},
+		Boosters: map[string]*Booster{
+			"userA": {
+				UserID:     "userA",
+				Nick:       "PlayerA",
+				Mention:    "<@userA>",
+				BoostState: BoostStateBoosted,
+			},
+			"userB": {
+				UserID:     "userB",
+				Nick:       "PlayerB",
+				Mention:    "<@userB>",
+				BoostState: BoostStateBoosted,
+			},
+		},
+		CRMessageIDs: make(map[string]string),
+	}
+
+	ContractsMutex.Lock()
+	Contracts[c.ContractHash] = c
+	ContractsMutex.Unlock()
+	defer func() {
+		ContractsMutex.Lock()
+		delete(Contracts, c.ContractHash)
+		ContractsMutex.Unlock()
+	}()
+
+	// 1. User A requests chicken runs
+	ok, _ := buttonReactionRunChickens(client, c, "userA")
+	if !ok {
+		t.Fatalf("expected buttonReactionRunChickens for userA to succeed")
+	}
+
+	// Wait for goroutine to finish posting message 1
+	var firstMsgID string
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		c.mutex.Lock()
+		firstMsgID = c.CRMessageIDs["chan-1"]
+		c.mutex.Unlock()
+		if firstMsgID != "" {
+			break
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	if firstMsgID == "" {
+		t.Fatalf("expected CR message ID to be set for userA request")
+	}
+
+	// 2. User B requests chicken runs (new requestor)
+	ok, _ = buttonReactionRunChickens(client, c, "userB")
+	if !ok {
+		t.Fatalf("expected buttonReactionRunChickens for userB to succeed")
+	}
+
+	// Wait for goroutine to update CRMessageIDs to second message
+	var secondMsgID string
+	deadline = time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		c.mutex.Lock()
+		secondMsgID = c.CRMessageIDs["chan-1"]
+		c.mutex.Unlock()
+		if secondMsgID != "" && secondMsgID != firstMsgID {
+			break
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	if secondMsgID == "" || secondMsgID == firstMsgID {
+		t.Fatalf("expected CR message ID to change to second message, got %s", secondMsgID)
+	}
+
+	// 3. Verify EditMessage was called on firstMsgID to migrate and clean it up
+	var editedMsg *dc.Message
+	for _, m := range client.EditedMessages {
+		if strings.Contains(m.Content, "Chicken Run request moved") && strings.Contains(m.Content, secondMsgID) {
+			editedMsg = &m
+			break
+		}
+	}
+	if editedMsg == nil {
+		t.Fatalf("expected an edit call redirecting to %s, got edits: %+v", secondMsgID, client.EditedMessages)
+	}
+	if !editedMsg.ClearComponents {
+		t.Errorf("expected ClearComponents: true on migrated message")
+	}
+	if !editedMsg.ClearEmbeds {
+		t.Errorf("expected ClearEmbeds: true on migrated message")
 	}
 }
