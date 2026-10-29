@@ -636,3 +636,279 @@ func TestFetchBoosterPreviousScore_SyncsExisting(t *testing.T) {
 		t.Errorf("Expected contract2.PreviousScore[userB] to be synced to 4444.0, got %f", contract2.PreviousScore["userB"])
 	}
 }
+
+func TestGetGameDimensionName(t *testing.T) {
+	tests := []struct {
+		dim  ei.GameModifier_GameDimension
+		want string
+	}{
+		{ei.GameModifier_EARNINGS, "earnings"},
+		{ei.GameModifier_AWAY_EARNINGS, "away_earnings"},
+		{ei.GameModifier_INTERNAL_HATCHERY_RATE, "internal_hatchery_rate"},
+		{ei.GameModifier_EGG_LAYING_RATE, "egg_laying_rate"},
+		{ei.GameModifier_SHIPPING_CAPACITY, "shipping_capacity"},
+		{ei.GameModifier_HAB_CAPACITY, "hab_capacity"},
+		{ei.GameModifier_VEHICLE_COST, "vehicle_cost"},
+		{ei.GameModifier_HAB_COST, "hab_cost"},
+		{ei.GameModifier_RESEARCH_COST, "research_cost"},
+		{ei.GameModifier_INVALID, "unknown"},
+		{ei.GameModifier_GameDimension(999), "unknown"},
+	}
+
+	for _, tt := range tests {
+		got := GetGameDimensionName(tt.dim)
+		if got != tt.want {
+			t.Errorf("GetGameDimensionName(%v) = %q, want %q", tt.dim, got, tt.want)
+		}
+	}
+}
+
+func TestGetContractModifiers(t *testing.T) {
+	// Empty contract ID
+	if mods := GetContractModifiers(""); mods != nil {
+		t.Errorf("Expected nil modifiers for empty contract ID, got %+v", mods)
+	}
+
+	// Non-existent contract ID
+	if mods := GetContractModifiers("nonexistent-contract-xyz"); mods != nil {
+		t.Errorf("Expected nil modifiers for nonexistent contract ID, got %+v", mods)
+	}
+
+	testContractID := "test-contract-modifiers"
+	habCapDim := ei.GameModifier_HAB_CAPACITY
+	habCapVal := 0.5
+	habCapDesc := "50% Hab Space"
+
+	ei.EggIncContractsMutex.Lock()
+	if ei.EggIncContractsAll == nil {
+		ei.EggIncContractsAll = make(map[string]ei.EggIncContract)
+	}
+	ei.EggIncContractsAll[testContractID] = ei.EggIncContract{
+		ID: testContractID,
+		RawModifiers: []*ei.GameModifier{
+			{
+				Dimension:   &habCapDim,
+				Value:       &habCapVal,
+				Description: &habCapDesc,
+			},
+		},
+	}
+	ei.EggIncContractsMutex.Unlock()
+
+	defer func() {
+		ei.EggIncContractsMutex.Lock()
+		delete(ei.EggIncContractsAll, testContractID)
+		ei.EggIncContractsMutex.Unlock()
+	}()
+
+	mods := GetContractModifiers(testContractID)
+	if len(mods) != 1 {
+		t.Fatalf("Expected 1 modifier, got %d", len(mods))
+	}
+	if mods[0].Dimension != int(ei.GameModifier_HAB_CAPACITY) {
+		t.Errorf("Expected dimension %d, got %d", int(ei.GameModifier_HAB_CAPACITY), mods[0].Dimension)
+	}
+	if mods[0].DimensionName != "hab_capacity" {
+		t.Errorf("Expected dimension_name 'hab_capacity', got %q", mods[0].DimensionName)
+	}
+	if mods[0].Value != 0.5 {
+		t.Errorf("Expected value 0.5, got %f", mods[0].Value)
+	}
+	if mods[0].Description != "50% Hab Space" {
+		t.Errorf("Expected description '50%% Hab Space', got %q", mods[0].Description)
+	}
+}
+
+func TestAMQPContractModifiersJSON(t *testing.T) {
+	// Test with modifiers populated
+	startMsg := AMQPContractStartMessage{
+		Event:      "contract_start",
+		ContractID: "test-c1",
+		CoopID:     "coop-1",
+		Modifiers: []AMQPContractModifier{
+			{
+				Dimension:     6,
+				DimensionName: "hab_capacity",
+				Value:         0.5,
+				Description:   "Half Hab Capacity",
+			},
+		},
+	}
+
+	data, err := json.Marshal(startMsg)
+	if err != nil {
+		t.Fatalf("Failed to marshal AMQPContractStartMessage: %v", err)
+	}
+
+	var raw map[string]interface{}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		t.Fatalf("Failed to unmarshal startMsg json: %v", err)
+	}
+
+	rawMods, ok := raw["modifiers"].([]interface{})
+	if !ok || len(rawMods) != 1 {
+		t.Fatalf("Expected modifiers array with 1 item, got: %+v", raw["modifiers"])
+	}
+	modMap := rawMods[0].(map[string]interface{})
+	if modMap["dimension"] != float64(6) {
+		t.Errorf("Expected dimension 6, got %+v", modMap["dimension"])
+	}
+	if modMap["dimension_name"] != "hab_capacity" {
+		t.Errorf("Expected dimension_name 'hab_capacity', got %+v", modMap["dimension_name"])
+	}
+	if modMap["value"] != 0.5 {
+		t.Errorf("Expected value 0.5, got %+v", modMap["value"])
+	}
+	if modMap["description"] != "Half Hab Capacity" {
+		t.Errorf("Expected description 'Half Hab Capacity', got %+v", modMap["description"])
+	}
+
+	// Test update message with modifiers
+	updateMsg := AMQPContractUpdateMessage{
+		Event:      "contract_update",
+		ContractID: "test-c1",
+		CoopID:     "coop-1",
+		Modifiers: []AMQPContractModifier{
+			{
+				Dimension:     4,
+				DimensionName: "egg_laying_rate",
+				Value:         2.0,
+			},
+		},
+	}
+
+	dataUpdate, err := json.Marshal(updateMsg)
+	if err != nil {
+		t.Fatalf("Failed to marshal AMQPContractUpdateMessage: %v", err)
+	}
+
+	var rawUpdate map[string]interface{}
+	if err := json.Unmarshal(dataUpdate, &rawUpdate); err != nil {
+		t.Fatalf("Failed to unmarshal updateMsg json: %v", err)
+	}
+	rawUpdateMods, ok := rawUpdate["modifiers"].([]interface{})
+	if !ok || len(rawUpdateMods) != 1 {
+		t.Fatalf("Expected modifiers array with 1 item in update message, got: %+v", rawUpdate["modifiers"])
+	}
+
+	// Test omit empty when modifiers is nil or empty
+	startMsgEmpty := AMQPContractStartMessage{
+		Event:      "contract_start",
+		ContractID: "test-c2",
+		CoopID:     "coop-2",
+	}
+	dataEmpty, err := json.Marshal(startMsgEmpty)
+	if err != nil {
+		t.Fatalf("Failed to marshal AMQPContractStartMessage without modifiers: %v", err)
+	}
+	var rawEmpty map[string]interface{}
+	if err := json.Unmarshal(dataEmpty, &rawEmpty); err != nil {
+		t.Fatalf("Failed to unmarshal startMsgEmpty json: %v", err)
+	}
+	if _, exists := rawEmpty["modifiers"]; exists {
+		t.Errorf("Expected 'modifiers' to be omitted when empty, but was present: %+v", rawEmpty["modifiers"])
+	}
+}
+
+func TestGetContractTimeLimitSeconds(t *testing.T) {
+	if sec := GetContractTimeLimitSeconds(nil); sec != 0 {
+		t.Errorf("Expected 0 for nil contract, got %d", sec)
+	}
+
+	cDirect := &Contract{
+		ContractID:      "direct-c",
+		LengthInSeconds: 86400,
+	}
+	if sec := GetContractTimeLimitSeconds(cDirect); sec != 86400 {
+		t.Errorf("Expected 86400 for contract with direct LengthInSeconds, got %d", sec)
+	}
+
+	testCID := "test-timelimit-contract"
+	ei.EggIncContractsMutex.Lock()
+	if ei.EggIncContractsAll == nil {
+		ei.EggIncContractsAll = make(map[string]ei.EggIncContract)
+	}
+	ei.EggIncContractsAll[testCID] = ei.EggIncContract{
+		ID:              testCID,
+		LengthInSeconds: 172800,
+	}
+	ei.EggIncContractsMutex.Unlock()
+
+	defer func() {
+		ei.EggIncContractsMutex.Lock()
+		delete(ei.EggIncContractsAll, testCID)
+		ei.EggIncContractsMutex.Unlock()
+	}()
+
+	cFallback := &Contract{
+		ContractID: testCID,
+	}
+	if sec := GetContractTimeLimitSeconds(cFallback); sec != 172800 {
+		t.Errorf("Expected 172800 from EggIncContractsAll fallback, got %d", sec)
+	}
+}
+
+func TestAMQPTimeLimitSecondsJSON(t *testing.T) {
+	startMsg := AMQPContractStartMessage{
+		Event:            "contract_start",
+		ContractID:       "c1",
+		CoopID:           "coop1",
+		TimeLimitSeconds: 259200,
+	}
+
+	data, err := json.Marshal(startMsg)
+	if err != nil {
+		t.Fatalf("Failed to marshal AMQPContractStartMessage: %v", err)
+	}
+
+	var raw map[string]interface{}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		t.Fatalf("Failed to unmarshal startMsg JSON: %v", err)
+	}
+
+	if raw["time_limit_seconds"] != float64(259200) {
+		t.Errorf("Expected time_limit_seconds to be 259200, got %+v", raw["time_limit_seconds"])
+	}
+
+	updateMsg := AMQPContractUpdateMessage{
+		Event:            "contract_update",
+		ContractID:       "c1",
+		CoopID:           "coop1",
+		TimeLimitSeconds: 86400,
+	}
+
+	dataUpdate, err := json.Marshal(updateMsg)
+	if err != nil {
+		t.Fatalf("Failed to marshal AMQPContractUpdateMessage: %v", err)
+	}
+
+	var rawUpdate map[string]interface{}
+	if err := json.Unmarshal(dataUpdate, &rawUpdate); err != nil {
+		t.Fatalf("Failed to unmarshal updateMsg JSON: %v", err)
+	}
+
+	if rawUpdate["time_limit_seconds"] != float64(86400) {
+		t.Errorf("Expected time_limit_seconds in update message to be 86400, got %+v", rawUpdate["time_limit_seconds"])
+	}
+
+	// Test omitempty when 0
+	emptyMsg := AMQPContractStartMessage{
+		Event:      "contract_start",
+		ContractID: "c2",
+		CoopID:     "coop2",
+	}
+
+	dataEmpty, err := json.Marshal(emptyMsg)
+	if err != nil {
+		t.Fatalf("Failed to marshal emptyMsg: %v", err)
+	}
+
+	var rawEmpty map[string]interface{}
+	if err := json.Unmarshal(dataEmpty, &rawEmpty); err != nil {
+		t.Fatalf("Failed to unmarshal emptyMsg JSON: %v", err)
+	}
+
+	if _, exists := rawEmpty["time_limit_seconds"]; exists {
+		t.Errorf("Expected time_limit_seconds to be omitted when 0, but found: %+v", rawEmpty["time_limit_seconds"])
+	}
+}

@@ -663,6 +663,7 @@ func CreateContract(client dc.Client, contractID string, coopID string, playStyl
 	contract.CRMessageIDs = make(map[string]string)
 	contract.PreviousScore = make(map[string]float64)
 	contract.ContractID = contractID
+	contract.Modifiers = GetContractModifiers(contractID)
 	contract.CoopID = coopID
 	contract.PlayStyle = playStyle
 	if BoostOrder == -1 {

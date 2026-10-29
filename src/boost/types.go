@@ -363,11 +363,12 @@ type Contract struct {
 	ActualStartTime            time.Time // Actual start time for token tracking
 	ValidFrom                  time.Time // Base time used for offsets (9 AM PT of creation day)
 	RegisteredNum              int
-	PreviousScore              map[string]float64  `json:"previous_score,omitempty"` // Previous CXP score by UserID
-	Boosters                   map[string]*Booster // Boosters Registered
-	CRMessageIDs               map[string]string   // CR reqest messageIDs
-	CRNoticeCount              int                 // Number of times CR dialog has been displayed
-	WaitlistBoosters           []string            // Waitlist of UserID's
+	PreviousScore              map[string]float64     `json:"previous_score,omitempty"` // Previous CXP score by UserID
+	Modifiers                  []AMQPContractModifier `json:"modifiers,omitempty"`      // Active contract modifiers
+	Boosters                   map[string]*Booster    // Boosters Registered
+	CRMessageIDs               map[string]string      // CR reqest messageIDs
+	CRNoticeCount              int                    // Number of times CR dialog has been displayed
+	WaitlistBoosters           []string               // Waitlist of UserID's
 	Order                      []string
 	OriginalOrder              []string   // Initial sorted order when contract boosting starts
 	BoostedOrder               []string   // Actual order of boosting

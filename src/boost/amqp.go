@@ -220,20 +220,30 @@ type AMQPBoostOrder struct {
 	Boosters  []AMQPBoosterOrderEntry  `json:"boosters"`
 }
 
+// AMQPContractModifier represents a game modifier / dimension buff on a contract.
+type AMQPContractModifier struct {
+	Dimension     int     `json:"dimension"`
+	DimensionName string  `json:"dimension_name"`
+	Value         float64 `json:"value"`
+	Description   string  `json:"description,omitempty"`
+}
+
 // AMQPContractStartMessage represents details of a contract when started.
 type AMQPContractStartMessage struct {
-	Event           string             `json:"event"`
-	ContractID      string             `json:"contract_id"`
-	CoopID          string             `json:"coop_id"`
-	ChannelID       string             `json:"channel_id"`
-	StartTime       time.Time          `json:"start_time"`
-	CoopSize        int                `json:"coop_size"`
-	DeliveryTarget  float64            `json:"delivery_target"`
-	GenerousGifts   string             `json:"generous_gifts"`
-	GGMultiplier    float64            `json:"gg_multiplier,omitempty"`
-	MinutesPerToken int                `json:"minutes_per_token"`
-	PreviousScore   map[string]float64 `json:"previous_score,omitempty"`
-	BoostOrder      *AMQPBoostOrder    `json:"boost_order,omitempty"`
+	Event            string                 `json:"event"`
+	ContractID       string                 `json:"contract_id"`
+	CoopID           string                 `json:"coop_id"`
+	ChannelID        string                 `json:"channel_id"`
+	StartTime        time.Time              `json:"start_time"`
+	CoopSize         int                    `json:"coop_size"`
+	DeliveryTarget   float64                `json:"delivery_target"`
+	GenerousGifts    string                 `json:"generous_gifts"`
+	GGMultiplier     float64                `json:"gg_multiplier,omitempty"`
+	MinutesPerToken  int                    `json:"minutes_per_token"`
+	TimeLimitSeconds int                    `json:"time_limit_seconds,omitempty"`
+	Modifiers        []AMQPContractModifier `json:"modifiers,omitempty"`
+	PreviousScore    map[string]float64     `json:"previous_score,omitempty"`
+	BoostOrder       *AMQPBoostOrder        `json:"boost_order,omitempty"`
 }
 
 // PublishAMQPContractStart publishes a contract start event to the guild's AMQP queue.
@@ -280,18 +290,20 @@ func PublishAMQPNonToken(guildID string, url string, contractID string, coopID s
 
 // AMQPContractUpdateMessage represents details of a contract when updated/reset.
 type AMQPContractUpdateMessage struct {
-	Event           string             `json:"event"`
-	ContractID      string             `json:"contract_id"`
-	CoopID          string             `json:"coop_id"`
-	ChannelID       string             `json:"channel_id"`
-	StartTime       time.Time          `json:"start_time"`
-	CoopSize        int                `json:"coop_size"`
-	DeliveryTarget  float64            `json:"delivery_target"`
-	GenerousGifts   string             `json:"generous_gifts"`
-	GGMultiplier    float64            `json:"gg_multiplier,omitempty"`
-	MinutesPerToken int                `json:"minutes_per_token"`
-	PreviousScore   map[string]float64 `json:"previous_score,omitempty"`
-	BoostOrder      *AMQPBoostOrder    `json:"boost_order,omitempty"`
+	Event            string                 `json:"event"`
+	ContractID       string                 `json:"contract_id"`
+	CoopID           string                 `json:"coop_id"`
+	ChannelID        string                 `json:"channel_id"`
+	StartTime        time.Time              `json:"start_time"`
+	CoopSize         int                    `json:"coop_size"`
+	DeliveryTarget   float64                `json:"delivery_target"`
+	GenerousGifts    string                 `json:"generous_gifts"`
+	GGMultiplier     float64                `json:"gg_multiplier,omitempty"`
+	MinutesPerToken  int                    `json:"minutes_per_token"`
+	TimeLimitSeconds int                    `json:"time_limit_seconds,omitempty"`
+	Modifiers        []AMQPContractModifier `json:"modifiers,omitempty"`
+	PreviousScore    map[string]float64     `json:"previous_score,omitempty"`
+	BoostOrder       *AMQPBoostOrder        `json:"boost_order,omitempty"`
 }
 
 // PublishAMQPContractUpdate publishes a contract update/reset event to the guild's AMQP queue.
@@ -339,20 +351,163 @@ func CheckAndPublishAMQPContractUpdate(contract *Contract) {
 		ggMultiplier = gg
 	}
 
+	mods := contract.Modifiers
+	if len(mods) == 0 {
+		mods = GetContractModifiers(contract.ContractID)
+	}
+
 	PublishAMQPContractUpdate(guildID, amqpURL, AMQPContractUpdateMessage{
-		Event:           "contract_update",
-		ContractID:      contract.ContractID,
-		CoopID:          contract.CoopID,
-		ChannelID:       contract.Location[0].ChannelID,
-		StartTime:       contract.StartTime,
-		CoopSize:        contract.CoopSize,
-		DeliveryTarget:  deliveryTarget,
-		GenerousGifts:   generousGifts,
-		GGMultiplier:    ggMultiplier,
-		MinutesPerToken: contract.MinutesPerToken,
-		PreviousScore:   contract.PreviousScore,
-		BoostOrder:      BuildAMQPBoostOrder(contract),
+		Event:            "contract_update",
+		ContractID:       contract.ContractID,
+		CoopID:           contract.CoopID,
+		ChannelID:        contract.Location[0].ChannelID,
+		StartTime:        contract.StartTime,
+		CoopSize:         contract.CoopSize,
+		DeliveryTarget:   deliveryTarget,
+		GenerousGifts:    generousGifts,
+		GGMultiplier:     ggMultiplier,
+		MinutesPerToken:  contract.MinutesPerToken,
+		TimeLimitSeconds: GetContractTimeLimitSeconds(contract),
+		Modifiers:        mods,
+		PreviousScore:    contract.PreviousScore,
+		BoostOrder:       BuildAMQPBoostOrder(contract),
 	})
+}
+
+// GetGameDimensionName returns the snake_case name of a GameModifier_GameDimension.
+func GetGameDimensionName(d ei.GameModifier_GameDimension) string {
+	switch d {
+	case ei.GameModifier_EARNINGS:
+		return "earnings"
+	case ei.GameModifier_AWAY_EARNINGS:
+		return "away_earnings"
+	case ei.GameModifier_INTERNAL_HATCHERY_RATE:
+		return "internal_hatchery_rate"
+	case ei.GameModifier_EGG_LAYING_RATE:
+		return "egg_laying_rate"
+	case ei.GameModifier_SHIPPING_CAPACITY:
+		return "shipping_capacity"
+	case ei.GameModifier_HAB_CAPACITY:
+		return "hab_capacity"
+	case ei.GameModifier_VEHICLE_COST:
+		return "vehicle_cost"
+	case ei.GameModifier_HAB_COST:
+		return "hab_cost"
+	case ei.GameModifier_RESEARCH_COST:
+		return "research_cost"
+	default:
+		return "unknown"
+	}
+}
+
+// GetContractModifiers returns the active modifiers for a given contract ID.
+func GetContractModifiers(contractID string) []AMQPContractModifier {
+	if contractID == "" {
+		return nil
+	}
+
+	ei.EggIncContractsMutex.RLock()
+	contractInfo, ok := ei.EggIncContractsAll[contractID]
+	ei.EggIncContractsMutex.RUnlock()
+	if !ok {
+		return nil
+	}
+
+	// 1. If RawModifiers are present on contractInfo, use them
+	if len(contractInfo.RawModifiers) > 0 {
+		var modifiers []AMQPContractModifier
+		for _, mod := range contractInfo.RawModifiers {
+			if mod == nil {
+				continue
+			}
+			dim := mod.GetDimension()
+			val := mod.GetValue()
+			if val == 1.0 && dim == ei.GameModifier_INVALID {
+				continue
+			}
+			modifiers = append(modifiers, AMQPContractModifier{
+				Dimension:     int(dim),
+				DimensionName: GetGameDimensionName(dim),
+				Value:         val,
+				Description:   mod.GetDescription(),
+			})
+		}
+		if len(modifiers) > 0 {
+			return modifiers
+		}
+	}
+
+	// 2. Check Grade AAA if present
+	if len(contractInfo.Grade) > int(ei.Contract_GRADE_AAA) {
+		g := contractInfo.Grade[int(ei.Contract_GRADE_AAA)]
+		if len(g.Modifiers) > 0 {
+			var modifiers []AMQPContractModifier
+			for _, mod := range g.Modifiers {
+				if mod == nil {
+					continue
+				}
+				dim := mod.GetDimension()
+				val := mod.GetValue()
+				if val == 1.0 && dim == ei.GameModifier_INVALID {
+					continue
+				}
+				modifiers = append(modifiers, AMQPContractModifier{
+					Dimension:     int(dim),
+					DimensionName: GetGameDimensionName(dim),
+					Value:         val,
+					Description:   mod.GetDescription(),
+				})
+			}
+			if len(modifiers) > 0 {
+				return modifiers
+			}
+		}
+	}
+
+	// 3. Fallback to active fields on contractInfo (supports loaded contracts and test fixtures)
+	var modifiers []AMQPContractModifier
+	checkDim := func(dim ei.GameModifier_GameDimension, val float64) {
+		if val != 0 && val != 1.0 {
+			modifiers = append(modifiers, AMQPContractModifier{
+				Dimension:     int(dim),
+				DimensionName: GetGameDimensionName(dim),
+				Value:         val,
+			})
+		}
+	}
+
+	checkDim(ei.GameModifier_EARNINGS, contractInfo.ModifierEarnings)
+	checkDim(ei.GameModifier_AWAY_EARNINGS, contractInfo.ModifierAwayEarnings)
+	checkDim(ei.GameModifier_INTERNAL_HATCHERY_RATE, contractInfo.ModifierIHR)
+	checkDim(ei.GameModifier_EGG_LAYING_RATE, contractInfo.ModifierELR)
+	checkDim(ei.GameModifier_SHIPPING_CAPACITY, contractInfo.ModifierSR)
+	checkDim(ei.GameModifier_HAB_CAPACITY, contractInfo.ModifierHabCap)
+	checkDim(ei.GameModifier_VEHICLE_COST, contractInfo.ModifierVehicleCost)
+	checkDim(ei.GameModifier_HAB_COST, contractInfo.ModifierHabCost)
+	checkDim(ei.GameModifier_RESEARCH_COST, contractInfo.ModifierResearchCost)
+
+	return modifiers
+}
+
+// GetContractTimeLimitSeconds returns the contract time limit in seconds.
+func GetContractTimeLimitSeconds(contract *Contract) int {
+	if contract == nil {
+		return 0
+	}
+	if contract.LengthInSeconds > 0 {
+		return contract.LengthInSeconds
+	}
+	ei.EggIncContractsMutex.RLock()
+	defer ei.EggIncContractsMutex.RUnlock()
+	if cInfo, ok := ei.EggIncContractsAll[contract.ContractID]; ok {
+		if cInfo.LengthInSeconds > 0 {
+			return cInfo.LengthInSeconds
+		}
+		if len(cInfo.Grade) > int(ei.Contract_GRADE_AAA) && cInfo.Grade[int(ei.Contract_GRADE_AAA)].LengthInSeconds > 0 {
+			return cInfo.Grade[int(ei.Contract_GRADE_AAA)].LengthInSeconds
+		}
+	}
+	return 0
 }
 
 // AMQPBoosterChangeMessage represents a join or remove event for a booster in a contract.

@@ -1948,19 +1948,26 @@ func StartContractBoosting(client dc.Client, guildID string, channelID string, u
 					ggMultiplier = gg
 				}
 
+				mods := contract.Modifiers
+				if len(mods) == 0 {
+					mods = GetContractModifiers(contract.ContractID)
+				}
+
 				PublishAMQPContractStart(guildID, amqpURL, AMQPContractStartMessage{
-					Event:           "contract_start",
-					ContractID:      contract.ContractID,
-					CoopID:          contract.CoopID,
-					ChannelID:       contract.Location[0].ChannelID,
-					StartTime:       contract.StartTime,
-					CoopSize:        contract.CoopSize,
-					DeliveryTarget:  deliveryTarget,
-					GenerousGifts:   generousGifts,
-					GGMultiplier:    ggMultiplier,
-					MinutesPerToken: contract.MinutesPerToken,
-					PreviousScore:   contract.PreviousScore,
-					BoostOrder:      BuildAMQPBoostOrder(contract),
+					Event:            "contract_start",
+					ContractID:       contract.ContractID,
+					CoopID:           contract.CoopID,
+					ChannelID:        contract.Location[0].ChannelID,
+					StartTime:        contract.StartTime,
+					CoopSize:         contract.CoopSize,
+					DeliveryTarget:   deliveryTarget,
+					GenerousGifts:    generousGifts,
+					GGMultiplier:     ggMultiplier,
+					MinutesPerToken:  contract.MinutesPerToken,
+					TimeLimitSeconds: GetContractTimeLimitSeconds(contract),
+					Modifiers:        mods,
+					PreviousScore:    contract.PreviousScore,
+					BoostOrder:       BuildAMQPBoostOrder(contract),
 				})
 			}
 		}
