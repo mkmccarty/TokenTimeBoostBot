@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"maps"
+	"slices"
 	"time"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
@@ -128,11 +129,13 @@ func bumpCRMessages(client dc.Client, contract *Contract) {
 	copy(locations, contract.Location)
 	crIDs := make(map[string]string, len(contract.CRMessageIDs))
 	maps.Copy(crIDs, contract.CRMessageIDs)
+	prevRequesters := append([]string(nil), contract.CRActiveRequesters...)
 	contract.mutex.Unlock()
 
 	for _, location := range locations {
 		contract.mutex.Lock()
 		msg, _ := buildCRMessage(contract, location.RoleMention)
+		newRequesters := getActiveCRRequesters(contract)
 		contract.mutex.Unlock()
 
 		if msg.Content == "" && len(msg.Embeds) == 0 {
@@ -150,20 +153,48 @@ func bumpCRMessages(client dc.Client, contract *Contract) {
 		setChickenRunMessageID(contract, location.ChannelID, newMsg.ID)
 		contract.mutex.Lock()
 		contract.CRNoticeCount++
+		contract.CRActiveRequesters = newRequesters
 		contract.mutex.Unlock()
 
 		if existingMsgID := crIDs[location.ChannelID]; existingMsgID != "" {
+			var droppedCompleted []string
+			for _, reqID := range prevRequesters {
+				if !slices.Contains(newRequesters, reqID) {
+					_, missing, _ := buildChickenRunLists(contract, reqID)
+					if len(missing) == 0 {
+						droppedCompleted = append(droppedCompleted, reqID)
+					}
+				}
+			}
+
 			newMsgLink := fmt.Sprintf("https://discord.com/channels/%s/%s/%s", location.GuildID, location.ChannelID, newMsg.ID)
 			moveText := fmt.Sprintf("-# Chicken Run request moved: [View updated message](%s)", newMsgLink)
+			var embeds []dc.Embed
+			clearEmbeds := true
+			if compText := formatCompletedCRRequestersText(contract, droppedCompleted); compText != "" {
+				embeds = []dc.Embed{
+					{
+						Description: fmt.Sprintf("%s\n%s", compText, moveText),
+						Color:       0x00ff00,
+					},
+				}
+				clearEmbeds = false
+				moveText = ""
+			}
 			if _, err := client.EditMessage(location.ChannelID, existingMsgID, dc.Message{
 				Content:         moveText,
+				Embeds:          embeds,
 				ComponentsV1:    true,
 				ClearComponents: true,
-				ClearEmbeds:     true,
+				ClearEmbeds:     clearEmbeds,
 				AllowedMentions: &dc.AllowedMentions{},
 			}); err != nil {
+				fallbackText := moveText
+				if len(embeds) > 0 {
+					fallbackText = embeds[0].Description
+				}
 				movedComponents := []dc.LayoutComponent{
-					dc.TextDisplay{Content: moveText},
+					dc.TextDisplay{Content: fallbackText},
 				}
 				if _, err2 := client.EditMessage(location.ChannelID, existingMsgID, dc.Message{
 					Components:      movedComponents,

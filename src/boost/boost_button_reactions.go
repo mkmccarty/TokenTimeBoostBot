@@ -461,7 +461,20 @@ func buttonReactionRunChickens(client dc.Client, contract *Contract, cUserID str
 	}
 
 	if canRequest {
+		contract.mutex.Lock()
+		prevRequesters := append([]string(nil), contract.CRActiveRequesters...)
+		if len(prevRequesters) == 0 {
+			for _, id := range contract.Order {
+				if id == userID {
+					continue
+				}
+				if b := contract.Boosters[id]; b != nil && !b.RunChickensTime.IsZero() {
+					prevRequesters = append(prevRequesters, id)
+				}
+			}
+		}
 		contract.Boosters[userID].RunChickensTime = time.Now()
+		contract.mutex.Unlock()
 
 		go func() {
 			client := client
@@ -470,6 +483,7 @@ func buttonReactionRunChickens(client dc.Client, contract *Contract, cUserID str
 				contract.mutex.Lock()
 				msg, _ := buildCRMessage(contract, location.RoleMention)
 				existingMsgID := contract.CRMessageIDs[location.ChannelID]
+				newRequesters := getActiveCRRequesters(contract)
 				contract.mutex.Unlock()
 
 				if msg.Content == "" && len(msg.Embeds) == 0 {
@@ -491,22 +505,50 @@ func buttonReactionRunChickens(client dc.Client, contract *Contract, cUserID str
 				setChickenRunMessageID(contract, location.ChannelID, newMsg.ID)
 				contract.mutex.Lock()
 				contract.CRNoticeCount++
+				contract.CRActiveRequesters = newRequesters
 				contract.mutex.Unlock()
 
 				if existingMsgID != "" {
+					var droppedCompleted []string
+					for _, reqID := range prevRequesters {
+						if !slices.Contains(newRequesters, reqID) {
+							_, missing, _ := buildChickenRunLists(contract, reqID)
+							if len(missing) == 0 {
+								droppedCompleted = append(droppedCompleted, reqID)
+							}
+						}
+					}
+
 					// Replace old message with a redirect to the new one
 					newMsgLink := fmt.Sprintf("https://discord.com/channels/%s/%s/%s", location.GuildID, location.ChannelID, newMsg.ID)
 					moveText := fmt.Sprintf("-# Chicken Run request moved: [View updated message](%s)", newMsgLink)
+					var embeds []dc.Embed
+					clearEmbeds := true
+					if compText := formatCompletedCRRequestersText(contract, droppedCompleted); compText != "" {
+						embeds = []dc.Embed{
+							{
+								Description: fmt.Sprintf("%s\n%s", compText, moveText),
+								Color:       0x00ff00,
+							},
+						}
+						clearEmbeds = false
+						moveText = ""
+					}
 					if _, err := client.EditMessage(location.ChannelID, existingMsgID, dc.Message{
 						Content:         moveText,
+						Embeds:          embeds,
 						ComponentsV1:    true,
 						ClearComponents: true,
-						ClearEmbeds:     true,
+						ClearEmbeds:     clearEmbeds,
 						AllowedMentions: &dc.AllowedMentions{},
 					}); err != nil {
 						// Fallback in case old message was Components V2
+						fallbackText := moveText
+						if len(embeds) > 0 {
+							fallbackText = embeds[0].Description
+						}
 						movedComponents := []dc.LayoutComponent{
-							dc.TextDisplay{Content: moveText},
+							dc.TextDisplay{Content: fallbackText},
 						}
 						if _, err2 := client.EditMessage(location.ChannelID, existingMsgID, dc.Message{
 							Components:      movedComponents,
@@ -526,6 +568,7 @@ func buttonReactionRunChickens(client dc.Client, contract *Contract, cUserID str
 				if booster := contract.Boosters[userID]; booster != nil {
 					booster.RunChickensTime = time.Time{}
 				}
+				contract.CRActiveRequesters = prevRequesters
 				contract.mutex.Unlock()
 			} else {
 				saveData(contract.ContractHash)
@@ -605,10 +648,11 @@ func getChickenRunAccentColor(contract *Contract) int {
 	return crColorFromPct(worstPct)
 }
 
-// buildCRMessage builds the V1 message (Content + Embed + ActionRows) for the chicken run message.
-// Also returns the combined set of user IDs that should receive mention highlights (players still missing runs).
-func buildCRMessage(contract *Contract, roleMention string) (dc.Message, []string) {
-	// Collect requesters within the last 10 minutes, sorted by RunChickensTime (oldest request first).
+// getActiveCRRequesters returns the active chicken run requesters sorted by RunChickensTime (oldest first).
+func getActiveCRRequesters(contract *Contract) []string {
+	if contract == nil {
+		return nil
+	}
 	requesters := make([]string, 0, len(contract.Boosters))
 	for id, b := range contract.Boosters {
 		if b == nil || b.RunChickensTime.IsZero() {
@@ -622,6 +666,43 @@ func buildCRMessage(contract *Contract, roleMention string) (dc.Message, []strin
 	slices.SortFunc(requesters, func(a, b string) int {
 		return contract.Boosters[a].RunChickensTime.Compare(contract.Boosters[b].RunChickensTime)
 	})
+	return requesters
+}
+
+// formatCompletedCRRequestersText formats a completion message line for dropped completed requesters.
+func formatCompletedCRRequestersText(contract *Contract, requesterIDs []string) string {
+	if len(requesterIDs) == 0 || contract == nil {
+		return ""
+	}
+	names := make([]string, 0, len(requesterIDs))
+	for _, reqID := range requesterIDs {
+		b := contract.Boosters[reqID]
+		if b == nil {
+			continue
+		}
+		name := b.Nick
+		if ign := farmerstate.GetMiscSettingString(reqID, "ei_ign"); ign != "" {
+			name = ign
+		}
+		names = append(names, fmt.Sprintf("**%s**", name))
+	}
+	if len(names) == 0 {
+		return ""
+	}
+	switch len(names) {
+	case 1:
+		return fmt.Sprintf("-# %s's chicken run request is complete!", names[0])
+	case 2:
+		return fmt.Sprintf("-# %s and %s's chicken run requests are complete!", names[0], names[1])
+	default:
+		return fmt.Sprintf("-# %s, and %s's chicken run requests are complete!", strings.Join(names[:len(names)-1], ", "), names[len(names)-1])
+	}
+}
+
+// buildCRMessage builds the V1 message (Content + Embed + ActionRows) for the chicken run message.
+// Also returns the combined set of user IDs that should receive mention highlights (players still missing runs).
+func buildCRMessage(contract *Contract, roleMention string) (dc.Message, []string) {
+	requesters := getActiveCRRequesters(contract)
 	if len(requesters) == 0 {
 		return dc.Message{}, nil
 	}
@@ -1005,6 +1086,10 @@ func buttonReactionRanChicken(client dc.Client, e *dc.ComponentEvent, contract *
 			contract.ContractHash, e.MessageID(), err)
 	}
 
+	contract.mutex.Lock()
+	contract.CRActiveRequesters = getActiveCRRequesters(contract)
+	contract.mutex.Unlock()
+
 	if newColor != oldColor {
 		saveData(contract.ContractHash)
 		refreshBoostListMessage(client, contract, false)
@@ -1102,6 +1187,10 @@ func buttonReactionRanCoop(client dc.Client, e *dc.ComponentEvent, contract *Con
 			log.Printf("EditMessage error: contractHash=%s messageID=%s error=%v",
 				contract.ContractHash, targetMsgID, err)
 		}
+
+		contract.mutex.Lock()
+		contract.CRActiveRequesters = getActiveCRRequesters(contract)
+		contract.mutex.Unlock()
 	}
 
 	saveData(contract.ContractHash)

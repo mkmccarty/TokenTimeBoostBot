@@ -367,6 +367,7 @@ type Contract struct {
 	Modifiers                  []AMQPContractModifier `json:"modifiers,omitempty"`      // Active contract modifiers
 	Boosters                   map[string]*Booster    // Boosters Registered
 	CRMessageIDs               map[string]string      // CR reqest messageIDs
+	CRActiveRequesters         []string               // User IDs of requesters currently active in CR message
 	CRNoticeCount              int                    // Number of times CR dialog has been displayed
 	WaitlistBoosters           []string               // Waitlist of UserID's
 	Order                      []string
