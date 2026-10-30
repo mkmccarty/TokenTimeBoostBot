@@ -618,3 +618,99 @@ func TestChickenRunMigrationCleansUpOldMessage(t *testing.T) {
 		t.Errorf("expected ClearEmbeds: true on migrated message")
 	}
 }
+
+func TestChickenRunMigrationListsDroppedCompletedRequester(t *testing.T) {
+	client := dctest.New()
+	c := &Contract{
+		ContractHash: "test-cr-dropped-completed-hash",
+		Location: []*LocationData{
+			{
+				ChannelID:   "chan-1",
+				GuildID:     "guild-1",
+				RoleMention: "@role",
+			},
+		},
+		Order: []string{"userA", "userB"},
+		Boosters: map[string]*Booster{
+			"userA": {
+				UserID:          "userA",
+				Nick:            "PlayerA",
+				Mention:         "<@userA>",
+				BoostState:      BoostStateBoosted,
+				RunChickensTime: time.Now().Add(-11 * time.Minute), // older than 10m
+			},
+			"userB": {
+				UserID:        "userB",
+				Nick:          "PlayerB",
+				Mention:       "<@userB>",
+				BoostState:    BoostStateBoosted,
+				RanChickensOn: []string{"userA"}, // userA is complete!
+			},
+		},
+		CRMessageIDs: map[string]string{
+			"chan-1": "msg-old-1",
+		},
+		CRActiveRequesters: []string{"userA"},
+	}
+
+	ContractsMutex.Lock()
+	Contracts[c.ContractHash] = c
+	ContractsMutex.Unlock()
+	defer func() {
+		ContractsMutex.Lock()
+		delete(Contracts, c.ContractHash)
+		ContractsMutex.Unlock()
+	}()
+
+	// User B requests chicken runs (new requestor while userA aged out)
+	ok, _ := buttonReactionRunChickens(client, c, "userB")
+	if !ok {
+		t.Fatalf("expected buttonReactionRunChickens for userB to succeed")
+	}
+
+	// Wait for goroutine to update CRMessageIDs to second message
+	var secondMsgID string
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		c.mutex.Lock()
+		secondMsgID = c.CRMessageIDs["chan-1"]
+		c.mutex.Unlock()
+		if secondMsgID != "" && secondMsgID != "msg-old-1" {
+			break
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	if secondMsgID == "" || secondMsgID == "msg-old-1" {
+		t.Fatalf("expected CR message ID to change to second message, got %s", secondMsgID)
+	}
+
+	// Verify EditMessage was called on msg-old-1 listing PlayerA as complete in a green embed
+	var editedMsg *dc.Message
+	for _, m := range client.EditedMessages {
+		if len(m.Embeds) > 0 && strings.Contains(m.Embeds[0].Description, secondMsgID) {
+			editedMsg = &m
+			break
+		}
+	}
+	if editedMsg == nil {
+		t.Fatalf("expected an edit call with embed redirecting to %s, got edits: %+v", secondMsgID, client.EditedMessages)
+	}
+	if len(editedMsg.Embeds) != 1 {
+		t.Fatalf("expected 1 embed on moved completed message, got %d", len(editedMsg.Embeds))
+	}
+	if editedMsg.Embeds[0].Color != 0x00ff00 {
+		t.Errorf("expected green embed color 0x00ff00, got %#x", editedMsg.Embeds[0].Color)
+	}
+	if !strings.Contains(editedMsg.Embeds[0].Description, "**PlayerA**'s chicken run request is complete!") {
+		t.Errorf("expected moved message embed to include completion notice for PlayerA, got: %s", editedMsg.Embeds[0].Description)
+	}
+	if !strings.Contains(editedMsg.Embeds[0].Description, "Chicken Run request moved: [View updated message]") {
+		t.Errorf("expected moved message embed to include redirect link, got: %s", editedMsg.Embeds[0].Description)
+	}
+	if !editedMsg.ClearComponents {
+		t.Errorf("expected ClearComponents: true on migrated message")
+	}
+	if editedMsg.ClearEmbeds {
+		t.Errorf("expected ClearEmbeds: false on migrated message with completion embed")
+	}
+}
