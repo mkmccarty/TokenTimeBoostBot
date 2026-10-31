@@ -835,9 +835,9 @@ func buildCRMessage(contract *Contract, roleMention string) (dc.Message, []strin
 
 	// All requesters done, collapse into a single embed with completion notice
 	if !hasIncomplete {
-		prefix := ""
+		suffix := ""
 		if roleMention != "" {
-			prefix = roleMention + " "
+			suffix = " " + roleMention
 		}
 		names := make([]string, 0, len(requesters))
 		for _, reqID := range requesters {
@@ -855,13 +855,13 @@ func buildCRMessage(contract *Contract, roleMention string) (dc.Message, []strin
 		var completionMsg string
 		switch len(names) {
 		case 0:
-			completionMsg = fmt.Sprintf("-# %sContract's chicken run request is complete!", prefix)
+			completionMsg = fmt.Sprintf("-# Contract's chicken run request is complete!%s", suffix)
 		case 1:
-			completionMsg = fmt.Sprintf("-# %s%s's chicken run request is complete!", prefix, names[0])
+			completionMsg = fmt.Sprintf("-# %s's chicken run request is complete!%s", names[0], suffix)
 		case 2:
-			completionMsg = fmt.Sprintf("-# %s%s and %s's chicken run requests are complete!", prefix, names[0], names[1])
+			completionMsg = fmt.Sprintf("-# %s and %s's chicken run requests are complete!%s", names[0], names[1], suffix)
 		default:
-			completionMsg = fmt.Sprintf("-# %s%s, and %s's chicken run requests are complete!", prefix, strings.Join(names[:len(names)-1], ", "), names[len(names)-1])
+			completionMsg = fmt.Sprintf("-# %s, and %s's chicken run requests are complete!%s", strings.Join(names[:len(names)-1], ", "), names[len(names)-1], suffix)
 		}
 
 		return dc.Message{

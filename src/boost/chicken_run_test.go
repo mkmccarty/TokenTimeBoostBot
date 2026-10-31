@@ -308,6 +308,12 @@ func TestBuildCRMessageMultipleRequestersCarriedAlongUntilAllComplete(t *testing
 	if !strings.Contains(compDesc, "requests are complete") {
 		t.Errorf("expected plural 'requests are complete', got: %s", compDesc)
 	}
+	if !strings.HasSuffix(compDesc, "@role") {
+		t.Errorf("expected role mention to be at the end of completion message, got: %s", compDesc)
+	}
+	if strings.HasPrefix(compDesc, "-# @role") {
+		t.Errorf("role mention should not be at the start of completion message, got: %s", compDesc)
+	}
 }
 
 func TestButtonReactionRunChickensSendFailureRollback(t *testing.T) {
@@ -712,5 +718,63 @@ func TestChickenRunMigrationListsDroppedCompletedRequester(t *testing.T) {
 	}
 	if editedMsg.ClearEmbeds {
 		t.Errorf("expected ClearEmbeds: false on migrated message with completion embed")
+	}
+}
+
+func TestContractBoostingCompleteMentionSuffix(t *testing.T) {
+	client := dctest.New()
+	startTime := time.Now().Add(-51*time.Minute - 57*time.Second)
+	endTime := time.Now()
+	c := &Contract{
+		ContractHash: "test-boosting-complete-hash",
+		State:        ContractStateCompleted,
+		StartTime:    startTime,
+		EndTime:      endTime,
+		CreatorID:    []string{"creator1"},
+		Location: []*LocationData{
+			{
+				ChannelID:   "chan-1",
+				GuildID:     "guild-1",
+				RoleMention: "@CoopRole",
+			},
+		},
+		Order: []string{"userA"},
+		Boosters: map[string]*Booster{
+			"userA": {
+				UserID:     "userA",
+				Nick:       "PlayerA",
+				Mention:    "<@userA>",
+				BoostState: BoostStateBoosted,
+			},
+		},
+	}
+
+	ContractsMutex.Lock()
+	Contracts[c.ContractHash] = c
+	ContractsMutex.Unlock()
+	defer func() {
+		ContractsMutex.Lock()
+		delete(Contracts, c.ContractHash)
+		ContractsMutex.Unlock()
+	}()
+
+	sendNextNotification(client, c, false)
+
+	// Verify that a message was sent stating boosting is complete with role mention at the end
+	var completeMsg string
+	for _, m := range client.SentMessages {
+		if strings.Contains(m.Content, "contract boosting complete") || strings.Contains(m.Content, "Contract boosting complete") {
+			completeMsg = m.Content
+			break
+		}
+	}
+	if completeMsg == "" {
+		t.Fatalf("expected a message with contract boosting complete, got: %+v", client.SentMessages)
+	}
+	if !strings.HasPrefix(completeMsg, "Contract boosting complete in 51m57s") {
+		t.Errorf("expected message to start with 'Contract boosting complete in 51m57s', got: %s", completeMsg)
+	}
+	if !strings.HasSuffix(completeMsg, "@CoopRole") {
+		t.Errorf("expected message to end with '@CoopRole', got: %s", completeMsg)
 	}
 }
