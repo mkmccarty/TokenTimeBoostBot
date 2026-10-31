@@ -349,7 +349,7 @@ func sendNextNotification(client dc.Client, contract *Contract, pingUsers bool) 
 					str = fmt.Sprintf("Send tokens to **%s** %s", name, mentionSuffix)
 				} else {
 					if contract.Banker.CurrentBanker == "" {
-						str = loc.RoleMention + " contract boosting complete. Hold your tokens for late joining farmers."
+						str = fmt.Sprintf("Contract boosting complete. Hold your tokens for late joining farmers.%s", mentionSuffix)
 					} else {
 						str = "Contract boosting complete. There may late joining farmers. "
 						if contract.State == ContractStateCompleted || contract.State == ContractStateWaiting {
@@ -368,7 +368,7 @@ func sendNextNotification(client dc.Client, contract *Contract, pingUsers bool) 
 			t1 := contract.EndTime
 			t2 := contract.StartTime
 			duration := t1.Sub(t2)
-			str = fmt.Sprintf(loc.RoleMention+" contract boosting complete in %s ", duration.Round(time.Second))
+			str = fmt.Sprintf("Contract boosting complete in %s%s", duration.Round(time.Second), mentionSuffix)
 			if contract.Banker.CurrentBanker != "" {
 				var einame = farmerstate.GetEggIncName(contract.Banker.CurrentBanker)
 				if einame != "" {

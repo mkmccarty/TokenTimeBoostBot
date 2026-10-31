@@ -478,35 +478,7 @@ func sendCompletionPing(e *dc.ComponentEvent, contract *Contract, userID string)
 		return
 	}
 
-	// Get the role mention from the active contract
-	roleMention := contract.Location[0].RoleMention
-	if roleMention == "" {
-		roleMention = "@here"
-	}
-
-	requesterMention := userID
-	if b := contract.Boosters[userID]; b != nil {
-		requesterMention = b.Mention
-	}
-
-	var message string
-	if time.Now().After(contract.EstimatedEndTime) {
-		message = fmt.Sprintf("%s, The contract **%s** `%s` has ended! Please check-in to finalize scores.\n-# Ping requested by %s",
-			roleMention,
-			contract.Name,
-			contract.CoopID,
-			requesterMention,
-		)
-	} else {
-		message = fmt.Sprintf("%s, The contract **%s** `%s` will complete on\n## %s at %s!\nPlease set an alarm or leave your devices on!\n-# Ping requested by %s",
-			roleMention,
-			contract.Name,
-			contract.CoopID,
-			bottools.WrapTimestamp(contract.EstimatedEndTime.Unix(), bottools.TimestampLongDate),
-			bottools.WrapTimestamp(contract.EstimatedEndTime.Unix(), bottools.TimestampLongTime),
-			requesterMention,
-		)
-	}
+	message := getCompletionPingMessage(contract, userID)
 
 	err := e.Followup(dc.Message{
 		Content: message,
@@ -523,6 +495,37 @@ func sendCompletionPing(e *dc.ComponentEvent, contract *Contract, userID string)
 		})
 		return
 	}
+}
+
+// getCompletionPingMessage returns the notification message for estimated completion or ended contract.
+func getCompletionPingMessage(contract *Contract, userID string) string {
+	roleMention := contract.Location[0].RoleMention
+	if roleMention == "" {
+		roleMention = "@here"
+	}
+
+	requesterMention := userID
+	if b := contract.Boosters[userID]; b != nil {
+		requesterMention = b.Mention
+	}
+
+	if time.Now().After(contract.EstimatedEndTime) {
+		return fmt.Sprintf("The contract **%s** `%s` has ended! Please check-in to finalize scores.\n-# %s Ping requested by %s",
+			contract.Name,
+			contract.CoopID,
+			roleMention,
+			requesterMention,
+		)
+	}
+
+	return fmt.Sprintf("The contract **%s** `%s` will complete on\n## %s at %s!\nPlease set an alarm or leave your devices on!\n-# %s Ping requested by %s",
+		contract.Name,
+		contract.CoopID,
+		bottools.WrapTimestamp(contract.EstimatedEndTime.Unix(), bottools.TimestampLongDate),
+		bottools.WrapTimestamp(contract.EstimatedEndTime.Unix(), bottools.TimestampLongTime),
+		roleMention,
+		requesterMention,
+	)
 }
 
 // calculateSRScores calculates contract score and returns player values

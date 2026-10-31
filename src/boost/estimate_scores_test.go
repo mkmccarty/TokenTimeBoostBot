@@ -2,7 +2,9 @@ package boost
 
 import (
 	"fmt"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
@@ -88,5 +90,56 @@ func TestParseCsEstimateParams_StickySrMode(t *testing.T) {
 	p = parseCsEstimateParams(omitEvent2)
 	if p.srMode {
 		t.Errorf("expected srMode to be sticky false when omitted")
+	}
+}
+
+func TestGetCompletionPingMessage(t *testing.T) {
+	c := &Contract{
+		ContractHash: "test-cs-estimate-hash",
+		Name:         "Costume Party",
+		CoopID:       "party-coop",
+		Location: []*LocationData{
+			{
+				ChannelID:   "chan-1",
+				GuildID:     "guild-1",
+				RoleMention: "@PartyRole",
+			},
+		},
+		Boosters: map[string]*Booster{
+			"userA": {
+				UserID:  "userA",
+				Nick:    "PartyLeader",
+				Mention: "<@userA>",
+			},
+		},
+	}
+
+	// 1. Future estimated completion
+	c.EstimatedEndTime = time.Now().Add(3 * time.Hour)
+	futureMsg := getCompletionPingMessage(c, "userA")
+
+	if !strings.HasPrefix(futureMsg, "The contract **Costume Party** `party-coop` will complete on") {
+		t.Errorf("expected future message to start with contract completion text, got: %s", futureMsg)
+	}
+	expectedFooter := "-# @PartyRole Ping requested by <@userA>"
+	if !strings.HasSuffix(futureMsg, expectedFooter) {
+		t.Errorf("expected message to end with %q, got: %s", expectedFooter, futureMsg)
+	}
+	if strings.HasPrefix(futureMsg, "@PartyRole") {
+		t.Errorf("expected message NOT to start with role mention, got: %s", futureMsg)
+	}
+
+	// 2. Already ended contract
+	c.EstimatedEndTime = time.Now().Add(-1 * time.Hour)
+	endedMsg := getCompletionPingMessage(c, "userA")
+
+	if !strings.HasPrefix(endedMsg, "The contract **Costume Party** `party-coop` has ended! Please check-in to finalize scores.") {
+		t.Errorf("expected ended message to start with contract ended text, got: %s", endedMsg)
+	}
+	if !strings.HasSuffix(endedMsg, expectedFooter) {
+		t.Errorf("expected ended message to end with %q, got: %s", expectedFooter, endedMsg)
+	}
+	if strings.HasPrefix(endedMsg, "@PartyRole") {
+		t.Errorf("expected ended message NOT to start with role mention, got: %s", endedMsg)
 	}
 }
