@@ -286,6 +286,18 @@ func TestRenderColleggtiblesImage(t *testing.T) {
 	}
 }
 
+func TestFindEggIconFile(t *testing.T) {
+	iconPath := findEggIconFile("chocolate")
+	if iconPath == "" {
+		t.Error("expected to find egg icon for chocolate")
+	}
+
+	flamePath := findEggIconFile("flame-retardant")
+	if flamePath == "" {
+		t.Error("expected to find egg icon for flame-retardant")
+	}
+}
+
 func TestBuildColleggtiblesComponents_FallbackToStored(t *testing.T) {
 	setupTestCustomEggMap()
 
