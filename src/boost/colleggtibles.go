@@ -267,7 +267,7 @@ func BuildColleggtiblesComponents(backup *ei.Backup, targetUserID string, avatar
 	fmt.Fprintf(&header, "## %s's Colleggtibles\n", userName)
 
 	if overview.MaxedCount == overview.TotalCount && overview.TotalCount > 0 {
-		fmt.Fprintf(&header, "⭐ **%d/%d Maxed** · All Game Dimensions Maxed", overview.MaxedCount, overview.TotalCount)
+		fmt.Fprintf(&header, "⭐ **%d/%d Maxed**", overview.MaxedCount, overview.TotalCount)
 	} else if overview.CollectedCount == overview.TotalCount {
 		fmt.Fprintf(&header, "🥚 **%d/%d Collected** · **%d/%d Maxed**", overview.CollectedCount, overview.TotalCount, overview.MaxedCount, overview.TotalCount)
 	} else {
