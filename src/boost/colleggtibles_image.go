@@ -13,6 +13,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	xdraw "golang.org/x/image/draw"
 	"golang.org/x/image/font"
@@ -72,12 +74,22 @@ func findEggIconFile(eggID string) string {
 		fmt.Sprintf("egg_%s.png", strings.ToLower(eggID)),
 		fmt.Sprintf("%s.png", cleanID),
 	}
-	dirCandidates := []string{
+
+	dirCandidates := []string{}
+	if config.BannerPath != "" {
+		dirCandidates = append(dirCandidates, config.BannerPath)
+	}
+	dirCandidates = append(dirCandidates,
+		"banners",
+		"./banners",
+		"../banners",
+		"../../banners",
 		"emoji",
 		"./emoji",
 		"../emoji",
 		"../../emoji",
-	}
+	)
+
 	for _, dir := range dirCandidates {
 		for _, n := range names {
 			p := filepath.Join(dir, n)
@@ -86,6 +98,21 @@ func findEggIconFile(eggID string) string {
 			}
 		}
 	}
+
+	// If not found in any candidate directory, try downloading to config.BannerPath
+	targetDir := config.BannerPath
+	if targetDir == "" {
+		targetDir = "banners"
+	}
+	_ = bottools.DownloadLatestEggImages(targetDir)
+
+	for _, n := range names {
+		p := filepath.Join(targetDir, n)
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+	}
+
 	for _, dir := range dirCandidates {
 		p := filepath.Join(dir, "egg_unknown.png")
 		if _, err := os.Stat(p); err == nil {
