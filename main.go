@@ -118,6 +118,7 @@ const slashLeaderboard string = "leaderboard"
 const slashTimer string = "timer"
 const slashDashboard string = "dashboard"
 const slashArtifact string = "artifact"
+const slashColleggtibles string = "colleggtibles"
 const slashRemoveDMMessage string = "remove-dm-message"
 const slashPrivacy string = "privacy"
 const slashRerun string = "rerun"
@@ -573,6 +574,12 @@ func setupCommands() {
 			Category:     CmdCategoryStandard,
 			Handler:      func(e *dc.CommandEvent) { boost.HandleArtifactCommand(botClient(), e) },
 			Autocomplete: boost.HandleArtifactAltAutoComplete,
+		},
+		{
+			AppCmd:       boost.GetSlashColleggtiblesCommand(slashColleggtibles),
+			Category:     CmdCategoryStandard,
+			Handler:      func(e *dc.CommandEvent) { boost.HandleColleggtiblesCommand(botClient(), e) },
+			Autocomplete: boost.HandleColleggtiblesAutocomplete,
 		},
 		{
 			AppCmd:   boost.GetSlashChangeSpeedRunSinkCommand(slashChangeSpeedRunSink),
