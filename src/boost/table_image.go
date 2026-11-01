@@ -45,6 +45,10 @@ func loadContractReportFont(fontSize float64) loadedFont {
 		filepath.Join(config.BannerPath, "Always Together.otf"),
 		"./banners/Always Together.otf",
 		"./emoji/Always Together.otf",
+		"../banners/Always Together.otf",
+		"../../banners/Always Together.otf",
+		"../emoji/Always Together.otf",
+		"../../emoji/Always Together.otf",
 	}
 	for _, p := range candidates {
 		if p == "" {
@@ -102,6 +106,17 @@ func measureRuneString(lf loadedFont, fallbackFace font.Face, str string) int {
 		return font.MeasureString(lf.face, str).Ceil()
 	}
 	var sfBuf sfnt.Buffer
+	allGameFont := true
+	for _, r := range str {
+		if !isGameFontRune(lf, &sfBuf, r) {
+			allGameFont = false
+			break
+		}
+	}
+	if allGameFont {
+		return font.MeasureString(lf.face, str).Ceil()
+	}
+
 	totalW := 0
 	for _, r := range str {
 		if isGameFontRune(lf, &sfBuf, r) {
@@ -125,7 +140,26 @@ func drawRuneStringAt(img *image.RGBA, lf loadedFont, fallbackFace font.Face, st
 		d.DrawString(str)
 		return
 	}
+
 	var sfBuf sfnt.Buffer
+	allGameFont := true
+	for _, r := range str {
+		if !isGameFontRune(lf, &sfBuf, r) {
+			allGameFont = false
+			break
+		}
+	}
+	if allGameFont {
+		d := &font.Drawer{
+			Dst:  img,
+			Src:  image.NewUniform(c),
+			Face: lf.face,
+			Dot:  fixed.Point26_6{X: fixed.I(startX), Y: fixed.I(drawY)},
+		}
+		d.DrawString(str)
+		return
+	}
+
 	currentX := startX
 	for _, r := range str {
 		rStr := string(r)
@@ -144,6 +178,12 @@ func drawRuneStringAt(img *image.RGBA, lf loadedFont, fallbackFace font.Face, st
 		d.DrawString(rStr)
 		currentX += font.MeasureString(f, rStr).Ceil()
 	}
+}
+
+// drawRuneStringBoldAt draws text with a bold appearance by overdrawing with subtle horizontal offset.
+func drawRuneStringBoldAt(img *image.RGBA, lf loadedFont, fallbackFace font.Face, str string, startX, drawY int, c color.Color) {
+	drawRuneStringAt(img, lf, fallbackFace, str, startX, drawY, c)
+	drawRuneStringAt(img, lf, fallbackFace, str, startX+1, drawY, c)
 }
 
 // RenderTableImage renders a generic table of columns and rows as a PNG image.

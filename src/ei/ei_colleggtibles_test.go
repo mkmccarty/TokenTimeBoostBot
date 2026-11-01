@@ -447,3 +447,111 @@ func TestGetNewDeliveryColleggtibles(t *testing.T) {
 		}
 	}
 }
+
+func TestFormatColleggtibles(t *testing.T) {
+	tests := []struct {
+		dim      GameModifier_GameDimension
+		mult     float64
+		expected string
+	}{
+		{GameModifier_AWAY_EARNINGS, 6.0, "6x"},
+		{GameModifier_AWAY_EARNINGS, 2.0, "2x"},
+		{GameModifier_AWAY_EARNINGS, 1.5, "+50%"},
+		{GameModifier_AWAY_EARNINGS, 1.0, "1x"},
+		{GameModifier_HAB_COST, 0.75, "-25%"},
+		{GameModifier_HAB_COST, 1.0, "0%"},
+		{GameModifier_VEHICLE_COST, 0.90, "-10%"},
+		{GameModifier_RESEARCH_COST, 0.9025, "-9.75%"},
+		{GameModifier_RESEARCH_COST, 0.95, "-5%"},
+		{GameModifier_EGG_LAYING_RATE, 1.1025, "+10.25%"},
+		{GameModifier_EGG_LAYING_RATE, 1.05, "+5%"},
+		{GameModifier_EGG_LAYING_RATE, 1.0, "+0%"},
+		{GameModifier_SHIPPING_CAPACITY, 1.1025, "+10.25%"},
+		{GameModifier_HAB_CAPACITY, 1.05, "+5%"},
+		{GameModifier_INTERNAL_HATCHERY_RATE, 1.05, "+5%"},
+		{GameModifier_EARNINGS, 1.05, "+5%"},
+	}
+
+	for _, tt := range tests {
+		got := FormatDimensionBuff(tt.dim, tt.mult)
+		if got != tt.expected {
+			t.Errorf("FormatDimensionBuff(%v, %v) = %q, want %q", tt.dim, tt.mult, got, tt.expected)
+		}
+	}
+}
+
+func TestGetColleggtiblesOverview(t *testing.T) {
+	setupCustomEggMap()
+
+	strPtr := func(s string) *string { return &s }
+	floatPtr := func(f float64) *float64 { return &f }
+
+	// Maxed out scenario
+	maxContracts := &MyContracts{
+		ColleggtibleMaxFarmSizeReached: []*ColleggtibleMaxFarmSize{
+			{EggId: strPtr("carbon-fiber"), MaxFarmSizeReached: floatPtr(1e10)},
+			{EggId: strPtr("chocolate"), MaxFarmSizeReached: floatPtr(1e10)},
+			{EggId: strPtr("easter"), MaxFarmSizeReached: floatPtr(1e10)},
+			{EggId: strPtr("firework"), MaxFarmSizeReached: floatPtr(1e10)},
+			{EggId: strPtr("flame-retardant"), MaxFarmSizeReached: floatPtr(1e10)},
+			{EggId: strPtr("ice"), MaxFarmSizeReached: floatPtr(1e10)},
+			{EggId: strPtr("lithium"), MaxFarmSizeReached: floatPtr(1e10)},
+			{EggId: strPtr("pegg"), MaxFarmSizeReached: floatPtr(1e10)},
+			{EggId: strPtr("pumpkin"), MaxFarmSizeReached: floatPtr(1e10)},
+			{EggId: strPtr("silicon"), MaxFarmSizeReached: floatPtr(1e10)},
+			{EggId: strPtr("waterballoon"), MaxFarmSizeReached: floatPtr(1e10)},
+			{EggId: strPtr("wood"), MaxFarmSizeReached: floatPtr(1e10)},
+		},
+	}
+
+	overview := GetColleggtiblesOverview(maxContracts, "")
+	if overview.TotalCount != 12 {
+		t.Fatalf("expected 12 total eggs from test setup, got %d", overview.TotalCount)
+	}
+	if overview.CollectedCount != 12 {
+		t.Errorf("expected 12 collected eggs, got %d", overview.CollectedCount)
+	}
+	if overview.MaxedCount != 12 {
+		t.Errorf("expected 12 maxed eggs, got %d", overview.MaxedCount)
+	}
+
+	// Verify each dimension is maxed
+	dimMap := make(map[GameModifier_GameDimension]DimensionBuffSummary)
+	for _, d := range overview.Dimensions {
+		dimMap[d.Dimension] = d
+		if !d.IsMaxed {
+			t.Errorf("expected dimension %s to be maxed", d.DimensionName)
+		}
+	}
+
+	if dimMap[GameModifier_AWAY_EARNINGS].CurrentString != "6x" {
+		t.Errorf("Away earnings: expected 6x, got %s", dimMap[GameModifier_AWAY_EARNINGS].CurrentString)
+	}
+	if dimMap[GameModifier_RESEARCH_COST].CurrentString != "-9.75%" {
+		t.Errorf("Research cost: expected -9.75%%, got %s", dimMap[GameModifier_RESEARCH_COST].CurrentString)
+	}
+	if dimMap[GameModifier_HAB_COST].CurrentString != "-25%" {
+		t.Errorf("Hab cost: expected -25%%, got %s", dimMap[GameModifier_HAB_COST].CurrentString)
+	}
+	if dimMap[GameModifier_VEHICLE_COST].CurrentString != "-10%" {
+		t.Errorf("Vehicle cost: expected -10%%, got %s", dimMap[GameModifier_VEHICLE_COST].CurrentString)
+	}
+	if dimMap[GameModifier_SHIPPING_CAPACITY].CurrentString != "+10.25%" {
+		t.Errorf("Shipping capacity: expected +10.25%%, got %s", dimMap[GameModifier_SHIPPING_CAPACITY].CurrentString)
+	}
+
+	// Partial scenario
+	partialContracts := &MyContracts{
+		ColleggtibleMaxFarmSizeReached: []*ColleggtibleMaxFarmSize{
+			{EggId: strPtr("carbon-fiber"), MaxFarmSizeReached: floatPtr(1e8)}, // Tier 1: +2%
+			{EggId: strPtr("wood"), MaxFarmSizeReached: floatPtr(1e10)},        // Maxed: 2x
+		},
+	}
+	partOverview := GetColleggtiblesOverview(partialContracts, "")
+	if partOverview.CollectedCount != 2 {
+		t.Errorf("expected 2 collected, got %d", partOverview.CollectedCount)
+	}
+	if partOverview.MaxedCount != 1 {
+		t.Errorf("expected 1 maxed, got %d", partOverview.MaxedCount)
+	}
+}
