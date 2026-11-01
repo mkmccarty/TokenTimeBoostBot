@@ -311,10 +311,10 @@ func FormatSingleColleggtibleValue(dim GameModifier_GameDimension, val float64) 
 		}
 		return "1x"
 	case GameModifier_HAB_COST, GameModifier_VEHICLE_COST, GameModifier_RESEARCH_COST:
-		if val < 1.0 {
-			return fmt.Sprintf("-%s%%", FormatBuffNumber((1.0-val)*100))
+		if val <= 0 {
+			return "100%"
 		}
-		return "0%"
+		return fmt.Sprintf("%s%%", FormatBuffNumber(val*100))
 	default:
 		if val > 1.0 {
 			return fmt.Sprintf("+%s%%", FormatBuffNumber((val-1.0)*100))
@@ -335,10 +335,10 @@ func FormatDimensionBuff(dim GameModifier_GameDimension, mult float64) string {
 		}
 		return "1x"
 	case GameModifier_HAB_COST, GameModifier_VEHICLE_COST, GameModifier_RESEARCH_COST:
-		if mult < 1.0 {
-			return fmt.Sprintf("-%s%%", FormatBuffNumber((1.0-mult)*100))
+		if mult <= 0 {
+			return "100%"
 		}
-		return "0%"
+		return fmt.Sprintf("%s%%", FormatBuffNumber(mult*100))
 	default:
 		if mult > 1.0 {
 			return fmt.Sprintf("+%s%%", FormatBuffNumber((mult-1.0)*100))

@@ -458,11 +458,11 @@ func TestFormatColleggtibles(t *testing.T) {
 		{GameModifier_AWAY_EARNINGS, 2.0, "2x"},
 		{GameModifier_AWAY_EARNINGS, 1.5, "+50%"},
 		{GameModifier_AWAY_EARNINGS, 1.0, "1x"},
-		{GameModifier_HAB_COST, 0.75, "-25%"},
-		{GameModifier_HAB_COST, 1.0, "0%"},
-		{GameModifier_VEHICLE_COST, 0.90, "-10%"},
-		{GameModifier_RESEARCH_COST, 0.9025, "-9.75%"},
-		{GameModifier_RESEARCH_COST, 0.95, "-5%"},
+		{GameModifier_HAB_COST, 0.75, "75%"},
+		{GameModifier_HAB_COST, 1.0, "100%"},
+		{GameModifier_VEHICLE_COST, 0.90, "90%"},
+		{GameModifier_RESEARCH_COST, 0.9025, "90.25%"},
+		{GameModifier_RESEARCH_COST, 0.95, "95%"},
 		{GameModifier_EGG_LAYING_RATE, 1.1025, "+10.25%"},
 		{GameModifier_EGG_LAYING_RATE, 1.05, "+5%"},
 		{GameModifier_EGG_LAYING_RATE, 1.0, "+0%"},
@@ -527,14 +527,14 @@ func TestGetColleggtiblesOverview(t *testing.T) {
 	if dimMap[GameModifier_AWAY_EARNINGS].CurrentString != "6x" {
 		t.Errorf("Away earnings: expected 6x, got %s", dimMap[GameModifier_AWAY_EARNINGS].CurrentString)
 	}
-	if dimMap[GameModifier_RESEARCH_COST].CurrentString != "-9.75%" {
-		t.Errorf("Research cost: expected -9.75%%, got %s", dimMap[GameModifier_RESEARCH_COST].CurrentString)
+	if dimMap[GameModifier_RESEARCH_COST].CurrentString != "90.25%" {
+		t.Errorf("Research cost: expected 90.25%%, got %s", dimMap[GameModifier_RESEARCH_COST].CurrentString)
 	}
-	if dimMap[GameModifier_HAB_COST].CurrentString != "-25%" {
-		t.Errorf("Hab cost: expected -25%%, got %s", dimMap[GameModifier_HAB_COST].CurrentString)
+	if dimMap[GameModifier_HAB_COST].CurrentString != "75%" {
+		t.Errorf("Hab cost: expected 75%%, got %s", dimMap[GameModifier_HAB_COST].CurrentString)
 	}
-	if dimMap[GameModifier_VEHICLE_COST].CurrentString != "-10%" {
-		t.Errorf("Vehicle cost: expected -10%%, got %s", dimMap[GameModifier_VEHICLE_COST].CurrentString)
+	if dimMap[GameModifier_VEHICLE_COST].CurrentString != "90%" {
+		t.Errorf("Vehicle cost: expected 90%%, got %s", dimMap[GameModifier_VEHICLE_COST].CurrentString)
 	}
 	if dimMap[GameModifier_SHIPPING_CAPACITY].CurrentString != "+10.25%" {
 		t.Errorf("Shipping capacity: expected +10.25%%, got %s", dimMap[GameModifier_SHIPPING_CAPACITY].CurrentString)
