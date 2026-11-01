@@ -367,3 +367,29 @@ func TestRenderColleggtiblesImage_ShowAllPredictions(t *testing.T) {
 		t.Errorf("expected width 860, got %d", imgWith.Bounds().Dx())
 	}
 }
+
+func TestRenderColleggtiblesImage_NewEggWithoutPrediction(t *testing.T) {
+	setupTestCustomEggMap()
+
+	// Simulate a player who has zero contracts/progress on a brand new egg,
+	// and predictions map is nil or empty (no past contracts exist for it).
+	overview := ei.GetColleggtiblesOverview(nil, "")
+
+	// Render with empty predictions map (simulating no past contracts for predictions)
+	emptyPreds := map[string]time.Time{}
+	imgBytes, err := RenderColleggtiblesImage(overview, "BrandNewFarmer", emptyPreds)
+	if err != nil {
+		t.Fatalf("unexpected error rendering image for new egg with no predictions: %v", err)
+	}
+	if len(imgBytes) == 0 {
+		t.Fatal("expected non-empty image bytes")
+	}
+
+	img, err := png.Decode(bytes.NewReader(imgBytes))
+	if err != nil {
+		t.Fatalf("failed to decode image: %v", err)
+	}
+	if img.Bounds().Dx() != 860 {
+		t.Errorf("expected width 860, got %d", img.Bounds().Dx())
+	}
+}

@@ -68,7 +68,7 @@ func newColleggtibleFontSet(size float64, fallbackSize float64) colleggtibleFont
 
 // findEggIconFile locates the local egg icon PNG file for an egg ID.
 func findEggIconFile(eggID string) string {
-	cleanID := strings.ReplaceAll(strings.ToLower(eggID), "-", "")
+	cleanID := strings.ReplaceAll(strings.ReplaceAll(strings.ToLower(eggID), " ", ""), "-", "")
 	names := []string{
 		fmt.Sprintf("egg_%s.png", cleanID),
 		fmt.Sprintf("egg_%s.png", strings.ToLower(eggID)),
@@ -324,10 +324,11 @@ func RenderColleggtiblesImage(overview ei.ColleggtiblesOverview, userName string
 			for _, egg := range dim.Colleggtibles {
 				predTime := findEggPrediction(egg, preds)
 				hasPred := !predTime.IsZero() && (!egg.IsMaxed || forcePredictions)
-				if egg.IsMaxed && !hasPred {
-					h += 52
-				} else {
+				hasSecondLine := (egg.Tier >= 0 && !egg.IsMaxed) || hasPred
+				if hasSecondLine {
 					h += 72
+				} else {
+					h += 52
 				}
 			}
 			if i < len(dims)-1 {
@@ -479,15 +480,16 @@ func RenderColleggtiblesImage(overview ei.ColleggtiblesOverview, userName string
 			for _, egg := range dim.Colleggtibles {
 				predTime := findEggPrediction(egg, preds)
 				hasPred := !predTime.IsZero() && (!egg.IsMaxed || forcePredictions)
+				hasSecondLine := (egg.Tier >= 0 && !egg.IsMaxed) || hasPred
 
 				eggRowH := 52
-				if !egg.IsMaxed || hasPred {
+				if hasSecondLine {
 					eggRowH = 72
 				}
 
 				// Egg icon
 				iconY := eggCurrentY + (eggRowH-eggIconSize)/2
-				if !egg.IsMaxed || hasPred {
+				if hasSecondLine {
 					iconY = eggCurrentY + 2
 				}
 				icon := loadAndScaleEggIcon(egg.EggID, eggIconSize)
@@ -498,40 +500,40 @@ func RenderColleggtiblesImage(overview ei.ColleggtiblesOverview, userName string
 
 				textX := usableStart + 2 + eggIconSize + 12
 
-				if egg.IsMaxed {
-					if hasPred {
-						// Two-line layout for maxed egg with prediction
-						drawRuneStringAt(img, eggNameFonts.lf, eggNameFonts.fallbackFace, egg.Name, textX, eggCurrentY+28, colImgWhite)
+				if !hasSecondLine {
+					// Single-line layout for:
+					// 1. Maxed eggs without predictions
+					// 2. Missing eggs without predictions (e.g. brand new egg before first prediction cycle)
+					drawRuneStringAt(img, eggNameFonts.lf, eggNameFonts.fallbackFace, egg.Name, textX, eggCurrentY+34, colImgWhite)
 
-						valText := fmt.Sprintf("Maxed: %s", egg.CurrentValueString)
-						valW := measureRuneString(eggSubFonts.lf, eggSubFonts.fallbackFace, valText)
-						drawRuneStringAt(img, eggSubFonts.lf, eggSubFonts.fallbackFace, valText, usableEnd-valW, eggCurrentY+28, colImgGreen)
-
-						anyPredicted = true
-						dateStr := predTime.Format("Jan 2")
-						if predTime.Year() != time.Now().Year() {
-							dateStr = predTime.Format("Jan 2 '06")
-						}
-						predStr := fmt.Sprintf("Est: %s", dateStr)
-						predW := measureRuneString(eggSubFonts.lf, eggSubFonts.fallbackFace, predStr)
-						drawRuneStringAt(img, eggSubFonts.lf, eggSubFonts.fallbackFace, predStr, usableEnd-predW, eggCurrentY+56, colImgLavender)
+					var (
+						valText  string
+						valColor color.Color
+					)
+					if egg.IsMaxed {
+						valText = fmt.Sprintf("Maxed: %s", egg.CurrentValueString)
+						valColor = colImgGreen
 					} else {
-						// Single-line layout for maxed egg without prediction
-						drawRuneStringAt(img, eggNameFonts.lf, eggNameFonts.fallbackFace, egg.Name, textX, eggCurrentY+34, colImgWhite)
-
-						valText := fmt.Sprintf("Maxed: %s", egg.CurrentValueString)
-						valW := measureRuneString(eggSubFonts.lf, eggSubFonts.fallbackFace, valText)
-						drawRuneStringAt(img, eggSubFonts.lf, eggSubFonts.fallbackFace, valText, usableEnd-valW, eggCurrentY+34, colImgGreen)
+						valText = fmt.Sprintf("Missing (%s)", egg.MaxValueString)
+						valColor = colImgRed
 					}
+					valW := measureRuneString(eggSubFonts.lf, eggSubFonts.fallbackFace, valText)
+					drawRuneStringAt(img, eggSubFonts.lf, eggSubFonts.fallbackFace, valText, usableEnd-valW, eggCurrentY+34, valColor)
 				} else {
-					// Two-line layout for unmaxed egg: Name on left, tier/missing on right
+					// Two-line layout for:
+					// 1. In-progress eggs (with or without prediction)
+					// 2. Missing eggs with prediction
+					// 3. Maxed eggs with prediction (dev force flag)
 					drawRuneStringAt(img, eggNameFonts.lf, eggNameFonts.fallbackFace, egg.Name, textX, eggCurrentY+28, colImgWhite)
 
 					var (
 						statusText  string
 						statusColor color.Color
 					)
-					if egg.Tier >= 0 {
+					if egg.IsMaxed {
+						statusText = fmt.Sprintf("Maxed: %s", egg.CurrentValueString)
+						statusColor = colImgGreen
+					} else if egg.Tier >= 0 {
 						statusText = fmt.Sprintf("Tier %d: %s", egg.Tier+1, egg.CurrentValueString)
 						statusColor = colImgYellow
 					} else {
@@ -542,7 +544,7 @@ func RenderColleggtiblesImage(overview ei.ColleggtiblesOverview, userName string
 					drawRuneStringAt(img, eggSubFonts.lf, eggSubFonts.fallbackFace, statusText, usableEnd-statusW, eggCurrentY+28, statusColor)
 
 					// Line 2: Progress (left) + Predicted Date (right)
-					if egg.Tier >= 0 {
+					if egg.Tier >= 0 && !egg.IsMaxed {
 						sizeStr := ei.FormatEIValue(egg.FarmSize, map[string]any{"decimals": 1, "trim": true})
 						progStr := fmt.Sprintf("(%s/10B)", sizeStr)
 						drawRuneStringAt(img, eggSubFonts.lf, eggSubFonts.fallbackFace, progStr, textX, eggCurrentY+56, colImgMuted)
