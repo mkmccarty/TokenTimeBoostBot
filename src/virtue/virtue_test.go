@@ -480,6 +480,26 @@ func TestPrintVirtue_ShiftSimulationUsesActualDeliveryRate(t *testing.T) {
 			break
 		}
 	}
+	if len(ei.EggIncResearchesMap) == 0 {
+		ei.EggIncResearchesMap = make(map[string]ei.EggResearches)
+	}
+	ensureResearch := func(id, effectType string, perLevel float64, compound string) {
+		if _, ok := ei.EggIncResearchesMap[id]; !ok {
+			ei.EggIncResearchesMap[id] = ei.EggResearches{
+				ID:             id,
+				EffectType:     effectType,
+				PerLevel:       perLevel,
+				LevelsCompound: compound,
+			}
+		}
+	}
+	ensureResearch("internal_hatchery1", "additive", 2, "additive")
+	ensureResearch("internal_hatchery2", "additive", 5, "additive")
+	ensureResearch("internal_hatchery3", "additive", 10, "additive")
+	ensureResearch("internal_hatchery4", "additive", 25, "additive")
+	ensureResearch("internal_hatchery5", "additive", 5, "additive")
+	ensureResearch("epic_internal_incubators", "multiplicative", 0.05, "additive")
+	ensureResearch("int_hatch_calm", "multiplicative", 0.1, "additive")
 
 	maker := ei.NewBackupMaker("EI1234567890123456", "TestUser")
 	backup := maker.GetBackup()
@@ -559,8 +579,9 @@ func TestPrintVirtue_ShiftSimulationUsesActualDeliveryRate(t *testing.T) {
 		t.Errorf("simulated shift (targetTE=25) between milestone 21 and 22 took %d s; want >= %d s (delivery rate, not max shipping rate)", diff2, minExpectedDiff)
 	}
 
-	// The interval between milestone 21 and 22 should be identical for both simulations
-	if diff1 != diff2 {
+	// The interval between milestone 21 and 22 should be identical for both simulations (within 1s for integer timestamp rounding)
+	diffDelta := diff1 - diff2
+	if diffDelta < -1 || diffDelta > 1 {
 		t.Errorf("expected interval between milestones 21 and 22 to match between targetTE=0 (%d s) and targetTE=25 (%d s)", diff1, diff2)
 	}
 

@@ -46,6 +46,16 @@ func DecryptEID(encryptedString string) string {
 
 // GetFirstContactFromAPI will download the player data from the Egg Inc API
 func GetFirstContactFromAPI(eggIncID string, discordID string, okayToSave bool) (*Backup, bool) {
+	return GetFirstContactFromAPICacheDuration(eggIncID, discordID, okayToSave, 30*time.Second)
+}
+
+// GetFirstContactFromAPINoCache will download fresh player data from the Egg Inc API without using cache
+func GetFirstContactFromAPINoCache(eggIncID string, discordID string, okayToSave bool) (*Backup, bool) {
+	return GetFirstContactFromAPICacheDuration(eggIncID, discordID, okayToSave, 0)
+}
+
+// GetFirstContactFromAPICacheDuration will download the player data from the Egg Inc API with a custom cache duration
+func GetFirstContactFromAPICacheDuration(eggIncID string, discordID string, okayToSave bool, cacheDuration time.Duration) (*Backup, bool) {
 	eiUserID := DecryptEID(eggIncID)
 	reqURL := "https://www.auxbrain.com/ei/bot_first_contact"
 
@@ -70,7 +80,7 @@ func GetFirstContactFromAPI(eggIncID string, discordID string, okayToSave bool) 
 	}
 
 	savefilename := "ttbb-data/eiuserdata/firstcontact-" + discordID + ".pbz"
-	protoData, cachedData := APICall(reqURL, &firstContactRequest, okayToSave, 30*time.Second, savefilename, false)
+	protoData, cachedData := APICall(reqURL, &firstContactRequest, okayToSave, cacheDuration, savefilename, false)
 	if protoData == nil {
 		log.Print("GetFirstContactFromAPI: APICall returned nil response")
 		return nil, cachedData
