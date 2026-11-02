@@ -15,12 +15,13 @@ import (
 // a substitute for reading the handler, but it does mean the schema cannot
 // quietly lose one again.
 var optionsHandlersRead = map[string][]string{
-	"GetSlashContractReportCommand": {"reset", "token-details", "missing-players", "as-image", "contract-id"},
-	"GetSlashRegisterCommand":       {"reset"},
-	"GetSlashRerunEvalCommand":      {"reset", "refresh", "mobile-friendly", "season", "model"},
-	"GetSlashEstimateTime":          {"contract-id", "include-leggy", "show-gg", "te-override"},
-	"GetSlashHelpCommand":           {"attributions"},
-	"GetSlashCsEstimates":           {"contract-id", "coop-id", "sr-mode", "as-image", "private-reply"},
+	"GetSlashContractReportCommand":  {"reset", "token-details", "missing-players", "as-image", "contract-id"},
+	"GetSlashRegisterCommand":        {"reset"},
+	"GetSlashRerunEvalCommand":       {"reset", "refresh", "mobile-friendly", "season", "model"},
+	"GetSlashEstimateTime":           {"contract-id", "include-leggy", "show-gg", "te-override"},
+	"GetSlashHelpCommand":            {"attributions"},
+	"GetSlashCsEstimates":            {"contract-id", "coop-id", "sr-mode", "as-image", "private-reply"},
+	"GetSlashEggStandardTimeCommand": {"private-reply"},
 }
 
 // declaresOption reports whether a command declares an option by this name,

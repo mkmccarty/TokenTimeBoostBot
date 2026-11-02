@@ -140,6 +140,7 @@ const slashChill string = "chill"
 const slashRoll string = "roll"
 const slashWatch string = "watch"
 const slashActAs string = "act-as"
+const slashEggStandardTime string = "egg-standard-time"
 
 // const slashSignup string = "signup"
 var bot = dc.NewBot()
@@ -861,6 +862,12 @@ func setupCommands() {
 		Category:     CmdCategoryStandard,
 		Handler:      watch.HandleWatch,
 		Autocomplete: watch.HandleWatchAutoComplete,
+	})
+
+	commandRegistry = append(commandRegistry, CommandDef{
+		AppCmd:   boost.GetSlashEggStandardTimeCommand(slashEggStandardTime),
+		Category: CmdCategoryStandard,
+		Handler:  boost.HandleEggStandardTimeCommand,
 	})
 
 	for _, def := range commandRegistry {

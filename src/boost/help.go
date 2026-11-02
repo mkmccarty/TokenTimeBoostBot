@@ -219,6 +219,7 @@ func GetHelp(client dc.Client, guildID string, channelID string, userID string) 
 		fmt.Fprintf(&builder, "%s : Rerun evaluation\n", bottools.GetFormattedCommand("rerun-eval active"))
 		fmt.Fprintf(&builder, "%s : Last occurrance of every event.\n", bottools.GetFormattedCommand("events"))
 		fmt.Fprintf(&builder, "%s : Timer tool\n", bottools.GetFormattedCommand("timer"))
+		fmt.Fprintf(&builder, "%s : Show Egg Standard Time and current offset.\n", bottools.GetFormattedCommand("egg-standard-time"))
 
 		field = append(field, dc.EmbedField{
 			Name:   "GENERAL COMMANDS",
