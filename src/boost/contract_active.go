@@ -14,6 +14,12 @@ import (
 
 // This file is for /active-contracts and related functionality.
 
+const (
+	// discordComponentsV2TotalCharLimit is Discord's total text display character limit across
+	// all TextDisplay components in a Components V2 message.
+	discordComponentsV2TotalCharLimit = 4000
+)
+
 var threadStyleIcons = []string{"", "🟦", "🟩", "🟧", "🟥"}
 
 // SlashAdminCurrentContracts creates the admin current-contracts command for Discord.
@@ -186,6 +192,9 @@ func getCurrentContractsComponents(client dc.Client, guildID string, channelID s
 			group := matched[i:j]
 			var activeCoops []*Contract
 			for _, c := range group {
+				if c.State == ContractStateArchive {
+					continue
+				}
 				if c.State != ContractStateCompleted || guildstate.GetGuildSettingFlag(guildID, "active-contracts-show-completed") {
 					activeCoops = append(activeCoops, c)
 				}
@@ -193,18 +202,47 @@ func getCurrentContractsComponents(client dc.Client, guildID string, channelID s
 			// Get the contract display component for this contract and its active coops, if any.
 			if len(activeCoops) > 0 {
 				sort.Slice(activeCoops, func(a, b int) bool {
-					fullA := len(activeCoops[a].Boosters) >= activeCoops[a].CoopSize
-					fullB := len(activeCoops[b].Boosters) >= activeCoops[b].CoopSize
-					if fullA != fullB {
-						return fullA // FULL coops first
+					coopA := activeCoops[a]
+					coopB := activeCoops[b]
+					groupA := activeCoopGroup(coopA)
+					groupB := activeCoopGroup(coopB)
+					if groupA != groupB {
+						return groupA < groupB
 					}
-					return activeCoops[a].CoopID < activeCoops[b].CoopID
+					// Within signup groups (Group 2 & 3), sort by PlannedStartTime (no offset first, then chronological)
+					if groupA == 2 || groupA == 3 {
+						zeroA := coopA.PlannedStartTime.IsZero()
+						zeroB := coopB.PlannedStartTime.IsZero()
+						if zeroA != zeroB {
+							return zeroA // no start offset sorts before planned start offset
+						}
+						if !zeroA && !coopA.PlannedStartTime.Equal(coopB.PlannedStartTime) {
+							return coopA.PlannedStartTime.Before(coopB.PlannedStartTime)
+						}
+					} else {
+						// Within running groups (Group 1 & 4), sort by stateOrder
+						stateA := activeCoopStateOrder(coopA)
+						stateB := activeCoopStateOrder(coopB)
+						if stateA != stateB {
+							return stateA < stateB
+						}
+					}
+					if strings.EqualFold(coopA.CoopID, coopB.CoopID) {
+						return coopA.CoopID < coopB.CoopID
+					}
+					return strings.ToLower(coopA.CoopID) < strings.ToLower(coopB.CoopID)
 				})
-				display := getContractDisplay(group[0], activeCoops, activeThreadIDs, discordEmbedTotalCharLimit-totalChars)
-				if totalChars+len(display.Content) > discordEmbedTotalCharLimit {
+				display := getContractDisplay(group[0], activeCoops, activeThreadIDs, discordComponentsV2TotalCharLimit-totalChars)
+				if totalChars+len(display.Content) > discordComponentsV2TotalCharLimit {
 					break
 				}
 				totalChars += len(display.Content)
+				if len(contractComponents) > 0 {
+					contractComponents = append(contractComponents, dc.Separator{
+						Divider: true,
+						Spacing: dc.SeparatorSpacingSmall,
+					})
+				}
 				contractComponents = append(contractComponents, display)
 				shownContracts++
 			}
@@ -223,6 +261,49 @@ func getCurrentContractsComponents(client dc.Client, guildID string, channelID s
 		activeContractsButtons(channelID),
 	}, shownContracts > 0
 }
+
+// activeCoopGroup partitions coops into:
+// Group 1: unfilled running contracts (boosting/waiting, active now, highest priority)
+// Group 2: unfilled signup contracts (planned or waiting to fill)
+// Group 3: FULL signup contracts (waiting for planned start time)
+// Group 4: FULL contracts which are active down through completed
+func activeCoopGroup(c *Contract) int {
+	isFull := len(c.Boosters) >= c.CoopSize
+	if c.State == ContractStateCompleted {
+		return 4
+	}
+	if !isFull {
+		if c.State != ContractStateSignup {
+			// Group 1: Unfilled running contracts (active now, highest priority)
+			return 1
+		}
+		// Group 2: Unfilled signup contracts
+		return 2
+	}
+	if c.State == ContractStateSignup {
+		// Group 3: FULL signup contracts (sort after unfilled)
+		return 3
+	}
+	// Group 4: FULL contracts which are active down through completed
+	return 4
+}
+
+// activeCoopStateOrder orders active running coops by progression:
+// 1: boosting (ContractStateFastrun, ContractStateBanker)
+// 2: waiting (ContractStateWaiting)
+// 3: completed (ContractStateCompleted)
+func activeCoopStateOrder(c *Contract) int {
+	switch c.State {
+	case ContractStateFastrun, ContractStateBanker:
+		return 1
+	case ContractStateWaiting:
+		return 2
+	case ContractStateCompleted:
+		return 3
+	default:
+		return 4
+	}
+}
 func getContractDisplay(header *Contract, coops []*Contract, activeThreadIDs map[string]bool, charBudget int) dc.TextDisplay {
 	iconCoop := ei.GetBotEmojiMarkdown("icon_coop")
 
@@ -233,10 +314,9 @@ func getContractDisplay(header *Contract, coops []*Contract, activeThreadIDs map
 	}
 	fmt.Fprintf(&b, "## %s **%s**%s\n", header.EggEmoji, header.Name, coopSizeStr)
 
-	for _, c := range coops {
-		if b.Len() >= min(charBudget, discordEmbedDescLimit) {
-			break
-		}
+	limit := min(charBudget, discordComponentsV2TotalCharLimit)
+	omitted := 0
+	for i, c := range coops {
 		threadURL := ""
 		for _, loc := range c.Location {
 			if loc != nil && activeThreadIDs[loc.ChannelID] {
@@ -252,13 +332,27 @@ func getContractDisplay(header *Contract, coops []*Contract, activeThreadIDs map
 		if len(c.Boosters) >= c.CoopSize {
 			count = "FULL"
 		}
-		fmt.Fprintf(&b, "%s%s `%s` [**⧉ %s**](%s) \n",
+		var coopBuf strings.Builder
+		fmt.Fprintf(&coopBuf, "%s%s `%s` [**⧉ %s**](%s) \n",
 			strings.Repeat("_ _ ", 5),
 			colorEmoji, count, c.CoopID, threadURL)
 		if c.State == ContractStateSignup && !c.PlannedStartTime.IsZero() {
-			fmt.Fprintf(&b, "-# %s↳Start: %s\n",
+			fmt.Fprintf(&coopBuf, "-# %s↳Start: %s\n",
 				strings.Repeat("_ _ ", 7),
 				bottools.WrapTimestamp(c.PlannedStartTime.Unix(), bottools.TimestampLongDateTime))
+		}
+		coopStr := coopBuf.String()
+		if b.Len()+len(coopStr) > limit {
+			omitted = len(coops) - i
+			break
+		}
+		b.WriteString(coopStr)
+	}
+
+	if omitted > 0 {
+		suffix := fmt.Sprintf("-# … and %d more full contracts\n", omitted)
+		if b.Len()+len(suffix) <= limit {
+			b.WriteString(suffix)
 		}
 	}
 
