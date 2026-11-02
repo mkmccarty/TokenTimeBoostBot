@@ -61,7 +61,7 @@ func ExecuteVirtueTarget(e dc.InteractionEvent, options dc.OptionValues, eggIncI
 
 	_ = e.Defer(ephemeral)
 
-	backup, _ := ei.GetFirstContactFromAPI(eggIncID, targetUserID, okayToSave)
+	backup, _ := ei.GetFirstContactFromAPINoCache(eggIncID, targetUserID, okayToSave)
 	if backup == nil {
 		_ = e.Followup(dc.Message{
 			Content:   "Unable to retrieve game data for this Egg Inc ID. Please verify your ID and try again.",
@@ -581,7 +581,7 @@ func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE
 						selectedEggEmote,
 						ei.FormatEIValue(currentSelectedTarget, map[string]any{"decimals": 4, "trim": true, "max_length": 5}))
 				}
-			} else if adjustedRemainingTime < 43200.0 && targetTE == 0 { // 12 hours
+			} else if adjustedRemainingTime < 43200.0 && targetTE == 0 && simulatedEgg == -1 { // 12 hours
 				fmt.Fprintf(&header, "%d%s %s <t:%d:t>",
 					targetTEValue,
 					selectedEggEmote,

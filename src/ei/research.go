@@ -206,15 +206,16 @@ func TimeForLinearGrowth(initialPopulation, targetPopulation, growthRate float64
 	return time
 }
 
-// TimeToDeliverEggs simulates population growth and egg production to find the time
-// required to deliver a certain number of eggs.
+// TimeToDeliverEggs calculates the time required to deliver a target number of eggs
+// accounting for population growth (IHR) and shipping capacity limits.
+// Uses the continuous analytical formula matching wasmegg virtue-companion.
 //
 // Arguments:
 //
 //	initialPop: The starting chicken population.
 //	maxPop: The maximum carrying capacity of the population.
 //	growthRatePerMinute: The growth rate of the population per minute.
-//	layingRatePerHour: The number of eggs laid per chicken per hour.
+//	layingRatePerHour: The total number of eggs laid per hour at initialPop.
 //	shippingRatePerHour: The constant number of eggs shipped per hour.
 //	targetEggs: The total number of eggs to deliver.
 //
@@ -223,59 +224,49 @@ func TimeForLinearGrowth(initialPopulation, targetPopulation, growthRate float64
 //	The time in seconds, or -1 if the target is unreachable.
 func TimeToDeliverEggs(initialPop, maxPop, growthRatePerMinute, layingRatePerHour, shippingRatePerHour, targetEggs float64) float64 {
 	// Validate inputs
-	if initialPop <= 0 || maxPop <= 0 || growthRatePerMinute <= 0 || layingRatePerHour <= 0 || targetEggs <= 0 {
+	if initialPop <= 0 || maxPop <= 0 || layingRatePerHour <= 0 || targetEggs <= 0 {
 		return -1.0 // Return -1 for invalid inputs
 	}
 
-	// Convert rates to be consistent with the 1-minute time step
-	timeStepMinutes := 1.0
-	layingRatePerStep := (layingRatePerHour / 60) * timeStepMinutes
-	shippingRatePerStep := (shippingRatePerHour / 60) * timeStepMinutes
-	growthRatePerStep := growthRatePerMinute * timeStepMinutes
-
-	// Check if the shipping rate is sustainable
-	//if layingRatePerHour*maxPop < shippingRatePerHour {
-	//	fmt.Println("Warning: Shipping rate is higher than the maximum possible laying rate. The target may never be reached.")
-	//}
-
-	totalTimeMinutes := 0.0
-	totalEggsDelivered := 0.0
-	currentPop := initialPop
-
-	// Loop until the target number of eggs is delivered
-	for totalEggsDelivered < targetEggs {
-		// Calculate the number of eggs laid in this time step
-		deliveryRate := math.Min(layingRatePerStep, shippingRatePerStep)
-		eggsToDeliverThisStep := deliveryRate
-
-		// Calculate the eggs delivered in this time step (limited by the eggs available)
-		//eggsToDeliverThisStep := math.Min(eggsLaidInStep, shippingRatePerStep)
-
-		// Update total eggs delivered
-		totalEggsDelivered += eggsToDeliverThisStep
-
-		// Update the population for the next time step using the logistical growth formula.
-		if currentPop <= maxPop {
-			oldPop := currentPop
-			currentPop += growthRatePerStep
-			if currentPop > maxPop {
-				currentPop = maxPop
-			}
-			// want % of pop increase so we can increase the delivery rate
-			popIncrease := currentPop - oldPop
-			layingRatePerStep *= (1 + popIncrease/oldPop)
-		}
-
-		// Increment time
-		totalTimeMinutes += timeStepMinutes
-
-		// Safety break to prevent infinite loops if the target is unreachable.
-		if totalTimeMinutes > 525_600 { // 1 year in minutes
-			return -1.0
-		}
+	startingEggLayingRate := math.Min(layingRatePerHour, shippingRatePerHour) / 60.0
+	if startingEggLayingRate <= 0 {
+		return -1.0
 	}
 
-	return totalTimeMinutes * 60.0
+	perChickenPerMinute := (layingRatePerHour / 60.0) / initialPop
+	shippingCapacityPerMinute := shippingRatePerHour / 60.0
+
+	effectivePopulationCap := maxPop
+	if perChickenPerMinute > 0 && shippingRatePerHour > 0 {
+		effectivePopulationCap = shippingCapacityPerMinute / perChickenPerMinute
+	}
+	maxPopulation := math.Min(maxPop, effectivePopulationCap)
+	if maxPopulation <= 0 {
+		return -1.0
+	}
+
+	// No population growth possible - either no IHR or already at max capacity
+	if growthRatePerMinute <= 0 || initialPop >= maxPopulation {
+		minutes := targetEggs / startingEggLayingRate
+		if minutes > 525_600 { // 1 year in minutes
+			return -1.0
+		}
+		return minutes * 60.0
+	}
+
+	timeToTarget := (math.Sqrt(initialPop*initialPop+2.0*growthRatePerMinute*initialPop*targetEggs/startingEggLayingRate) - initialPop) / growthRatePerMinute
+
+	if timeToTarget > (maxPopulation-initialPop)/growthRatePerMinute {
+		timeToTarget = ((initialPop * targetEggs / startingEggLayingRate) +
+			((maxPopulation-initialPop)*(maxPopulation-initialPop))/(2.0*growthRatePerMinute)) / maxPopulation
+	}
+
+	// Safety break if the target is unreachable or exceeds 1 year
+	if math.IsNaN(timeToTarget) || math.IsInf(timeToTarget, 0) || timeToTarget > 525_600 {
+		return -1.0
+	}
+
+	return timeToTarget * 60.0
 }
 
 // GetFarmEarningRates calculates the farm earning rates
