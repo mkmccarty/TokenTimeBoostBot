@@ -3,6 +3,7 @@ package virtue
 import (
 	"encoding/base64"
 	"fmt"
+	"os"
 	"slices"
 	"strings"
 	"testing"
@@ -13,6 +14,7 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc/dctest"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestGetSlashVirtueCommand(t *testing.T) {
@@ -468,5 +470,103 @@ func TestFindAltDiscordID_ActAsLink(t *testing.T) {
 	gotCaller := farmerstate.FindAltDiscordID("orphan-alt", mainUser)
 	if gotCaller != altDiscordUser {
 		t.Errorf("FindAltDiscordID(orphan-alt, %q) = %q; want %q", mainUser, gotCaller, altDiscordUser)
+	}
+}
+
+func TestPrintVirtue_ShiftSimulationUsesActualDeliveryRate(t *testing.T) {
+	for _, path := range []string{"ttbb-data/ei-researches.json", "../../ttbb-data/ei-researches.json"} {
+		if _, err := os.Stat(path); err == nil {
+			ei.LoadResearchData(path)
+			break
+		}
+	}
+
+	maker := ei.NewBackupMaker("EI1234567890123456", "TestUser")
+	backup := maker.GetBackup()
+	farm := backup.GetFarms()[0]
+	now := float64(time.Now().Unix())
+	farm.LastStepTime = &now
+	farm.HabPopulation = []uint64{2421090000, 2421090000, 2421090000, 2421090000}
+	farm.Habs = []uint32{18, 18, 18, 18}
+	farm.CommonResearch = append(farm.CommonResearch,
+		&ei.Backup_ResearchItem{Id: proto.String("internal_hatchery1"), Level: proto.Uint32(10)},
+		&ei.Backup_ResearchItem{Id: proto.String("internal_hatchery2"), Level: proto.Uint32(10)},
+		&ei.Backup_ResearchItem{Id: proto.String("internal_hatchery3"), Level: proto.Uint32(10)},
+		&ei.Backup_ResearchItem{Id: proto.String("internal_hatchery4"), Level: proto.Uint32(10)},
+		&ei.Backup_ResearchItem{Id: proto.String("internal_hatchery5"), Level: proto.Uint32(10)},
+	)
+	backup.Game.EpicResearch = append(backup.Game.EpicResearch,
+		&ei.Backup_ResearchItem{Id: proto.String("epic_internal_incubators"), Level: proto.Uint32(20)},
+		&ei.Backup_ResearchItem{Id: proto.String("int_hatch_calm"), Level: proto.Uint32(20)},
+	)
+	farm.Vehicles = []uint32{11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11}
+	farm.TrainLength = []uint32{10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10}
+	backup.Virtue.Afx.TankFillingEnabled = proto.Bool(false)
+
+	shippingRate := ei.GetShippingRateFromBackup(farm, backup.GetGame())
+
+	// 1. Immediate shift (targetTE = 0)
+	comps1 := printVirtue("user-test", backup, ei.Egg_INTEGRITY, 0, false, "")
+	if len(comps1) == 0 {
+		t.Fatalf("expected components, got empty")
+	}
+
+	// 2. Shift after targetTE on current egg (targetTE = 25)
+	comps2 := printVirtue("user-test", backup, ei.Egg_INTEGRITY, 25, false, "")
+	if len(comps2) == 0 {
+		t.Fatalf("expected components, got empty")
+	}
+
+	sec1, ok1 := comps1[0].(dc.Section)
+	sec2, ok2 := comps2[0].(dc.Section)
+	if !ok1 || !ok2 || len(sec1.Components) == 0 || len(sec2.Components) == 0 {
+		t.Fatalf("expected Section components")
+	}
+
+	content1 := sec1.Components[0].Content
+	content2 := sec2.Components[0].Content
+
+	extractTimestamps := func(text string) []int64 {
+		var ts []int64
+		for _, line := range strings.Split(text, "\n") {
+			if idx := strings.Index(line, "<t:"); idx != -1 {
+				var val int64
+				if n, _ := fmt.Sscanf(line[idx:], "<t:%d:", &val); n == 1 {
+					ts = append(ts, val)
+				}
+			}
+		}
+		return ts
+	}
+
+	ts1 := extractTimestamps(content1)
+	if len(ts1) < 2 {
+		t.Fatalf("expected at least 2 timestamps in content1, got %v", ts1)
+	}
+	diff1 := ts1[1] - ts1[0]
+	minExpectedDiff := int64(20 * 3600) // At least 20 hours
+	if diff1 < minExpectedDiff {
+		t.Errorf("simulated shift (targetTE=0) between milestone 21 and 22 took %d s; want >= %d s (delivery rate, not max shipping rate)", diff1, minExpectedDiff)
+	}
+
+	ts2 := extractTimestamps(content2)
+	// content2 has shift time first, then milestone 21, then milestone 22
+	if len(ts2) < 3 {
+		t.Fatalf("expected at least 3 timestamps in content2, got %v", ts2)
+	}
+	diff2 := ts2[2] - ts2[1]
+	if diff2 < minExpectedDiff {
+		t.Errorf("simulated shift (targetTE=25) between milestone 21 and 22 took %d s; want >= %d s (delivery rate, not max shipping rate)", diff2, minExpectedDiff)
+	}
+
+	// The interval between milestone 21 and 22 should be identical for both simulations
+	if diff1 != diff2 {
+		t.Errorf("expected interval between milestones 21 and 22 to match between targetTE=0 (%d s) and targetTE=25 (%d s)", diff1, diff2)
+	}
+
+	// Also ensure duration was not simply 90q / shippingRate
+	timeAtMaxShipping := int64((90e15 / shippingRate) * 3600)
+	if diff1 == timeAtMaxShipping {
+		t.Errorf("simulated shift incorrectly used max shipping rate (%d s)", timeAtMaxShipping)
 	}
 }

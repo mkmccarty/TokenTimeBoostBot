@@ -344,14 +344,21 @@ func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE
 
 	shippingRate := ei.GetShippingRateFromBackup(farm, backup.GetGame())
 	eggLayingRate, habPop, habCap := ei.GetEggLayingRateFromBackup(farm, backup.GetGame(), colBuffs.Hab)
-	if simulatedEgg != -1 {
-		eggLayingRate /= habPop // Remove population from the ELR
-		if targetTE == 0 {
-			habPop = math.Min(1, habCap)
-		}
-		eggLayingRate *= habPop // Reset to 0 for new egg
+	currentHabPop := habPop
+	elrPerChicken := 0.0
+	if currentHabPop > 0 {
+		elrPerChicken = eggLayingRate / currentHabPop
+	} else {
+		userLayRate := (1.0 / 30.0) * ei.GetCommonResearchLayRate(farm.GetCommonResearch()) * ei.GetEpicResearchLayRate(backup.GetGame().GetEpicResearch()) * 3600.0
+		elrPerChicken = userLayRate
+	}
+
+	if simulatedEgg != -1 && targetTE == 0 {
+		habPop = math.Min(1, habCap)
+		eggLayingRate = elrPerChicken * habPop
 	}
 	eggLayingRate *= artifactBuffs.ELR * colBuffs.ELR
+	elrPerChicken *= artifactBuffs.ELR * colBuffs.ELR
 	shippingRate *= artifactBuffs.SR * colBuffs.SR
 	habCap *= artifactBuffs.Hab
 
@@ -361,8 +368,8 @@ func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE
 	siloMinutes := ei.GetSiloMinutes(silosOwned, backup.GetGame().GetEpicResearch())
 
 	fuelingEnabled := virtue.GetAfx().GetTankFillingEnabled()
-	if simulatedEgg != -1 {
-		// When simulating a shift, turn off fueling
+	if simulatedEgg != -1 && targetTE == 0 {
+		// When simulating an immediate shift, turn off fueling
 		fuelingEnabled = false
 	}
 	fuelRate := 0.0
@@ -422,7 +429,7 @@ func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE
 	syncTime := time.Unix(int64(farm.GetLastStepTime()), 0)
 	elapsed := time.Since(syncTime).Seconds()
 	offlineEggs := min(eggLayingRate-fuelRate, shippingRate) * (elapsed / 3600)
-	if simulatedEgg != -1 && targetTE == 0 {
+	if simulatedEgg != -1 {
 		offlineEggs = 0
 	}
 
@@ -514,6 +521,9 @@ func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE
 
 			remainingTime := ei.TimeToDeliverEggs(habPop, habCap, offlineRate, eggLayingRate-fuelRate, shippingRate, currentEggTarget-currentDelivered)
 			adjustedRemainingTime := remainingTime - elapsed
+			if adjustedRemainingTime < 0 {
+				adjustedRemainingTime = 0
+			}
 
 			if remainingTime != -1.0 {
 				offsetRemainingTime = adjustedRemainingTime
@@ -537,6 +547,8 @@ func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE
 			}
 			// Empty the habs after the shift to simulate
 			habPop = 1
+			eggLayingRate = elrPerChicken * habPop
+			fuelRate = 0
 		} else if simulatedEgg != -1 && targetTE == 0 {
 			c := cases.Title(language.Und)
 			fmt.Fprintf(&header, "## Simulating a shift to %s\n", c.String(strings.ToLower(virtueEggs[simulatedEgg-50])))
@@ -545,7 +557,7 @@ func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE
 		// Loop to show time to next several Truth Egg thresholds
 		remainingTime := ei.TimeToDeliverEggs(habPop, habCap, offlineRate, eggLayingRate-fuelRate, shippingRate, selectedTarget-selectedDelivered)
 		adjustedRemainingTime := remainingTime
-		if targetTE == 0 {
+		if simulatedEgg == -1 {
 			adjustedRemainingTime = remainingTime - elapsed
 		}
 
@@ -605,10 +617,10 @@ func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE
 				break
 			}
 			remainingTime = ei.TimeToDeliverEggs(habPop, habCap, offlineRate, eggLayingRate-fuelRate, shippingRate, currentSelectedTarget-selectedDelivered)
-			if targetTE != 0 {
-				adjustedRemainingTime = remainingTime
-			} else {
+			if simulatedEgg == -1 {
 				adjustedRemainingTime = remainingTime - elapsed
+			} else {
+				adjustedRemainingTime = remainingTime
 			}
 
 			loopCount++
