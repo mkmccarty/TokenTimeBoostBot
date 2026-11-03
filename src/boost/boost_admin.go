@@ -976,6 +976,13 @@ func adminMembersRemoveContent(e *dc.CommandEvent, guildID, guildName string) st
 			farmerstate.RemoveGuildMembership(userID, guildID)
 			_ = farmerstate.DeleteAllLeaderboardOptInsForUserInGuild(guildID, userID)
 			_ = farmerstate.DeleteAllLeaderboardExclusionsForUserInGuild(guildID, userID)
+			for _, altID := range append(farmerstate.GetAltControllerByMiscString("AltController", userID), farmerstate.GetActAsLinks(userID)...) {
+				if altID != "" && altID != userID {
+					farmerstate.RemoveGuildMembership(altID, guildID)
+					_ = farmerstate.DeleteAllLeaderboardOptInsForUserInGuild(guildID, altID)
+					_ = farmerstate.DeleteAllLeaderboardExclusionsForUserInGuild(guildID, altID)
+				}
+			}
 			affected = append(affected, fmt.Sprintf("<@%s>", userID))
 		}
 	}
@@ -992,6 +999,13 @@ func adminMembersRemoveContent(e *dc.CommandEvent, guildID, guildName string) st
 			farmerstate.RemoveGuildMembership(userID, guildID)
 			_ = farmerstate.DeleteAllLeaderboardOptInsForUserInGuild(guildID, userID)
 			_ = farmerstate.DeleteAllLeaderboardExclusionsForUserInGuild(guildID, userID)
+			for _, altID := range append(farmerstate.GetAltControllerByMiscString("AltController", userID), farmerstate.GetActAsLinks(userID)...) {
+				if altID != "" && altID != userID {
+					farmerstate.RemoveGuildMembership(altID, guildID)
+					_ = farmerstate.DeleteAllLeaderboardOptInsForUserInGuild(guildID, altID)
+					_ = farmerstate.DeleteAllLeaderboardExclusionsForUserInGuild(guildID, altID)
+				}
+			}
 			affected = append(affected, fmt.Sprintf("`%s`", userID))
 		}
 	}

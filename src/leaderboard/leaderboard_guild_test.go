@@ -281,3 +281,66 @@ func TestRunLeaderboardCollection_GlobalRunPrunesAllGuilds(t *testing.T) {
 		t.Fatalf("expected user3 to remain opted in to guildB")
 	}
 }
+
+func TestPruneGuildDepartedMembers_AltController(t *testing.T) {
+	guildID := "test_guild_alt_prune"
+	activeController := "test_ctrl_active"
+	departedController := "test_ctrl_departed"
+	activeAlt := "test_alt_active"
+	departedAlt := "test_alt_departed"
+	orphanAlt := "test_alt_orphan_departed"
+
+	cleanup := func() {
+		for _, u := range []string{activeController, departedController, activeAlt, departedAlt, orphanAlt} {
+			_ = farmerstate.DeleteAllLeaderboardOptInsForUserInGuild(guildID, u)
+			_ = farmerstate.DeleteAllLeaderboardExclusionsForUserInGuild(guildID, u)
+			farmerstate.RemoveGuildMembership(u, guildID)
+			farmerstate.SetMiscSettingString(u, "AltController", "")
+		}
+	}
+	cleanup()
+	t.Cleanup(cleanup)
+
+	// Link alts to controllers
+	farmerstate.SetMiscSettingString(activeAlt, "AltController", activeController)
+	farmerstate.SetMiscSettingString(departedAlt, "AltController", departedController)
+	// orphanAlt's controller was already pruned from opt-in earlier, but AltController points to departedController
+	farmerstate.SetMiscSettingString(orphanAlt, "AltController", departedController)
+
+	// Opt into guild: activeController, activeAlt, departedController, departedAlt, orphanAlt
+	AddPlayerOptInTypes(guildID, activeController, []string{LBContractExp})
+	AddPlayerOptInTypes(guildID, activeAlt, []string{LBContractExp})
+	AddPlayerOptInTypes(guildID, departedController, []string{LBContractExp})
+	AddPlayerOptInTypes(guildID, departedAlt, []string{LBContractExp})
+	AddPlayerOptInTypes(guildID, orphanAlt, []string{LBContractExp})
+
+	// activeController is present in guild; departedController is missing
+	fakeClient := dctest.New().WithMember(guildID, activeController, "ActiveController", 0)
+
+	pruned := PruneGuildDepartedMembers(fakeClient, guildID)
+	// Expect 3 pruned: departedController, departedAlt, orphanAlt
+	if pruned != 3 {
+		t.Fatalf("expected 3 pruned (departed controller + 2 alts), got %d", pruned)
+	}
+
+	// departedAlt and orphanAlt should be pruned
+	if len(GetPlayerOptInTypes(guildID, departedAlt)) != 0 {
+		t.Errorf("expected departedAlt to be pruned from opt-in")
+	}
+	if len(GetPlayerOptInTypes(guildID, orphanAlt)) != 0 {
+		t.Errorf("expected orphanAlt to be pruned from opt-in")
+	}
+
+	// departedController should be pruned
+	if len(GetPlayerOptInTypes(guildID, departedController)) != 0 {
+		t.Errorf("expected departedController to be pruned from opt-in")
+	}
+
+	// activeAlt and activeController should remain opted in
+	if len(GetPlayerOptInTypes(guildID, activeAlt)) == 0 {
+		t.Errorf("expected activeAlt to remain opted in")
+	}
+	if len(GetPlayerOptInTypes(guildID, activeController)) == 0 {
+		t.Errorf("expected activeController to remain opted in")
+	}
+}

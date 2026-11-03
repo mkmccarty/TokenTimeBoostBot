@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"sort"
+	"strings"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
@@ -526,7 +527,8 @@ func GetUserOptInGuilds(userID string) []string {
 }
 
 // PruneGuildDepartedMembers checks all opted-in users in a guild against Discord
-// and prunes anyone who is no longer a guild member (departed, kicked, or banned).
+// and prunes anyone who is no longer a guild member (departed, kicked, or banned),
+// including alternate accounts whose alt controllers are no longer on the server.
 // Returns the number of members pruned.
 func PruneGuildDepartedMembers(client dc.Client, guildID string) int {
 	if client == nil || guildID == "" {
@@ -545,18 +547,112 @@ func PruneGuildDepartedMembers(client dc.Client, guildID string) int {
 		}
 	}
 
+	memberCache := make(map[string]bool)
+	isMemberInGuild := func(discordUserID string) bool {
+		discordUserID = strings.TrimSpace(discordUserID)
+		if discordUserID == "" {
+			return false
+		}
+		if inGuild, ok := memberCache[discordUserID]; ok {
+			return inGuild
+		}
+		_, err := client.GuildMember(guildID, discordUserID)
+		if err != nil {
+			if dc.IsUnknownMember(err) {
+				memberCache[discordUserID] = false
+				return false
+			}
+			if apiErr, ok := dc.AsAPIError(err); ok && (apiErr.StatusCode == 400 || apiErr.Code == 50035) {
+				memberCache[discordUserID] = false
+				return false
+			}
+			// If transient or other error, assume still present to prevent accidental pruning.
+			return true
+		}
+		memberCache[discordUserID] = true
+		return true
+	}
+
+	getControllers := func(id string) []string {
+		var controllers []string
+		seenC := make(map[string]bool)
+		if c := strings.TrimSpace(farmerstate.GetMiscSettingString(id, "AltController")); c != "" {
+			controllers = append(controllers, c)
+			seenC[c] = true
+		}
+		for _, m := range farmerstate.GetActAsMains(id) {
+			m = strings.TrimSpace(m)
+			if m != "" && !seenC[m] {
+				controllers = append(controllers, m)
+				seenC[m] = true
+			}
+		}
+		return controllers
+	}
+
+	prunedUsers := make(map[string]bool)
 	prunedCount := 0
-	for _, uid := range userIDs {
-		if _, err := client.GuildMember(guildID, uid); err != nil && dc.IsUnknownMember(err) {
-			prunedCount++
-			_ = farmerstate.DeleteAllLeaderboardOptInsForUserInGuild(guildID, uid)
-			_ = farmerstate.DeleteAllLeaderboardExclusionsForUserInGuild(guildID, uid)
-			farmerstate.RemoveGuildMembership(uid, guildID)
-			if len(GetUserOptInGuilds(uid)) == 0 {
-				_ = farmerstate.DeleteAllLeaderboardStatsForPlayer(uid)
+
+	var pruneTarget func(targetID string)
+	pruneTarget = func(targetID string) {
+		targetID = strings.TrimSpace(targetID)
+		if targetID == "" || prunedUsers[targetID] {
+			return
+		}
+		prunedUsers[targetID] = true
+		prunedCount++
+		_ = farmerstate.DeleteAllLeaderboardOptInsForUserInGuild(guildID, targetID)
+		_ = farmerstate.DeleteAllLeaderboardExclusionsForUserInGuild(guildID, targetID)
+		farmerstate.RemoveGuildMembership(targetID, guildID)
+		if len(GetUserOptInGuilds(targetID)) == 0 {
+			_ = farmerstate.DeleteAllLeaderboardStatsForPlayer(targetID)
+		}
+
+		// Also prune any alts controlled by targetID in this guild
+		var alts []string
+		alts = append(alts, farmerstate.GetAltControllerByMiscString("AltController", targetID)...)
+		alts = append(alts, farmerstate.GetActAsLinks(targetID)...)
+		for _, altID := range alts {
+			altID = strings.TrimSpace(altID)
+			if altID != "" && altID != targetID && !prunedUsers[altID] {
+				pruneTarget(altID)
 			}
 		}
 	}
+
+	for _, uid := range userIDs {
+		if prunedUsers[uid] {
+			continue
+		}
+
+		controllers := getControllers(uid)
+		if len(controllers) > 0 {
+			// uid is an alt. It stays on the guild leaderboard only if at least
+			// one of its controllers is still in the guild.
+			hasActiveController := false
+			for _, cID := range controllers {
+				if isMemberInGuild(cID) {
+					hasActiveController = true
+					break
+				}
+			}
+			if !hasActiveController {
+				pruneTarget(uid)
+				// If any controller is also departed, prune them too
+				for _, cID := range controllers {
+					if farmerstate.IsDiscordSnowflake(cID) && !isMemberInGuild(cID) {
+						pruneTarget(cID)
+					}
+				}
+			}
+		} else {
+			// uid has no controller.
+			if !isMemberInGuild(uid) {
+				pruneTarget(uid)
+			}
+		}
+	}
+
 	if prunedCount > 0 {
 		log.Printf("leaderboard: pruned %d departed member(s) from guild %s opt-in list", prunedCount, guildID)
 	}
