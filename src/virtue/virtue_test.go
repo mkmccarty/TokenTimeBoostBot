@@ -607,3 +607,75 @@ func TestPrintVirtue_ShiftSimulationUsesActualDeliveryRate(t *testing.T) {
 		t.Errorf("simulated shift incorrectly used max shipping rate (%d s)", timeAtMaxShipping)
 	}
 }
+
+func TestPrintVirtue_SyncWarning(t *testing.T) {
+	// 1. On virtue farm, fresh sync (5 mins ago) -> no warning
+	makerFresh := ei.NewBackupMaker("EI1234567890123456", "test-user")
+	backupFresh := makerFresh.GetBackup()
+	farmFresh := backupFresh.GetSim()
+	if farmFresh == nil {
+		farmFresh = backupFresh.GetFarms()[0]
+	}
+	farmFresh.EggType = ei.Egg_CURIOSITY.Enum()
+	farmFresh.LastStepTime = proto.Float64(float64(time.Now().Add(-5 * time.Minute).Unix()))
+
+	compsFresh := printVirtue("test-user", backupFresh, ei.Egg(-1), 0, true, "")
+	footerFresh := compsFresh[len(compsFresh)-1].(dc.TextDisplay).Content
+	if strings.Contains(footerFresh, "⚠️") {
+		t.Errorf("expected no warning for fresh sync on virtue farm, got: %s", footerFresh)
+	}
+	if !strings.Contains(footerFresh, "Sync:<t:") {
+		t.Errorf("expected 'Sync:<t:' in footer, got: %s", footerFresh)
+	}
+
+	// 2. On virtue farm, stale sync (20 mins ago) -> warning on either side
+	makerStale := ei.NewBackupMaker("EI1234567890123456", "test-user")
+	backupStale := makerStale.GetBackup()
+	farmStale := backupStale.GetSim()
+	if farmStale == nil {
+		farmStale = backupStale.GetFarms()[0]
+	}
+	farmStale.EggType = ei.Egg_CURIOSITY.Enum()
+	farmStale.LastStepTime = proto.Float64(float64(time.Now().Add(-20 * time.Minute).Unix()))
+
+	compsStale := printVirtue("test-user", backupStale, ei.Egg(-1), 0, true, "")
+	footerStale := compsStale[len(compsStale)-1].(dc.TextDisplay).Content
+	if !strings.Contains(footerStale, "⚠️ Sync:<t:") || !strings.Contains(footerStale, "> ⚠️") {
+		t.Errorf("expected '⚠️ Sync:<t:...> ⚠️' in footer for stale sync on virtue farm, got: %s", footerStale)
+	}
+
+	// 3. Not on virtue farm, fresh backup sync (10 mins ago) -> no warning
+	makerNonVirtueFresh := ei.NewBackupMaker("EI1234567890123456", "test-user")
+	backupNonVirtueFresh := makerNonVirtueFresh.GetBackup()
+	farmNonVirtueFresh := backupNonVirtueFresh.GetSim()
+	if farmNonVirtueFresh == nil {
+		farmNonVirtueFresh = backupNonVirtueFresh.GetFarms()[0]
+	}
+	farmNonVirtueFresh.EggType = ei.Egg_EDIBLE.Enum()
+	backupNonVirtueFresh.ApproxTime = proto.Float64(float64(time.Now().Add(-10 * time.Minute).Unix()))
+
+	compsNonVirtueFresh := printVirtue("test-user", backupNonVirtueFresh, ei.Egg(-1), 0, true, "")
+	footerNonVirtueFresh := compsNonVirtueFresh[len(compsNonVirtueFresh)-1].(dc.TextDisplay).Content
+	if strings.Contains(footerNonVirtueFresh, "⚠️") {
+		t.Errorf("expected no warning for fresh backup sync, got: %s", footerNonVirtueFresh)
+	}
+	if !strings.Contains(footerNonVirtueFresh, "Backup Sync:<t:") {
+		t.Errorf("expected 'Backup Sync:<t:' in footer, got: %s", footerNonVirtueFresh)
+	}
+
+	// 4. Not on virtue farm, stale backup sync (30 mins ago) -> warning on either side
+	makerNonVirtueStale := ei.NewBackupMaker("EI1234567890123456", "test-user")
+	backupNonVirtueStale := makerNonVirtueStale.GetBackup()
+	farmNonVirtueStale := backupNonVirtueStale.GetSim()
+	if farmNonVirtueStale == nil {
+		farmNonVirtueStale = backupNonVirtueStale.GetFarms()[0]
+	}
+	farmNonVirtueStale.EggType = ei.Egg_EDIBLE.Enum()
+	backupNonVirtueStale.ApproxTime = proto.Float64(float64(time.Now().Add(-30 * time.Minute).Unix()))
+
+	compsNonVirtueStale := printVirtue("test-user", backupNonVirtueStale, ei.Egg(-1), 0, true, "")
+	footerNonVirtueStale := compsNonVirtueStale[len(compsNonVirtueStale)-1].(dc.TextDisplay).Content
+	if !strings.Contains(footerNonVirtueStale, "⚠️ Backup Sync:<t:") || !strings.Contains(footerNonVirtueStale, "> ⚠️") {
+		t.Errorf("expected '⚠️ Backup Sync:<t:...> ⚠️' in footer for stale backup sync, got: %s", footerNonVirtueStale)
+	}
+}

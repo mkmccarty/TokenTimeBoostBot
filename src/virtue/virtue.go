@@ -723,17 +723,26 @@ func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE
 	}
 	fmt.Fprint(&stats, "\n")
 
+	now := time.Now()
 	if onVirtueFarm {
-		fmt.Fprintf(&footer, "-# Report:%s  Sync:%s  🗓️%s:%s\n",
-			bottools.WrapTimestamp(time.Now().Unix(), bottools.TimestampShortTime),
-			bottools.WrapTimestamp(syncTime.Unix(), bottools.TimestampShortTime),
+		syncStr := fmt.Sprintf("Sync:%s", bottools.WrapTimestamp(syncTime.Unix(), bottools.TimestampShortTime))
+		if now.Sub(syncTime) > 15*time.Minute {
+			syncStr = fmt.Sprintf("⚠️ %s ⚠️", syncStr)
+		}
+		fmt.Fprintf(&footer, "-# Report:%s  %s  🗓️%s:%s\n",
+			bottools.WrapTimestamp(now.Unix(), bottools.TimestampShortTime),
+			syncStr,
 			ei.GetBotEmojiMarkdown("silo"),
 			bottools.FmtDuration(activeDuration.Round(time.Hour)))
 	} else {
 		syncTime := time.Unix(int64(backup.GetApproxTime()), 0)
-		fmt.Fprintf(&footer, "-# Report:%s  Backup Sync:%s\n",
-			bottools.WrapTimestamp(time.Now().Unix(), bottools.TimestampShortTime),
-			bottools.WrapTimestamp(syncTime.Unix(), bottools.TimestampShortTime))
+		syncStr := fmt.Sprintf("Backup Sync:%s", bottools.WrapTimestamp(syncTime.Unix(), bottools.TimestampShortTime))
+		if now.Sub(syncTime) > 15*time.Minute {
+			syncStr = fmt.Sprintf("⚠️ %s ⚠️", syncStr)
+		}
+		fmt.Fprintf(&footer, "-# Report:%s  %s\n",
+			bottools.WrapTimestamp(now.Unix(), bottools.TimestampShortTime),
+			syncStr)
 	}
 	if actAsText != "" {
 		fmt.Fprintf(&footer, "-# %s\n", actAsText)
