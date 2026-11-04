@@ -41,7 +41,7 @@ type inputData struct {
 	durUnit     int             // duration unit index (default: days)
 	modName     int             // contract modifier type index
 	cxpToggle   bool            // False = Legacy, True = Seasonal Run
-	crtTime     string          // Join Delay (seconds)
+	joinDelay   string          // Join Delay (seconds)
 	mpft        string          // Minutes/TokenGift/Player*
 	duration    string          // Duration (days)
 	targetEgg   string          // Target Egg Amount (q)
@@ -201,7 +201,7 @@ func gatherData(input inputData) (string, string, error) {
 	data = append(data, strings.Join(singleStr, ""))
 
 	data = append(data,
-		input.crtTime,
+		input.joinDelay,
 		input.mpft,
 		input.duration,
 		input.targetEgg,
@@ -275,7 +275,7 @@ func EncodeSandboxData(cxpToggle bool, targetEgg float64, tokenTimer string, con
 		durUnit:     durUnit, // in order days, hours, minutes, seconds
 		modName:     modName,
 		cxpToggle:   cxpToggle,
-		crtTime:     "0",  // seconds
+		joinDelay:   "20", // seconds
 		mpft:        "13", // minutes
 		duration:    durStr,
 		targetEgg:   eggStr,
