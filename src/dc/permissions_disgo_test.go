@@ -201,7 +201,7 @@ func TestFallbackAgreesWithTheCachedComputation(t *testing.T) {
 	}
 
 	caches := cache.New(cache.WithCaches(cacheFlags))
-	caches.AddGuild(discord.Guild{ID: guildID, OwnerID: ownerID})
+	caches.AddGuild(discord.CacheGuild{Guild: discord.Guild{ID: guildID, OwnerID: ownerID}})
 	caches.AddRole(everyone)
 	caches.AddRole(team)
 	caches.AddMember(member)
