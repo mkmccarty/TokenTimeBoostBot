@@ -294,4 +294,3 @@ func TestPruneOldGeneratedBanners(t *testing.T) {
 		t.Errorf("expected subDir to exist, but stat returned: %v", err)
 	}
 }
-
