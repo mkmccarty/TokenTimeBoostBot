@@ -44,10 +44,14 @@ type TokenComplaintsRefresherFunc func() (int, error)
 // StatusMessagesRefresherFunc triggers a download and reload of status messages.
 type StatusMessagesRefresherFunc func() (int, error)
 
+// BannerPrunerFunc triggers pruning of old generated banners from BannerOutputPath.
+type BannerPrunerFunc func() int
+
 var thematicComplaintsGenerator ThematicComplaintsGeneratorFunc
 var periodicalsRefresher PeriodicalsRefresherFunc
 var tokenComplaintsRefresher TokenComplaintsRefresherFunc
 var statusMessagesRefresher StatusMessagesRefresherFunc
+var bannerPruner BannerPrunerFunc
 
 // SetThematicComplaintsGenerator configures the function used to generate complaints with LLM.
 func SetThematicComplaintsGenerator(gen ThematicComplaintsGeneratorFunc) {
@@ -67,6 +71,11 @@ func SetTokenComplaintsRefresher(refresher TokenComplaintsRefresherFunc) {
 // SetStatusMessagesRefresher configures the function used to refresh status messages.
 func SetStatusMessagesRefresher(refresher StatusMessagesRefresherFunc) {
 	statusMessagesRefresher = refresher
+}
+
+// SetBannerPruner configures the function used to prune generated banners.
+func SetBannerPruner(pruner BannerPrunerFunc) {
+	bannerPruner = pruner
 }
 
 var adminTaskList = []adminTaskDef{
@@ -104,6 +113,11 @@ var adminTaskList = []adminTaskDef{
 		ID:          "refresh-status-messages",
 		Name:        "Refresh Status Messages",
 		Description: "Replace status-messages.json with latest and reload internal data",
+	},
+	{
+		ID:          "prune-banners",
+		Name:        "Prune Generated Banners",
+		Description: "Remove old generated banners for expired contracts without active Boost Bot contracts",
 	},
 }
 
@@ -397,6 +411,10 @@ func HandleAdminTasksCommand(client dc.Client, e *dc.CommandEvent) {
 		taskKey == "refresh-status-messages.json" || taskKey == "status-messages" ||
 		taskKey == "status-messages.json" || taskKey == "status messages":
 		handleRefreshStatusMessagesTask(e)
+	case taskKey == "prune-banners" || taskKey == "prune banners" ||
+		taskKey == "clean-banners" || taskKey == "clean banners" ||
+		taskKey == "prune-generated-banners":
+		handlePruneBannersTask(e)
 	default:
 		_ = e.Followup(dc.Message{
 			Content: fmt.Sprintf("Unknown administrative task: `%s`", taskName),
@@ -681,6 +699,24 @@ func handleRefreshStatusMessagesTask(e *dc.CommandEvent) {
 			"- **Status Messages Loaded**: %d\n"+
 			"- **Internal Data**: Updated in memory",
 		count,
+	)
+	_ = e.Followup(dc.Message{Content: responseMsg})
+}
+
+func handlePruneBannersTask(e *dc.CommandEvent) {
+	if bannerPruner == nil {
+		_ = e.Followup(dc.Message{
+			Content: "❌ Banner pruner is not initialized.",
+		})
+		return
+	}
+
+	pruned := bannerPruner()
+	responseMsg := fmt.Sprintf(
+		"## 🧹 Banner Prune Completed\n"+
+			"- **Removed**: %d old generated banner image(s)\n"+
+			"- **BannerOutputPath**: `BannerOutputPath` cleaned",
+		pruned,
 	)
 	_ = e.Followup(dc.Message{Content: responseMsg})
 }

@@ -164,6 +164,7 @@ func TestAdminTaskListContainsNewTasks(t *testing.T) {
 		"regen-complaints":         false,
 		"refresh-token-complaints": false,
 		"refresh-status-messages":  false,
+		"prune-banners":            false,
 	}
 
 	for _, task := range adminTaskList {
@@ -256,5 +257,24 @@ func TestFilterAdminTaskChoices_EncryptionKeyHiddenByDefault(t *testing.T) {
 	choicesNotHome := filterAdminTaskChoices(true, false, "encrypt")
 	if hasEncryptionKey(choicesNotHome) {
 		t.Errorf("expected cycle-encryption-key to be hidden for non-home guild")
+	}
+}
+
+func TestBannerPruner(t *testing.T) {
+	orig := bannerPruner
+	defer func() { bannerPruner = orig }()
+
+	called := false
+	SetBannerPruner(func() int {
+		called = true
+		return 42
+	})
+
+	if bannerPruner == nil {
+		t.Fatal("expected bannerPruner to be set")
+	}
+	count := bannerPruner()
+	if !called || count != 42 {
+		t.Errorf("expected bannerPruner to return 42, called=%v, got=%d", called, count)
 	}
 }

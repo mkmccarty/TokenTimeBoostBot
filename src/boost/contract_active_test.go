@@ -443,3 +443,46 @@ func TestGetCurrentContractsComponentsSeparatorBetweenContracts(t *testing.T) {
 		t.Errorf("expected dc.Separator between multiple contracts in container")
 	}
 }
+
+func TestGetActiveContractIDs(t *testing.T) {
+	withTestContracts(t, map[string]*Contract{
+		"c-1": {
+			ContractID: "contract-active-1",
+			State:      ContractStateSignup,
+		},
+		"c-2": {
+			ContractID: "contract-active-2",
+			State:      ContractStateFastrun,
+		},
+		"c-3": {
+			ContractID: "contract-active-1", // duplicate contract ID with different coop
+			State:      ContractStateWaiting,
+		},
+		"c-4": {
+			ContractID: "contract-archived",
+			State:      ContractStateArchive,
+		},
+		"c-5": {
+			ContractID: "",
+			State:      ContractStateSignup,
+		},
+	})
+
+	ids := GetActiveContractIDs()
+	if len(ids) != 2 {
+		t.Fatalf("expected 2 active contract IDs, got %d: %v", len(ids), ids)
+	}
+
+	found1, found2 := false, false
+	for _, id := range ids {
+		if id == "contract-active-1" {
+			found1 = true
+		}
+		if id == "contract-active-2" {
+			found2 = true
+		}
+	}
+	if !found1 || !found2 {
+		t.Errorf("expected contract-active-1 and contract-active-2, got %v", ids)
+	}
+}

@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -60,6 +61,7 @@ const eggscapeCoopIDFile string = "ttbb-data/coopid-eggscape.json"
 func init() {
 	boost.SetTokenComplaintsRefresher(RefreshTokenComplaints)
 	boost.SetStatusMessagesRefresher(RefreshStatusMessages)
+	boost.SetBannerPruner(PruneOldGeneratedBanners)
 }
 
 var lastContractUpdate time.Time
@@ -379,6 +381,8 @@ func HandleReloadContracts(client dc.Client, e *dc.CommandEvent) {
 	boost.UpdateAllContractsEggInfo()
 	progressLines[len(progressLines)-1] = "- Contract egg metadata sync: complete"
 
+	PruneOldGeneratedBanners()
+
 	finalContent := strings.Join(progressLines, "\n") + "\n\n" + str
 	if err := e.EditResponse(dc.Message{Content: finalContent}); err != nil {
 		log.Printf("reload-contracts final status update failed: %v", err)
@@ -493,21 +497,63 @@ func crondownloadEggIncData() {
 	downloadEggIncData(eggIncCustomEggsURL, eggIncCustomEggsFile, false, rareFetchInterval())
 }
 
-func cronPruneOldGeneratedBanners() {
+var (
+	bannerFileRegex       = regexp.MustCompile(`(?i)^(.+)-b[a-z0-9](?:[-_].*)?\.png$`)
+	legacyBannerFileRegex = regexp.MustCompile(`(?i)^b-(.+)\.png$`)
+)
+
+func extractContractIDFromBannerFileName(name string) string {
+	if matches := bannerFileRegex.FindStringSubmatch(name); len(matches) == 2 {
+		return strings.ToLower(matches[1])
+	}
+	if matches := legacyBannerFileRegex.FindStringSubmatch(name); len(matches) == 2 {
+		return strings.ToLower(matches[1])
+	}
+	return ""
+}
+
+// PruneOldGeneratedBanners removes generated banner files from config.BannerOutputPath
+// that do not belong to current unexpired periodicals contracts or active Boost Bot contracts.
+func PruneOldGeneratedBanners() int {
 	outputPath := config.BannerOutputPath
 	if outputPath == "" {
-		return
+		return 0
 	}
 
 	entries, err := os.ReadDir(outputPath)
 	if err != nil {
 		log.Printf("Banner prune skipped, unable to read %s: %v", outputPath, err)
-		return
+		return 0
 	}
 
-	cutoff := time.Now().AddDate(0, -1, 0)
-	pruned := 0
+	keepContractIDs := make(map[string]bool)
 
+	// 1. Current periodicals contracts that are not expired
+	now := time.Now().UTC()
+	ei.EggIncContractsMutex.RLock()
+	for _, c := range ei.EggIncContracts {
+		if c.ID == "" {
+			continue
+		}
+		if c.ValidUntil.IsZero() || now.Before(c.ValidUntil) {
+			keepContractIDs[strings.ToLower(c.ID)] = true
+		}
+	}
+	for id, c := range ei.EggIncContractsAll {
+		if !c.ValidUntil.IsZero() && now.Before(c.ValidUntil) {
+			keepContractIDs[strings.ToLower(id)] = true
+		}
+	}
+	ei.EggIncContractsMutex.RUnlock()
+
+	// 2. Active Boost Bot contracts
+	for _, id := range boost.GetActiveContractIDs() {
+		if id != "" {
+			keepContractIDs[strings.ToLower(id)] = true
+		}
+	}
+
+	pruned := 0
 	for _, entry := range entries {
 		if entry.IsDir() {
 			continue
@@ -517,21 +563,13 @@ func cronPruneOldGeneratedBanners() {
 		if !strings.HasSuffix(strings.ToLower(name), ".png") {
 			continue
 		}
-		if !strings.HasPrefix(name, "b") || !strings.Contains(name, "-") {
+
+		cid := extractContractIDFromBannerFileName(name)
+		if cid == "" || keepContractIDs[cid] {
 			continue
 		}
 
-		info, err := entry.Info()
-		if err != nil {
-			log.Printf("Banner prune skipped file %s: %v", name, err)
-			continue
-		}
-
-		if info.ModTime().After(cutoff) {
-			continue
-		}
-
-		fullPath := outputPath + "/" + name
+		fullPath := filepath.Join(outputPath, name)
 		if err := os.Remove(fullPath); err != nil {
 			log.Printf("Banner prune failed for %s: %v", fullPath, err)
 			continue
@@ -540,8 +578,14 @@ func cronPruneOldGeneratedBanners() {
 	}
 
 	if pruned > 0 {
-		log.Printf("Banner prune removed %d old generated images", pruned)
+		log.Printf("Banner prune removed %d old generated images from %s", pruned, outputPath)
 	}
+
+	return pruned
+}
+
+func cronPruneOldGeneratedBanners() {
+	PruneOldGeneratedBanners()
 }
 
 func downloadEggIncData(urlStr string, filename string, force bool, maxAge time.Duration) bool {
@@ -918,6 +962,7 @@ func pollPeriodicalsUntilUpdated(client dc.Client) {
 			} else {
 				log.Print("No other ongoing periodical events right now.")
 			}
+			PruneOldGeneratedBanners()
 			break
 		}
 
@@ -1026,7 +1071,8 @@ func ExecuteCronJob(client dc.Client) {
 	// Want to check Egg Inc data once a day day minutes
 	scheduleDaily(0, 0, 5, crondownloadEggIncData)
 
-	// Prune generated banner files older than one month.
+	// Prune old generated banners on startup and schedule daily at 00:30:05.
+	PruneOldGeneratedBanners()
 	scheduleDaily(0, 30, 5, cronPruneOldGeneratedBanners)
 
 	// Start timezone-aware loop to poll Periodicals on Mon, Wed, Fri at 9 AM PT
