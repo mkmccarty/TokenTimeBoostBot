@@ -2,6 +2,7 @@ package boost
 
 import (
 	"errors"
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
@@ -776,5 +777,194 @@ func TestContractBoostingCompleteMentionSuffix(t *testing.T) {
 	}
 	if !strings.HasSuffix(completeMsg, "@CoopRole") {
 		t.Errorf("expected message to end with '@CoopRole', got: %s", completeMsg)
+	}
+}
+
+func TestChickenRunInteractionOnStaleMessageRedirects(t *testing.T) {
+	client := dctest.New()
+	c := &Contract{
+		ContractHash: "test-stale-cr-interaction-hash",
+		CreatorID:    []string{"1001"},
+		Location: []*LocationData{
+			{
+				ChannelID:   "101",
+				GuildID:     "100",
+				RoleMention: "@CoopRole",
+				ListMsgID:   "301",
+			},
+		},
+		Order: []string{"1001", "1002", "1003"},
+		Boosters: map[string]*Booster{
+			"1001": {
+				UserID:          "1001",
+				UserName:        "player1",
+				Nick:            "PlayerA",
+				Mention:         "<@1001>",
+				BoostState:      BoostStateBoosted,
+				RunChickensTime: time.Now(),
+			},
+			"1002": {
+				UserID:     "1002",
+				UserName:   "player2",
+				Nick:       "PlayerB",
+				Mention:    "<@1002>",
+				BoostState: BoostStateBoosted,
+			},
+			"1003": {
+				UserID:     "1003",
+				UserName:   "player3",
+				Nick:       "PlayerC",
+				Mention:    "<@1003>",
+				BoostState: BoostStateBoosted,
+			},
+		},
+		CRMessageIDs: map[string]string{
+			"101": "202",
+		},
+		CRActiveRequesters: []string{"1001"},
+	}
+
+	ContractsMutex.Lock()
+	Contracts[c.ContractHash] = c
+	ContractsMutex.Unlock()
+	defer func() {
+		ContractsMutex.Lock()
+		delete(Contracts, c.ContractHash)
+		ContractsMutex.Unlock()
+	}()
+
+	// 1. User 1002 clicks RanChicken button on an OLD stale message ("201")
+	staleEvent := dctest.ComponentButtonEventFull("100", "101", "201", "1002", "rc_#RanChicken#1001#"+c.ContractHash)
+	buttonReactionRanChicken(client, staleEvent, c, "1002", "1001")
+
+	// Verify User 1002 ran chickens on User 1001
+	if !slices.Contains(c.Boosters["1002"].RanChickensOn, "1001") {
+		t.Fatalf("expected user 1002 to have run chickens on user 1001")
+	}
+
+	// Verify EditMessage calls:
+	// - 202 should receive the updated CR message
+	// - 201 should receive the redirect message with ClearComponents
+	var editedActive *dc.Message
+	var editedStale *dc.Message
+	for _, call := range client.Calls {
+		if call.Method == "EditMessage" && len(call.Args) >= 2 {
+			msgID := call.Args[1]
+			if msgID == "202" {
+				for _, m := range client.EditedMessages {
+					if len(m.Embeds) > 0 && (strings.Contains(m.Embeds[0].Title, "Active Chicken Run Requests") || strings.Contains(m.Embeds[0].Description, "complete")) {
+						editedActive = &m
+					}
+				}
+			}
+			if msgID == "201" {
+				for _, m := range client.EditedMessages {
+					if strings.Contains(m.Content, "Chicken Run request moved: [View updated message]") {
+						editedStale = &m
+					}
+				}
+			}
+		}
+	}
+
+	if editedActive == nil {
+		t.Errorf("expected active message 202 to be updated with CR message, calls: %+v", client.Calls)
+	}
+	if editedStale == nil {
+		t.Fatalf("expected stale message 201 to be edited with redirect, calls: %+v, edited: %+v", client.Calls, client.EditedMessages)
+	}
+	if !editedStale.ClearComponents {
+		t.Errorf("expected ClearComponents on stale message redirect")
+	}
+	if !strings.Contains(editedStale.Content, "202") {
+		t.Errorf("expected stale message redirect to link to 202, got: %s", editedStale.Content)
+	}
+
+	// 2. User 1002 clicks again on the stale message (already ran) -> should still redirect stale message
+	client.Calls = nil
+	client.EditedMessages = nil
+	buttonReactionRanChicken(client, staleEvent, c, "1002", "1001")
+
+	hasStaleRedirect := false
+	for _, m := range client.EditedMessages {
+		if strings.Contains(m.Content, "Chicken Run request moved: [View updated message]") && m.ClearComponents {
+			hasStaleRedirect = true
+			break
+		}
+	}
+	if !hasStaleRedirect {
+		t.Errorf("expected second click on stale message to redirect and clear components, got: %+v", client.EditedMessages)
+	}
+
+	// 3. User 1003 clicks RanCoop on stale message ("201")
+	client.Calls = nil
+	client.EditedMessages = nil
+	staleCoopEvent := dctest.ComponentButtonEventFull("100", "101", "201", "1003", "rc_#RanCoop#"+c.ContractHash)
+	buttonReactionRanCoop(client, staleCoopEvent, c, "1003")
+
+	if !slices.Contains(c.Boosters["1003"].RanChickensOn, "1001") {
+		t.Fatalf("expected user 1003 to have run chickens on user 1001 via RanCoop")
+	}
+
+	editedActive = nil
+	editedStale = nil
+	for _, call := range client.Calls {
+		if call.Method == "EditMessage" && len(call.Args) >= 2 {
+			msgID := call.Args[1]
+			if msgID == "202" {
+				for _, m := range client.EditedMessages {
+					if len(m.Embeds) > 0 && (strings.Contains(m.Embeds[0].Title, "Active Chicken Run Requests") || strings.Contains(m.Embeds[0].Description, "complete")) {
+						editedActive = &m
+					}
+				}
+			}
+			if msgID == "201" {
+				for _, m := range client.EditedMessages {
+					if strings.Contains(m.Content, "Chicken Run request moved: [View updated message]") {
+						editedStale = &m
+					}
+				}
+			}
+		}
+	}
+	if editedActive == nil {
+		t.Errorf("expected active message 202 to be updated by RanCoop, calls: %+v", client.Calls)
+	}
+	if editedStale == nil {
+		t.Errorf("expected stale message 201 to be edited with redirect by RanCoop, calls: %+v", client.Calls)
+	}
+
+	// 4. User 1002 triggers CRPing on stale message ("201")
+	client.Calls = nil
+	client.EditedMessages = nil
+	client.SentMessages = nil
+	// Reset run so user 1003 is still remaining for ping
+	c.Boosters["1003"].RanChickensOn = nil
+	// Build stale ping event on message 201
+	stalePingEventPayload := fmt.Sprintf(`{
+		"id": "1",
+		"application_id": "2",
+		"type": 3,
+		"token": "test-token",
+		"guild_id": "100",
+		"channel": {"id": "101", "type": 0},
+		"user": {"id": "1002", "username": "tester", "discriminator": "0"},
+		"message": {"id": "201", "channel_id": "101", "content": "", "timestamp": "2026-01-01T00:00:00Z"},
+		"data": {"custom_id": "rc_#CRPing#%s", "component_type": 3, "values": ["1001"]}
+	}`, c.ContractHash)
+	stalePingEv, err := dc.NewComponentEventFromPayload([]byte(stalePingEventPayload))
+	if err != nil {
+		t.Fatalf("failed to create ping event: %v", err)
+	}
+	buttonReactionCRPing(client, stalePingEv, c, "1002")
+
+	if len(client.SentMessages) != 1 {
+		t.Fatalf("expected 1 ping message sent, got %d", len(client.SentMessages))
+	}
+	if !strings.Contains(client.SentMessages[0].Content, "202") {
+		t.Errorf("expected ping message link to point to active message 202, got: %s", client.SentMessages[0].Content)
+	}
+	if strings.Contains(client.SentMessages[0].Content, "201") {
+		t.Errorf("ping message link should not point to stale message 201, got: %s", client.SentMessages[0].Content)
 	}
 }

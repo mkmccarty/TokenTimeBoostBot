@@ -970,9 +970,17 @@ func buttonReactionCRPing(client dc.Client, e *dc.ComponentEvent, contract *Cont
 	if mb := contract.Boosters[presserID]; mb != nil && mb.Mention != "" {
 		presserMention = mb.Mention
 	}
+	targetMsgID := ""
+	if contract.CRMessageIDs != nil {
+		targetMsgID = contract.CRMessageIDs[e.ChannelID()]
+	}
 	contract.mutex.Unlock()
 
-	msgLink := fmt.Sprintf("https://discord.com/channels/%s/%s/%s", e.GuildID(), e.ChannelID(), e.MessageID())
+	if targetMsgID == "" {
+		targetMsgID = e.MessageID()
+	}
+
+	msgLink := fmt.Sprintf("https://discord.com/channels/%s/%s/%s", e.GuildID(), e.ChannelID(), targetMsgID)
 	content := fmt.Sprintf(
 		"Hey %s! **%s** is waiting on you to run chickens. Those chickens aren't going to run themselves! %s\n Link: %s\n-# Ping requested by %s ",
 		strings.Join(mentions, " "), requesterName, ei.GetBotEmojiMarkdown("icon_chicken_run"), msgLink, presserMention)
@@ -982,6 +990,34 @@ func buttonReactionCRPing(client dc.Client, e *dc.ComponentEvent, contract *Cont
 	}); err != nil {
 		log.Printf("buttonReactionCRPing send error: contractHash=%s channelID=%s requesterUserID=%s pingIDs=%v error=%v",
 			contract.ContractHash, e.ChannelID(), requesterUserID, pingIDs, err)
+	}
+
+	if e.MessageID() != "" && targetMsgID != "" && e.MessageID() != targetMsgID {
+		redirectOldCRMessage(client, e.GuildID(), e.ChannelID(), e.MessageID(), targetMsgID)
+	}
+}
+
+// redirectOldCRMessage clears components on an obsolete CR message and updates it with a redirect link.
+func redirectOldCRMessage(client dc.Client, guildID, channelID, oldMsgID, targetMsgID string) {
+	if client == nil || channelID == "" || oldMsgID == "" || targetMsgID == "" || oldMsgID == targetMsgID {
+		return
+	}
+	newMsgLink := fmt.Sprintf("https://discord.com/channels/%s/%s/%s", guildID, channelID, targetMsgID)
+	moveText := fmt.Sprintf("-# Chicken Run request moved: [View updated message](%s)", newMsgLink)
+	if _, err := client.EditMessage(channelID, oldMsgID, dc.Message{
+		Content:         moveText,
+		ComponentsV1:    true,
+		ClearComponents: true,
+		ClearEmbeds:     true,
+		AllowedMentions: &dc.AllowedMentions{},
+	}); err != nil {
+		movedComponents := []dc.LayoutComponent{
+			dc.TextDisplay{Content: moveText},
+		}
+		_, _ = client.EditMessage(channelID, oldMsgID, dc.Message{
+			Components:      movedComponents,
+			AllowedMentions: &dc.AllowedMentions{},
+		})
 	}
 }
 
@@ -1043,9 +1079,17 @@ func buttonReactionRanChicken(client dc.Client, e *dc.ComponentEvent, contract *
 		return
 	}
 
+	targetMsgID := ""
+	if contract.CRMessageIDs != nil {
+		targetMsgID = contract.CRMessageIDs[e.ChannelID()]
+	}
+
 	// Already ran for this requester?
 	if slices.Contains(userBooster.RanChickensOn, requesterUserID) {
 		contract.mutex.Unlock()
+		if targetMsgID != "" && e.MessageID() != targetMsgID {
+			redirectOldCRMessage(client, e.GuildID(), e.ChannelID(), e.MessageID(), targetMsgID)
+		}
 		return
 	}
 
@@ -1079,16 +1123,26 @@ func buttonReactionRanChicken(client dc.Client, e *dc.ComponentEvent, contract *
 		}
 	}
 
-	msg, allowedMentions := buildCRMessage(contract, roleMention)
-	msg.AllowedMentions = &dc.AllowedMentions{Users: allowedMentions}
-	if _, err := client.EditMessage(e.ChannelID(), e.MessageID(), msg); err != nil {
-		log.Printf("ChannelMessageEditComplex error: contractHash=%s messageID=%s error=%v",
-			contract.ContractHash, e.MessageID(), err)
+	if targetMsgID == "" {
+		targetMsgID = e.MessageID()
 	}
 
-	contract.mutex.Lock()
-	contract.CRActiveRequesters = getActiveCRRequesters(contract)
-	contract.mutex.Unlock()
+	if targetMsgID != "" {
+		msg, allowedMentions := buildCRMessage(contract, roleMention)
+		msg.AllowedMentions = &dc.AllowedMentions{Users: allowedMentions}
+		if _, err := client.EditMessage(e.ChannelID(), targetMsgID, msg); err != nil {
+			log.Printf("ChannelMessageEditComplex error: contractHash=%s messageID=%s error=%v",
+				contract.ContractHash, targetMsgID, err)
+		}
+
+		contract.mutex.Lock()
+		contract.CRActiveRequesters = getActiveCRRequesters(contract)
+		contract.mutex.Unlock()
+	}
+
+	if e.MessageID() != "" && targetMsgID != "" && e.MessageID() != targetMsgID {
+		redirectOldCRMessage(client, e.GuildID(), e.ChannelID(), e.MessageID(), targetMsgID)
+	}
 
 	if newColor != oldColor {
 		saveData(contract.ContractHash)
@@ -1163,10 +1217,13 @@ func buttonReactionRanCoop(client dc.Client, e *dc.ComponentEvent, contract *Con
 	}
 
 	newColor := getChickenRunAccentColor(contract)
+	targetMsgID := ""
+	if contract.CRMessageIDs != nil {
+		targetMsgID = contract.CRMessageIDs[e.ChannelID()]
+	}
 	contract.mutex.Unlock()
 
 	// Determine the CR message ID to update for this channel
-	targetMsgID := contract.CRMessageIDs[e.ChannelID()]
 	if targetMsgID == "" {
 		targetMsgID = e.MessageID()
 	}
@@ -1191,6 +1248,10 @@ func buttonReactionRanCoop(client dc.Client, e *dc.ComponentEvent, contract *Con
 		contract.mutex.Lock()
 		contract.CRActiveRequesters = getActiveCRRequesters(contract)
 		contract.mutex.Unlock()
+	}
+
+	if e.MessageID() != "" && targetMsgID != "" && e.MessageID() != targetMsgID {
+		redirectOldCRMessage(client, e.GuildID(), e.ChannelID(), e.MessageID(), targetMsgID)
 	}
 
 	saveData(contract.ContractHash)
