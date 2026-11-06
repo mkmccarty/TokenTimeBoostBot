@@ -968,4 +968,3 @@ func TestChickenRunInteractionOnStaleMessageRedirects(t *testing.T) {
 		t.Errorf("ping message link should not point to stale message 201, got: %s", client.SentMessages[0].Content)
 	}
 }
-
