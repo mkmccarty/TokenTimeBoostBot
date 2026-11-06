@@ -691,3 +691,37 @@ func DownloadLatestEggImages(localDownloadDir string) error {
 	_ = os.WriteFile(sentinel, []byte(time.Now().Format(time.RFC3339)), 0644)
 	return nil
 }
+
+// RemoveGeneratedBannersForUser removes generated banners for a specific user and guild from BannerOutputPath.
+func RemoveGeneratedBannersForUser(userID string, guildID string) {
+	if config.BannerOutputPath == "" || userID == "" || guildID == "" {
+		return
+	}
+	pattern := fmt.Sprintf("*-%s_%s.png", userID, guildID)
+	matches, err := filepath.Glob(filepath.Join(config.BannerOutputPath, pattern))
+	if err != nil {
+		return
+	}
+	for _, f := range matches {
+		_ = os.Remove(f)
+	}
+}
+
+// RemoveGeneratedBannersForGuild removes generated banners for a specific guild default banner from BannerOutputPath.
+func RemoveGeneratedBannersForGuild(guildID string) {
+	if config.BannerOutputPath == "" || guildID == "" {
+		return
+	}
+	pattern := fmt.Sprintf("*-%s.png", guildID)
+	matches, err := filepath.Glob(filepath.Join(config.BannerOutputPath, pattern))
+	if err != nil {
+		return
+	}
+	for _, f := range matches {
+		base := filepath.Base(f)
+		if strings.Contains(base, "_") {
+			continue
+		}
+		_ = os.Remove(f)
+	}
+}

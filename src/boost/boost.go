@@ -624,6 +624,25 @@ func FindContractByMessageID(channelID string, messageID string) *Contract {
 	return nil
 }
 
+// GetActiveContractIDs returns a slice of unique contract IDs for all non-archived contracts.
+func GetActiveContractIDs() []string {
+	ContractsMutex.RLock()
+	defer ContractsMutex.RUnlock()
+
+	seen := make(map[string]bool)
+	var ids []string
+	for _, c := range Contracts {
+		if c != nil && c.State != ContractStateArchive && c.ContractID != "" {
+			cid := strings.ToLower(c.ContractID)
+			if !seen[cid] {
+				seen[cid] = true
+				ids = append(ids, c.ContractID)
+			}
+		}
+	}
+	return ids
+}
+
 func isTBDCoopID(coopID string) bool {
 	lower := strings.ToLower(strings.TrimSpace(coopID))
 	return strings.HasPrefix(lower, "tbd") || strings.HasPrefix(lower, "+") || strings.HasPrefix(lower, "-")
@@ -2891,6 +2910,7 @@ func HandleUploadBannerCommand(client dc.Client, e *dc.CommandEvent) {
 			return
 		}
 		_ = farmerstate.RemoveCustomBanner(user.ID, guildID)
+		bottools.RemoveGeneratedBannersForUser(user.ID, guildID)
 		_ = e.Followup(dc.Message{
 			Content: "Custom banner successfully removed. You will now use standard banners.",
 		})

@@ -1,8 +1,12 @@
 package bottools
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 )
 
 func TestGetCelestialSeasonBoundaries(t *testing.T) {
@@ -71,5 +75,46 @@ func TestGetCelestialSeasonBoundaries(t *testing.T) {
 				t.Fatalf("getCelestialSeason(%s) = %q, want %q", tt.date.Format(time.RFC3339), got, tt.want)
 			}
 		})
+	}
+}
+
+func TestRemoveGeneratedBannersForUserAndGuild(t *testing.T) {
+	tempDir := t.TempDir()
+	origOut := config.BannerOutputPath
+	config.BannerOutputPath = tempDir
+	t.Cleanup(func() { config.BannerOutputPath = origOut })
+
+	// Create test files
+	userBanner := filepath.Join(tempDir, "contract1-ba-user1_guild1.png")
+	userBannerOther := filepath.Join(tempDir, "contract1-ba-user2_guild1.png")
+	guildBanner := filepath.Join(tempDir, "contract1-ba-guild1.png")
+	guildBannerOther := filepath.Join(tempDir, "contract1-ba-guild2.png")
+	seasonBanner := filepath.Join(tempDir, "contract1-ba.png")
+
+	for _, f := range []string{userBanner, userBannerOther, guildBanner, guildBannerOther, seasonBanner} {
+		if err := os.WriteFile(f, []byte("fake"), 0644); err != nil {
+			t.Fatalf("failed to create test file: %v", err)
+		}
+	}
+
+	// Test user banner removal
+	RemoveGeneratedBannersForUser("user1", "guild1")
+	if _, err := os.Stat(userBanner); !os.IsNotExist(err) {
+		t.Errorf("expected userBanner to be removed")
+	}
+	if _, err := os.Stat(userBannerOther); err != nil {
+		t.Errorf("expected userBannerOther to remain")
+	}
+
+	// Test guild banner removal
+	RemoveGeneratedBannersForGuild("guild1")
+	if _, err := os.Stat(guildBanner); !os.IsNotExist(err) {
+		t.Errorf("expected guildBanner to be removed")
+	}
+	if _, err := os.Stat(guildBannerOther); err != nil {
+		t.Errorf("expected guildBannerOther to remain")
+	}
+	if _, err := os.Stat(seasonBanner); err != nil {
+		t.Errorf("expected seasonBanner to remain")
 	}
 }

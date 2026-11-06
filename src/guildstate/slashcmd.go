@@ -771,6 +771,7 @@ func HandleAdminSlashAdminSetServerBannerCommand(client dc.Client, e *dc.Command
 			return
 		}
 		_ = farmerstate.RemoveCustomBanner(guildID, defaultGuildID)
+		bottools.RemoveGeneratedBannersForGuild(guildID)
 		respondBannerFollowup(e, "Default guild banner removed.")
 		return
 	}
