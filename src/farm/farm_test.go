@@ -541,6 +541,9 @@ func TestPrintEarningsSetupVirtue(t *testing.T) {
 	if strings.Contains(body, "1. ") {
 		t.Errorf("body should not contain wonky numbered artifact list: %s", body)
 	}
+	if strings.Contains(body, "➜") {
+		t.Errorf("body should not contain '+... CTE' transition line: %s", body)
+	}
 }
 
 func TestPrintDeliverySetup(t *testing.T) {
@@ -832,6 +835,84 @@ func TestOptimizeEarningsWithActiveEvent(t *testing.T) {
 	}
 	if !strings.Contains(earnBodyWithEvent, "with 3x EARNINGS!") {
 		t.Errorf("expected 'with 3x EARNINGS!' on multiplier line")
+	}
+}
+
+func TestPrintEarningsSetupWithColleggtibles(t *testing.T) {
+	setupTestCustomEggs()
+	if ei.EmoteMap == nil {
+		ei.EmoteMap = make(map[string]ei.Emotes)
+	}
+	ei.EmoteMap["egg_chocolate"] = ei.Emotes{Name: "egg_chocolate", ID: "1004"}
+	ei.EmoteMap["egg_firework"] = ei.Emotes{Name: "egg_firework", ID: "1005"}
+	ei.EmoteMap["egg_wood"] = ei.Emotes{Name: "egg_wood", ID: "1006"}
+	ei.EmoteMap["totem_T4L"] = ei.Emotes{Name: "totem_T4L", ID: "2001"}
+	ei.EmoteMap["neck_T4L"] = ei.Emotes{Name: "neck_T4L", ID: "2002"}
+
+	testUser := "100000000000000002"
+	farmerstate.SetMiscSettingString(testUser, "collegg", "chocolate,wood,firework")
+
+	tachyonEgg := ei.Egg_TACHYON
+	farm := &ei.Backup_Simulation{
+		FarmType:     ei.FarmType_HOME.Enum(),
+		EggType:      &tachyonEgg,
+		NumChickens:  protoUint64(1000000),
+		Habs:         []uint32{18, 18, 18, 18},
+		LastStepTime: protoFloat64(1790477235),
+	}
+
+	t4Totem := &ei.CompleteArtifact{
+		Spec: &ei.ArtifactSpec{
+			Name:   ei.ArtifactSpec_LUNAR_TOTEM.Enum(),
+			Level:  ei.ArtifactSpec_GREATER.Enum(),
+			Rarity: ei.ArtifactSpec_LEGENDARY.Enum(),
+		},
+	}
+	t4Necklace := &ei.CompleteArtifact{
+		Spec: &ei.ArtifactSpec{
+			Name:   ei.ArtifactSpec_DEMETERS_NECKLACE.Enum(),
+			Level:  ei.ArtifactSpec_GREATER.Enum(),
+			Rarity: ei.ArtifactSpec_LEGENDARY.Enum(),
+		},
+	}
+
+	backup := &ei.Backup{
+		UserId:   protoStr("EI1234567890123456"),
+		UserName: protoStr("ColleggEarningsTester"),
+		Farms:    []*ei.Backup_Simulation{farm},
+		Game:     &ei.Backup_Game{PermitLevel: protoUint32(1)},
+		ArtifactsDb: &ei.ArtifactsDB{
+			InventoryItems: []*ei.ArtifactInventoryItem{
+				{ItemId: protoUint64(1), Artifact: t4Totem, Quantity: protoFloat64(1)},
+				{ItemId: protoUint64(2), Artifact: t4Necklace, Quantity: protoFloat64(1)},
+			},
+			ActiveArtifactSets: []*ei.ArtifactsDB_ActiveArtifactSet{
+				{
+					Slots: []*ei.ActiveArtifactSlot{
+						{Occupied: protoBool(true), ItemId: protoUint64(1)},
+						{Occupied: protoBool(true), ItemId: protoUint64(2)},
+					},
+				},
+			},
+		},
+	}
+
+	comps := printEarningsSetup(testUser, backup, farm, "", "")
+	earnBody := comps[2].(dc.TextDisplay).Content
+
+	// Check that the formula contains the individual colleggtible egg emojis and their multiplier
+	if !strings.Contains(earnBody, "<:egg_firework:1005> 1.05x") {
+		t.Errorf("expected <:egg_firework:1005> 1.05x in earnings formula: %s", earnBody)
+	}
+	if !strings.Contains(earnBody, "<:egg_chocolate:1004> 3.00x") {
+		t.Errorf("expected <:egg_chocolate:1004> 3.00x in earnings formula: %s", earnBody)
+	}
+
+	// Verify that the total multiplier reflects colleggtible buffs
+	// Base: totem 200x * necklace 3.0x = 600x. Collegg: 1.05 * 3.0 = 3.15x.
+	// 600 * 3.15 = 1,890x
+	if !strings.Contains(earnBody, "1,890x") {
+		t.Errorf("expected total multiplier '1,890x' reflecting colleggtible boost: %s", earnBody)
 	}
 }
 

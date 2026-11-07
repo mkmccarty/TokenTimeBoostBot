@@ -122,19 +122,21 @@ type DeliveryResult struct {
 
 // EarningsResult contains the optimal earnings setup.
 type EarningsResult struct {
-	OptimalArtifacts   []*ei.CompleteArtifact
-	OptimalStones      []StoneGroup
-	TotalMultiplier    float64
-	CurrentMultiplier  float64
-	IsAlreadyOptimal   bool
-	GussetRequired     bool
-	GussetRequiredName string
-	HabPopulation      float64
-	BaseHabCapacity    float64
-	EventMultiplier    float64
-	HasActiveEvent     bool
-	EventMessage       string
-	EventEndTime       time.Time
+	OptimalArtifacts      []*ei.CompleteArtifact
+	OptimalStones         []StoneGroup
+	TotalMultiplier       float64
+	CurrentMultiplier     float64
+	IsAlreadyOptimal      bool
+	GussetRequired        bool
+	GussetRequiredName    string
+	HabPopulation         float64
+	BaseHabCapacity       float64
+	EventMultiplier       float64
+	HasActiveEvent        bool
+	EventMessage          string
+	EventEndTime          time.Time
+	ColleggtibleBuffs     ei.DimensionBuffs
+	ColleggtiblesOverview ei.ColleggtiblesOverview
 }
 
 // DroneFarmingResult contains the optimal drone farming setup.
@@ -525,7 +527,11 @@ func OptimizeEarnings(backup *ei.Backup, farm *ei.Backup_Simulation) *EarningsRe
 	res.EventEndTime = eventInfo.Event.EndTime
 
 	maxSlots := ei.GetMaxEquippedArtifacts(backup)
-	colBuffs := ei.GetColleggtibleBuffs(backup.GetContracts())
+	overview := ei.GetColleggtiblesOverview(backup.GetContracts(), "")
+	colBuffs := overview.Buffs
+	res.ColleggtibleBuffs = colBuffs
+	res.ColleggtiblesOverview = overview
+
 	_, habPop, baseHabCap := ei.GetEggLayingRateFromBackup(farm, backup.GetGame(), colBuffs.Hab)
 	res.HabPopulation = habPop
 	res.BaseHabCapacity = baseHabCap
@@ -640,7 +646,17 @@ func OptimizeEarnings(backup *ei.Backup, farm *ei.Backup_Simulation) *EarningsRe
 		dfs(0, nil, used)
 	}
 
-	res.TotalMultiplier = bestMultiplier
+	colEarnings := colBuffs.Earnings
+	if colEarnings <= 0 {
+		colEarnings = 1.0
+	}
+	colAway := colBuffs.AwayEarnings
+	if colAway <= 0 {
+		colAway = 1.0
+	}
+	colleggMult := colEarnings * colAway
+
+	res.TotalMultiplier = bestMultiplier * colleggMult
 
 	// Reslot the bestLoadout with top stones
 	totalStoneSlots := 0
@@ -692,7 +708,7 @@ func OptimizeEarnings(backup *ei.Backup, farm *ei.Backup_Simulation) *EarningsRe
 			}
 		}
 	}
-	res.CurrentMultiplier = currBase * currStoneMult
+	res.CurrentMultiplier = currBase * currStoneMult * colleggMult
 	diff := math.Abs(res.TotalMultiplier - res.CurrentMultiplier)
 	res.IsAlreadyOptimal = diff < 1e-4 || (res.TotalMultiplier > 0 && diff/res.TotalMultiplier < 1e-4) || res.CurrentMultiplier >= res.TotalMultiplier
 	if isSameArtifactLoadout(currentArtifacts, res.OptimalArtifacts) {
@@ -1501,7 +1517,7 @@ func formatEquippedEarningsArtifactsSection(currentArtifacts []*ei.CompleteArtif
 	return sb.String()
 }
 
-func buildEarningsFormula(artifacts []*ei.CompleteArtifact, totalMultiplier, eventMult float64, hasActiveEvent bool) string {
+func buildEarningsFormula(artifacts []*ei.CompleteArtifact, totalMultiplier, eventMult float64, hasActiveEvent bool, colBuffs ei.DimensionBuffs, colOverview ei.ColleggtiblesOverview) string {
 	var terms []string
 	for _, a := range artifacts {
 		if a == nil || a.GetSpec() == nil {
@@ -1556,6 +1572,19 @@ func buildEarningsFormula(artifacts []*ei.CompleteArtifact, totalMultiplier, eve
 		terms = append(terms, fmt.Sprintf("%s %d× (%.2fx)", stoneEmoji, stoneCount, stoneMult))
 	}
 
+	// Colleggtibles contributing to earnings
+	colEarnTerms := getColleggtibleFormulaTerms(colOverview, ei.GameModifier_EARNINGS, ei.GameModifier_AWAY_EARNINGS)
+	if len(colEarnTerms) > 0 {
+		terms = append(terms, colEarnTerms...)
+	} else {
+		if colBuffs.Earnings > 1.0001 {
+			terms = append(terms, fmt.Sprintf("%s %.2fx", ei.GetBotEmojiMarkdown("collegg"), colBuffs.Earnings))
+		}
+		if colBuffs.AwayEarnings > 1.0001 {
+			terms = append(terms, fmt.Sprintf("%s %.2fx", ei.GetBotEmojiMarkdown("collegg"), colBuffs.AwayEarnings))
+		}
+	}
+
 	if len(terms) == 0 {
 		if hasActiveEvent && eventMult > 1.0 {
 			return fmt.Sprintf("**Total Multiplier**: %sx (× %.0fx Event = **%sx**)", formatMultiplier(totalMultiplier), eventMult, formatMultiplier(totalMultiplier*eventMult))
@@ -1569,22 +1598,25 @@ func buildEarningsFormula(artifacts []*ei.CompleteArtifact, totalMultiplier, eve
 	return baseFormula
 }
 
-func getColleggtibleEggEmojis(overview ei.ColleggtiblesOverview, dim ei.GameModifier_GameDimension) string {
-	var emojis []string
+func getColleggtibleFormulaTerms(overview ei.ColleggtiblesOverview, dims ...ei.GameModifier_GameDimension) []string {
+	var terms []string
+	dimSet := make(map[ei.GameModifier_GameDimension]bool, len(dims))
+	for _, d := range dims {
+		dimSet[d] = true
+	}
+
 	for _, d := range overview.Dimensions {
-		if d.Dimension == dim {
-			for _, egg := range d.Colleggtibles {
-				if egg.Tier >= 0 && egg.CurrentValue > 1.0 {
-					emojis = append(emojis, ei.FindEggEmoji(egg.EggID))
-				}
+		if !dimSet[d.Dimension] {
+			continue
+		}
+		for _, egg := range d.Colleggtibles {
+			if egg.Tier >= 0 && egg.CurrentValue > 1.0001 {
+				emoji := ei.FindEggEmoji(egg.EggID)
+				terms = append(terms, fmt.Sprintf("%s %.2fx", emoji, egg.CurrentValue))
 			}
-			break
 		}
 	}
-	if len(emojis) == 0 {
-		return ei.GetBotEmojiMarkdown("collegg")
-	}
-	return strings.Join(emojis, "")
+	return terms
 }
 
 func buildDeliveryFormula(artifacts []*ei.CompleteArtifact, deliveryRate float64, colBuffs ei.DimensionBuffs, colOverview ei.ColleggtiblesOverview) string {
@@ -1597,9 +1629,6 @@ func buildDeliveryFormula(artifacts []*ei.CompleteArtifact, deliveryRate float64
 	quantMult := 1.0
 
 	var metrEmoji, compEmoji, gussetEmoji, tachEmoji, quantEmoji string
-	elrEggEmoji := getColleggtibleEggEmojis(colOverview, ei.GameModifier_EGG_LAYING_RATE)
-	habEggEmoji := getColleggtibleEggEmojis(colOverview, ei.GameModifier_HAB_CAPACITY)
-	srEggEmoji := getColleggtibleEggEmojis(colOverview, ei.GameModifier_SHIPPING_CAPACITY)
 
 	for _, a := range artifacts {
 		if a == nil || a.GetSpec() == nil {
@@ -1676,8 +1705,11 @@ func buildDeliveryFormula(artifacts []*ei.CompleteArtifact, deliveryRate float64
 	if tachCount > 0 {
 		elrTerms = append(elrTerms, fmt.Sprintf("%s %d× %.2fx", tachEmoji, tachCount, tachMult))
 	}
-	if elrCollegg > 1.0001 {
-		elrTerms = append(elrTerms, fmt.Sprintf("%s %.2fx", elrEggEmoji, elrCollegg))
+	colElrTerms := getColleggtibleFormulaTerms(colOverview, ei.GameModifier_EGG_LAYING_RATE)
+	if len(colElrTerms) > 0 {
+		elrTerms = append(elrTerms, colElrTerms...)
+	} else if elrCollegg > 1.0001 {
+		elrTerms = append(elrTerms, fmt.Sprintf("%s %.2fx", ei.GetBotEmojiMarkdown("collegg"), elrCollegg))
 	}
 
 	var elrStr string
@@ -1694,8 +1726,11 @@ func buildDeliveryFormula(artifacts []*ei.CompleteArtifact, deliveryRate float64
 	if gussetMult != 1 {
 		habTerms = append(habTerms, fmt.Sprintf("%s %.2fx", gussetEmoji, gussetMult))
 	}
-	if habCollegg > 1.0001 {
-		habTerms = append(habTerms, fmt.Sprintf("%s %.2fx", habEggEmoji, habCollegg))
+	colHabTerms := getColleggtibleFormulaTerms(colOverview, ei.GameModifier_HAB_CAPACITY)
+	if len(colHabTerms) > 0 {
+		habTerms = append(habTerms, colHabTerms...)
+	} else if habCollegg > 1.0001 {
+		habTerms = append(habTerms, fmt.Sprintf("%s %.2fx", ei.GetBotEmojiMarkdown("collegg"), habCollegg))
 	}
 
 	var habStr string
@@ -1725,8 +1760,11 @@ func buildDeliveryFormula(artifacts []*ei.CompleteArtifact, deliveryRate float64
 	if quantCount > 0 {
 		srTerms = append(srTerms, fmt.Sprintf("%s %d× %.2fx", quantEmoji, quantCount, quantMult))
 	}
-	if srCollegg > 1.0001 {
-		srTerms = append(srTerms, fmt.Sprintf("%s %.2fx", srEggEmoji, srCollegg))
+	colSrTerms := getColleggtibleFormulaTerms(colOverview, ei.GameModifier_SHIPPING_CAPACITY)
+	if len(colSrTerms) > 0 {
+		srTerms = append(srTerms, colSrTerms...)
+	} else if srCollegg > 1.0001 {
+		srTerms = append(srTerms, fmt.Sprintf("%s %.2fx", ei.GetBotEmojiMarkdown("collegg"), srCollegg))
 	}
 
 	var srStr string
@@ -1874,7 +1912,7 @@ func printEarningsSetup(userID string, backup *ei.Backup, farm *ei.Backup_Simula
 					fmt.Fprintf(&artifactsStr, "%s\n", icons)
 				}
 			}
-			fmt.Fprintf(&artifactsStr, "Formula: %s\n", buildEarningsFormula(currentArtifacts, totalMultiplier, 1.0, false))
+			fmt.Fprintf(&artifactsStr, "Formula: %s\n", buildEarningsFormula(currentArtifacts, totalMultiplier, 1.0, false, ei.DimensionBuffs{}, ei.ColleggtiblesOverview{}))
 			fmt.Fprintf(&artifactsStr, "**Max CTE**: **%.0f**\n\n", maxCTE)
 			artifactsStr.WriteString("✅ **Your current setup is already optimal!**\n\n")
 		} else {
@@ -1895,15 +1933,39 @@ func printEarningsSetup(userID string, backup *ei.Backup, farm *ei.Backup_Simula
 					fmt.Fprintf(&artifactsStr, "%s\n", icons)
 				}
 			}
-			fmt.Fprintf(&artifactsStr, "Formula: %s\n", buildEarningsFormula(optArtifacts, totalMultiplier, 1.0, false))
+			fmt.Fprintf(&artifactsStr, "Formula: %s\n", buildEarningsFormula(optArtifacts, totalMultiplier, 1.0, false, ei.DimensionBuffs{}, ei.ColleggtiblesOverview{}))
 			fmt.Fprintf(&artifactsStr, "**Max CTE**: **%.0f** (Current: %.0f)\n\n", maxCTE, cte)
-
-			if currIcons != "" && optIcons != "" && cteDelta > 0 {
-				fmt.Fprintf(&artifactsStr, "%s ➜ %s  **+%.0f CTE**\n\n", currIcons, optIcons, cteDelta)
-			}
 		}
 	} else {
 		opt := OptimizeEarnings(backup, farm)
+		storedCollegg := farmerstate.GetMiscSettingString(userID, "collegg")
+		if storedCollegg != "" {
+			overview := ei.GetColleggtiblesOverview(backup.GetContracts(), storedCollegg)
+			oldColleggMult := 1.0
+			if opt.ColleggtibleBuffs.Earnings > 0 {
+				oldColleggMult *= opt.ColleggtibleBuffs.Earnings
+			}
+			if opt.ColleggtibleBuffs.AwayEarnings > 0 {
+				oldColleggMult *= opt.ColleggtibleBuffs.AwayEarnings
+			}
+
+			opt.ColleggtibleBuffs = overview.Buffs
+			opt.ColleggtiblesOverview = overview
+
+			newColleggMult := 1.0
+			if opt.ColleggtibleBuffs.Earnings > 0 {
+				newColleggMult *= opt.ColleggtibleBuffs.Earnings
+			}
+			if opt.ColleggtibleBuffs.AwayEarnings > 0 {
+				newColleggMult *= opt.ColleggtibleBuffs.AwayEarnings
+			}
+
+			if oldColleggMult > 0 {
+				opt.TotalMultiplier = (opt.TotalMultiplier / oldColleggMult) * newColleggMult
+				opt.CurrentMultiplier = (opt.CurrentMultiplier / oldColleggMult) * newColleggMult
+			}
+		}
+
 		optArtifacts = opt.OptimalArtifacts
 		optIcons = formatArtifactIcons(optArtifacts)
 		isOptimal = opt.IsAlreadyOptimal
@@ -1937,7 +1999,7 @@ func printEarningsSetup(userID string, backup *ei.Backup, farm *ei.Backup_Simula
 					fmt.Fprintf(&artifactsStr, "%s\n", icons)
 				}
 			}
-			fmt.Fprintf(&artifactsStr, "Formula: %s\n", buildEarningsFormula(currentArtifacts, totalMultiplier, opt.EventMultiplier, opt.HasActiveEvent))
+			fmt.Fprintf(&artifactsStr, "Formula: %s\n", buildEarningsFormula(currentArtifacts, totalMultiplier, opt.EventMultiplier, opt.HasActiveEvent, opt.ColleggtibleBuffs, opt.ColleggtiblesOverview))
 			if opt.HasActiveEvent && opt.EventMultiplier > 1.0 {
 				fmt.Fprintf(&artifactsStr, "**Optimal Multiplier**: **%sx** (**%sx** with %s)\n\n",
 					formatMultiplier(totalMultiplier), formatMultiplier(totalMultiplier*opt.EventMultiplier), eventLabel)
@@ -1963,7 +2025,7 @@ func printEarningsSetup(userID string, backup *ei.Backup, farm *ei.Backup_Simula
 					fmt.Fprintf(&artifactsStr, "%s\n", icons)
 				}
 			}
-			fmt.Fprintf(&artifactsStr, "Formula: %s\n", buildEarningsFormula(optArtifacts, totalMultiplier, opt.EventMultiplier, opt.HasActiveEvent))
+			fmt.Fprintf(&artifactsStr, "Formula: %s\n", buildEarningsFormula(optArtifacts, totalMultiplier, opt.EventMultiplier, opt.HasActiveEvent, opt.ColleggtibleBuffs, opt.ColleggtiblesOverview))
 			if opt.HasActiveEvent && opt.EventMultiplier > 1.0 {
 				fmt.Fprintf(&artifactsStr, "**Optimal Multiplier**: **%sx** (**%sx** with %s)\n\n",
 					formatMultiplier(totalMultiplier), formatMultiplier(totalMultiplier*opt.EventMultiplier), eventLabel)
