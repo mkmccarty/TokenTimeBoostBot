@@ -1542,34 +1542,49 @@ func buildEarningsFormula(artifacts []*ei.CompleteArtifact, totalMultiplier, eve
 		}
 	}
 
-	stoneMult := 1.0
-	stoneCount := 0
-	var stoneSpec *ei.ArtifactSpec
+	type stoneData struct {
+		spec  *ei.ArtifactSpec
+		count int
+		mult  float64
+	}
+	stonesByType := make(map[ei.ArtifactSpec_Name]*stoneData)
+	var stoneOrder []ei.ArtifactSpec_Name
+
 	for _, a := range artifacts {
 		for _, st := range a.GetStones() {
 			if st == nil {
 				continue
 			}
 			lvl := int(st.GetLevel())
+			mult := 1.0
 			switch st.GetName() {
 			case ei.ArtifactSpec_LUNAR_STONE:
 				if lvl >= 0 && lvl < len(lunarStoneBuffs) {
-					stoneMult *= lunarStoneBuffs[lvl]
-					stoneCount++
-					stoneSpec = st
+					mult = lunarStoneBuffs[lvl]
 				}
 			case ei.ArtifactSpec_SHELL_STONE:
 				if lvl >= 0 && lvl < len(shellStoneBuffs) {
-					stoneMult *= shellStoneBuffs[lvl]
-					stoneCount++
-					stoneSpec = st
+					mult = shellStoneBuffs[lvl]
 				}
+			default:
+				continue
+			}
+			if mult > 1.0 {
+				name := st.GetName()
+				if _, ok := stonesByType[name]; !ok {
+					stonesByType[name] = &stoneData{spec: st, mult: 1.0}
+					stoneOrder = append(stoneOrder, name)
+				}
+				stonesByType[name].count++
+				stonesByType[name].mult *= mult
 			}
 		}
 	}
-	if stoneCount > 0 && stoneSpec != nil {
-		stoneEmoji := getStoneEmojiMarkdown(stoneSpec.GetName(), stoneSpec.GetLevel())
-		terms = append(terms, fmt.Sprintf("%s %d× (%.2fx)", stoneEmoji, stoneCount, stoneMult))
+
+	for _, name := range stoneOrder {
+		sd := stonesByType[name]
+		stoneEmoji := getStoneEmojiMarkdown(sd.spec.GetName(), sd.spec.GetLevel())
+		terms = append(terms, fmt.Sprintf("%s %.2fx", stoneEmoji, sd.mult))
 	}
 
 	// Colleggtibles contributing to earnings
@@ -3096,6 +3111,3 @@ func printDroneFarmingSetup(userID string, backup *ei.Backup, farm *ei.Backup_Si
 
 	return components
 }
-
-
-

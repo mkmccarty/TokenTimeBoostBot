@@ -907,12 +907,15 @@ func TestPrintEarningsSetupWithColleggtibles(t *testing.T) {
 	if !strings.Contains(earnBody, "<:egg_chocolate:1004> 3.00x") {
 		t.Errorf("expected <:egg_chocolate:1004> 3.00x in earnings formula: %s", earnBody)
 	}
+	if !strings.Contains(earnBody, "<:egg_wood:1006> 2.00x") {
+		t.Errorf("expected <:egg_wood:1006> 2.00x in earnings formula: %s", earnBody)
+	}
 
 	// Verify that the total multiplier reflects colleggtible buffs
-	// Base: totem 200x * necklace 3.0x = 600x. Collegg: 1.05 * 3.0 = 3.15x.
-	// 600 * 3.15 = 1,890x
-	if !strings.Contains(earnBody, "1,890x") {
-		t.Errorf("expected total multiplier '1,890x' reflecting colleggtible boost: %s", earnBody)
+	// Base: totem 200x * necklace 3.0x = 600x. Collegg: 1.05 * 3.0 * 2.0 = 6.30x.
+	// 600 * 6.30 = 3,780x
+	if !strings.Contains(earnBody, "3,780x") {
+		t.Errorf("expected total multiplier '3,780x' reflecting colleggtible boost: %s", earnBody)
 	}
 }
 
@@ -947,6 +950,13 @@ func setupTestCustomEggs() {
 		Dimension:            ei.GameModifier_AWAY_EARNINGS,
 		DimensionValue:       []float64{1.25, 1.5, 2.0, 3.0},
 		DimensionValueString: []string{"+25%", "+50%", "+100%", "+200%"},
+	}
+	ei.CustomEggMap["wood"] = &ei.EggIncCustomEgg{
+		ID:                   "wood",
+		Name:                 "Wood",
+		Dimension:            ei.GameModifier_AWAY_EARNINGS,
+		DimensionValue:       []float64{1.1, 1.25, 1.5, 2.0},
+		DimensionValueString: []string{"+10%", "+25%", "+50%", "2x"},
 	}
 	ei.CustomEggMap["firework"] = &ei.EggIncCustomEgg{
 		ID:                   "firework",
