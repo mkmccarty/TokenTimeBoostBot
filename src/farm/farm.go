@@ -517,10 +517,7 @@ func OptimizeEarnings(backup *ei.Backup, farm *ei.Backup_Simulation) *EarningsRe
 		return res
 	}
 
-	isUltra := false
-	if backup != nil && backup.GetSubInfo() != nil && backup.GetSubInfo().GetStatus() == ei.UserSubscriptionInfo_ACTIVE {
-		isUltra = true
-	}
+	isUltra := backup != nil && backup.GetSubInfo() != nil && backup.GetSubInfo().GetStatus() == ei.UserSubscriptionInfo_ACTIVE
 	eventInfo := getEarningsEventInfo(isUltra)
 	res.EventMultiplier = eventInfo.Multiplier
 	res.HasActiveEvent = eventInfo.HasActiveEvent
@@ -1460,19 +1457,19 @@ func formatEquippedArtifactsSection(currentArtifacts []*ei.CompleteArtifact, isD
 			buffStr = formatAnyArtifactBuffs(a)
 		}
 		if buffStr != "" {
-			sb.WriteString(fmt.Sprintf("%s %s\n", icons, buffStr))
+			fmt.Fprintf(&sb, "%s %s\n", icons, buffStr)
 		} else {
-			sb.WriteString(fmt.Sprintf("%s\n", icons))
+			fmt.Fprintf(&sb, "%s\n", icons)
 		}
 	}
 	if isDelivery {
-		sb.WriteString(fmt.Sprintf("-# 🐔 Laying: %s/hr · 🚚 Shipping: %s/hr · 📦 Delivery: **%s/hr**\n\n",
+		fmt.Fprintf(&sb, "-# 🐔 Laying: %s/hr · 🚚 Shipping: %s/hr · 📦 Delivery: **%s/hr**\n\n",
 			ei.FormatEIValue(layingRate, map[string]any{"decimals": 2, "trim": true}),
 			ei.FormatEIValue(shippingRate, map[string]any{"decimals": 2, "trim": true}),
 			ei.FormatEIValue(deliveryRate, map[string]any{"decimals": 2, "trim": true}),
-		))
+		)
 	} else {
-		sb.WriteString(fmt.Sprintf("-# Total Multiplier: **%sx**\n\n", formatMultiplier(currentMult)))
+		fmt.Fprintf(&sb, "-# Total Multiplier: **%sx**\n\n", formatMultiplier(currentMult))
 	}
 	return sb.String()
 }
@@ -1490,16 +1487,16 @@ func formatEquippedEarningsArtifactsSection(currentArtifacts []*ei.CompleteArtif
 			buffStr = formatAnyArtifactBuffs(a)
 		}
 		if buffStr != "" {
-			sb.WriteString(fmt.Sprintf("%s %s\n", icons, buffStr))
+			fmt.Fprintf(&sb, "%s %s\n", icons, buffStr)
 		} else {
-			sb.WriteString(fmt.Sprintf("%s\n", icons))
+			fmt.Fprintf(&sb, "%s\n", icons)
 		}
 	}
 	if hasActiveEvent && eventMult > 1.0 {
-		sb.WriteString(fmt.Sprintf("-# Total Multiplier: **%sx** (**%sx** with %s)\n\n",
-			formatMultiplier(currentMult), formatMultiplier(currentMult*eventMult), eventName))
+		fmt.Fprintf(&sb, "-# Total Multiplier: **%sx** (**%sx** with %s)\n\n",
+			formatMultiplier(currentMult), formatMultiplier(currentMult*eventMult), eventName)
 	} else {
-		sb.WriteString(fmt.Sprintf("-# Total Multiplier: **%sx**\n\n", formatMultiplier(currentMult)))
+		fmt.Fprintf(&sb, "-# Total Multiplier: **%sx**\n\n", formatMultiplier(currentMult))
 	}
 	return sb.String()
 }
@@ -1785,10 +1782,10 @@ func formatContributingColleggtibles(backup *ei.Backup, targetUserID string, isD
 				}
 				if len(eggItems) > 0 {
 					if !hasAny {
-						sb.WriteString(fmt.Sprintf("%s **Colleggtibles Contributing to Delivery:**\n", ei.GetBotEmojiMarkdown("collegg")))
+						fmt.Fprintf(&sb, "%s **Colleggtibles Contributing to Delivery:**\n", ei.GetBotEmojiMarkdown("collegg"))
 						hasAny = true
 					}
-					sb.WriteString(fmt.Sprintf("-# %s (%s): %s\n", dimMap[d], dim.CurrentString, strings.Join(eggItems, " ")))
+					fmt.Fprintf(&sb, "-# %s (%s): %s\n", dimMap[d], dim.CurrentString, strings.Join(eggItems, " "))
 				}
 			}
 		}
@@ -1816,10 +1813,10 @@ func formatContributingColleggtibles(backup *ei.Backup, targetUserID string, isD
 				}
 				if len(eggItems) > 0 {
 					if !hasAny {
-						sb.WriteString(fmt.Sprintf("%s **Colleggtibles Contributing to Earnings:**\n", ei.GetBotEmojiMarkdown("collegg")))
+						fmt.Fprintf(&sb, "%s **Colleggtibles Contributing to Earnings:**\n", ei.GetBotEmojiMarkdown("collegg"))
 						hasAny = true
 					}
-					sb.WriteString(fmt.Sprintf("-# %s (%s): %s\n", dimMap[d], dim.CurrentString, strings.Join(eggItems, " ")))
+					fmt.Fprintf(&sb, "-# %s (%s): %s\n", dimMap[d], dim.CurrentString, strings.Join(eggItems, " "))
 				}
 			}
 		}
@@ -1872,13 +1869,13 @@ func printEarningsSetup(userID string, backup *ei.Backup, farm *ei.Backup_Simula
 					buffStr = formatAnyArtifactBuffs(a)
 				}
 				if buffStr != "" {
-					artifactsStr.WriteString(fmt.Sprintf("%s %s\n", icons, buffStr))
+					fmt.Fprintf(&artifactsStr, "%s %s\n", icons, buffStr)
 				} else {
-					artifactsStr.WriteString(fmt.Sprintf("%s\n", icons))
+					fmt.Fprintf(&artifactsStr, "%s\n", icons)
 				}
 			}
-			artifactsStr.WriteString(fmt.Sprintf("Formula: %s\n", buildEarningsFormula(currentArtifacts, totalMultiplier, 1.0, false)))
-			artifactsStr.WriteString(fmt.Sprintf("**Max CTE**: **%.0f**\n\n", maxCTE))
+			fmt.Fprintf(&artifactsStr, "Formula: %s\n", buildEarningsFormula(currentArtifacts, totalMultiplier, 1.0, false))
+			fmt.Fprintf(&artifactsStr, "**Max CTE**: **%.0f**\n\n", maxCTE)
 			artifactsStr.WriteString("✅ **Your current setup is already optimal!**\n\n")
 		} else {
 			// Currently equipped section
@@ -1893,13 +1890,13 @@ func printEarningsSetup(userID string, backup *ei.Backup, farm *ei.Backup_Simula
 					buffStr = formatAnyArtifactBuffs(a)
 				}
 				if buffStr != "" {
-					artifactsStr.WriteString(fmt.Sprintf("%s %s\n", icons, buffStr))
+					fmt.Fprintf(&artifactsStr, "%s %s\n", icons, buffStr)
 				} else {
-					artifactsStr.WriteString(fmt.Sprintf("%s\n", icons))
+					fmt.Fprintf(&artifactsStr, "%s\n", icons)
 				}
 			}
-			artifactsStr.WriteString(fmt.Sprintf("Formula: %s\n", buildEarningsFormula(optArtifacts, totalMultiplier, 1.0, false)))
-			artifactsStr.WriteString(fmt.Sprintf("**Max CTE**: **%.0f** (Current: %.0f)\n\n", maxCTE, cte))
+			fmt.Fprintf(&artifactsStr, "Formula: %s\n", buildEarningsFormula(optArtifacts, totalMultiplier, 1.0, false))
+			fmt.Fprintf(&artifactsStr, "**Max CTE**: **%.0f** (Current: %.0f)\n\n", maxCTE, cte)
 
 			if currIcons != "" && optIcons != "" && cteDelta > 0 {
 				fmt.Fprintf(&artifactsStr, "%s ➜ %s  **+%.0f CTE**\n\n", currIcons, optIcons, cteDelta)
@@ -1935,17 +1932,17 @@ func printEarningsSetup(userID string, backup *ei.Backup, farm *ei.Backup_Simula
 					buffStr = formatAnyArtifactBuffs(a)
 				}
 				if buffStr != "" {
-					artifactsStr.WriteString(fmt.Sprintf("%s %s\n", icons, buffStr))
+					fmt.Fprintf(&artifactsStr, "%s %s\n", icons, buffStr)
 				} else {
-					artifactsStr.WriteString(fmt.Sprintf("%s\n", icons))
+					fmt.Fprintf(&artifactsStr, "%s\n", icons)
 				}
 			}
-			artifactsStr.WriteString(fmt.Sprintf("Formula: %s\n", buildEarningsFormula(currentArtifacts, totalMultiplier, opt.EventMultiplier, opt.HasActiveEvent)))
+			fmt.Fprintf(&artifactsStr, "Formula: %s\n", buildEarningsFormula(currentArtifacts, totalMultiplier, opt.EventMultiplier, opt.HasActiveEvent))
 			if opt.HasActiveEvent && opt.EventMultiplier > 1.0 {
-				artifactsStr.WriteString(fmt.Sprintf("**Optimal Multiplier**: **%sx** (**%sx** with %s)\n\n",
-					formatMultiplier(totalMultiplier), formatMultiplier(totalMultiplier*opt.EventMultiplier), eventLabel))
+				fmt.Fprintf(&artifactsStr, "**Optimal Multiplier**: **%sx** (**%sx** with %s)\n\n",
+					formatMultiplier(totalMultiplier), formatMultiplier(totalMultiplier*opt.EventMultiplier), eventLabel)
 			} else {
-				artifactsStr.WriteString(fmt.Sprintf("**Optimal Multiplier**: **%sx**\n\n", formatMultiplier(totalMultiplier)))
+				fmt.Fprintf(&artifactsStr, "**Optimal Multiplier**: **%sx**\n\n", formatMultiplier(totalMultiplier))
 			}
 			artifactsStr.WriteString("✅ **Your current setup is already optimal!**\n\n")
 		} else {
@@ -1961,17 +1958,17 @@ func printEarningsSetup(userID string, backup *ei.Backup, farm *ei.Backup_Simula
 					buffStr = formatAnyArtifactBuffs(a)
 				}
 				if buffStr != "" {
-					artifactsStr.WriteString(fmt.Sprintf("%s %s\n", icons, buffStr))
+					fmt.Fprintf(&artifactsStr, "%s %s\n", icons, buffStr)
 				} else {
-					artifactsStr.WriteString(fmt.Sprintf("%s\n", icons))
+					fmt.Fprintf(&artifactsStr, "%s\n", icons)
 				}
 			}
-			artifactsStr.WriteString(fmt.Sprintf("Formula: %s\n", buildEarningsFormula(optArtifacts, totalMultiplier, opt.EventMultiplier, opt.HasActiveEvent)))
+			fmt.Fprintf(&artifactsStr, "Formula: %s\n", buildEarningsFormula(optArtifacts, totalMultiplier, opt.EventMultiplier, opt.HasActiveEvent))
 			if opt.HasActiveEvent && opt.EventMultiplier > 1.0 {
-				artifactsStr.WriteString(fmt.Sprintf("**Optimal Multiplier**: **%sx** (**%sx** with %s)\n\n",
-					formatMultiplier(totalMultiplier), formatMultiplier(totalMultiplier*opt.EventMultiplier), eventLabel))
+				fmt.Fprintf(&artifactsStr, "**Optimal Multiplier**: **%sx** (**%sx** with %s)\n\n",
+					formatMultiplier(totalMultiplier), formatMultiplier(totalMultiplier*opt.EventMultiplier), eventLabel)
 			} else {
-				artifactsStr.WriteString(fmt.Sprintf("**Optimal Multiplier**: **%sx**\n\n", formatMultiplier(totalMultiplier)))
+				fmt.Fprintf(&artifactsStr, "**Optimal Multiplier**: **%sx**\n\n", formatMultiplier(totalMultiplier))
 			}
 
 			if currIcons != "" && optIcons != "" {
@@ -1991,8 +1988,8 @@ func printEarningsSetup(userID string, backup *ei.Backup, farm *ei.Backup_Simula
 			if msg == "" {
 				msg = fmt.Sprintf("%.0fx Earnings Event", opt.EventMultiplier)
 			}
-			artifactsStr.WriteString(fmt.Sprintf("-# 🎉 **Active Periodicals Event:** %s amplifies earnings by **%.0fx** (ends <t:%d:R>).\n",
-				msg, opt.EventMultiplier, opt.EventEndTime.Unix()))
+			fmt.Fprintf(&artifactsStr, "-# 🎉 **Active Periodicals Event:** %s amplifies earnings by **%.0fx** (ends <t:%d:R>).\n",
+				msg, opt.EventMultiplier, opt.EventEndTime.Unix())
 		}
 	}
 
@@ -2088,20 +2085,20 @@ func printDeliverySetup(userID string, backup *ei.Backup, farm *ei.Backup_Simula
 				buffStr = formatAnyArtifactBuffs(a)
 			}
 			if buffStr != "" {
-				artifactsStr.WriteString(fmt.Sprintf("%s %s\n", icons, buffStr))
+				fmt.Fprintf(&artifactsStr, "%s %s\n", icons, buffStr)
 			} else {
-				artifactsStr.WriteString(fmt.Sprintf("%s\n", icons))
+				fmt.Fprintf(&artifactsStr, "%s\n", icons)
 			}
 		}
 		formulaStr := buildDeliveryFormula(currentArtifacts, opt.CurrentDeliveryRate, opt.ColleggtibleBuffs, opt.ColleggtiblesOverview)
 		if formulaStr != "" {
-			artifactsStr.WriteString(fmt.Sprintf("Formulas:\n%s\n", formulaStr))
+			fmt.Fprintf(&artifactsStr, "Formulas:\n%s\n", formulaStr)
 		}
-		artifactsStr.WriteString(fmt.Sprintf("📦 Delivery: **%s/hr** (🐔 Laying: %s/hr · 🚚 Shipping: %s/hr)\n\n",
+		fmt.Fprintf(&artifactsStr, "📦 Delivery: **%s/hr** (🐔 Laying: %s/hr · 🚚 Shipping: %s/hr)\n\n",
 			ei.FormatEIValue(opt.CurrentDeliveryRate, map[string]any{"decimals": 2, "trim": true}),
 			ei.FormatEIValue(opt.CurrentLayingRate, map[string]any{"decimals": 2, "trim": true}),
 			ei.FormatEIValue(opt.CurrentShippingRate, map[string]any{"decimals": 2, "trim": true}),
-		))
+		)
 		artifactsStr.WriteString("✅ **Your current setup is already optimal!**\n\n")
 	} else {
 		// Currently equipped section
@@ -2116,20 +2113,20 @@ func printDeliverySetup(userID string, backup *ei.Backup, farm *ei.Backup_Simula
 				buffStr = formatAnyArtifactBuffs(a)
 			}
 			if buffStr != "" {
-				artifactsStr.WriteString(fmt.Sprintf("%s %s\n", icons, buffStr))
+				fmt.Fprintf(&artifactsStr, "%s %s\n", icons, buffStr)
 			} else {
-				artifactsStr.WriteString(fmt.Sprintf("%s\n", icons))
+				fmt.Fprintf(&artifactsStr, "%s\n", icons)
 			}
 		}
 		formulaStr := buildDeliveryFormula(opt.OptimalArtifacts, opt.DeliveryRate, opt.ColleggtibleBuffs, opt.ColleggtiblesOverview)
 		if formulaStr != "" {
-			artifactsStr.WriteString(fmt.Sprintf("Formulas:\n%s\n", formulaStr))
+			fmt.Fprintf(&artifactsStr, "Formulas:\n%s\n", formulaStr)
 		}
-		artifactsStr.WriteString(fmt.Sprintf("📦 Delivery: **%s/hr** (🐔 Laying: %s/hr · 🚚 Shipping: %s/hr)\n\n",
+		fmt.Fprintf(&artifactsStr, "📦 Delivery: **%s/hr** (🐔 Laying: %s/hr · 🚚 Shipping: %s/hr)\n\n",
 			ei.FormatEIValue(opt.DeliveryRate, map[string]any{"decimals": 2, "trim": true}),
 			ei.FormatEIValue(opt.LayingRate, map[string]any{"decimals": 2, "trim": true}),
 			ei.FormatEIValue(opt.ShippingRate, map[string]any{"decimals": 2, "trim": true}),
-		))
+		)
 
 		// Transition
 		if currIcons != "" && optIcons != "" {
@@ -2306,21 +2303,21 @@ func formatEquippedDroneArtifactsSection(currentArtifacts []*ei.CompleteArtifact
 		icons := formatArtifactWithStonesDisplay(a)
 		buffStr := formatDroneArtifactBuff(a)
 		if buffStr != "" {
-			sb.WriteString(fmt.Sprintf("%s %s\n", icons, buffStr))
+			fmt.Fprintf(&sb, "%s %s\n", icons, buffStr)
 		} else {
-			sb.WriteString(fmt.Sprintf("%s\n", icons))
+			fmt.Fprintf(&sb, "%s\n", icons)
 		}
 	}
 	geEmoji := getGoldenEggEmojiMarkdown()
-	sb.WriteString(fmt.Sprintf("-# 🎁 Rewards: %s (%.2fx) · ⏱️ Frequency: %s (%.2fx) · %s GE Chance: %s (%.2fx)\n",
+	fmt.Fprintf(&sb, "-# 🎁 Rewards: %s (%.2fx) · ⏱️ Frequency: %s (%.2fx) · %s GE Chance: %s (%.2fx)\n",
 		formatDroneBonus(broochMult), broochMult,
 		formatDroneBonus(medallionMult), medallionMult,
 		geEmoji, formatDroneGEChance(geChance), geChance/0.30,
-	))
+	)
 	if hasActiveEvent && eventMult > 1.0 {
-		sb.WriteString(fmt.Sprintf("%s Total GE Multiplier: **%.1fx** (**%.1fx** with %s)\n\n", geEmoji, totalMult, totalMult*eventMult, eventName))
+		fmt.Fprintf(&sb, "%s Total GE Multiplier: **%.1fx** (**%.1fx** with %s)\n\n", geEmoji, totalMult, totalMult*eventMult, eventName)
 	} else {
-		sb.WriteString(fmt.Sprintf("%s Total GE Multiplier: **%.1fx**\n\n", geEmoji, totalMult))
+		fmt.Fprintf(&sb, "%s Total GE Multiplier: **%.1fx**\n\n", geEmoji, totalMult)
 	}
 	return sb.String()
 }
@@ -2721,10 +2718,7 @@ func OptimizeDroneFarming(backup *ei.Backup, farm *ei.Backup_Simulation) *DroneF
 	isEnlightenment := farm.GetEggType() == ei.Egg_ENLIGHTENMENT
 	res.IsEnlightenment = isEnlightenment
 
-	isUltra := false
-	if backup != nil && backup.GetSubInfo() != nil && backup.GetSubInfo().GetStatus() == ei.UserSubscriptionInfo_ACTIVE {
-		isUltra = true
-	}
+	isUltra := backup != nil && backup.GetSubInfo() != nil && backup.GetSubInfo().GetStatus() == ei.UserSubscriptionInfo_ACTIVE
 	eventInfo := getDroneEventInfo(isUltra)
 	res.EventMultiplier = eventInfo.Multiplier
 	res.HasActiveEvent = eventInfo.HasActiveEvent
@@ -2907,9 +2901,9 @@ func printDroneFarmingSetup(userID string, backup *ei.Backup, farm *ei.Backup_Si
 			icons := formatArtifactWithStonesDisplay(a)
 			buffStr := formatDroneArtifactBuff(a)
 			if buffStr != "" {
-				artifactsStr.WriteString(fmt.Sprintf("%s %s\n", icons, buffStr))
+				fmt.Fprintf(&artifactsStr, "%s %s\n", icons, buffStr)
 			} else {
-				artifactsStr.WriteString(fmt.Sprintf("%s\n", icons))
+				fmt.Fprintf(&artifactsStr, "%s\n", icons)
 			}
 		}
 		bMult := opt.BroochMultiplier
@@ -2927,14 +2921,14 @@ func printDroneFarmingSetup(userID string, backup *ei.Backup, farm *ei.Backup_Si
 			eventLabel = fmt.Sprintf("%.0fx Event", opt.EventMultiplier)
 		}
 		geEmoji := getGoldenEggEmojiMarkdown()
-		artifactsStr.WriteString(fmt.Sprintf("Formula: %s\n", buildDroneFarmingFormula(bMult, mMult, geChance, totMult, opt.EventMultiplier, opt.HasActiveEvent)))
+		fmt.Fprintf(&artifactsStr, "Formula: %s\n", buildDroneFarmingFormula(bMult, mMult, geChance, totMult, opt.EventMultiplier, opt.HasActiveEvent))
 		if opt.HasActiveEvent && opt.EventMultiplier > 1.0 {
-			artifactsStr.WriteString(fmt.Sprintf("%s **Optimal %s GE Multiplier**: **%.1fx** (**%.1fx** with %s) (%s%.1fx · %.1fx with event)\n\n",
+			fmt.Fprintf(&artifactsStr, "%s **Optimal %s GE Multiplier**: **%.1fx** (**%.1fx** with %s) (%s%.1fx · %.1fx with event)\n\n",
 				geEmoji, enlightenmentEmote, totMult, totMult*opt.EventMultiplier, eventLabel,
-				currentPrefix, opt.CurrentMultiplier, opt.CurrentMultiplier*opt.EventMultiplier))
+				currentPrefix, opt.CurrentMultiplier, opt.CurrentMultiplier*opt.EventMultiplier)
 		} else {
-			artifactsStr.WriteString(fmt.Sprintf("%s **Optimal %s GE Multiplier**: **%.1fx** (%s%.1fx)\n\n",
-				geEmoji, enlightenmentEmote, totMult, currentPrefix, opt.CurrentMultiplier))
+			fmt.Fprintf(&artifactsStr, "%s **Optimal %s GE Multiplier**: **%.1fx** (%s%.1fx)\n\n",
+				geEmoji, enlightenmentEmote, totMult, currentPrefix, opt.CurrentMultiplier)
 		}
 		artifactsStr.WriteString("✅ **Your current setup is already optimal!**\n\n")
 	} else {
@@ -2952,20 +2946,20 @@ func printDroneFarmingSetup(userID string, backup *ei.Backup, farm *ei.Backup_Si
 			icons := formatArtifactWithStonesDisplay(a)
 			buffStr := formatDroneArtifactBuff(a)
 			if buffStr != "" {
-				artifactsStr.WriteString(fmt.Sprintf("%s %s\n", icons, buffStr))
+				fmt.Fprintf(&artifactsStr, "%s %s\n", icons, buffStr)
 			} else {
-				artifactsStr.WriteString(fmt.Sprintf("%s\n", icons))
+				fmt.Fprintf(&artifactsStr, "%s\n", icons)
 			}
 		}
 		geEmoji := getGoldenEggEmojiMarkdown()
-		artifactsStr.WriteString(fmt.Sprintf("Formula: %s\n", buildDroneFarmingFormula(opt.BroochMultiplier, opt.MedallionMultiplier, opt.GEDropChance, opt.TotalMultiplier, opt.EventMultiplier, opt.HasActiveEvent)))
+		fmt.Fprintf(&artifactsStr, "Formula: %s\n", buildDroneFarmingFormula(opt.BroochMultiplier, opt.MedallionMultiplier, opt.GEDropChance, opt.TotalMultiplier, opt.EventMultiplier, opt.HasActiveEvent))
 		if opt.HasActiveEvent && opt.EventMultiplier > 1.0 {
-			artifactsStr.WriteString(fmt.Sprintf("%s **Optimal %s GE Multiplier**: **%.1fx** (**%.1fx** with %s) (%s%.1fx · %.1fx with event)\n\n",
+			fmt.Fprintf(&artifactsStr, "%s **Optimal %s GE Multiplier**: **%.1fx** (**%.1fx** with %s) (%s%.1fx · %.1fx with event)\n\n",
 				geEmoji, enlightenmentEmote, opt.TotalMultiplier, opt.TotalMultiplier*opt.EventMultiplier, eventLabel,
-				currentPrefix, opt.CurrentMultiplier, opt.CurrentMultiplier*opt.EventMultiplier))
+				currentPrefix, opt.CurrentMultiplier, opt.CurrentMultiplier*opt.EventMultiplier)
 		} else {
-			artifactsStr.WriteString(fmt.Sprintf("%s **Optimal %s GE Multiplier**: **%.1fx** (%s%.1fx)\n\n",
-				geEmoji, enlightenmentEmote, opt.TotalMultiplier, currentPrefix, opt.CurrentMultiplier))
+			fmt.Fprintf(&artifactsStr, "%s **Optimal %s GE Multiplier**: **%.1fx** (%s%.1fx)\n\n",
+				geEmoji, enlightenmentEmote, opt.TotalMultiplier, currentPrefix, opt.CurrentMultiplier)
 		}
 
 		if currIcons != "" && optIcons != "" {
@@ -2982,10 +2976,10 @@ func printDroneFarmingSetup(userID string, backup *ei.Backup, farm *ei.Backup_Si
 
 	artifactsStr.WriteString("-# 💡 Drone farming calculations are based on being on the **Enlightenment Farm** with Clarity Stones.\n")
 	if !isEnlightenment {
-		artifactsStr.WriteString(fmt.Sprintf("-# ⚠️ **Switch to Enlightenment Egg:** You are currently on %s %s — switch to the **Enlightenment Farm** to activate Clarity Stones for drone farming.\n", eggEmote, farmTypeStr))
+		fmt.Fprintf(&artifactsStr, "-# ⚠️ **Switch to Enlightenment Egg:** You are currently on %s %s — switch to the **Enlightenment Farm** to activate Clarity Stones for drone farming.\n", eggEmote, farmTypeStr)
 	}
 	if opt.HasActiveEvent && opt.EventMultiplier > 1.0 {
-		artifactsStr.WriteString(fmt.Sprintf("-# 🎉 **Active Periodicals Event:** %s amplifies drone rewards by **%.0fx** (ends <t:%d:R>).\n", opt.EventMessage, opt.EventMultiplier, opt.EventEndTime.Unix()))
+		fmt.Fprintf(&artifactsStr, "-# 🎉 **Active Periodicals Event:** %s amplifies drone rewards by **%.0fx** (ends <t:%d:R>).\n", opt.EventMessage, opt.EventMultiplier, opt.EventEndTime.Unix())
 	}
 	maxSlots := ei.GetMaxEquippedArtifacts(backup)
 	if maxSlots >= 3 {
