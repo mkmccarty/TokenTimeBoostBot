@@ -1903,7 +1903,7 @@ func printEarningsSetup(userID string, backup *ei.Backup, farm *ei.Backup_Simula
 
 	if isVirtue {
 		cte := ei.CalculateClothedTE(backup)
-		maxCTEResult := ei.CalculateMaxClothedTEWithSlotHint(backup, len(currentArtifacts))
+		maxCTEResult := ei.CalculateMaxClothedTEWithSlotHint(backup, ei.GetMaxEquippedArtifacts(backup))
 		maxCTE := maxCTEResult.ClothedTE
 		cteDelta := maxCTE - cte
 

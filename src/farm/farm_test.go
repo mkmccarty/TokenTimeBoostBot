@@ -1375,3 +1375,301 @@ func TestGetStonesSafeWithNilSlots(t *testing.T) {
 		t.Errorf("expected 0 slots from getArtifactSlotCount, got %d", s)
 	}
 }
+
+func TestOptimizeStandardPermitDelivery(t *testing.T) {
+	testUser := "100000000000000001"
+	tachyonEgg := ei.Egg_TACHYON
+	farm := &ei.Backup_Simulation{
+		FarmType:      ei.FarmType_HOME.Enum(),
+		EggType:       &tachyonEgg,
+		NumChickens:   protoUint64(10_000_000),
+		HabPopulation: []uint64{2_500_000, 2_500_000, 2_500_000, 2_500_000},
+		Habs:          []uint32{18, 18, 18, 18},
+		Vehicles:      []uint32{11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11},
+		TrainLength:   []uint32{10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10},
+	}
+
+	inventory := []*ei.ArtifactInventoryItem{
+		{
+			ItemId: protoUint64(1),
+			Artifact: &ei.CompleteArtifact{
+				Spec: &ei.ArtifactSpec{
+					Name:   ei.ArtifactSpec_QUANTUM_METRONOME.Enum(),
+					Level:  ei.ArtifactSpec_GREATER.Enum(),
+					Rarity: ei.ArtifactSpec_LEGENDARY.Enum(),
+				},
+			},
+			Quantity: protoFloat64(1),
+		},
+		{
+			ItemId: protoUint64(2),
+			Artifact: &ei.CompleteArtifact{
+				Spec: &ei.ArtifactSpec{
+					Name:   ei.ArtifactSpec_INTERSTELLAR_COMPASS.Enum(),
+					Level:  ei.ArtifactSpec_GREATER.Enum(),
+					Rarity: ei.ArtifactSpec_LEGENDARY.Enum(),
+				},
+			},
+			Quantity: protoFloat64(1),
+		},
+		{
+			ItemId: protoUint64(3),
+			Artifact: &ei.CompleteArtifact{
+				Spec: &ei.ArtifactSpec{
+					Name:   ei.ArtifactSpec_ORNATE_GUSSET.Enum(),
+					Level:  ei.ArtifactSpec_GREATER.Enum(),
+					Rarity: ei.ArtifactSpec_LEGENDARY.Enum(),
+				},
+			},
+			Quantity: protoFloat64(1),
+		},
+	}
+
+	backup := &ei.Backup{
+		UserId:   protoStr("EI1234567890123456"),
+		UserName: protoStr("StdPermitDeliveryTester"),
+		Farms:    []*ei.Backup_Simulation{farm},
+		Game:     &ei.Backup_Game{PermitLevel: protoUint32(0)}, // Standard permit = 2 slots
+		ArtifactsDb: &ei.ArtifactsDB{
+			InventoryItems: inventory,
+		},
+	}
+
+	res := OptimizeDelivery(backup, farm)
+	if len(res.OptimalArtifacts) > 2 {
+		t.Errorf("expected at most 2 optimal artifacts for standard permit, got %d", len(res.OptimalArtifacts))
+	}
+	if len(res.OptimalArtifacts) != 2 {
+		t.Errorf("expected exactly 2 optimal artifacts, got %d", len(res.OptimalArtifacts))
+	}
+
+	comps := printDeliverySetup(testUser, backup, farm, "", "")
+	body := comps[2].(dc.TextDisplay).Content
+	if !strings.Contains(body, "Optimal Setup:") {
+		t.Errorf("expected Optimal Setup in delivery: %s", body)
+	}
+}
+
+func TestOptimizeStandardPermitEarnings(t *testing.T) {
+	testUser := "100000000000000001"
+	tachyonEgg := ei.Egg_TACHYON
+	farm := &ei.Backup_Simulation{
+		FarmType:      ei.FarmType_HOME.Enum(),
+		EggType:       &tachyonEgg,
+		NumChickens:   protoUint64(10_000_000),
+		HabPopulation: []uint64{2_500_000, 2_500_000, 2_500_000, 2_500_000},
+		Habs:          []uint32{18, 18, 18, 18},
+	}
+
+	inventory := []*ei.ArtifactInventoryItem{
+		{
+			ItemId: protoUint64(1),
+			Artifact: &ei.CompleteArtifact{
+				Spec: &ei.ArtifactSpec{
+					Name:   ei.ArtifactSpec_LUNAR_TOTEM.Enum(),
+					Level:  ei.ArtifactSpec_GREATER.Enum(),
+					Rarity: ei.ArtifactSpec_LEGENDARY.Enum(),
+				},
+			},
+			Quantity: protoFloat64(1),
+		},
+		{
+			ItemId: protoUint64(2),
+			Artifact: &ei.CompleteArtifact{
+				Spec: &ei.ArtifactSpec{
+					Name:   ei.ArtifactSpec_DEMETERS_NECKLACE.Enum(),
+					Level:  ei.ArtifactSpec_GREATER.Enum(),
+					Rarity: ei.ArtifactSpec_LEGENDARY.Enum(),
+				},
+			},
+			Quantity: protoFloat64(1),
+		},
+		{
+			ItemId: protoUint64(3),
+			Artifact: &ei.CompleteArtifact{
+				Spec: &ei.ArtifactSpec{
+					Name:   ei.ArtifactSpec_TUNGSTEN_ANKH.Enum(),
+					Level:  ei.ArtifactSpec_GREATER.Enum(),
+					Rarity: ei.ArtifactSpec_LEGENDARY.Enum(),
+				},
+			},
+			Quantity: protoFloat64(1),
+		},
+	}
+
+	backup := &ei.Backup{
+		UserId:   protoStr("EI1234567890123456"),
+		UserName: protoStr("StdPermitEarningsTester"),
+		Farms:    []*ei.Backup_Simulation{farm},
+		Game:     &ei.Backup_Game{PermitLevel: protoUint32(0)}, // Standard permit = 2 slots
+		ArtifactsDb: &ei.ArtifactsDB{
+			InventoryItems: inventory,
+		},
+	}
+
+	res := OptimizeEarnings(backup, farm)
+	if len(res.OptimalArtifacts) > 2 {
+		t.Errorf("expected at most 2 optimal artifacts for standard permit, got %d", len(res.OptimalArtifacts))
+	}
+	if len(res.OptimalArtifacts) != 2 {
+		t.Errorf("expected exactly 2 optimal artifacts, got %d", len(res.OptimalArtifacts))
+	}
+
+	comps := printEarningsSetup(testUser, backup, farm, "", "")
+	body := comps[2].(dc.TextDisplay).Content
+	if !strings.Contains(body, "Optimal Setup:") {
+		t.Errorf("expected Optimal Setup in earnings: %s", body)
+	}
+}
+
+func TestOptimizeStandardPermitDroneFarming(t *testing.T) {
+	testUser := "100000000000000001"
+	enlightenmentEgg := ei.Egg_ENLIGHTENMENT
+	farm := &ei.Backup_Simulation{
+		FarmType: ei.FarmType_HOME.Enum(),
+		EggType:  &enlightenmentEgg,
+	}
+
+	inventory := []*ei.ArtifactInventoryItem{
+		{
+			ItemId: protoUint64(1),
+			Artifact: &ei.CompleteArtifact{
+				Spec: &ei.ArtifactSpec{
+					Name:   ei.ArtifactSpec_AURELIAN_BROOCH.Enum(),
+					Level:  ei.ArtifactSpec_GREATER.Enum(),
+					Rarity: ei.ArtifactSpec_LEGENDARY.Enum(),
+				},
+			},
+			Quantity: protoFloat64(1),
+		},
+		{
+			ItemId: protoUint64(2),
+			Artifact: &ei.CompleteArtifact{
+				Spec: &ei.ArtifactSpec{
+					Name:   ei.ArtifactSpec_NEODYMIUM_MEDALLION.Enum(),
+					Level:  ei.ArtifactSpec_GREATER.Enum(),
+					Rarity: ei.ArtifactSpec_LEGENDARY.Enum(),
+				},
+			},
+			Quantity: protoFloat64(1),
+		},
+		{
+			ItemId: protoUint64(3),
+			Artifact: &ei.CompleteArtifact{
+				Spec: &ei.ArtifactSpec{
+					Name:   ei.ArtifactSpec_BEAK_OF_MIDAS.Enum(),
+					Level:  ei.ArtifactSpec_GREATER.Enum(),
+					Rarity: ei.ArtifactSpec_LEGENDARY.Enum(),
+				},
+			},
+			Quantity: protoFloat64(1),
+		},
+		{
+			ItemId: protoUint64(4),
+			Artifact: &ei.CompleteArtifact{
+				Spec: &ei.ArtifactSpec{
+					Name:  ei.ArtifactSpec_CLARITY_STONE.Enum(),
+					Level: ei.ArtifactSpec_NORMAL.Enum(), // T4 100%
+				},
+			},
+			Quantity: protoFloat64(10),
+		},
+	}
+
+	backup := &ei.Backup{
+		UserId:   protoStr("EI1234567890123456"),
+		UserName: protoStr("StdPermitDroneTester"),
+		Farms:    []*ei.Backup_Simulation{farm},
+		Game:     &ei.Backup_Game{PermitLevel: protoUint32(0)}, // Standard permit = 2 slots
+		ArtifactsDb: &ei.ArtifactsDB{
+			InventoryItems: inventory,
+		},
+	}
+
+	res := OptimizeDroneFarming(backup, farm)
+	if len(res.OptimalArtifacts) != 2 {
+		t.Fatalf("expected exactly 2 optimal artifacts for standard permit drone farming, got %d", len(res.OptimalArtifacts))
+	}
+
+	comps := printDroneFarmingSetup(testUser, backup, farm, "", "")
+	body := comps[2].(dc.TextDisplay).Content
+	if strings.Contains(body, "4th slot can be used for any utility") {
+		t.Errorf("standard permit should not mention 4th slot utility tip: %s", body)
+	}
+}
+
+func TestOptimizeStandardPermitVirtueEarnings(t *testing.T) {
+	testUser := "100000000000000001"
+	curiosityEgg := ei.Egg_CURIOSITY
+	farm := &ei.Backup_Simulation{
+		FarmType:      ei.FarmType_HOME.Enum(),
+		EggType:       &curiosityEgg,
+		NumChickens:   protoUint64(10_000_000),
+		HabPopulation: []uint64{2_500_000, 2_500_000, 2_500_000, 2_500_000},
+		Habs:          []uint32{18, 18, 18, 18},
+	}
+
+	inventory := []*ei.ArtifactInventoryItem{
+		{
+			ItemId: protoUint64(1),
+			Artifact: &ei.CompleteArtifact{
+				Spec: &ei.ArtifactSpec{
+					Name:   ei.ArtifactSpec_LUNAR_TOTEM.Enum(),
+					Level:  ei.ArtifactSpec_GREATER.Enum(),
+					Rarity: ei.ArtifactSpec_LEGENDARY.Enum(),
+				},
+			},
+			Quantity: protoFloat64(1),
+		},
+		{
+			ItemId: protoUint64(2),
+			Artifact: &ei.CompleteArtifact{
+				Spec: &ei.ArtifactSpec{
+					Name:   ei.ArtifactSpec_DEMETERS_NECKLACE.Enum(),
+					Level:  ei.ArtifactSpec_GREATER.Enum(),
+					Rarity: ei.ArtifactSpec_LEGENDARY.Enum(),
+				},
+			},
+			Quantity: protoFloat64(1),
+		},
+		{
+			ItemId: protoUint64(3),
+			Artifact: &ei.CompleteArtifact{
+				Spec: &ei.ArtifactSpec{
+					Name:   ei.ArtifactSpec_TUNGSTEN_ANKH.Enum(),
+					Level:  ei.ArtifactSpec_GREATER.Enum(),
+					Rarity: ei.ArtifactSpec_LEGENDARY.Enum(),
+				},
+			},
+			Quantity: protoFloat64(1),
+		},
+		{
+			ItemId: protoUint64(4),
+			Artifact: &ei.CompleteArtifact{
+				Spec: &ei.ArtifactSpec{
+					Name:  ei.ArtifactSpec_LUNAR_STONE.Enum(),
+					Level: ei.ArtifactSpec_NORMAL.Enum(),
+				},
+			},
+			Quantity: protoFloat64(12),
+		},
+	}
+
+	backup := &ei.Backup{
+		UserId:   protoStr("EI1234567890123456"),
+		UserName: protoStr("StdPermitVirtueTester"),
+		Farms:    []*ei.Backup_Simulation{farm},
+		Game:     &ei.Backup_Game{PermitLevel: protoUint32(0)}, // Standard permit = 2 slots
+		ArtifactsDb: &ei.ArtifactsDB{
+			VirtueAfxDb: &ei.ArtifactsDB_VirtueDB{
+				InventoryItems: inventory,
+			},
+		},
+	}
+
+	comps := printEarningsSetup(testUser, backup, farm, "", "")
+	body := comps[2].(dc.TextDisplay).Content
+	if !strings.Contains(body, "Optimal Setup:") {
+		t.Errorf("expected Optimal Setup in virtue earnings: %s", body)
+	}
+}
