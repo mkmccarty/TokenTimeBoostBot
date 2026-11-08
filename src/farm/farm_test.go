@@ -238,6 +238,14 @@ func TestOptimizeDeliveryCalculation(t *testing.T) {
 			}
 		}
 	}
+
+	delBody := comps[2].(dc.TextDisplay).Content
+	if !strings.Contains(delBody, "[1.05^7]=1.41x") {
+		t.Errorf("expected '[1.05^7]=1.41x' in delivery formula, got: %s", delBody)
+	}
+	if !strings.Contains(delBody, "[1.05^4]=1.22x") {
+		t.Errorf("expected '[1.05^4]=1.22x' in shipping formula, got: %s", delBody)
+	}
 }
 
 func makeTestEncryptedEID(t *testing.T, plainEID string) string {
@@ -2227,5 +2235,57 @@ func TestPrintEarningsSetupVirtueWithEquippedGusset(t *testing.T) {
 	}
 	if gussetIdx >= optimalIdx {
 		t.Errorf("expected '**Equipped Gusset Setup:**' to appear BEFORE '**Optimal Setup:**' (gussetIdx=%d, optimalIdx=%d)", gussetIdx, optimalIdx)
+	}
+}
+
+func TestStoneFormulaFormatting(t *testing.T) {
+	t4LunarStone := &ei.ArtifactSpec{
+		Name:  ei.ArtifactSpec_LUNAR_STONE.Enum(),
+		Level: ei.ArtifactSpec_NORMAL.Enum(), // T4
+	}
+	t4TachyonStone := &ei.ArtifactSpec{
+		Name:  ei.ArtifactSpec_TACHYON_STONE.Enum(),
+		Level: ei.ArtifactSpec_NORMAL.Enum(), // T4
+	}
+
+	// 1. Multiple stones: count > 1 should produce [base^count]=multx
+	multiTerm := formatStoneFormulaTerm(t4TachyonStone, 7, 1.05, 1.4071)
+	if !strings.Contains(multiTerm, "[1.05^7]=1.41x") {
+		t.Errorf("expected multi-stone term to contain '[1.05^7]=1.41x', got: %s", multiTerm)
+	}
+
+	// 2. Single stone: count == 1 should produce standard multx without exponent bracket
+	singleTerm := formatStoneFormulaTerm(t4TachyonStone, 1, 1.05, 1.05)
+	if !strings.HasSuffix(singleTerm, " 1.05x") || strings.Contains(singleTerm, "^") {
+		t.Errorf("expected single stone term to be '1.05x' without exponent, got: %s", singleTerm)
+	}
+
+	// 3. Earnings formula with 12 Lunar stones
+	t4Totem := &ei.CompleteArtifact{
+		Spec: &ei.ArtifactSpec{
+			Name:   ei.ArtifactSpec_LUNAR_TOTEM.Enum(),
+			Level:  ei.ArtifactSpec_GREATER.Enum(),
+			Rarity: ei.ArtifactSpec_COMMON.Enum(),
+		},
+	}
+	t4Ankh := &ei.CompleteArtifact{
+		Spec: &ei.ArtifactSpec{
+			Name:   ei.ArtifactSpec_TUNGSTEN_ANKH.Enum(),
+			Level:  ei.ArtifactSpec_GREATER.Enum(),
+			Rarity: ei.ArtifactSpec_LEGENDARY.Enum(),
+		},
+		Stones: []*ei.ArtifactSpec{t4LunarStone, t4LunarStone, t4LunarStone},
+	}
+	t4Necklace := &ei.CompleteArtifact{
+		Spec: &ei.ArtifactSpec{
+			Name:   ei.ArtifactSpec_DEMETERS_NECKLACE.Enum(),
+			Level:  ei.ArtifactSpec_GREATER.Enum(),
+			Rarity: ei.ArtifactSpec_LEGENDARY.Enum(),
+		},
+		Stones: []*ei.ArtifactSpec{t4LunarStone, t4LunarStone, t4LunarStone},
+	}
+	fStr := buildEarningsFormula([]*ei.CompleteArtifact{t4Totem, t4Ankh, t4Necklace}, 50000, 1.0, false, ei.DimensionBuffs{}, ei.ColleggtiblesOverview{})
+	if !strings.Contains(fStr, "[1.40^6]=7.53x") {
+		t.Errorf("expected earnings formula with 6 Lunar stones to contain '[1.40^6]=7.53x', got: %s", fStr)
 	}
 }

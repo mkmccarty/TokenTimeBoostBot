@@ -1599,6 +1599,21 @@ func formatEquippedEarningsArtifactsSection(currentArtifacts []*ei.CompleteArtif
 	return sb.String()
 }
 
+type stoneFormulaGroup struct {
+	spec  *ei.ArtifactSpec
+	count int
+	base  float64
+	mult  float64
+}
+
+func formatStoneFormulaTerm(spec *ei.ArtifactSpec, count int, baseMult, totalMult float64) string {
+	emoji := getStoneEmojiMarkdown(spec.GetName(), spec.GetLevel())
+	if count > 1 {
+		return fmt.Sprintf("%s [%.2f^%d]=%.2fx", emoji, baseMult, count, totalMult)
+	}
+	return fmt.Sprintf("%s %.2fx", emoji, totalMult)
+}
+
 func buildEarningsFormula(artifacts []*ei.CompleteArtifact, totalMultiplier, eventMult float64, hasActiveEvent bool, colBuffs ei.DimensionBuffs, colOverview ei.ColleggtiblesOverview) string {
 	var terms []string
 	for _, a := range artifacts {
@@ -1624,13 +1639,8 @@ func buildEarningsFormula(artifacts []*ei.CompleteArtifact, totalMultiplier, eve
 		}
 	}
 
-	type stoneData struct {
-		spec  *ei.ArtifactSpec
-		count int
-		mult  float64
-	}
-	stonesByType := make(map[ei.ArtifactSpec_Name]*stoneData)
-	var stoneOrder []ei.ArtifactSpec_Name
+	stonesByGroup := make(map[string]*stoneFormulaGroup)
+	var stoneGroupOrder []string
 
 	for _, a := range artifacts {
 		for _, st := range a.GetStones() {
@@ -1652,21 +1662,20 @@ func buildEarningsFormula(artifacts []*ei.CompleteArtifact, totalMultiplier, eve
 				continue
 			}
 			if mult > 1.0 {
-				name := st.GetName()
-				if _, ok := stonesByType[name]; !ok {
-					stonesByType[name] = &stoneData{spec: st, mult: 1.0}
-					stoneOrder = append(stoneOrder, name)
+				key := fmt.Sprintf("%d_%d", st.GetName(), st.GetLevel())
+				if _, ok := stonesByGroup[key]; !ok {
+					stonesByGroup[key] = &stoneFormulaGroup{spec: st, count: 0, base: mult, mult: 1.0}
+					stoneGroupOrder = append(stoneGroupOrder, key)
 				}
-				stonesByType[name].count++
-				stonesByType[name].mult *= mult
+				stonesByGroup[key].count++
+				stonesByGroup[key].mult *= mult
 			}
 		}
 	}
 
-	for _, name := range stoneOrder {
-		sd := stonesByType[name]
-		stoneEmoji := getStoneEmojiMarkdown(sd.spec.GetName(), sd.spec.GetLevel())
-		terms = append(terms, fmt.Sprintf("%s %.2fx", stoneEmoji, sd.mult))
+	for _, key := range stoneGroupOrder {
+		sd := stonesByGroup[key]
+		terms = append(terms, formatStoneFormulaTerm(sd.spec, sd.count, sd.base, sd.mult))
 	}
 
 	// Colleggtibles contributing to earnings
@@ -1785,12 +1794,15 @@ func buildDeliveryFormula(artifacts []*ei.CompleteArtifact, deliveryRate float64
 	metronomeMult := 1.0
 	compassMult := 1.0
 	gussetMult := 1.0
-	tachCount := 0
 	tachMult := 1.0
-	quantCount := 0
 	quantMult := 1.0
 
-	var metrEmoji, compEmoji, gussetEmoji, tachEmoji, quantEmoji string
+	var metrEmoji, compEmoji, gussetEmoji string
+
+	tachGroups := make(map[ei.ArtifactSpec_Level]*stoneFormulaGroup)
+	var tachOrder []ei.ArtifactSpec_Level
+	quantGroups := make(map[ei.ArtifactSpec_Level]*stoneFormulaGroup)
+	var quantOrder []ei.ArtifactSpec_Level
 
 	for _, a := range artifacts {
 		if a == nil || a.GetSpec() == nil {
@@ -1824,19 +1836,27 @@ func buildDeliveryFormula(artifacts []*ei.CompleteArtifact, deliveryRate float64
 			switch st.GetName() {
 			case ei.ArtifactSpec_TACHYON_STONE:
 				if lvl >= 0 && lvl < len(tachyonStoneBuffs) {
-					tachMult *= tachyonStoneBuffs[lvl]
-					tachCount++
-					if tachEmoji == "" {
-						tachEmoji = getStoneEmojiMarkdown(st.GetName(), st.GetLevel())
+					b := tachyonStoneBuffs[lvl]
+					tachMult *= b
+					level := st.GetLevel()
+					if _, ok := tachGroups[level]; !ok {
+						tachGroups[level] = &stoneFormulaGroup{spec: st, count: 0, base: b, mult: 1.0}
+						tachOrder = append(tachOrder, level)
 					}
+					tachGroups[level].count++
+					tachGroups[level].mult *= b
 				}
 			case ei.ArtifactSpec_QUANTUM_STONE:
 				if lvl >= 0 && lvl < len(quantumStoneBuffs) {
-					quantMult *= quantumStoneBuffs[lvl]
-					quantCount++
-					if quantEmoji == "" {
-						quantEmoji = getStoneEmojiMarkdown(st.GetName(), st.GetLevel())
+					b := quantumStoneBuffs[lvl]
+					quantMult *= b
+					level := st.GetLevel()
+					if _, ok := quantGroups[level]; !ok {
+						quantGroups[level] = &stoneFormulaGroup{spec: st, count: 0, base: b, mult: 1.0}
+						quantOrder = append(quantOrder, level)
 					}
+					quantGroups[level].count++
+					quantGroups[level].mult *= b
 				}
 			}
 		}
@@ -1864,8 +1884,9 @@ func buildDeliveryFormula(artifacts []*ei.CompleteArtifact, deliveryRate float64
 	if metronomeMult != 1 {
 		elrTerms = append(elrTerms, fmt.Sprintf("%s %.2fx", metrEmoji, metronomeMult))
 	}
-	if tachCount > 0 {
-		elrTerms = append(elrTerms, fmt.Sprintf("%s %d× %.2fx", tachEmoji, tachCount, tachMult))
+	for _, lvl := range tachOrder {
+		g := tachGroups[lvl]
+		elrTerms = append(elrTerms, formatStoneFormulaTerm(g.spec, g.count, g.base, g.mult))
 	}
 	colElrTerms := getColleggtibleFormulaTerms(colOverview, ei.GameModifier_EGG_LAYING_RATE)
 	if len(colElrTerms) > 0 {
@@ -1919,8 +1940,9 @@ func buildDeliveryFormula(artifacts []*ei.CompleteArtifact, deliveryRate float64
 	if compassMult != 1 {
 		srTerms = append(srTerms, fmt.Sprintf("%s %.2fx", compEmoji, compassMult))
 	}
-	if quantCount > 0 {
-		srTerms = append(srTerms, fmt.Sprintf("%s %d× %.2fx", quantEmoji, quantCount, quantMult))
+	for _, lvl := range quantOrder {
+		g := quantGroups[lvl]
+		srTerms = append(srTerms, formatStoneFormulaTerm(g.spec, g.count, g.base, g.mult))
 	}
 	colSrTerms := getColleggtibleFormulaTerms(colOverview, ei.GameModifier_SHIPPING_CAPACITY)
 	if len(colSrTerms) > 0 {
