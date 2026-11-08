@@ -2,48 +2,202 @@ package farm
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"math"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc/dctest"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
-	"google.golang.org/protobuf/encoding/protojson"
 )
 
+func setupDeliveryTestResearches() {
+	if ei.EggIncResearchesMap == nil {
+		ei.EggIncResearchesMap = make(map[string]ei.EggResearches)
+	}
+	ensureResearch := func(id, effectType string, perLevel float64, compound string) {
+		ei.EggIncResearchesMap[id] = ei.EggResearches{
+			ID:             id,
+			EffectType:     effectType,
+			PerLevel:       perLevel,
+			LevelsCompound: compound,
+		}
+	}
+	ensureResearch("comfy_nests", "multiplicative", 0.1, "additive")
+	ensureResearch("hen_house_ac", "multiplicative", 0.05, "additive")
+	ensureResearch("improved_genetics", "multiplicative", 0.15, "additive")
+	ensureResearch("time_compress", "multiplicative", 0.1, "additive")
+	ensureResearch("timeline_diversion", "multiplicative", 0.02, "additive")
+	ensureResearch("relativity_optimization", "multiplicative", 0.1, "additive")
+	ensureResearch("epic_egg_laying", "multiplicative", 0.05, "additive")
+	ensureResearch("hab_capacity1", "multiplicative", 0.05, "additive")
+	ensureResearch("microlux", "multiplicative", 0.05, "additive")
+	ensureResearch("grav_plating", "multiplicative", 0.02, "additive")
+	ensureResearch("wormhole_dampening", "multiplicative", 0.02, "additive")
+	ensureResearch("leafsprings", "multiplicative", 0.05, "additive")
+	ensureResearch("lightweight_boxes", "multiplicative", 0.1, "additive")
+	ensureResearch("driver_training", "multiplicative", 0.05, "additive")
+	ensureResearch("super_alloy", "multiplicative", 0.05, "additive")
+	ensureResearch("quantum_storage", "multiplicative", 0.05, "additive")
+	ensureResearch("dark_containment", "multiplicative", 0.05, "additive")
+	ensureResearch("neural_net_refine", "multiplicative", 0.05, "additive")
+	ensureResearch("hyper_portalling", "multiplicative", 0.05, "additive")
+	ensureResearch("transportation_lobbyist", "multiplicative", 0.05, "additive")
+	ensureResearch("hover_upgrades", "multiplicative", 0.05, "additive")
+
+	if ei.CustomEggMap == nil {
+		ei.CustomEggMap = make(map[string]*ei.EggIncCustomEgg)
+	}
+	setCustomEgg := func(id string, dim ei.GameModifier_GameDimension) {
+		ei.CustomEggMap[id] = &ei.EggIncCustomEgg{
+			ID:             id,
+			Dimension:      dim,
+			DimensionValue: []float64{1.01, 1.02, 1.03, 1.05},
+		}
+	}
+	setCustomEgg("carbon-fiber", ei.GameModifier_SHIPPING_CAPACITY)
+	setCustomEgg("pumpkin", ei.GameModifier_SHIPPING_CAPACITY)
+	setCustomEgg("silicon", ei.GameModifier_EGG_LAYING_RATE)
+	setCustomEgg("gatoregg", ei.GameModifier_EGG_LAYING_RATE)
+	setCustomEgg("pegg", ei.GameModifier_HAB_CAPACITY)
+}
+
 func TestOptimizeDeliveryCalculation(t *testing.T) {
-	ei.LoadResearchData("../../ttbb-data/ei-researches.json")
-	boost.LoadContractData("../../ttbb-data/ei-contracts.json")
-	if customEggBytes, err := os.ReadFile("../../ttbb-data/ei-customeggs.json"); err == nil {
-		_ = json.Unmarshal(customEggBytes, &ei.CustomEggMap)
+	setupDeliveryTestResearches()
+
+	tachyonStoneSpec := &ei.ArtifactSpec{
+		Name:  ei.ArtifactSpec_TACHYON_STONE.Enum(),
+		Level: ei.ArtifactSpec_NORMAL.Enum(),
 	}
-	files, err := filepath.Glob("../eb/ttbb-data/eiuserdata/firstcontact-*.json")
-	if err != nil || len(files) == 0 {
-		t.Skip("user file not found")
-	}
-	b, err := os.ReadFile(files[0])
-	if err != nil {
-		t.Skip("could not read test file")
-	}
-	var backup ei.Backup
-	if err := protojson.Unmarshal(b, &backup); err != nil {
-		t.Fatalf("unmarshal error: %v", err)
+	quantumStoneSpec := &ei.ArtifactSpec{
+		Name:  ei.ArtifactSpec_QUANTUM_STONE.Enum(),
+		Level: ei.ArtifactSpec_NORMAL.Enum(),
 	}
 
-	farm := getActiveFarm(&backup)
-	if farm == nil {
-		t.Fatal("expected active farm")
+	equippedMetronome := &ei.CompleteArtifact{
+		Spec: &ei.ArtifactSpec{
+			Name:   ei.ArtifactSpec_QUANTUM_METRONOME.Enum(),
+			Level:  ei.ArtifactSpec_GREATER.Enum(),
+			Rarity: ei.ArtifactSpec_LEGENDARY.Enum(),
+		},
+		Stones: []*ei.ArtifactSpec{tachyonStoneSpec, tachyonStoneSpec, tachyonStoneSpec},
+	}
+	equippedCompass := &ei.CompleteArtifact{
+		Spec: &ei.ArtifactSpec{
+			Name:   ei.ArtifactSpec_INTERSTELLAR_COMPASS.Enum(),
+			Level:  ei.ArtifactSpec_GREATER.Enum(),
+			Rarity: ei.ArtifactSpec_LEGENDARY.Enum(),
+		},
+		Stones: []*ei.ArtifactSpec{quantumStoneSpec, quantumStoneSpec},
+	}
+	equippedGusset := &ei.CompleteArtifact{
+		Spec: &ei.ArtifactSpec{
+			Name:   ei.ArtifactSpec_ORNATE_GUSSET.Enum(),
+			Level:  ei.ArtifactSpec_GREATER.Enum(),
+			Rarity: ei.ArtifactSpec_LEGENDARY.Enum(),
+		},
+		Stones: []*ei.ArtifactSpec{tachyonStoneSpec, tachyonStoneSpec, tachyonStoneSpec},
+	}
+	equippedChalice := &ei.CompleteArtifact{
+		Spec: &ei.ArtifactSpec{
+			Name:   ei.ArtifactSpec_THE_CHALICE.Enum(),
+			Level:  ei.ArtifactSpec_GREATER.Enum(),
+			Rarity: ei.ArtifactSpec_LEGENDARY.Enum(),
+		},
+		Stones: []*ei.ArtifactSpec{quantumStoneSpec, quantumStoneSpec, tachyonStoneSpec},
 	}
 
-	contracts := backup.GetContracts()
+	inventory := []*ei.ArtifactInventoryItem{
+		{ItemId: protoUint64(1), Artifact: equippedMetronome, Quantity: protoFloat64(1)},
+		{ItemId: protoUint64(2), Artifact: equippedCompass, Quantity: protoFloat64(1)},
+		{ItemId: protoUint64(3), Artifact: equippedGusset, Quantity: protoFloat64(1)},
+		{ItemId: protoUint64(4), Artifact: equippedChalice, Quantity: protoFloat64(1)},
+	}
+
+	activeSlots := []*ei.ActiveArtifactSlot{
+		{Occupied: protoBool(true), ItemId: protoUint64(1)},
+		{Occupied: protoBool(true), ItemId: protoUint64(2)},
+		{Occupied: protoBool(true), ItemId: protoUint64(3)},
+		{Occupied: protoBool(true), ItemId: protoUint64(4)},
+	}
+
+	commonResearch := []*ei.Backup_ResearchItem{
+		{Id: protoStr("comfy_nests"), Level: protoUint32(50)},
+		{Id: protoStr("hen_house_ac"), Level: protoUint32(50)},
+		{Id: protoStr("improved_genetics"), Level: protoUint32(30)},
+		{Id: protoStr("time_compress"), Level: protoUint32(20)},
+		{Id: protoStr("timeline_diversion"), Level: protoUint32(36)},
+		{Id: protoStr("hab_capacity1"), Level: protoUint32(8)},
+		{Id: protoStr("microlux"), Level: protoUint32(10)},
+		{Id: protoStr("grav_plating"), Level: protoUint32(25)},
+		{Id: protoStr("wormhole_dampening"), Level: protoUint32(8)},
+		{Id: protoStr("leafsprings"), Level: protoUint32(30)},
+		{Id: protoStr("lightweight_boxes"), Level: protoUint32(40)},
+		{Id: protoStr("driver_training"), Level: protoUint32(30)},
+		{Id: protoStr("super_alloy"), Level: protoUint32(50)},
+		{Id: protoStr("quantum_storage"), Level: protoUint32(20)},
+		{Id: protoStr("dark_containment"), Level: protoUint32(23)},
+		{Id: protoStr("neural_net_refine"), Level: protoUint32(11)},
+		{Id: protoStr("hover_upgrades"), Level: protoUint32(25)},
+	}
+
+	epicResearch := []*ei.Backup_ResearchItem{
+		{Id: protoStr("epic_egg_laying"), Level: protoUint32(20)},
+		{Id: protoStr("transportation_lobbyist"), Level: protoUint32(30)},
+	}
+
+	vehicles := make([]uint32, 17)
+	trainLength := make([]uint32, 17)
+	for i := 0; i < 17; i++ {
+		vehicles[i] = 11 // Hyperloop
+		trainLength[i] = 8
+	}
+
+	habs := []uint32{18, 18, 18, 18}
+	habPopulation := []uint64{2877525000, 2877525000, 2877525000, 2877525000}
+
+	farm := &ei.Backup_Simulation{
+		EggType:        ei.Egg_KINDNESS.Enum(),
+		FarmType:       ei.FarmType_HOME.Enum(),
+		Habs:           habs,
+		HabPopulation:  habPopulation,
+		Vehicles:       vehicles,
+		TrainLength:    trainLength,
+		CommonResearch: commonResearch,
+	}
+
+	contracts := &ei.MyContracts{
+		ColleggtibleMaxFarmSizeReached: []*ei.ColleggtibleMaxFarmSize{
+			{EggId: protoStr("carbon-fiber"), MaxFarmSizeReached: protoFloat64(14883750000)},
+			{EggId: protoStr("pumpkin"), MaxFarmSizeReached: protoFloat64(14883750000)},
+			{EggId: protoStr("silicon"), MaxFarmSizeReached: protoFloat64(14883750000)},
+			{EggId: protoStr("gatoregg"), MaxFarmSizeReached: protoFloat64(14883750000)},
+			{EggId: protoStr("pegg"), MaxFarmSizeReached: protoFloat64(14883750000)},
+		},
+	}
+
+	backup := ei.Backup{
+		UserId:   protoStr("EI1234567890123456"),
+		UserName: protoStr("DeliveryTester"),
+		Farms:    []*ei.Backup_Simulation{farm},
+		Game: &ei.Backup_Game{
+			PermitLevel:  protoUint32(1),
+			EpicResearch: epicResearch,
+		},
+		Contracts: contracts,
+		ArtifactsDb: &ei.ArtifactsDB{
+			VirtueAfxDb: &ei.ArtifactsDB_VirtueDB{
+				InventoryItems: inventory,
+				ActiveArtifacts: &ei.ArtifactsDB_ActiveArtifactSet{
+					Slots: activeSlots,
+				},
+			},
+		},
+	}
+
 	t.Logf("contracts.Colleggtibles: %d", len(contracts.GetColleggtibleMaxFarmSizeReached()))
 	for _, s := range contracts.GetColleggtibleMaxFarmSizeReached() {
 		t.Logf("colleggtible: egg=%s, maxFarmSize=%f", s.GetEggId(), s.GetMaxFarmSizeReached())
@@ -1671,5 +1825,36 @@ func TestOptimizeStandardPermitVirtueEarnings(t *testing.T) {
 	body := comps[2].(dc.TextDisplay).Content
 	if !strings.Contains(body, "Optimal Setup:") {
 		t.Errorf("expected Optimal Setup in virtue earnings: %s", body)
+	}
+}
+
+func TestFormatSingleArtifactBuffs(t *testing.T) {
+	t4lTotem := &ei.CompleteArtifact{
+		Spec: &ei.ArtifactSpec{
+			Name:   ei.ArtifactSpec_LUNAR_TOTEM.Enum(),
+			Level:  ei.ArtifactSpec_GREATER.Enum(),
+			Rarity: ei.ArtifactSpec_LEGENDARY.Enum(),
+		},
+		Stones: []*ei.ArtifactSpec{
+			{Name: ei.ArtifactSpec_LUNAR_STONE.Enum(), Level: ei.ArtifactSpec_NORMAL.Enum()},
+			{Name: ei.ArtifactSpec_LUNAR_STONE.Enum(), Level: ei.ArtifactSpec_NORMAL.Enum()},
+			{Name: ei.ArtifactSpec_LUNAR_STONE.Enum(), Level: ei.ArtifactSpec_NORMAL.Enum()},
+		},
+	}
+	buffStr := formatSingleArtifactBuffs(t4lTotem, false)
+	if !strings.Contains(buffStr, "200x Away") || !strings.Contains(buffStr, "+174% (2.7x) Away") {
+		t.Errorf("expected totem with 3 lunar stones to show stone buff and totem multiplier, got: %s", buffStr)
+	}
+
+	plainTotem := &ei.CompleteArtifact{
+		Spec: &ei.ArtifactSpec{
+			Name:   ei.ArtifactSpec_LUNAR_TOTEM.Enum(),
+			Level:  ei.ArtifactSpec_GREATER.Enum(),
+			Rarity: ei.ArtifactSpec_LEGENDARY.Enum(),
+		},
+	}
+	plainStr := formatSingleArtifactBuffs(plainTotem, false)
+	if plainStr != "200x Away" {
+		t.Errorf("expected plain totem to show '200x Away', got: %s", plainStr)
 	}
 }
