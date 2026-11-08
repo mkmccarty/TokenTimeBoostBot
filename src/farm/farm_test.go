@@ -240,11 +240,11 @@ func TestOptimizeDeliveryCalculation(t *testing.T) {
 	}
 
 	delBody := comps[2].(dc.TextDisplay).Content
-	if !strings.Contains(delBody, "[1.05^7]=1.41x") {
-		t.Errorf("expected '[1.05^7]=1.41x' in delivery formula, got: %s", delBody)
+	if !strings.Contains(delBody, "[1.05^7]=1.41") {
+		t.Errorf("expected '[1.05^7]=1.41' in delivery formula, got: %s", delBody)
 	}
-	if !strings.Contains(delBody, "[1.05^4]=1.22x") {
-		t.Errorf("expected '[1.05^4]=1.22x' in shipping formula, got: %s", delBody)
+	if !strings.Contains(delBody, "[1.05^4]=1.22") {
+		t.Errorf("expected '[1.05^4]=1.22' in shipping formula, got: %s", delBody)
 	}
 }
 
@@ -862,14 +862,14 @@ func TestPrintDeliveryAndEarningsDetailed(t *testing.T) {
 		t.Errorf("expected '🚚 Shipping:' in delivery formula: %s", delBody)
 	}
 	// Verify that colleggtibles in the formula display individual egg emojis rather than generic :collegg:
-	if !strings.Contains(delBody, "<:egg_carbonfiber:1001> 1.05x") {
-		t.Errorf("expected <:egg_carbonfiber:1001> 1.05x in shipping formula: %s", delBody)
+	if !strings.Contains(delBody, "<:egg_carbonfiber:1001> 1.05") {
+		t.Errorf("expected <:egg_carbonfiber:1001> 1.05 in shipping formula: %s", delBody)
 	}
-	if !strings.Contains(delBody, "<:egg_pumpkin:1002> 1.05x") {
-		t.Errorf("expected <:egg_pumpkin:1002> 1.05x in laying formula: %s", delBody)
+	if !strings.Contains(delBody, "<:egg_pumpkin:1002> 1.05") {
+		t.Errorf("expected <:egg_pumpkin:1002> 1.05 in laying formula: %s", delBody)
 	}
-	if !strings.Contains(delBody, "<:egg_pegg:1003> 1.05x") {
-		t.Errorf("expected <:egg_pegg:1003> 1.05x in hab formula: %s", delBody)
+	if !strings.Contains(delBody, "<:egg_pegg:1003> 1.05") {
+		t.Errorf("expected <:egg_pegg:1003> 1.05 in hab formula: %s", delBody)
 	}
 	formulaSection := delBody[strings.Index(delBody, "Formulas:"):strings.Index(delBody, "📦 Delivery:")]
 	if strings.Contains(formulaSection, "<:collegg:9999>") {
@@ -1068,14 +1068,14 @@ func TestPrintEarningsSetupWithColleggtibles(t *testing.T) {
 	earnBody := comps[2].(dc.TextDisplay).Content
 
 	// Check that the formula contains the individual colleggtible egg emojis and their multiplier
-	if !strings.Contains(earnBody, "<:egg_firework:1005> 1.05x") {
-		t.Errorf("expected <:egg_firework:1005> 1.05x in earnings formula: %s", earnBody)
+	if !strings.Contains(earnBody, "<:egg_firework:1005> 1.05") {
+		t.Errorf("expected <:egg_firework:1005> 1.05 in earnings formula: %s", earnBody)
 	}
-	if !strings.Contains(earnBody, "<:egg_chocolate:1004> 3.00x") {
-		t.Errorf("expected <:egg_chocolate:1004> 3.00x in earnings formula: %s", earnBody)
+	if !strings.Contains(earnBody, "<:egg_chocolate:1004> 3.00") {
+		t.Errorf("expected <:egg_chocolate:1004> 3.00 in earnings formula: %s", earnBody)
 	}
-	if !strings.Contains(earnBody, "<:egg_wood:1006> 2.00x") {
-		t.Errorf("expected <:egg_wood:1006> 2.00x in earnings formula: %s", earnBody)
+	if !strings.Contains(earnBody, "<:egg_wood:1006> 2.00") {
+		t.Errorf("expected <:egg_wood:1006> 2.00 in earnings formula: %s", earnBody)
 	}
 
 	// Verify that the total multiplier reflects colleggtible buffs
@@ -1934,7 +1934,7 @@ func TestPuzzleCubeBuffsAndFormulas(t *testing.T) {
 
 	// 2. buildResearchCostFormula without colleggtibles
 	resFormula := buildResearchCostFormula(t4lCube, ei.DimensionBuffs{}, ei.ColleggtiblesOverview{})
-	if !strings.Contains(resFormula, "🔬 Research Cost: **-60%**") || !strings.Contains(resFormula, "0.40x") {
+	if !strings.Contains(resFormula, "🔬 Research Cost: **-60%**") || !strings.Contains(resFormula, "0.40") {
 		t.Errorf("expected -60%% research cost formula, got: %s", resFormula)
 	}
 
@@ -1966,7 +1966,7 @@ func TestPuzzleCubeBuffsAndFormulas(t *testing.T) {
 	}
 
 	resWithCol := buildResearchCostFormula(t4lCube, colBuffs, colOverview)
-	if !strings.Contains(resWithCol, "🔬 Research Cost: **-64%**") || !strings.Contains(resWithCol, "0.40x") || !strings.Contains(resWithCol, "0.95x") {
+	if !strings.Contains(resWithCol, "🔬 Research Cost: **-64%**") || !strings.Contains(resWithCol, "0.40") || !strings.Contains(resWithCol, "0.95") {
 		t.Errorf("expected -64%% with colleggtibles in formula, got: %s", resWithCol)
 	}
 
@@ -2248,16 +2248,16 @@ func TestStoneFormulaFormatting(t *testing.T) {
 		Level: ei.ArtifactSpec_NORMAL.Enum(), // T4
 	}
 
-	// 1. Multiple stones: count > 1 should produce [base^count]=multx
+	// 1. Multiple stones: count > 1 should produce [base^count]=mult
 	multiTerm := formatStoneFormulaTerm(t4TachyonStone, 7, 1.05, 1.4071)
-	if !strings.Contains(multiTerm, "[1.05^7]=1.41x") {
-		t.Errorf("expected multi-stone term to contain '[1.05^7]=1.41x', got: %s", multiTerm)
+	if !strings.Contains(multiTerm, "[1.05^7]=1.41") {
+		t.Errorf("expected multi-stone term to contain '[1.05^7]=1.41', got: %s", multiTerm)
 	}
 
-	// 2. Single stone: count == 1 should produce standard multx without exponent bracket
+	// 2. Single stone: count == 1 should produce standard mult without exponent bracket
 	singleTerm := formatStoneFormulaTerm(t4TachyonStone, 1, 1.05, 1.05)
-	if !strings.HasSuffix(singleTerm, " 1.05x") || strings.Contains(singleTerm, "^") {
-		t.Errorf("expected single stone term to be '1.05x' without exponent, got: %s", singleTerm)
+	if !strings.HasSuffix(singleTerm, " 1.05") || strings.Contains(singleTerm, "^") {
+		t.Errorf("expected single stone term to be '1.05' without exponent, got: %s", singleTerm)
 	}
 
 	// 3. Earnings formula with 12 Lunar stones
@@ -2285,7 +2285,7 @@ func TestStoneFormulaFormatting(t *testing.T) {
 		Stones: []*ei.ArtifactSpec{t4LunarStone, t4LunarStone, t4LunarStone},
 	}
 	fStr := buildEarningsFormula([]*ei.CompleteArtifact{t4Totem, t4Ankh, t4Necklace}, 50000, 1.0, false, ei.DimensionBuffs{}, ei.ColleggtiblesOverview{})
-	if !strings.Contains(fStr, "[1.40^6]=7.53x") {
-		t.Errorf("expected earnings formula with 6 Lunar stones to contain '[1.40^6]=7.53x', got: %s", fStr)
+	if !strings.Contains(fStr, "[1.40^6]=7.53") {
+		t.Errorf("expected earnings formula with 6 Lunar stones to contain '[1.40^6]=7.53', got: %s", fStr)
 	}
 }

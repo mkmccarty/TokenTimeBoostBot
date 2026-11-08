@@ -1609,9 +1609,9 @@ type stoneFormulaGroup struct {
 func formatStoneFormulaTerm(spec *ei.ArtifactSpec, count int, baseMult, totalMult float64) string {
 	emoji := getStoneEmojiMarkdown(spec.GetName(), spec.GetLevel())
 	if count > 1 {
-		return fmt.Sprintf("%s [%.2f^%d]=%.2fx", emoji, baseMult, count, totalMult)
+		return fmt.Sprintf("%s [%.2f^%d]=%.2f", emoji, baseMult, count, totalMult)
 	}
-	return fmt.Sprintf("%s %.2fx", emoji, totalMult)
+	return fmt.Sprintf("%s %.2f", emoji, totalMult)
 }
 
 func buildEarningsFormula(artifacts []*ei.CompleteArtifact, totalMultiplier, eventMult float64, hasActiveEvent bool, colBuffs ei.DimensionBuffs, colOverview ei.ColleggtiblesOverview) string {
@@ -1626,15 +1626,15 @@ func buildEarningsFormula(artifacts []*ei.CompleteArtifact, totalMultiplier, eve
 		switch spec.GetName() {
 		case ei.ArtifactSpec_LUNAR_TOTEM:
 			if b, ok := totemBuffs[tierStr]; ok {
-				terms = append(terms, fmt.Sprintf("%s %.0fx", emoji, b))
+				terms = append(terms, fmt.Sprintf("%s %.0f", emoji, b))
 			}
 		case ei.ArtifactSpec_DEMETERS_NECKLACE:
 			if b, ok := necklaceBuffs[tierStr]; ok {
-				terms = append(terms, fmt.Sprintf("%s %.2fx", emoji, b))
+				terms = append(terms, fmt.Sprintf("%s %.2f", emoji, b))
 			}
 		case ei.ArtifactSpec_TUNGSTEN_ANKH:
 			if b, ok := ankhBuffs[tierStr]; ok {
-				terms = append(terms, fmt.Sprintf("%s %.2fx", emoji, b))
+				terms = append(terms, fmt.Sprintf("%s %.2f", emoji, b))
 			}
 		}
 	}
@@ -1684,10 +1684,10 @@ func buildEarningsFormula(artifacts []*ei.CompleteArtifact, totalMultiplier, eve
 		terms = append(terms, colEarnTerms...)
 	} else {
 		if colBuffs.Earnings > 1.0001 {
-			terms = append(terms, fmt.Sprintf("%s %.2fx", ei.GetBotEmojiMarkdown("collegg"), colBuffs.Earnings))
+			terms = append(terms, fmt.Sprintf("%s %.2f", ei.GetBotEmojiMarkdown("collegg"), colBuffs.Earnings))
 		}
 		if colBuffs.AwayEarnings > 1.0001 {
-			terms = append(terms, fmt.Sprintf("%s %.2fx", ei.GetBotEmojiMarkdown("collegg"), colBuffs.AwayEarnings))
+			terms = append(terms, fmt.Sprintf("%s %.2f", ei.GetBotEmojiMarkdown("collegg"), colBuffs.AwayEarnings))
 		}
 	}
 
@@ -1724,7 +1724,7 @@ func getColleggtibleFormulaTerms(overview ei.ColleggtiblesOverview, dims ...ei.G
 			}
 			if isActive {
 				emoji := ei.FindEggEmoji(egg.EggID)
-				terms = append(terms, fmt.Sprintf("%s %.2fx", emoji, egg.CurrentValue))
+				terms = append(terms, fmt.Sprintf("%s %.2f", emoji, egg.CurrentValue))
 			}
 		}
 	}
@@ -1761,7 +1761,7 @@ func buildResearchCostFormula(cubeArtifact *ei.CompleteArtifact, colBuffs ei.Dim
 	}
 	cubeEmoji := getArtifactEmojiMarkdown(spec)
 	var terms []string
-	terms = append(terms, fmt.Sprintf("%s %.2fx", cubeEmoji, cubeMult))
+	terms = append(terms, fmt.Sprintf("%s %.2f", cubeEmoji, cubeMult))
 
 	resCollegg := colBuffs.ResearchDiscount
 	if resCollegg <= 0 {
@@ -1771,7 +1771,7 @@ func buildResearchCostFormula(cubeArtifact *ei.CompleteArtifact, colBuffs ei.Dim
 	if len(colResTerms) > 0 {
 		terms = append(terms, colResTerms...)
 	} else if resCollegg < 0.9999 {
-		terms = append(terms, fmt.Sprintf("%s %.2fx", ei.GetBotEmojiMarkdown("collegg"), resCollegg))
+		terms = append(terms, fmt.Sprintf("%s %.2f", ei.GetBotEmojiMarkdown("collegg"), resCollegg))
 	}
 
 	totalCost := cubeMult * resCollegg
@@ -1882,7 +1882,7 @@ func buildDeliveryFormula(artifacts []*ei.CompleteArtifact, deliveryRate float64
 	// ELR details
 	var elrTerms []string
 	if metronomeMult != 1 {
-		elrTerms = append(elrTerms, fmt.Sprintf("%s %.2fx", metrEmoji, metronomeMult))
+		elrTerms = append(elrTerms, fmt.Sprintf("%s %.2f", metrEmoji, metronomeMult))
 	}
 	for _, lvl := range tachOrder {
 		g := tachGroups[lvl]
@@ -1892,7 +1892,7 @@ func buildDeliveryFormula(artifacts []*ei.CompleteArtifact, deliveryRate float64
 	if len(colElrTerms) > 0 {
 		elrTerms = append(elrTerms, colElrTerms...)
 	} else if elrCollegg > 1.0001 {
-		elrTerms = append(elrTerms, fmt.Sprintf("%s %.2fx", ei.GetBotEmojiMarkdown("collegg"), elrCollegg))
+		elrTerms = append(elrTerms, fmt.Sprintf("%s %.2f", ei.GetBotEmojiMarkdown("collegg"), elrCollegg))
 	}
 
 	var elrStr string
@@ -1907,13 +1907,13 @@ func buildDeliveryFormula(artifacts []*ei.CompleteArtifact, deliveryRate float64
 	// Hab details (coupled with Laying)
 	var habTerms []string
 	if gussetMult != 1 {
-		habTerms = append(habTerms, fmt.Sprintf("%s %.2fx", gussetEmoji, gussetMult))
+		habTerms = append(habTerms, fmt.Sprintf("%s %.2f", gussetEmoji, gussetMult))
 	}
 	colHabTerms := getColleggtibleFormulaTerms(colOverview, ei.GameModifier_HAB_CAPACITY)
 	if len(colHabTerms) > 0 {
 		habTerms = append(habTerms, colHabTerms...)
 	} else if habCollegg > 1.0001 {
-		habTerms = append(habTerms, fmt.Sprintf("%s %.2fx", ei.GetBotEmojiMarkdown("collegg"), habCollegg))
+		habTerms = append(habTerms, fmt.Sprintf("%s %.2f", ei.GetBotEmojiMarkdown("collegg"), habCollegg))
 	}
 
 	var habStr string
@@ -1938,7 +1938,7 @@ func buildDeliveryFormula(artifacts []*ei.CompleteArtifact, deliveryRate float64
 	// SR details
 	var srTerms []string
 	if compassMult != 1 {
-		srTerms = append(srTerms, fmt.Sprintf("%s %.2fx", compEmoji, compassMult))
+		srTerms = append(srTerms, fmt.Sprintf("%s %.2f", compEmoji, compassMult))
 	}
 	for _, lvl := range quantOrder {
 		g := quantGroups[lvl]
@@ -1948,7 +1948,7 @@ func buildDeliveryFormula(artifacts []*ei.CompleteArtifact, deliveryRate float64
 	if len(colSrTerms) > 0 {
 		srTerms = append(srTerms, colSrTerms...)
 	} else if srCollegg > 1.0001 {
-		srTerms = append(srTerms, fmt.Sprintf("%s %.2fx", ei.GetBotEmojiMarkdown("collegg"), srCollegg))
+		srTerms = append(srTerms, fmt.Sprintf("%s %.2f", ei.GetBotEmojiMarkdown("collegg"), srCollegg))
 	}
 
 	var srStr string
