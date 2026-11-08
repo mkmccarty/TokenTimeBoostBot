@@ -189,8 +189,7 @@ func ExecuteFarm(e dc.InteractionEvent, options dc.OptionValues, eggIncID string
 
 // ExecuteFarmTarget executes the /farm display logic for a specific target user ID with optional notice.
 func ExecuteFarmTarget(e dc.InteractionEvent, options dc.OptionValues, eggIncID string, okayToSave bool, targetUserID string, notice string, actAsNotice ...string) {
-	ephemeral := e.ChannelID() == "571836573243539476" // ACO- #bot-commands
-	_ = e.Defer(ephemeral)
+	_ = e.Defer(false)
 
 	backup, _ := ei.GetFirstContactFromAPINoCache(eggIncID, targetUserID, okayToSave)
 	if backup == nil {
@@ -262,7 +261,6 @@ func ExecuteFarmTarget(e dc.InteractionEvent, options dc.OptionValues, eggIncID 
 	}
 
 	_ = e.Followup(dc.Message{
-		Ephemeral:  ephemeral,
 		Components: components,
 	})
 }
