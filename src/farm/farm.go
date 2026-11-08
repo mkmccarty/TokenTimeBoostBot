@@ -86,6 +86,13 @@ var beakBuffs = map[string]float64{
 	"T4C": 5.00, "T4R": 10.00, "T4L": 100.00,
 }
 
+var cubeBuffs = map[string]float64{
+	"T1C": 0.95,
+	"T2C": 0.90, "T2E": 0.85,
+	"T3C": 0.80, "T3R": 0.78,
+	"T4C": 0.50, "T4R": 0.47, "T4E": 0.45, "T4L": 0.40,
+}
+
 // StoneCandidate represents an available stone in inventory.
 type StoneCandidate struct {
 	Spec       *ei.ArtifactSpec
@@ -575,7 +582,7 @@ func OptimizeEarnings(backup *ei.Backup, farm *ei.Backup_Simulation) *EarningsRe
 		stoneProducts[i] = stoneProducts[i-1] * stones[i-1].Multiplier
 	}
 
-	bestMultiplier := 1.0
+	bestScore := 0.0
 	var bestLoadout []*ei.CompleteArtifact
 
 	var dfs func(idx int, current []*ei.CompleteArtifact, usedFamilies map[ei.ArtifactSpec_Name]bool)
@@ -594,31 +601,40 @@ func OptimizeEarnings(backup *ei.Backup, farm *ei.Backup_Simulation) *EarningsRe
 				}
 			}
 
-			baseMult := 1.0
+			effectiveBase := 1.0
 			totalSlots := 0
+			hasCube := false
 			for _, a := range current {
 				spec := a.GetSpec()
 				tierStr := ei.ArtifactLevels[spec.GetLevel()] + ei.ArtifactRarity[spec.GetRarity()]
 				switch spec.GetName() {
 				case ei.ArtifactSpec_LUNAR_TOTEM:
 					if b, ok := totemBuffs[tierStr]; ok {
-						baseMult *= b
+						effectiveBase *= b
 					}
 				case ei.ArtifactSpec_DEMETERS_NECKLACE:
 					if b, ok := necklaceBuffs[tierStr]; ok {
-						baseMult *= b
+						effectiveBase *= b
 					}
 				case ei.ArtifactSpec_TUNGSTEN_ANKH:
 					if b, ok := ankhBuffs[tierStr]; ok {
-						baseMult *= b
+						effectiveBase *= b
+					}
+				case ei.ArtifactSpec_PUZZLE_CUBE:
+					if b, ok := cubeBuffs[tierStr]; ok && b > 0 {
+						effectiveBase *= (1.0 / b)
+						hasCube = true
 					}
 				}
 				totalSlots += getArtifactSlotCount(spec)
 			}
 			slotsToUse := min(totalSlots, len(stones))
-			totalMult := baseMult * stoneProducts[slotsToUse]
-			if totalMult > bestMultiplier {
-				bestMultiplier = totalMult
+			score := effectiveBase * stoneProducts[slotsToUse]
+			if hasCube {
+				score *= 1.0001
+			}
+			if score > bestScore {
+				bestScore = score
 				bestLoadout = append([]*ei.CompleteArtifact(nil), current...)
 			}
 		}
@@ -646,6 +662,28 @@ func OptimizeEarnings(backup *ei.Backup, farm *ei.Backup_Simulation) *EarningsRe
 		dfs(0, nil, used)
 	}
 
+	earningsBase := 1.0
+	totalStoneSlots := 0
+	for _, a := range bestLoadout {
+		spec := a.GetSpec()
+		tierStr := ei.ArtifactLevels[spec.GetLevel()] + ei.ArtifactRarity[spec.GetRarity()]
+		switch spec.GetName() {
+		case ei.ArtifactSpec_LUNAR_TOTEM:
+			if b, ok := totemBuffs[tierStr]; ok {
+				earningsBase *= b
+			}
+		case ei.ArtifactSpec_DEMETERS_NECKLACE:
+			if b, ok := necklaceBuffs[tierStr]; ok {
+				earningsBase *= b
+			}
+		case ei.ArtifactSpec_TUNGSTEN_ANKH:
+			if b, ok := ankhBuffs[tierStr]; ok {
+				earningsBase *= b
+			}
+		}
+		totalStoneSlots += getArtifactSlotCount(spec)
+	}
+
 	colEarnings := colBuffs.Earnings
 	if colEarnings <= 0 {
 		colEarnings = 1.0
@@ -656,14 +694,9 @@ func OptimizeEarnings(backup *ei.Backup, farm *ei.Backup_Simulation) *EarningsRe
 	}
 	colleggMult := colEarnings * colAway
 
-	res.TotalMultiplier = bestMultiplier * colleggMult
-
-	// Reslot the bestLoadout with top stones
-	totalStoneSlots := 0
-	for _, a := range bestLoadout {
-		totalStoneSlots += getArtifactSlotCount(a.GetSpec())
-	}
 	usedStoneCount := min(totalStoneSlots, len(stones))
+	res.TotalMultiplier = earningsBase * stoneProducts[usedStoneCount] * colleggMult
+
 	res.OptimalArtifacts = reslotArtifacts(bestLoadout, stones[:usedStoneCount])
 	res.OptimalStones = groupStones(stones[:usedStoneCount])
 
@@ -710,7 +743,21 @@ func OptimizeEarnings(backup *ei.Backup, farm *ei.Backup_Simulation) *EarningsRe
 	}
 	res.CurrentMultiplier = currBase * currStoneMult * colleggMult
 	diff := math.Abs(res.TotalMultiplier - res.CurrentMultiplier)
-	res.IsAlreadyOptimal = diff < 1e-4 || (res.TotalMultiplier > 0 && diff/res.TotalMultiplier < 1e-4) || res.CurrentMultiplier >= res.TotalMultiplier
+	multiplierMatches := diff < 1e-4 || (res.TotalMultiplier > 0 && diff/res.TotalMultiplier < 1e-4) || res.CurrentMultiplier >= res.TotalMultiplier
+	hasBetterCube := false
+	if optCube := findCubeArtifact(res.OptimalArtifacts); optCube != nil {
+		currCube := findCubeArtifact(currentArtifacts)
+		if currCube == nil {
+			hasBetterCube = true
+		} else {
+			optTier := ei.ArtifactLevels[optCube.GetSpec().GetLevel()] + ei.ArtifactRarity[optCube.GetSpec().GetRarity()]
+			currTier := ei.ArtifactLevels[currCube.GetSpec().GetLevel()] + ei.ArtifactRarity[currCube.GetSpec().GetRarity()]
+			if cubeBuffs[optTier] < cubeBuffs[currTier] {
+				hasBetterCube = true
+			}
+		}
+	}
+	res.IsAlreadyOptimal = multiplierMatches && !hasBetterCube
 	if isSameArtifactLoadout(currentArtifacts, res.OptimalArtifacts) {
 		res.OptimalArtifacts = currentArtifacts
 		res.IsAlreadyOptimal = true
@@ -781,6 +828,18 @@ func collectEarningsCandidates(inventory []*ei.ArtifactInventoryItem) ([]*ei.Com
 		if bi != bj {
 			return bi
 		}
+		if bi && bj {
+			diff := getEarningsArtifactBuff(si) - getEarningsArtifactBuff(sj)
+			if math.Abs(diff) > 0.0001 {
+				return diff > 0
+			}
+			if si.GetName() == ei.ArtifactSpec_PUZZLE_CUBE {
+				return true
+			}
+			if sj.GetName() == ei.ArtifactSpec_PUZZLE_CUBE {
+				return false
+			}
+		}
 		return getArtifactSlotCount(si) > getArtifactSlotCount(sj)
 	})
 
@@ -807,9 +866,9 @@ func getEarningsArtifactBuff(spec *ei.ArtifactSpec) float64 {
 		if b, ok := ankhBuffs[tierStr]; ok {
 			return b
 		}
-	case ei.ArtifactSpec_ORNATE_GUSSET:
-		if b, ok := gussetBuffs[tierStr]; ok {
-			return b
+	case ei.ArtifactSpec_PUZZLE_CUBE:
+		if b, ok := cubeBuffs[tierStr]; ok && b > 0 {
+			return 1.0 / b
 		}
 	}
 	return 1.0
@@ -1377,6 +1436,9 @@ func formatSingleArtifactBuffs(a *ei.CompleteArtifact, isDelivery bool) string {
 		if buffs.Hab != 1 {
 			parts = append(parts, fmt.Sprintf("%s Hab", formatBuffModifier(buffs.Hab)))
 		}
+		if math.Abs(buffs.ResearchDiscount-1.0) > 0.0001 {
+			parts = append(parts, fmt.Sprintf("%s Research", formatBuffModifier(buffs.ResearchDiscount)))
+		}
 	} else {
 		spec := a.GetSpec()
 		tierStr := ei.ArtifactLevels[spec.GetLevel()] + ei.ArtifactRarity[spec.GetRarity()]
@@ -1401,6 +1463,9 @@ func formatSingleArtifactBuffs(a *ei.CompleteArtifact, isDelivery bool) string {
 		}
 		if buffs.Hab != 1 {
 			parts = append(parts, fmt.Sprintf("%s Hab", formatBuffModifier(buffs.Hab)))
+		}
+		if math.Abs(buffs.ResearchDiscount-1.0) > 0.0001 {
+			parts = append(parts, fmt.Sprintf("%s Research", formatBuffModifier(buffs.ResearchDiscount)))
 		}
 	}
 
@@ -1447,6 +1512,9 @@ func formatAnyArtifactBuffs(a *ei.CompleteArtifact) string {
 	}
 	if buffs.Earnings != 1 {
 		parts = append(parts, fmt.Sprintf("%s Value", formatBuffModifier(buffs.Earnings)))
+	}
+	if math.Abs(buffs.ResearchDiscount-1.0) > 0.0001 {
+		parts = append(parts, fmt.Sprintf("%s Research", formatBuffModifier(buffs.ResearchDiscount)))
 	}
 	switch spec.GetName() {
 	case ei.ArtifactSpec_AURELIAN_BROOCH:
@@ -1641,13 +1709,78 @@ func getColleggtibleFormulaTerms(overview ei.ColleggtiblesOverview, dims ...ei.G
 			continue
 		}
 		for _, egg := range d.Colleggtibles {
-			if egg.Tier >= 0 && egg.CurrentValue > 1.0001 {
+			isActive := false
+			if d.Dimension == ei.GameModifier_RESEARCH_COST {
+				isActive = egg.Tier >= 0 && egg.CurrentValue > 0 && egg.CurrentValue < 0.9999
+			} else {
+				isActive = egg.Tier >= 0 && egg.CurrentValue > 1.0001
+			}
+			if isActive {
 				emoji := ei.FindEggEmoji(egg.EggID)
 				terms = append(terms, fmt.Sprintf("%s %.2fx", emoji, egg.CurrentValue))
 			}
 		}
 	}
 	return terms
+}
+
+func findCubeArtifact(artifacts []*ei.CompleteArtifact) *ei.CompleteArtifact {
+	for _, a := range artifacts {
+		if a != nil && a.GetSpec() != nil && a.GetSpec().GetName() == ei.ArtifactSpec_PUZZLE_CUBE {
+			return a
+		}
+	}
+	return nil
+}
+
+func findGussetArtifact(artifacts []*ei.CompleteArtifact) *ei.CompleteArtifact {
+	for _, a := range artifacts {
+		if a != nil && a.GetSpec() != nil && a.GetSpec().GetName() == ei.ArtifactSpec_ORNATE_GUSSET {
+			return a
+		}
+	}
+	return nil
+}
+
+func buildResearchCostFormula(cubeArtifact *ei.CompleteArtifact, colBuffs ei.DimensionBuffs, colOverview ei.ColleggtiblesOverview) string {
+	if cubeArtifact == nil || cubeArtifact.GetSpec() == nil {
+		return ""
+	}
+	spec := cubeArtifact.GetSpec()
+	tierStr := ei.ArtifactLevels[spec.GetLevel()] + ei.ArtifactRarity[spec.GetRarity()]
+	cubeMult, ok := cubeBuffs[tierStr]
+	if !ok {
+		return ""
+	}
+	cubeEmoji := getArtifactEmojiMarkdown(spec)
+	var terms []string
+	terms = append(terms, fmt.Sprintf("%s %.2fx", cubeEmoji, cubeMult))
+
+	resCollegg := colBuffs.ResearchDiscount
+	if resCollegg <= 0 {
+		resCollegg = 1.0
+	}
+	colResTerms := getColleggtibleFormulaTerms(colOverview, ei.GameModifier_RESEARCH_COST)
+	if len(colResTerms) > 0 {
+		terms = append(terms, colResTerms...)
+	} else if resCollegg < 0.9999 {
+		terms = append(terms, fmt.Sprintf("%s %.2fx", ei.GetBotEmojiMarkdown("collegg"), resCollegg))
+	}
+
+	totalCost := cubeMult * resCollegg
+	return fmt.Sprintf("🔬 Research Cost: **%s** (%s)", ei.FormatModifierValue(totalCost), strings.Join(terms, " × "))
+}
+
+func formatEarningsFormulas(artifacts []*ei.CompleteArtifact, totalMultiplier, eventMult float64, hasActiveEvent bool, colBuffs ei.DimensionBuffs, colOverview ei.ColleggtiblesOverview) string {
+	earningsFormula := buildEarningsFormula(artifacts, totalMultiplier, eventMult, hasActiveEvent, colBuffs, colOverview)
+	cubeArtifact := findCubeArtifact(artifacts)
+	if cubeArtifact != nil {
+		researchFormula := buildResearchCostFormula(cubeArtifact, colBuffs, colOverview)
+		if researchFormula != "" {
+			return fmt.Sprintf("Formulas:\n%s\n%s\n", earningsFormula, researchFormula)
+		}
+	}
+	return fmt.Sprintf("Formula: %s\n", earningsFormula)
 }
 
 func buildDeliveryFormula(artifacts []*ei.CompleteArtifact, deliveryRate float64, colBuffs ei.DimensionBuffs, colOverview ei.ColleggtiblesOverview) string {
@@ -1814,11 +1947,18 @@ func buildDeliveryFormula(artifacts []*ei.CompleteArtifact, deliveryRate float64
 	if srStr != "" {
 		parts = append(parts, srStr)
 	}
+	cubeArtifact := findCubeArtifact(artifacts)
+	if cubeArtifact != nil {
+		researchFormula := buildResearchCostFormula(cubeArtifact, colBuffs, colOverview)
+		if researchFormula != "" {
+			parts = append(parts, researchFormula)
+		}
+	}
 
 	return strings.Join(parts, "\n")
 }
 
-func formatContributingColleggtibles(backup *ei.Backup, targetUserID string, isDelivery bool) string {
+func formatContributingColleggtibles(backup *ei.Backup, targetUserID string, isDelivery bool, hasCube bool) string {
 	storedCollegg := farmerstate.GetMiscSettingString(targetUserID, "collegg")
 	overview := ei.GetColleggtiblesOverview(backup.GetContracts(), storedCollegg)
 
@@ -1836,6 +1976,10 @@ func formatContributingColleggtibles(backup *ei.Backup, targetUserID string, isD
 			ei.GameModifier_EGG_LAYING_RATE,
 			ei.GameModifier_HAB_CAPACITY,
 		}
+		if hasCube {
+			dimMap[ei.GameModifier_RESEARCH_COST] = "🔬 Research Cost"
+			dimOrder = append(dimOrder, ei.GameModifier_RESEARCH_COST)
+		}
 
 		for _, d := range dimOrder {
 			for _, dim := range overview.Dimensions {
@@ -1844,7 +1988,13 @@ func formatContributingColleggtibles(backup *ei.Backup, targetUserID string, isD
 				}
 				var eggItems []string
 				for _, egg := range dim.Colleggtibles {
-					if egg.Tier >= 0 && egg.CurrentValue > 1.0 {
+					isActive := false
+					if d == ei.GameModifier_RESEARCH_COST {
+						isActive = egg.Tier >= 0 && egg.CurrentValue > 0 && egg.CurrentValue < 0.9999
+					} else {
+						isActive = egg.Tier >= 0 && egg.CurrentValue > 1.0
+					}
+					if isActive {
 						emoji := ei.FindEggEmoji(egg.EggID)
 						eggItems = append(eggItems, fmt.Sprintf("%s %s", emoji, egg.CurrentValueString))
 					}
@@ -1862,11 +2012,18 @@ func formatContributingColleggtibles(backup *ei.Backup, targetUserID string, isD
 		dimMap := map[ei.GameModifier_GameDimension]string{
 			ei.GameModifier_EARNINGS:      "💎 Earnings",
 			ei.GameModifier_AWAY_EARNINGS: "💤 Away Earnings",
+			ei.GameModifier_HAB_COST:      "🏠 Hab Cost",
+			ei.GameModifier_VEHICLE_COST:  "🚗 Vehicle Cost",
 		}
 		dimOrder := []ei.GameModifier_GameDimension{
 			ei.GameModifier_EARNINGS,
 			ei.GameModifier_AWAY_EARNINGS,
 		}
+		if hasCube {
+			dimMap[ei.GameModifier_RESEARCH_COST] = "🔬 Research Cost"
+			dimOrder = append(dimOrder, ei.GameModifier_RESEARCH_COST)
+		}
+		dimOrder = append(dimOrder, ei.GameModifier_HAB_COST, ei.GameModifier_VEHICLE_COST)
 
 		for _, d := range dimOrder {
 			for _, dim := range overview.Dimensions {
@@ -1875,14 +2032,20 @@ func formatContributingColleggtibles(backup *ei.Backup, targetUserID string, isD
 				}
 				var eggItems []string
 				for _, egg := range dim.Colleggtibles {
-					if egg.Tier >= 0 && egg.CurrentValue > 1.0 {
+					isActive := false
+					if d == ei.GameModifier_RESEARCH_COST || d == ei.GameModifier_HAB_COST || d == ei.GameModifier_VEHICLE_COST {
+						isActive = egg.Tier >= 0 && egg.CurrentValue > 0 && egg.CurrentValue < 0.9999
+					} else {
+						isActive = egg.Tier >= 0 && egg.CurrentValue > 1.0
+					}
+					if isActive {
 						emoji := ei.FindEggEmoji(egg.EggID)
 						eggItems = append(eggItems, fmt.Sprintf("%s %s", emoji, egg.CurrentValueString))
 					}
 				}
 				if len(eggItems) > 0 {
 					if !hasAny {
-						fmt.Fprintf(&sb, "%s **Colleggtibles Contributing to Earnings:**\n", ei.GetBotEmojiMarkdown("collegg"))
+						fmt.Fprintf(&sb, "%s **Colleggtibles Contributing:**\n", ei.GetBotEmojiMarkdown("collegg"))
 						hasAny = true
 					}
 					fmt.Fprintf(&sb, "-# %s (%s): %s\n", dimMap[d], dim.CurrentString, strings.Join(eggItems, " "))
@@ -1910,6 +2073,14 @@ func printEarningsSetup(userID string, backup *ei.Backup, farm *ei.Backup_Simula
 	currentArtifacts := getEquippedArtifacts(backup, farm)
 	currIcons := formatArtifactIcons(currentArtifacts)
 
+	storedCollegg := farmerstate.GetMiscSettingString(userID, "collegg")
+	var colBuffs ei.DimensionBuffs
+	var colOverview ei.ColleggtiblesOverview
+	if storedCollegg != "" {
+		colOverview = ei.GetColleggtiblesOverview(backup.GetContracts(), storedCollegg)
+		colBuffs = colOverview.Buffs
+	}
+
 	var optArtifacts []*ei.CompleteArtifact
 	var optIcons string
 	var isOptimal bool
@@ -1925,7 +2096,9 @@ func printEarningsSetup(userID string, backup *ei.Backup, farm *ei.Backup_Simula
 
 		optArtifacts = maxCTEResult.Artifacts
 		optIcons = formatArtifactIcons(optArtifacts)
-		isOptimal = currIcons == optIcons || cteDelta <= 0 || isSameArtifactLoadout(currentArtifacts, optArtifacts)
+		equippedGusset := findGussetArtifact(currentArtifacts)
+		isOptimal = (currIcons == optIcons || cteDelta <= 0 || isSameArtifactLoadout(currentArtifacts, optArtifacts)) &&
+			(equippedGusset == nil || findGussetArtifact(optArtifacts) != nil)
 		totalMultiplier = maxCTE
 		currentMultiplier = cte
 
@@ -1943,12 +2116,37 @@ func printEarningsSetup(userID string, backup *ei.Backup, farm *ei.Backup_Simula
 					fmt.Fprintf(&artifactsStr, "%s\n", icons)
 				}
 			}
-			fmt.Fprintf(&artifactsStr, "Formula: %s\n", buildEarningsFormula(currentArtifacts, totalMultiplier, 1.0, false, ei.DimensionBuffs{}, ei.ColleggtiblesOverview{}))
+			artifactsStr.WriteString(formatEarningsFormulas(currentArtifacts, totalMultiplier, 1.0, false, colBuffs, colOverview))
 			fmt.Fprintf(&artifactsStr, "**Max CTE**: **%.0f**\n\n", maxCTE)
 			artifactsStr.WriteString("✅ **Your current setup is already optimal!**\n\n")
 		} else {
 			// Currently equipped section
 			artifactsStr.WriteString(formatEquippedArtifactsSection(currentArtifacts, false, 0, 0, 0, currentMultiplier))
+
+			if equippedGusset != nil && findGussetArtifact(optArtifacts) == nil {
+				gussetResult := ei.CalculateMaxClothedTEWithForcedArtifact(backup, equippedGusset, ei.GetMaxEquippedArtifacts(backup))
+				if len(gussetResult.Artifacts) > 0 {
+					artifactsStr.WriteString("**Equipped Gusset Setup:**\n")
+					for _, a := range gussetResult.Artifacts {
+						icons := formatArtifactWithStonesDisplay(a)
+						buffStr := formatSingleArtifactBuffs(a, false)
+						if buffStr == "" {
+							buffStr = formatAnyArtifactBuffs(a)
+						}
+						if buffStr != "" {
+							fmt.Fprintf(&artifactsStr, "%s %s\n", icons, buffStr)
+						} else {
+							fmt.Fprintf(&artifactsStr, "%s\n", icons)
+						}
+					}
+					artifactsStr.WriteString(formatEarningsFormulas(gussetResult.Artifacts, gussetResult.ClothedTE, 1.0, false, colBuffs, colOverview))
+					if math.Abs(gussetResult.ClothedTE-cte) < 1e-4 || isSameArtifactLoadout(currentArtifacts, gussetResult.Artifacts) {
+						fmt.Fprintf(&artifactsStr, "**Max CTE**: **%.0f**\n\n", gussetResult.ClothedTE)
+					} else {
+						fmt.Fprintf(&artifactsStr, "**Max CTE**: **%.0f** (Current: %.0f)\n\n", gussetResult.ClothedTE, cte)
+					}
+				}
+			}
 
 			// Optimal setup section
 			artifactsStr.WriteString("**Optimal Setup:**\n")
@@ -1964,14 +2162,12 @@ func printEarningsSetup(userID string, backup *ei.Backup, farm *ei.Backup_Simula
 					fmt.Fprintf(&artifactsStr, "%s\n", icons)
 				}
 			}
-			fmt.Fprintf(&artifactsStr, "Formula: %s\n", buildEarningsFormula(optArtifacts, totalMultiplier, 1.0, false, ei.DimensionBuffs{}, ei.ColleggtiblesOverview{}))
+			artifactsStr.WriteString(formatEarningsFormulas(optArtifacts, totalMultiplier, 1.0, false, colBuffs, colOverview))
 			fmt.Fprintf(&artifactsStr, "**Max CTE**: **%.0f** (Current: %.0f)\n\n", maxCTE, cte)
 		}
 	} else {
 		opt := OptimizeEarnings(backup, farm)
-		storedCollegg := farmerstate.GetMiscSettingString(userID, "collegg")
 		if storedCollegg != "" {
-			overview := ei.GetColleggtiblesOverview(backup.GetContracts(), storedCollegg)
 			oldColleggMult := 1.0
 			if opt.ColleggtibleBuffs.Earnings > 0 {
 				oldColleggMult *= opt.ColleggtibleBuffs.Earnings
@@ -1980,8 +2176,8 @@ func printEarningsSetup(userID string, backup *ei.Backup, farm *ei.Backup_Simula
 				oldColleggMult *= opt.ColleggtibleBuffs.AwayEarnings
 			}
 
-			opt.ColleggtibleBuffs = overview.Buffs
-			opt.ColleggtiblesOverview = overview
+			opt.ColleggtibleBuffs = colBuffs
+			opt.ColleggtiblesOverview = colOverview
 
 			newColleggMult := 1.0
 			if opt.ColleggtibleBuffs.Earnings > 0 {
@@ -2030,7 +2226,7 @@ func printEarningsSetup(userID string, backup *ei.Backup, farm *ei.Backup_Simula
 					fmt.Fprintf(&artifactsStr, "%s\n", icons)
 				}
 			}
-			fmt.Fprintf(&artifactsStr, "Formula: %s\n", buildEarningsFormula(currentArtifacts, totalMultiplier, opt.EventMultiplier, opt.HasActiveEvent, opt.ColleggtibleBuffs, opt.ColleggtiblesOverview))
+			artifactsStr.WriteString(formatEarningsFormulas(currentArtifacts, totalMultiplier, opt.EventMultiplier, opt.HasActiveEvent, opt.ColleggtibleBuffs, opt.ColleggtiblesOverview))
 			if opt.HasActiveEvent && opt.EventMultiplier > 1.0 {
 				fmt.Fprintf(&artifactsStr, "**Optimal Multiplier**: **%sx** (**%sx** with %s)\n\n",
 					formatMultiplier(totalMultiplier), formatMultiplier(totalMultiplier*opt.EventMultiplier), eventLabel)
@@ -2056,7 +2252,7 @@ func printEarningsSetup(userID string, backup *ei.Backup, farm *ei.Backup_Simula
 					fmt.Fprintf(&artifactsStr, "%s\n", icons)
 				}
 			}
-			fmt.Fprintf(&artifactsStr, "Formula: %s\n", buildEarningsFormula(optArtifacts, totalMultiplier, opt.EventMultiplier, opt.HasActiveEvent, opt.ColleggtibleBuffs, opt.ColleggtiblesOverview))
+			artifactsStr.WriteString(formatEarningsFormulas(optArtifacts, totalMultiplier, opt.EventMultiplier, opt.HasActiveEvent, opt.ColleggtibleBuffs, opt.ColleggtiblesOverview))
 			if opt.HasActiveEvent && opt.EventMultiplier > 1.0 {
 				fmt.Fprintf(&artifactsStr, "**Optimal Multiplier**: **%sx** (**%sx** with %s)\n\n",
 					formatMultiplier(totalMultiplier), formatMultiplier(totalMultiplier*opt.EventMultiplier), eventLabel)
@@ -2066,12 +2262,27 @@ func printEarningsSetup(userID string, backup *ei.Backup, farm *ei.Backup_Simula
 
 			if currIcons != "" && optIcons != "" {
 				diff := totalMultiplier - currentMultiplier
-				if opt.HasActiveEvent && opt.EventMultiplier > 1.0 {
-					fmt.Fprintf(&artifactsStr, "%s ➜ %s  **+%sx Earnings** (**+%sx** with %s)\n\n",
-						currIcons, optIcons, formatMultiplier(diff), formatMultiplier(diff*opt.EventMultiplier), eventLabel)
-				} else {
-					fmt.Fprintf(&artifactsStr, "%s ➜ %s  **+%sx Earnings**\n\n",
-						currIcons, optIcons, formatMultiplier(diff))
+				optCube := findCubeArtifact(optArtifacts)
+				currCube := findCubeArtifact(currentArtifacts)
+				cubeNotice := ""
+				if optCube != nil && currCube == nil {
+					optTier := ei.ArtifactLevels[optCube.GetSpec().GetLevel()] + ei.ArtifactRarity[optCube.GetSpec().GetRarity()]
+					if d, ok := cubeBuffs[optTier]; ok {
+						cubeNotice = fmt.Sprintf(" · %s Research Cost", formatBuffModifier(d))
+					}
+				}
+
+				if diff > 0.001 {
+					if opt.HasActiveEvent && opt.EventMultiplier > 1.0 {
+						fmt.Fprintf(&artifactsStr, "%s ➜ %s  **+%sx Earnings** (**+%sx** with %s)%s\n\n",
+							currIcons, optIcons, formatMultiplier(diff), formatMultiplier(diff*opt.EventMultiplier), eventLabel, cubeNotice)
+					} else {
+						fmt.Fprintf(&artifactsStr, "%s ➜ %s  **+%sx Earnings**%s\n\n",
+							currIcons, optIcons, formatMultiplier(diff), cubeNotice)
+					}
+				} else if cubeNotice != "" {
+					fmt.Fprintf(&artifactsStr, "%s ➜ %s  **%s**\n\n",
+						currIcons, optIcons, strings.TrimPrefix(cubeNotice, " · "))
 				}
 			}
 		}
@@ -2087,7 +2298,12 @@ func printEarningsSetup(userID string, backup *ei.Backup, farm *ei.Backup_Simula
 	}
 
 	// Contributing Colleggtibles section
-	colleggStr := formatContributingColleggtibles(backup, userID, false)
+	activeArtifactsForCollegg := optArtifacts
+	if isOptimal {
+		activeArtifactsForCollegg = currentArtifacts
+	}
+	hasCube := findCubeArtifact(activeArtifactsForCollegg) != nil
+	colleggStr := formatContributingColleggtibles(backup, userID, false, hasCube)
 	if colleggStr != "" {
 		artifactsStr.WriteString(colleggStr)
 		artifactsStr.WriteString("\n")
@@ -2229,7 +2445,12 @@ func printDeliverySetup(userID string, backup *ei.Backup, farm *ei.Backup_Simula
 	}
 
 	// Contributing Colleggtibles section
-	colleggStr := formatContributingColleggtibles(backup, userID, true)
+	activeArtifactsForCollegg := opt.OptimalArtifacts
+	if opt.IsAlreadyOptimal {
+		activeArtifactsForCollegg = currentArtifacts
+	}
+	hasCube := findCubeArtifact(activeArtifactsForCollegg) != nil
+	colleggStr := formatContributingColleggtibles(backup, userID, true, hasCube)
 	if colleggStr != "" {
 		artifactsStr.WriteString(colleggStr)
 		artifactsStr.WriteString("\n")

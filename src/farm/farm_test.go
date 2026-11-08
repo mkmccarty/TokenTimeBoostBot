@@ -883,8 +883,11 @@ func TestPrintDeliveryAndEarningsDetailed(t *testing.T) {
 	if !strings.Contains(earnBody, "Formula:") {
 		t.Errorf("expected Formula in earnings: %s", earnBody)
 	}
-	if !strings.Contains(earnBody, "Colleggtibles Contributing to Earnings:") {
-		t.Errorf("expected Colleggtibles Contributing to Earnings: %s", earnBody)
+	if !strings.Contains(earnBody, "Colleggtibles Contributing:") {
+		t.Errorf("expected Colleggtibles Contributing: %s", earnBody)
+	}
+	if strings.Contains(earnBody, "Colleggtibles Contributing to Earnings:") {
+		t.Errorf("expected header to NOT contain 'Colleggtibles Contributing to Earnings:', got: %s", earnBody)
 	}
 }
 
@@ -1000,11 +1003,13 @@ func TestPrintEarningsSetupWithColleggtibles(t *testing.T) {
 	ei.EmoteMap["egg_chocolate"] = ei.Emotes{Name: "egg_chocolate", ID: "1004"}
 	ei.EmoteMap["egg_firework"] = ei.Emotes{Name: "egg_firework", ID: "1005"}
 	ei.EmoteMap["egg_wood"] = ei.Emotes{Name: "egg_wood", ID: "1006"}
+	ei.EmoteMap["egg_flame-retardant"] = ei.Emotes{Name: "egg_flame-retardant", ID: "1007"}
+	ei.EmoteMap["egg_lithium"] = ei.Emotes{Name: "egg_lithium", ID: "1008"}
 	ei.EmoteMap["totem_T4L"] = ei.Emotes{Name: "totem_T4L", ID: "2001"}
 	ei.EmoteMap["neck_T4L"] = ei.Emotes{Name: "neck_T4L", ID: "2002"}
 
 	testUser := "100000000000000002"
-	farmerstate.SetMiscSettingString(testUser, "collegg", "chocolate,wood,firework")
+	farmerstate.SetMiscSettingString(testUser, "collegg", "chocolate,wood,firework,flame-retardant,lithium")
 
 	tachyonEgg := ei.Egg_TACHYON
 	farm := &ei.Backup_Simulation{
@@ -1071,6 +1076,20 @@ func TestPrintEarningsSetupWithColleggtibles(t *testing.T) {
 	if !strings.Contains(earnBody, "3,780x") {
 		t.Errorf("expected total multiplier '3,780x' reflecting colleggtible boost: %s", earnBody)
 	}
+
+	// Verify contributing colleggtibles header and contents
+	if !strings.Contains(earnBody, "**Colleggtibles Contributing:**") {
+		t.Errorf("expected '**Colleggtibles Contributing:**' in earnings body: %s", earnBody)
+	}
+	if strings.Contains(earnBody, "Colleggtibles Contributing to Earnings:") {
+		t.Errorf("expected header NOT to have 'Colleggtibles Contributing to Earnings:', got: %s", earnBody)
+	}
+	if !strings.Contains(earnBody, "🏠 Hab Cost") {
+		t.Errorf("expected '🏠 Hab Cost' in earnings body: %s", earnBody)
+	}
+	if !strings.Contains(earnBody, "🚗 Vehicle Cost") {
+		t.Errorf("expected '🚗 Vehicle Cost' in earnings body: %s", earnBody)
+	}
 }
 
 func setupTestCustomEggs() {
@@ -1118,6 +1137,20 @@ func setupTestCustomEggs() {
 		Dimension:            ei.GameModifier_EARNINGS,
 		DimensionValue:       []float64{1.01, 1.02, 1.03, 1.05},
 		DimensionValueString: []string{"+1%", "+2%", "+3%", "+5%"},
+	}
+	ei.CustomEggMap["flame-retardant"] = &ei.EggIncCustomEgg{
+		ID:                   "flame-retardant",
+		Name:                 "Flame Retardant",
+		Dimension:            ei.GameModifier_HAB_COST,
+		DimensionValue:       []float64{0.99, 0.95, 0.88, 0.75},
+		DimensionValueString: []string{"99%", "95%", "88%", "75%"},
+	}
+	ei.CustomEggMap["lithium"] = &ei.EggIncCustomEgg{
+		ID:                   "lithium",
+		Name:                 "Lithium",
+		Dimension:            ei.GameModifier_VEHICLE_COST,
+		DimensionValue:       []float64{0.99, 0.95, 0.90, 0.80},
+		DimensionValueString: []string{"99%", "95%", "90%", "80%"},
 	}
 }
 
@@ -1856,5 +1889,343 @@ func TestFormatSingleArtifactBuffs(t *testing.T) {
 	plainStr := formatSingleArtifactBuffs(plainTotem, false)
 	if plainStr != "200x Away" {
 		t.Errorf("expected plain totem to show '200x Away', got: %s", plainStr)
+	}
+}
+
+func TestPuzzleCubeBuffsAndFormulas(t *testing.T) {
+	t4lCube := &ei.CompleteArtifact{
+		Spec: &ei.ArtifactSpec{
+			Name:   ei.ArtifactSpec_PUZZLE_CUBE.Enum(),
+			Level:  ei.ArtifactSpec_GREATER.Enum(),
+			Rarity: ei.ArtifactSpec_LEGENDARY.Enum(),
+		},
+		Stones: []*ei.ArtifactSpec{
+			{Name: ei.ArtifactSpec_LUNAR_STONE.Enum(), Level: ei.ArtifactSpec_NORMAL.Enum()},
+			{Name: ei.ArtifactSpec_LUNAR_STONE.Enum(), Level: ei.ArtifactSpec_NORMAL.Enum()},
+			{Name: ei.ArtifactSpec_LUNAR_STONE.Enum(), Level: ei.ArtifactSpec_NORMAL.Enum()},
+		},
+	}
+
+	// 1. Single artifact buffs formatting
+	buffStr := formatSingleArtifactBuffs(t4lCube, false)
+	if !strings.Contains(buffStr, "-60% Research") || !strings.Contains(buffStr, "+174% (2.7x) Away") {
+		t.Errorf("expected cube with lunar stones to show research discount and away buff, got: %s", buffStr)
+	}
+
+	plainCube := &ei.CompleteArtifact{
+		Spec: &ei.ArtifactSpec{
+			Name:   ei.ArtifactSpec_PUZZLE_CUBE.Enum(),
+			Level:  ei.ArtifactSpec_GREATER.Enum(),
+			Rarity: ei.ArtifactSpec_LEGENDARY.Enum(),
+		},
+	}
+	plainBuffStr := formatSingleArtifactBuffs(plainCube, false)
+	if plainBuffStr != "-60% Research" {
+		t.Errorf("expected plain cube to show '-60%% Research', got: %s", plainBuffStr)
+	}
+
+	// 2. buildResearchCostFormula without colleggtibles
+	resFormula := buildResearchCostFormula(t4lCube, ei.DimensionBuffs{}, ei.ColleggtiblesOverview{})
+	if !strings.Contains(resFormula, "🔬 Research Cost: **-60%**") || !strings.Contains(resFormula, "0.40x") {
+		t.Errorf("expected -60%% research cost formula, got: %s", resFormula)
+	}
+
+	// 3. buildResearchCostFormula with colleggtibles
+	colBuffs := ei.DimensionBuffs{
+		ResearchDiscount: 0.9025,
+	}
+	colOverview := ei.ColleggtiblesOverview{
+		Dimensions: []ei.DimensionBuffSummary{
+			{
+				Dimension:     ei.GameModifier_RESEARCH_COST,
+				CurrentString: "90.25%",
+				Colleggtibles: []ei.PlayerColleggtibleStatus{
+					{
+						EggID:              "ice",
+						Tier:               3,
+						CurrentValue:       0.95,
+						CurrentValueString: "95%",
+					},
+					{
+						EggID:              "waterballoon",
+						Tier:               3,
+						CurrentValue:       0.95,
+						CurrentValueString: "95%",
+					},
+				},
+			},
+		},
+	}
+
+	resWithCol := buildResearchCostFormula(t4lCube, colBuffs, colOverview)
+	if !strings.Contains(resWithCol, "🔬 Research Cost: **-64%**") || !strings.Contains(resWithCol, "0.40x") || !strings.Contains(resWithCol, "0.95x") {
+		t.Errorf("expected -64%% with colleggtibles in formula, got: %s", resWithCol)
+	}
+
+	// 4. formatEarningsFormulas with and without cube
+	totem := &ei.CompleteArtifact{
+		Spec: &ei.ArtifactSpec{
+			Name:   ei.ArtifactSpec_LUNAR_TOTEM.Enum(),
+			Level:  ei.ArtifactSpec_GREATER.Enum(),
+			Rarity: ei.ArtifactSpec_LEGENDARY.Enum(),
+		},
+	}
+	fWithoutCube := formatEarningsFormulas([]*ei.CompleteArtifact{totem}, 200.0, 1.0, false, colBuffs, colOverview)
+	if !strings.HasPrefix(fWithoutCube, "Formula: ") {
+		t.Errorf("expected 'Formula: ' header without cube, got: %s", fWithoutCube)
+	}
+
+	fWithCube := formatEarningsFormulas([]*ei.CompleteArtifact{totem, t4lCube}, 200.0, 1.0, false, colBuffs, colOverview)
+	if !strings.HasPrefix(fWithCube, "Formulas:\n") || !strings.Contains(fWithCube, "🔬 Research Cost: **-64%**") {
+		t.Errorf("expected 'Formulas:\n' header and research cost line with cube, got: %s", fWithCube)
+	}
+
+	// 5. formatContributingColleggtibles with hasCube=true vs false
+	setupDeliveryTestResearches()
+	backup := &ei.Backup{
+		UserId:   protoStr("EI1234567890123456"),
+		UserName: protoStr("CubeTester"),
+		Contracts: &ei.MyContracts{
+			ColleggtibleMaxFarmSizeReached: []*ei.ColleggtibleMaxFarmSize{
+				{EggId: protoStr("ice"), MaxFarmSizeReached: protoFloat64(14883750000)},
+				{EggId: protoStr("waterballoon"), MaxFarmSizeReached: protoFloat64(14883750000)},
+			},
+		},
+	}
+	if ei.CustomEggMap == nil {
+		ei.CustomEggMap = make(map[string]*ei.EggIncCustomEgg)
+	}
+	ei.CustomEggMap["ice"] = &ei.EggIncCustomEgg{
+		ID:             "ice",
+		Dimension:      ei.GameModifier_RESEARCH_COST,
+		DimensionValue: []float64{0.99, 0.98, 0.97, 0.95},
+	}
+	ei.CustomEggMap["waterballoon"] = &ei.EggIncCustomEgg{
+		ID:             "waterballoon",
+		Dimension:      ei.GameModifier_RESEARCH_COST,
+		DimensionValue: []float64{0.99, 0.98, 0.97, 0.95},
+	}
+
+	colStrWithoutCube := formatContributingColleggtibles(backup, "test-user", false, false)
+	if strings.Contains(colStrWithoutCube, "Research Cost") {
+		t.Errorf("expected no research cost in colleggtibles without cube, got: %s", colStrWithoutCube)
+	}
+
+	colStrWithCube := formatContributingColleggtibles(backup, "test-user", false, true)
+	if !strings.Contains(colStrWithCube, "🔬 Research Cost") {
+		t.Errorf("expected research cost in colleggtibles with cube, got: %s", colStrWithCube)
+	}
+}
+
+func TestOptimizeEarningsPrefersCube(t *testing.T) {
+	game := &ei.Backup_Game{
+		PermitLevel: protoUint32(1), // Pro permit
+	}
+
+	curiosityEgg := ei.Egg_CURIOSITY
+	homeFarm := &ei.Backup_Simulation{
+		FarmType:      ei.FarmType_HOME.Enum(),
+		EggType:       &curiosityEgg,
+		NumChickens:   protoUint64(1_000_000), // low population, gusset NOT required
+		HabPopulation: []uint64{250_000, 250_000, 250_000, 250_000},
+		Habs:          []uint32{18, 18, 18, 18},
+	}
+
+	totem := &ei.CompleteArtifact{
+		Spec: &ei.ArtifactSpec{
+			Name:   ei.ArtifactSpec_LUNAR_TOTEM.Enum(),
+			Level:  ei.ArtifactSpec_GREATER.Enum(),
+			Rarity: ei.ArtifactSpec_LEGENDARY.Enum(),
+		},
+	}
+	necklace := &ei.CompleteArtifact{
+		Spec: &ei.ArtifactSpec{
+			Name:   ei.ArtifactSpec_DEMETERS_NECKLACE.Enum(),
+			Level:  ei.ArtifactSpec_GREATER.Enum(),
+			Rarity: ei.ArtifactSpec_LEGENDARY.Enum(),
+		},
+	}
+	ankh := &ei.CompleteArtifact{
+		Spec: &ei.ArtifactSpec{
+			Name:   ei.ArtifactSpec_TUNGSTEN_ANKH.Enum(),
+			Level:  ei.ArtifactSpec_GREATER.Enum(),
+			Rarity: ei.ArtifactSpec_LEGENDARY.Enum(),
+		},
+	}
+	gusset := &ei.CompleteArtifact{
+		Spec: &ei.ArtifactSpec{
+			Name:   ei.ArtifactSpec_ORNATE_GUSSET.Enum(),
+			Level:  ei.ArtifactSpec_GREATER.Enum(),
+			Rarity: ei.ArtifactSpec_LEGENDARY.Enum(),
+		},
+	}
+	cube := &ei.CompleteArtifact{
+		Spec: &ei.ArtifactSpec{
+			Name:   ei.ArtifactSpec_PUZZLE_CUBE.Enum(),
+			Level:  ei.ArtifactSpec_GREATER.Enum(),
+			Rarity: ei.ArtifactSpec_LEGENDARY.Enum(),
+		},
+	}
+
+	inventory := []*ei.ArtifactInventoryItem{
+		{ItemId: protoUint64(1), Artifact: totem, Quantity: protoFloat64(1)},
+		{ItemId: protoUint64(2), Artifact: necklace, Quantity: protoFloat64(1)},
+		{ItemId: protoUint64(3), Artifact: ankh, Quantity: protoFloat64(1)},
+		{ItemId: protoUint64(4), Artifact: gusset, Quantity: protoFloat64(1)},
+		{ItemId: protoUint64(5), Artifact: cube, Quantity: protoFloat64(1)},
+		{
+			ItemId: protoUint64(10),
+			Artifact: &ei.CompleteArtifact{
+				Spec: &ei.ArtifactSpec{
+					Name:  ei.ArtifactSpec_LUNAR_STONE.Enum(),
+					Level: ei.ArtifactSpec_NORMAL.Enum(),
+				},
+			},
+			Quantity: protoFloat64(12),
+		},
+	}
+
+	backup := &ei.Backup{
+		Game:  game,
+		Farms: []*ei.Backup_Simulation{homeFarm},
+		ArtifactsDb: &ei.ArtifactsDB{
+			VirtueAfxDb: &ei.ArtifactsDB_VirtueDB{
+				InventoryItems: inventory,
+			},
+		},
+	}
+
+	res := OptimizeEarnings(backup, homeFarm)
+	if len(res.OptimalArtifacts) != 4 {
+		t.Fatalf("expected 4 optimal artifacts, got %d", len(res.OptimalArtifacts))
+	}
+
+	hasCube := false
+	hasGusset := false
+	for _, a := range res.OptimalArtifacts {
+		if a.GetSpec().GetName() == ei.ArtifactSpec_PUZZLE_CUBE {
+			hasCube = true
+		}
+		if a.GetSpec().GetName() == ei.ArtifactSpec_ORNATE_GUSSET {
+			hasGusset = true
+		}
+	}
+
+	if !hasCube {
+		t.Errorf("expected Puzzle Cube to be selected in earnings loadout, but it was not")
+	}
+	if hasGusset {
+		t.Errorf("expected unneeded Gusset to NOT be selected in earnings loadout, but it was")
+	}
+}
+
+func TestPrintEarningsSetupVirtueWithEquippedGusset(t *testing.T) {
+	curiosityEgg := ei.Egg_CURIOSITY
+	farm := &ei.Backup_Simulation{
+		FarmType:      ei.FarmType_HOME.Enum(),
+		EggType:       &curiosityEgg,
+		NumChickens:   protoUint64(10_000_000),
+		HabPopulation: []uint64{2_500_000, 2_500_000, 2_500_000, 2_500_000},
+		Habs:          []uint32{18, 18, 18, 18},
+	}
+
+	totem := &ei.CompleteArtifact{
+		Spec: &ei.ArtifactSpec{
+			Name:   ei.ArtifactSpec_LUNAR_TOTEM.Enum(),
+			Level:  ei.ArtifactSpec_GREATER.Enum(),
+			Rarity: ei.ArtifactSpec_LEGENDARY.Enum(),
+		},
+	}
+	necklace := &ei.CompleteArtifact{
+		Spec: &ei.ArtifactSpec{
+			Name:   ei.ArtifactSpec_DEMETERS_NECKLACE.Enum(),
+			Level:  ei.ArtifactSpec_GREATER.Enum(),
+			Rarity: ei.ArtifactSpec_LEGENDARY.Enum(),
+		},
+	}
+	ankh := &ei.CompleteArtifact{
+		Spec: &ei.ArtifactSpec{
+			Name:   ei.ArtifactSpec_TUNGSTEN_ANKH.Enum(),
+			Level:  ei.ArtifactSpec_GREATER.Enum(),
+			Rarity: ei.ArtifactSpec_LEGENDARY.Enum(),
+		},
+	}
+	gusset := &ei.CompleteArtifact{
+		Spec: &ei.ArtifactSpec{
+			Name:   ei.ArtifactSpec_ORNATE_GUSSET.Enum(),
+			Level:  ei.ArtifactSpec_GREATER.Enum(),
+			Rarity: ei.ArtifactSpec_LEGENDARY.Enum(),
+		},
+	}
+	cube := &ei.CompleteArtifact{
+		Spec: &ei.ArtifactSpec{
+			Name:   ei.ArtifactSpec_PUZZLE_CUBE.Enum(),
+			Level:  ei.ArtifactSpec_GREATER.Enum(),
+			Rarity: ei.ArtifactSpec_LEGENDARY.Enum(),
+		},
+	}
+
+	activeSlots := []*ei.ActiveArtifactSlot{
+		{Occupied: protoBool(true), ItemId: protoUint64(1)},
+		{Occupied: protoBool(true), ItemId: protoUint64(2)},
+		{Occupied: protoBool(true), ItemId: protoUint64(3)},
+		{Occupied: protoBool(true), ItemId: protoUint64(4)},
+	}
+
+	inventory := []*ei.ArtifactInventoryItem{
+		{ItemId: protoUint64(1), Artifact: totem, Quantity: protoFloat64(1)},
+		{ItemId: protoUint64(2), Artifact: necklace, Quantity: protoFloat64(1)},
+		{ItemId: protoUint64(3), Artifact: ankh, Quantity: protoFloat64(1)},
+		{ItemId: protoUint64(4), Artifact: gusset, Quantity: protoFloat64(1)},
+		{ItemId: protoUint64(5), Artifact: cube, Quantity: protoFloat64(1)},
+		{
+			ItemId: protoUint64(10),
+			Artifact: &ei.CompleteArtifact{
+				Spec: &ei.ArtifactSpec{
+					Name:  ei.ArtifactSpec_LUNAR_STONE.Enum(),
+					Level: ei.ArtifactSpec_NORMAL.Enum(),
+				},
+			},
+			Quantity: protoFloat64(15),
+		},
+	}
+
+	backup := &ei.Backup{
+		UserId:   protoStr("EI1234567890123456"),
+		UserName: protoStr("VirtueTester"),
+		Game:     &ei.Backup_Game{PermitLevel: protoUint32(1)},
+		Farms:    []*ei.Backup_Simulation{farm},
+		ArtifactsDb: &ei.ArtifactsDB{
+			VirtueAfxDb: &ei.ArtifactsDB_VirtueDB{
+				InventoryItems: inventory,
+				ActiveArtifacts: &ei.ArtifactsDB_ActiveArtifactSet{
+					Slots: activeSlots,
+				},
+			},
+		},
+	}
+
+	comps := printEarningsSetup("test-user", backup, farm, "", "")
+	if len(comps) < 3 {
+		t.Fatalf("expected at least 3 components, got %d", len(comps))
+	}
+
+	artDisp, ok := comps[2].(dc.TextDisplay)
+	if !ok {
+		t.Fatalf("expected third component to be dc.TextDisplay, got %T", comps[2])
+	}
+	body := artDisp.Content
+
+	gussetIdx := strings.Index(body, "**Equipped Gusset Setup:**")
+	optimalIdx := strings.Index(body, "**Optimal Setup:**")
+
+	if gussetIdx == -1 {
+		t.Fatalf("expected body to contain '**Equipped Gusset Setup:**', got:\n%s", body)
+	}
+	if optimalIdx == -1 {
+		t.Fatalf("expected body to contain '**Optimal Setup:**', got:\n%s", body)
+	}
+	if gussetIdx >= optimalIdx {
+		t.Errorf("expected '**Equipped Gusset Setup:**' to appear BEFORE '**Optimal Setup:**' (gussetIdx=%d, optimalIdx=%d)", gussetIdx, optimalIdx)
 	}
 }
