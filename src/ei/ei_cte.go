@@ -102,6 +102,15 @@ func CalculateMaxClothedTEWithSlotHint(backup *Backup, slotHint int) MaxClothedT
 	}
 }
 
+// CalculateMaxClothedTEWithForcedArtifact calculates max clothed TE forcing a specific artifact to be included.
+func CalculateMaxClothedTEWithForcedArtifact(backup *Backup, forcedArtifact *CompleteArtifact, slotHint int) MaxClothedTEResult {
+	bestArtifacts := GetMaxClothedTEArtifactsWithForcedArtifact(backup, forcedArtifact, slotHint)
+	return MaxClothedTEResult{
+		ClothedTE: CalculateClothedTEWithArtifacts(backup, bestArtifacts),
+		Artifacts: bestArtifacts,
+	}
+}
+
 // GetMaxClothedTEArtifacts returns the best artifact loadout for clothed TE.
 func GetMaxClothedTEArtifacts(backup *Backup) []*CompleteArtifact {
 	return GetMaxClothedTEArtifactsWithSlotHint(backup, 0)
@@ -109,6 +118,11 @@ func GetMaxClothedTEArtifacts(backup *Backup) []*CompleteArtifact {
 
 // GetMaxClothedTEArtifactsWithSlotHint returns best artifact loadout using slot hint when provided.
 func GetMaxClothedTEArtifactsWithSlotHint(backup *Backup, slotHint int) []*CompleteArtifact {
+	return GetMaxClothedTEArtifactsWithForcedArtifact(backup, nil, slotHint)
+}
+
+// GetMaxClothedTEArtifactsWithForcedArtifact returns best artifact loadout forcing a specific artifact to be included.
+func GetMaxClothedTEArtifactsWithForcedArtifact(backup *Backup, forcedArtifact *CompleteArtifact, slotHint int) []*CompleteArtifact {
 	virtueDB := getVirtueArtifactDB(backup)
 	if virtueDB == nil {
 		return nil
@@ -117,12 +131,38 @@ func GetMaxClothedTEArtifactsWithSlotHint(backup *Backup, slotHint int) []*Compl
 	slotCount := resolveCTEArtifactSlotCount(backup, slotHint)
 
 	hostCandidates, stonePool := collectCTECandidates(virtueDB.GetInventoryItems())
-	if len(hostCandidates) == 0 {
+	if len(hostCandidates) == 0 && (forcedArtifact == nil || forcedArtifact.GetSpec() == nil) {
 		return nil
 	}
 
+	var forcedCandidate *cteHostCandidate
+	if forcedArtifact != nil && forcedArtifact.GetSpec() != nil {
+		spec := forcedArtifact.GetSpec()
+		slots, err := GetStones(spec.GetName(), spec.GetLevel(), spec.GetRarity())
+		if err != nil {
+			slots = len(forcedArtifact.GetStones())
+		}
+		if slots < 0 {
+			slots = 0
+		}
+		forcedCandidate = &cteHostCandidate{
+			artifact:       forcedArtifact,
+			hostType:       spec.GetName(),
+			baseMultiplier: cteArtifactMultiplierWithoutStones(spec),
+			slots:          slots,
+		}
+
+		filteredHosts := make([]cteHostCandidate, 0, len(hostCandidates))
+		for _, h := range hostCandidates {
+			if h.hostType != forcedCandidate.hostType {
+				filteredHosts = append(filteredHosts, h)
+			}
+		}
+		hostCandidates = filteredHosts
+	}
+
 	stoneProduct, stonesBySlots := bestStoneProducts(stonePool)
-	bestHosts := bestCTEHostCombo(hostCandidates, slotCount, stoneProduct)
+	bestHosts := bestCTEHostComboForced(hostCandidates, slotCount, stoneProduct, forcedCandidate)
 	if len(bestHosts) == 0 {
 		return nil
 	}
@@ -451,10 +491,19 @@ func bestStoneProducts(stones []cteStoneCandidate) ([]float64, [][]*ArtifactSpec
 }
 
 func bestCTEHostCombo(hosts []cteHostCandidate, maxHosts int, stoneProducts []float64) []cteHostCandidate {
-	bestScore := 1.0
+	return bestCTEHostComboForced(hosts, maxHosts, stoneProducts, nil)
+}
+
+func bestCTEHostComboForced(hosts []cteHostCandidate, maxHosts int, stoneProducts []float64, forcedHost *cteHostCandidate) []cteHostCandidate {
+	bestScore := 0.0
 	bestHosts := []cteHostCandidate{}
 	usedTypes := make(map[ArtifactSpec_Name]bool)
 	current := make([]cteHostCandidate, 0, maxHosts)
+
+	if forcedHost != nil {
+		usedTypes[forcedHost.hostType] = true
+		current = append(current, *forcedHost)
+	}
 
 	var dfs func(index int)
 	dfs = func(index int) {
@@ -496,6 +545,9 @@ func bestCTEHostCombo(hosts []cteHostCandidate, maxHosts int, stoneProducts []fl
 	}
 
 	dfs(0)
+	if len(bestHosts) == 0 && forcedHost != nil {
+		return []cteHostCandidate{*forcedHost}
+	}
 	return bestHosts
 }
 
