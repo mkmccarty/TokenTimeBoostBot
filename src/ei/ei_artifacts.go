@@ -389,23 +389,18 @@ func GetStones(afxName ArtifactSpec_Name, afxLevel ArtifactSpec_Level, afxRarity
 		if f.AfxID != afxName {
 			continue
 		}
-		//fmt.Print(f.AfxID)
+		if int(afxLevel) < 0 || int(afxLevel) >= len(f.Tiers) || f.Tiers[afxLevel] == nil {
+			return 0, errors.Errorf("artifact tier (%s, %s) not found in data.json", afxName, afxLevel)
+		}
 		tier := f.Tiers[afxLevel]
 		for _, e := range tier.Effects {
 			if e.AfxRarity == afxRarity {
+				if e.Slots == nil {
+					return 0, nil
+				}
 				return int(*e.Slots), nil
 			}
 		}
-		/*
-			if f.AfxId == familyAfxID {
-				for _, t := range f.Tiers {
-					if t.AfxId == afxID && t.AfxLevel == afxLevel {
-						return t, nil
-					}
-				}
-				break
-			}
-		*/
 	}
 	return 0, errors.Errorf("artifact (%s, %s) not found in data.json", afxName, afxLevel)
 }

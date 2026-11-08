@@ -24,6 +24,7 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/eb"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/events"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/farm"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/launch"
@@ -126,6 +127,7 @@ const slashRerunEval string = "rerun-eval"
 const slashContractReport string = "contract-report"
 const slashContractScores string = "contract-scores"
 const slashVirtue string = "virtue"
+const slashFarm string = "farm"
 const slashEb string = "eb"
 const slashRegister string = "register"
 const slashRegisterAlt string = "register-alt"
@@ -526,6 +528,12 @@ func setupCommands() {
 			Category:     CmdCategoryGlobal,
 			Handler:      virtue.HandleVirtue,
 			Autocomplete: virtue.HandleVirtueAutocomplete,
+		},
+		{
+			AppCmd:       farm.GetSlashFarmCommand(slashFarm),
+			Category:     CmdCategoryGlobal,
+			Handler:      farm.HandleFarm,
+			Autocomplete: farm.HandleFarmAutocomplete,
 		},
 		{
 			AppCmd:       eb.GetSlashEbCommand(slashEb),
