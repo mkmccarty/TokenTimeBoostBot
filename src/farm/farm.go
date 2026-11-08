@@ -1381,7 +1381,15 @@ func formatSingleArtifactBuffs(a *ei.CompleteArtifact, isDelivery bool) string {
 		spec := a.GetSpec()
 		tierStr := ei.ArtifactLevels[spec.GetLevel()] + ei.ArtifactRarity[spec.GetRarity()]
 		if spec.GetName() == ei.ArtifactSpec_LUNAR_TOTEM {
-			if mult, ok := totemBuffs[tierStr]; ok {
+			mult := 1.0
+			if b, ok := totemBuffs[tierStr]; ok {
+				mult = b
+			}
+			stoneAway := buffs.AwayEarnings / mult
+			if stoneAway > 1.0001 {
+				parts = append(parts, fmt.Sprintf("%s Away", formatBuffModifier(stoneAway)))
+			}
+			if mult > 1.0 {
 				parts = append(parts, fmt.Sprintf("%gx Away", mult))
 			}
 		} else if buffs.AwayEarnings != 1 {
@@ -1423,7 +1431,15 @@ func formatAnyArtifactBuffs(a *ei.CompleteArtifact) string {
 	spec := a.GetSpec()
 	tierStr := ei.ArtifactLevels[spec.GetLevel()] + ei.ArtifactRarity[spec.GetRarity()]
 	if spec.GetName() == ei.ArtifactSpec_LUNAR_TOTEM {
-		if mult, ok := totemBuffs[tierStr]; ok {
+		mult := 1.0
+		if b, ok := totemBuffs[tierStr]; ok {
+			mult = b
+		}
+		stoneAway := buffs.AwayEarnings / mult
+		if stoneAway > 1.0001 {
+			parts = append(parts, fmt.Sprintf("%s Away", formatBuffModifier(stoneAway)))
+		}
+		if mult > 1.0 {
 			parts = append(parts, fmt.Sprintf("%gx Away", mult))
 		}
 	} else if buffs.AwayEarnings != 1 {
