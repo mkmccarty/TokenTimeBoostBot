@@ -240,4 +240,3 @@ func farmHelpText() string {
 	builder.WriteString("- If your current chicken population exceeds base hab capacity without a gusset, the optimizer ensures a qualifying gusset is retained to prevent hab lockout.\n")
 	return builder.String()
 }
-
