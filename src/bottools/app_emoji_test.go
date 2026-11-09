@@ -151,8 +151,11 @@ func TestCommitEmojiToGitHubNoToken(t *testing.T) {
 		}
 	}()
 
-	err := CommitEmojiToGitHub("egg_test.png", []byte("data"))
+	committed, err := CommitEmojiToGitHub("egg_test.png", []byte("data"))
 	if err != nil {
 		t.Fatalf("expected nil error when token is unset, got: %v", err)
+	}
+	if committed {
+		t.Fatal("expected committed=false when token is unset")
 	}
 }
