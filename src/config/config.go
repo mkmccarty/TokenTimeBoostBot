@@ -46,6 +46,8 @@ var (
 	BannerURL string
 	// DevelopmentStaff is a list of user IDs for development staff.
 	DevelopmentStaff []string
+	// GitHubToken is the GitHub token used for API operations (e.g. committing assets).
+	GitHubToken string
 	// Key is the encryption key used for encrypting sensitive data.
 	Key string
 
@@ -72,6 +74,7 @@ type configStruct struct {
 	BannerOutputPath string   `json:"BannerOutputPath"`
 	BannerURL        string   `json:"BannerURL"`
 	DevelopmentStaff []string `json:"DevelopmentStaff"`
+	GitHubToken      string   `json:"GitHubToken"`
 	Key              string   `json:"Key"`
 }
 
@@ -110,6 +113,7 @@ func ReadConfig(cfgFile string) error {
 	BannerOutputPath = config.BannerOutputPath
 	BannerURL = config.BannerURL
 	DevelopmentStaff = config.DevelopmentStaff
+	GitHubToken = config.GitHubToken
 	Key = config.Key
 
 	if Key == "" {
@@ -230,4 +234,21 @@ func IsDevBot() bool {
 // GetTestMode returns the current test mode status.
 func GetTestMode() bool {
 	return TestMode
+}
+
+// GetGitHubToken returns the configured GitHub token, falling back to GistToken or environment variables.
+func GetGitHubToken() string {
+	if GitHubToken != "" {
+		return GitHubToken
+	}
+	if GistToken != "" {
+		return GistToken
+	}
+	if token := os.Getenv("GITHUB_TOKEN"); token != "" {
+		return token
+	}
+	if token := os.Getenv("GH_TOKEN"); token != "" {
+		return token
+	}
+	return ""
 }

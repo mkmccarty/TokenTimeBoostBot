@@ -28,7 +28,43 @@ import (
 
 const emoteFilePath = "ttbb-data/Emotes.json"
 
-var emojiImportMu sync.Mutex
+var (
+	emojiImportMu        sync.Mutex
+	failedEmojiLookups   = make(map[string]time.Time)
+	failedEmojiLookupsMu sync.Mutex
+)
+
+func isEmojiLookupCoolingDown(name string) bool {
+	failedEmojiLookupsMu.Lock()
+	defer failedEmojiLookupsMu.Unlock()
+	t, ok := failedEmojiLookups[name]
+	if !ok {
+		return false
+	}
+	if time.Since(t) > 2*time.Minute {
+		delete(failedEmojiLookups, name)
+		return false
+	}
+	return true
+}
+
+func recordFailedEmojiLookup(name string) {
+	failedEmojiLookupsMu.Lock()
+	failedEmojiLookups[name] = time.Now()
+	failedEmojiLookupsMu.Unlock()
+}
+
+func clearFailedEmojiLookup(names ...string) {
+	failedEmojiLookupsMu.Lock()
+	if len(names) == 0 {
+		failedEmojiLookups = make(map[string]time.Time)
+	} else {
+		for _, n := range names {
+			delete(failedEmojiLookups, n)
+		}
+	}
+	failedEmojiLookupsMu.Unlock()
+}
 
 // fetchEmojisFromDiscord fetches emojis from the discord API
 func fetchEmojisFromDiscord(client dc.Client) map[string]ei.Emotes {
@@ -82,6 +118,7 @@ func LoadEmotesWithClient(client dc.Client, force bool) {
 // ReloadEmotes removes the cached emoji file, fetches all application emojis from Discord,
 // updates in-memory mapping, and saves the new cache file.
 func ReloadEmotes(client dc.Client) (int, error) {
+	clearFailedEmojiLookup()
 	_ = os.Remove(emoteFilePath)
 	_ = os.Remove("ttbb-data/emoji.json")
 	LoadEmotesWithClient(client, true)
@@ -100,6 +137,10 @@ func EnsureEmojiFromLocalRepoWithClient(client dc.Client, name string) (ei.Emote
 		return emoji, true
 	}
 
+	if isEmojiLookupCoolingDown(emojiName) {
+		return ei.Emotes{}, false
+	}
+
 	emojiImportMu.Lock()
 	defer emojiImportMu.Unlock()
 
@@ -113,6 +154,7 @@ func EnsureEmojiFromLocalRepoWithClient(client dc.Client, name string) (ei.Emote
 		ei.EmoteMap = refreshed
 		saveEmotesToFile(emoteFilePath, ei.EmoteMap)
 		if emoji, found := ei.EmoteMap[emojiName]; found {
+			clearFailedEmojiLookup(emojiName, name)
 			return emoji, true
 		}
 	}
@@ -123,6 +165,7 @@ func EnsureEmojiFromLocalRepoWithClient(client dc.Client, name string) (ei.Emote
 		// Attempt to download the missing image from git repository
 		emojiPath, ok = downloadEmojiFromGit(name, emojiName)
 		if !ok {
+			recordFailedEmojiLookup(emojiName)
 			log.Printf("Emoji %s not found locally or in git repository", emojiName)
 			return ei.Emotes{}, false
 		}
@@ -130,6 +173,7 @@ func EnsureEmojiFromLocalRepoWithClient(client dc.Client, name string) (ei.Emote
 
 	createdEmoji, err := importSingleEmojiFromPath(client, emojiName, emojiPath)
 	if err != nil {
+		recordFailedEmojiLookup(emojiName)
 		log.Printf("Error importing missing local emoji %s: %v", emojiName, err)
 		return ei.Emotes{}, false
 	}
@@ -141,12 +185,14 @@ func EnsureEmojiFromLocalRepoWithClient(client dc.Client, name string) (ei.Emote
 		saveEmotesToFile(emoteFilePath, ei.EmoteMap)
 		if emoji, found := ei.EmoteMap[emojiName]; found {
 			ei.EmoteMap[strings.ToLower(name)] = emoji
+			clearFailedEmojiLookup(emojiName, name)
 			return emoji, true
 		}
 	}
 
 	ei.EmoteMap[emojiName] = createdEmoji
 	ei.EmoteMap[strings.ToLower(name)] = createdEmoji
+	clearFailedEmojiLookup(emojiName, name)
 	saveEmotesToFile(emoteFilePath, ei.EmoteMap)
 	return createdEmoji, true
 }
@@ -420,25 +466,159 @@ func ImportEggImageWithClient(client dc.Client, eggID, IconURL string) (string, 
 		log.Print(err)
 		return "", err
 	}
+
+	// Also write to local emoji/ directory if it exists
+	if _, err := os.Stat("emoji"); err == nil {
+		_ = os.WriteFile(filepath.Join("emoji", fmt.Sprintf("egg_%s.png", cleanEggID)), buf.Bytes(), 0644)
+	}
+
+	// Automatically commit egg image to GitHub repository
+	go func(filename string, data []byte) {
+		if err := CommitEmojiToGitHub(filename, data); err != nil {
+			log.Printf("Automatic GitHub commit for %s failed: %v", filename, err)
+		}
+	}(fmt.Sprintf("egg_%s.png", cleanEggID), buf.Bytes())
+
 	base64Image := base64.StdEncoding.EncodeToString(buf.Bytes())
 
+	var emojiData ei.Emotes
 	newID, err := client.ApplicationEmojiCreate(config.DiscordAppID, dc.EmojiParams{
 		Name:  fmt.Sprintf("egg_%s", cleanEggID),
 		Image: "data:image/png;base64," + base64Image,
 	})
 	if err != nil {
-		log.Print(err)
+		log.Printf("ApplicationEmojiCreate for egg_%s failed: %v; checking if already present on Discord", cleanEggID, err)
+		refreshed := fetchEmojisFromDiscord(client)
+		if len(refreshed) > 0 {
+			ei.EmoteMap = refreshed
+			saveEmotesToFile(emoteFilePath, ei.EmoteMap)
+			targetName := strings.ToLower(fmt.Sprintf("egg_%s", cleanEggID))
+			if em, found := ei.EmoteMap[targetName]; found {
+				ei.EmoteMap[eggID] = em
+				ei.EmoteMap[cleanEggID] = em
+				saveEmotesToFile(emoteFilePath, ei.EmoteMap)
+				clearFailedEmojiLookup(cleanEggID, targetName, eggID)
+				return fmt.Sprintf(":%s:%s:", em.Name, em.ID), nil
+			}
+		}
 		return "", err
 	}
-	emojiData := ei.Emotes{
+
+	emojiData = ei.Emotes{
 		Name:     newID.Name,
 		ID:       newID.ID,
 		Animated: newID.Animated,
 	}
 	ei.EmoteMap[eggID] = emojiData
+	ei.EmoteMap[strings.ToLower(newID.Name)] = emojiData
+	ei.EmoteMap[fmt.Sprintf("egg_%s", cleanEggID)] = emojiData
+	ei.EmoteMap[cleanEggID] = emojiData
 
+	clearFailedEmojiLookup(cleanEggID, fmt.Sprintf("egg_%s", cleanEggID), eggID)
 	saveEmotesToFile(emoteFilePath, ei.EmoteMap)
 	return fmt.Sprintf(":%s:%s:", newID.Name, newID.ID), nil
+}
+
+// CommitEmojiToGitHub commits an emoji file to the GitHub repository under emoji/<filename>.
+func CommitEmojiToGitHub(filename string, content []byte) error {
+	token := config.GetGitHubToken()
+	if token == "" {
+		log.Printf("GitHub token not configured; skipping automatic commit of %s", filename)
+		return nil
+	}
+
+	owner := "mkmccarty"
+	repo := "TokenTimeBoostBot"
+	filePath := fmt.Sprintf("emoji/%s", filename)
+
+	client := github.NewClient(nil).WithAuthToken(token)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	var sha *string
+	fileContent, _, resp, err := client.Repositories.GetContents(ctx, owner, repo, filePath, &github.RepositoryContentGetOptions{
+		Ref: "main",
+	})
+	if err == nil && fileContent != nil {
+		sha = fileContent.SHA
+		existingData, decodeErr := fileContent.GetContent()
+		if decodeErr == nil && bytes.Equal([]byte(existingData), content) {
+			log.Printf("Emoji %s already up to date on GitHub", filePath)
+			return nil
+		}
+	} else if resp != nil && resp.StatusCode != http.StatusNotFound {
+		log.Printf("Error checking existence of %s on GitHub: %v", filePath, err)
+	}
+
+	opts := &github.RepositoryContentFileOptions{
+		Message: github.Ptr(fmt.Sprintf("feat(emoji): add %s", filename)),
+		Content: content,
+		Branch:  github.Ptr("main"),
+		SHA:     sha,
+		Committer: &github.CommitAuthor{
+			Name:  github.Ptr("TokenTimeBoostBot"),
+			Email: github.Ptr("bot@tokentimeboostbot"),
+		},
+	}
+
+	_, _, err = client.Repositories.CreateFile(ctx, owner, repo, filePath, opts)
+	if err != nil {
+		log.Printf("Failed to commit %s to GitHub: %v", filePath, err)
+		return err
+	}
+
+	log.Printf("Successfully committed %s to GitHub (%s/%s)", filePath, owner, repo)
+	return nil
+}
+
+// SyncMissingEmojisToGitHub scans BannerPath and emoji/ directories for egg_*.png and commits any missing ones to GitHub.
+func SyncMissingEmojisToGitHub() (int, int, error) {
+	token := config.GetGitHubToken()
+	if token == "" {
+		return 0, 0, fmt.Errorf("GitHub token not configured (set GitHubToken in config or GITHUB_TOKEN environment variable)")
+	}
+
+	dirs := []string{"emoji"}
+	if config.BannerPath != "" && config.BannerPath != "emoji" {
+		dirs = append(dirs, config.BannerPath)
+	}
+
+	seen := make(map[string]string) // filename -> filepath
+	for _, dir := range dirs {
+		files, err := os.ReadDir(dir)
+		if err != nil {
+			continue
+		}
+		for _, f := range files {
+			if f.IsDir() {
+				continue
+			}
+			name := f.Name()
+			if strings.HasPrefix(name, "egg_") && strings.HasSuffix(name, ".png") {
+				if _, exists := seen[name]; !exists {
+					seen[name] = filepath.Join(dir, name)
+				}
+			}
+		}
+	}
+
+	total := len(seen)
+	committed := 0
+
+	for filename, fullPath := range seen {
+		data, err := os.ReadFile(fullPath)
+		if err != nil {
+			continue
+		}
+		err = CommitEmojiToGitHub(filename, data)
+		if err != nil {
+			log.Printf("SyncMissingEmojisToGitHub: failed for %s: %v", filename, err)
+			continue
+		}
+		committed++
+	}
+
+	return committed, total, nil
 }
 
 func isEmojiFile(fileName string) bool {
