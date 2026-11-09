@@ -1,6 +1,7 @@
 package boost
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -8,6 +9,84 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc/dctest"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
+
+// Make sure to use the testing package
+func TestDetermineDynamicTokens(t *testing.T) {
+
+	// Create a contract with 10 farmers
+	c := new(Contract)
+	c.Style = ContractFlagDynamicTokens
+	c.Boosters = make(map[string]*Booster)
+	c.StartTime = time.Now()
+	c.CoopSize = 10
+	c.BoostPosition = 2
+
+	for i := 0; i < 10; i++ {
+		name := fmt.Sprintf("Farmer%d", i)
+
+		b := new(Booster)
+		b.Name = name
+		b.UserID = name
+		c.Boosters[name] = b
+		// Add this user to the boost order
+		c.Order = append(c.Order, name)
+	}
+
+	// Mark first booster as boosted
+	c.Boosters[c.Order[0]].BoostState = BoostStateBoosted
+	c.Boosters[c.Order[0]].StartTime = c.StartTime.Add(time.Minute * 10)
+	c.Boosters[c.Order[0]].EndTime = c.Boosters[c.Order[0]].StartTime.Add(time.Minute * 10)
+
+	c.Boosters[c.Order[1]].BoostState = BoostStateBoosted
+	c.Boosters[c.Order[1]].StartTime = c.Boosters[c.Order[0]].EndTime // After previous booster finishes
+	c.Boosters[c.Order[1]].EndTime = c.Boosters[c.Order[1]].StartTime.Add(time.Minute * 10)
+
+	// Create a dummy token log to fake how many tokens we've received
+	for i := 0; i < 20; i++ {
+		c.TokenLog = append(c.TokenLog, ei.TokenUnitLog{})
+	}
+
+	determineDynamicTokens(c)
+}
+
+func TestDynamicTokens(t *testing.T) {
+
+	dt := createDynamicTokenData(50)
+
+	boostDur, crDur := getBoostTimeSeconds(dt, 6)
+	if boostDur <= 0 || crDur <= 0 {
+		t.Errorf("getBoostTimeSeconds() = (%v, %v), want > 0", boostDur, crDur)
+	}
+
+	// Initially assign 6 token boosts to everyone,
+	// In reverse order start calculating using 8 token boosts
+	// stop when the 120 minute delivered eggs amount is less than the previous amount
+	result := calculateDynamicTokens(dt, 4, 0.39, 0)
+
+	// result should be 4 integers with the the last one being an 8
+	if len(result) != 4 {
+		t.Errorf("calculateDynamicTokens() = %v, want %v", len(result), 4)
+	}
+
+	if result[0] != 6 {
+		t.Errorf("calculateDynamicTokens() = %v, want %v", result[0], 6)
+	}
+
+	if result[1] != 6 {
+		t.Errorf("calculateDynamicTokens() = %v, want %v", result[1], 6)
+	}
+
+	if result[2] != 6 {
+
+		t.Errorf("calculateDynamicTokens() = %v, want %v", result[2], 6)
+	}
+
+	if result[3] != 8 {
+
+		t.Errorf("calculateDynamicTokens() = %v, want %v", result[3], 8)
+	}
+
+}
 
 func TestGetExpectedBoostIcons(t *testing.T) {
 	tests := []struct {
@@ -165,6 +244,55 @@ func TestCalculateBoostSchedule_UsesKnownArtifacts(t *testing.T) {
 	}
 	if schedLower.TotalBoostDuration <= schedLeggy.TotalBoostDuration {
 		t.Errorf("expected lower artifacts to take longer (%v) than leggy artifacts (%v)", schedLower.TotalBoostDuration, schedLeggy.TotalBoostDuration)
+	}
+	if schedLeggy.DeflectorIsActual {
+		t.Errorf("expected DeflectorIsActual=false when other farmers' deflectors are unknown")
+	}
+	if schedLeggy.DeflectorPercent != 60 {
+		t.Errorf("expected estimated DeflectorPercent=60 for 4-player coop, got %v", schedLeggy.DeflectorPercent)
+	}
+	estFormatted := formatBoostSchedule(contract, boosterLeggy, schedLeggy)
+	if !strings.Contains(estFormatted, "`60%` (estimated)") {
+		t.Errorf("expected `60%%` (estimated) in formatted output, got:\n%s", estFormatted)
+	}
+
+	// Now populate known deflectors for all 3 other farmers in a 4-player coop (20% + 19% + 15% = 54%)
+	contractWithDefl := &Contract{
+		ContractID: "test-sched-actual-defl",
+		CoopSize:   4,
+		PlayStyle:  ContractPlaystyleFastrun,
+		Boosters: map[string]*Booster{
+			boosterLeggy.UserID: boosterLeggy,
+			"100000000000000005": {
+				UserID: "100000000000000005",
+				ArtifactSet: ArtifactSet{
+					Artifacts: []ei.Artifact{{Type: "Deflector", Quality: "T4L", DeflBuff: 1.20}},
+				},
+			},
+			"100000000000000006": {
+				UserID: "100000000000000006",
+				ArtifactSet: ArtifactSet{
+					Artifacts: []ei.Artifact{{Type: "Deflector", Quality: "T4E", DeflBuff: 1.19}},
+				},
+			},
+			"100000000000000007": {
+				UserID: "100000000000000007",
+				ArtifactSet: ArtifactSet{
+					Artifacts: []ei.Artifact{{Type: "Deflector", Quality: "T4C", DeflBuff: 1.15}},
+				},
+			},
+		},
+	}
+	schedActual := calculateBoostSchedule(contractWithDefl, boosterLeggy, now)
+	if !schedActual.DeflectorIsActual {
+		t.Errorf("expected DeflectorIsActual=true when all other farmers have known deflectors")
+	}
+	if schedActual.DeflectorPercent != 54 {
+		t.Errorf("expected actual DeflectorPercent=54 (20+19+15), got %v", schedActual.DeflectorPercent)
+	}
+	actFormatted := formatBoostSchedule(contractWithDefl, boosterLeggy, schedActual)
+	if !strings.Contains(actFormatted, "`54%` (actual)") {
+		t.Errorf("expected `54%%` (actual) in formatted output, got:\n%s", actFormatted)
 	}
 }
 

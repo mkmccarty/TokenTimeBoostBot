@@ -147,6 +147,8 @@ type BoostSchedule struct {
 	CRRequestPopulation   float64
 	MaxShippingPopulation float64
 	OfflineIHRPerMin      float64
+	DeflectorPercent      float64
+	DeflectorIsActual     bool
 	EstRequestChickenRuns time.Time
 	EstEndOfBoost         time.Time
 }
@@ -431,9 +433,42 @@ func calculateBoostSchedule(contract *Contract, booster *Booster, now time.Time)
 		ihrSlots = customIHRSlots
 	}
 
+	// Calculate total deflector bonus on this farmer from other players in the contract.
+	// Use known deflector artifacts when available, and DefaultLeggyDeflectorBonus for unknown players.
+	otherFarmersCount := int(max(0.0, numFarmers-1.0))
+	knownDeflectorPlayers := 0
+	totalDeflectorBonus := 0.0
+	if contract != nil && otherFarmersCount > 0 {
+		boosterID := ""
+		if booster != nil {
+			boosterID = booster.UserID
+		}
+		for uid, other := range contract.Boosters {
+			if uid == boosterID || other == nil {
+				continue
+			}
+			otherArts := other.ArtifactSet.Artifacts
+			if len(otherArts) == 0 && uid != "" {
+				otherArts = getUserArtifacts(uid, nil).Artifacts
+			}
+			for _, a := range otherArts {
+				if a.Type == "Deflector" {
+					knownDeflectorPlayers++
+					if a.DeflBuff > 1.0 {
+						totalDeflectorBonus += a.DeflBuff - 1.0
+					}
+					break
+				}
+			}
+		}
+	}
+	unknownDeflectorPlayers := max(0, otherFarmersCount-knownDeflectorPlayers)
+	totalDeflectorBonus += float64(unknownDeflectorPlayers) * DefaultLeggyDeflectorBonus
+	deflectorIsActual := otherFarmersCount == 0 || knownDeflectorPlayers >= otherFarmersCount
+	deflectorPercent := math.Round(totalDeflectorBonus * 100.0)
+
 	// Calculate max shipping population using the stone-hunt method from estimate_time.go
-	deflectorsOnFarmer := max(0.0, numFarmers-1.0)
-	deflectorMultiplier := 1.0 + DefaultLeggyDeflectorBonus*deflectorsOnFarmer
+	deflectorMultiplier := 1.0 + totalDeflectorBonus
 	baseELR := 3.772 * metronome * gusset
 	baseShipping := 7.148 * compass
 	contractBaseELR := baseELR * modELR * modHab
@@ -524,6 +559,8 @@ func calculateBoostSchedule(contract *Contract, booster *Booster, now time.Time)
 		CRRequestPopulation:   crRequestPop,
 		MaxShippingPopulation: maxPop,
 		OfflineIHRPerMin:      offlineIHRPerMin,
+		DeflectorPercent:      deflectorPercent,
+		DeflectorIsActual:     deflectorIsActual,
 		EstRequestChickenRuns: now.Add(crDuration),
 		EstEndOfBoost:         now.Add(totalBoostDuration),
 	}
@@ -536,12 +573,18 @@ func formatBoostSchedule(contract *Contract, booster *Booster, sched BoostSchedu
 		tokenIcon = contract.TokenStr
 	}
 	crIcon := boostEmojiMarkdown("icon_chicken_run")
+	deflIcon := boostEmojiMarkdown("defl_T4L")
 
 	crPopStr := ei.FormatEIValue(sched.CRRequestPopulation, map[string]any{"decimals": 2, "trim": true})
 	maxPopStr := ei.FormatEIValue(sched.MaxShippingPopulation, map[string]any{"decimals": 2, "trim": true})
 	totalDurStr := bottools.FmtDuration(sched.TotalBoostDuration.Round(time.Second))
 	crDurStr := bottools.FmtDuration(sched.CRDuration.Round(time.Second))
 	postCRDurStr := bottools.FmtDuration(sched.PostCROfflineDuration.Round(time.Second))
+
+	deflStatus := "estimated"
+	if sched.DeflectorIsActual {
+		deflStatus = "actual"
+	}
 
 	truckNote := ""
 	if sched.TruckChecks > 0 {
@@ -562,6 +605,7 @@ func formatBoostSchedule(contract *Contract, booster *Booster, sched BoostSchedu
 	fmt.Fprintf(&sb, "## 🚀 Boost Schedule%s (%d %s)\n", boosterTarget, sched.Tokens, tokenIcon)
 	fmt.Fprintf(&sb, "**Total Boost Time:** `%s` (Done <t:%d:t>)\n", totalDurStr, sched.EstEndOfBoost.Unix())
 	fmt.Fprintf(&sb, "**Request Chicken Runs %s at:** `%s` chickens (Max shipping pop: `%s`)\n", crIcon, crPopStr, maxPopStr)
+	fmt.Fprintf(&sb, "**Deflector Bonus %s:** `%.0f%%` (%s)\n", deflIcon, sched.DeflectorPercent, deflStatus)
 	fmt.Fprintf(&sb, "**Boosts:** %s\n\n", sched.BoostIcons)
 	sb.WriteString("**Schedule:**\n")
 	fmt.Fprintf(&sb, "• **Reach CR Population (`%s`):** `%s`%s — Request CR %s <t:%d:R>\n",
