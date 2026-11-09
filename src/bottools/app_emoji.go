@@ -472,9 +472,9 @@ func ImportEggImageWithClient(client dc.Client, eggID, IconURL string) (string, 
 		_ = os.WriteFile(filepath.Join("emoji", fmt.Sprintf("egg_%s.png", cleanEggID)), buf.Bytes(), 0644)
 	}
 
-	// Automatically commit egg image to GitHub repository
+	// Automatically commit egg image to GitHub repository if not already added
 	go func(filename string, data []byte) {
-		if err := CommitEmojiToGitHub(filename, data); err != nil {
+		if _, err := CommitEmojiToGitHub(filename, data); err != nil {
 			log.Printf("Automatic GitHub commit for %s failed: %v", filename, err)
 		}
 	}(fmt.Sprintf("egg_%s.png", cleanEggID), buf.Bytes())
@@ -520,11 +520,13 @@ func ImportEggImageWithClient(client dc.Client, eggID, IconURL string) (string, 
 }
 
 // CommitEmojiToGitHub commits an emoji file to the GitHub repository under emoji/<filename>.
-func CommitEmojiToGitHub(filename string, content []byte) error {
+// It first checks if the file has already been added to avoid duplicate commits (e.g. between dev and prod).
+// It returns (committed bool, err error).
+func CommitEmojiToGitHub(filename string, content []byte) (bool, error) {
 	token := config.GetGitHubToken()
 	if token == "" {
 		log.Printf("GitHub token not configured; skipping automatic commit of %s", filename)
-		return nil
+		return false, nil
 	}
 
 	owner := "mkmccarty"
@@ -535,40 +537,41 @@ func CommitEmojiToGitHub(filename string, content []byte) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	var sha *string
+	// Check if file already exists in repository to prevent duplicate commits
 	fileContent, _, resp, err := client.Repositories.GetContents(ctx, owner, repo, filePath, &github.RepositoryContentGetOptions{
 		Ref: "main",
 	})
 	if err == nil && fileContent != nil {
-		sha = fileContent.SHA
-		existingData, decodeErr := fileContent.GetContent()
-		if decodeErr == nil && bytes.Equal([]byte(existingData), content) {
-			log.Printf("Emoji %s already up to date on GitHub", filePath)
-			return nil
-		}
-	} else if resp != nil && resp.StatusCode != http.StatusNotFound {
+		log.Printf("Emoji %s already exists on GitHub repository, skipping commit", filePath)
+		return false, nil
+	}
+	if resp != nil && resp.StatusCode != http.StatusNotFound {
 		log.Printf("Error checking existence of %s on GitHub: %v", filePath, err)
+		return false, fmt.Errorf("failed to check existence of %s on GitHub: %w", filePath, err)
 	}
 
 	opts := &github.RepositoryContentFileOptions{
 		Message: github.Ptr(fmt.Sprintf("feat(emoji): add %s", filename)),
 		Content: content,
 		Branch:  github.Ptr("main"),
-		SHA:     sha,
 		Committer: &github.CommitAuthor{
 			Name:  github.Ptr("TokenTimeBoostBot"),
 			Email: github.Ptr("bot@tokentimeboostbot"),
 		},
 	}
 
-	_, _, err = client.Repositories.CreateFile(ctx, owner, repo, filePath, opts)
+	_, resp, err = client.Repositories.CreateFile(ctx, owner, repo, filePath, opts)
 	if err != nil {
+		if resp != nil && resp.StatusCode == http.StatusUnprocessableEntity {
+			log.Printf("Emoji %s was already committed concurrently to GitHub", filePath)
+			return false, nil
+		}
 		log.Printf("Failed to commit %s to GitHub: %v", filePath, err)
-		return err
+		return false, err
 	}
 
 	log.Printf("Successfully committed %s to GitHub (%s/%s)", filePath, owner, repo)
-	return nil
+	return true, nil
 }
 
 // SyncMissingEmojisToGitHub scans BannerPath and emoji/ directories for egg_*.png and commits any missing ones to GitHub.
@@ -610,12 +613,14 @@ func SyncMissingEmojisToGitHub() (int, int, error) {
 		if err != nil {
 			continue
 		}
-		err = CommitEmojiToGitHub(filename, data)
+		newlyCommitted, err := CommitEmojiToGitHub(filename, data)
 		if err != nil {
 			log.Printf("SyncMissingEmojisToGitHub: failed for %s: %v", filename, err)
 			continue
 		}
-		committed++
+		if newlyCommitted {
+			committed++
+		}
 	}
 
 	return committed, total, nil

@@ -724,9 +724,11 @@ func handleCommitEmojisTask(e *dc.CommandEvent) {
 		"## 📤 Emojis Synced to GitHub Successfully\n"+
 			"- **Repository**: `mkmccarty/TokenTimeBoostBot` (`emoji/`)\n"+
 			"- **Total Local Emojis Scanned**: %d\n"+
-			"- **Committed / Updated**: %d",
+			"- **Newly Committed**: %d\n"+
+			"- **Already Present**: %d",
 		total,
 		committed,
+		total-committed,
 	)
 	_ = e.Followup(dc.Message{Content: responseMsg})
 }
