@@ -8,7 +8,9 @@ import (
 	"time"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
 // DynamicTokenData is a struct that holds the data needed to calculate dynamic tokens
@@ -629,4 +631,238 @@ func setEstimatedBoostTimings(booster *Booster, contracts ...*Contract) {
 	booster.EstDurationOfBoost = sched.TotalBoostDuration
 	booster.EstRequestChickenRuns = sched.EstRequestChickenRuns
 	booster.EstEndOfBoost = sched.EstEndOfBoost
+}
+
+var fetchCoopStatusForDeflectors = func(contractID, coopID, eeidOverride string) (*ei.ContractCoopStatusResponse, error) {
+	if config.EIUserIDBasic == "" && eeidOverride == "" && !strings.HasPrefix(coopID, "!!") {
+		return nil, nil
+	}
+	coopStatus, _, _, err := ei.GetCoopStatusUncached(contractID, coopID, eeidOverride)
+	if err != nil {
+		coopStatus, _, _, err = ei.GetCoopStatus(contractID, coopID, eeidOverride)
+	}
+	return coopStatus, err
+}
+
+func extractContributorDeflector(contrib *ei.ContractCoopStatusResponse_ContributionInfo) ei.Artifact {
+	deflectorBuffMap := map[string]float64{
+		"T1C": 1.05,
+		"T2C": 1.08,
+		"T3C": 1.12, "T3R": 1.13,
+		"T4C": 1.15, "T4R": 1.17, "T4E": 1.19, "T4L": 1.20,
+	}
+
+	if fi := contrib.GetFarmInfo(); fi != nil {
+		for _, artifact := range fi.GetEquippedArtifacts() {
+			spec := artifact.GetSpec()
+			if spec.GetName() != ei.ArtifactSpec_TACHYON_DEFLECTOR {
+				continue
+			}
+			lvl := int(spec.GetLevel())
+			rar := int(spec.GetRarity())
+			if lvl >= 0 && lvl < len(ei.ArtifactLevels) && rar >= 0 && rar < len(ei.ArtifactRarity) {
+				strType := ei.ArtifactLevels[lvl] + ei.ArtifactRarity[rar]
+				if art := ei.GetArtifactByKey("D-" + strType); art != nil {
+					return *art
+				}
+				if buff, ok := deflectorBuffMap[strType]; ok {
+					numStones, _ := ei.GetStones(spec.GetName(), spec.GetLevel(), spec.GetRarity())
+					return ei.Artifact{
+						Type:     "Deflector",
+						Quality:  strType,
+						ShipBuff: 1.0,
+						LayBuff:  1.0,
+						DeflBuff: buff,
+						Stones:   numStones,
+					}
+				}
+			}
+		}
+	}
+
+	bestBuff := 1.0
+	for _, b := range contrib.GetBuffHistory() {
+		if b.GetEggLayingRate() > bestBuff {
+			bestBuff = b.GetEggLayingRate()
+		}
+	}
+	if bestBuff > 1.0 {
+		pct := int(math.Round((bestBuff - 1.0) * 100.0))
+		pctToKey := map[int]string{
+			20: "D-T4L",
+			19: "D-T4E",
+			17: "D-T4R",
+			15: "D-T4C",
+			13: "D-T3R",
+			12: "D-T3C",
+		}
+		if key, ok := pctToKey[pct]; ok {
+			if art := ei.GetArtifactByKey(key); art != nil {
+				return *art
+			}
+		}
+		return ei.Artifact{
+			Type:     "Deflector",
+			Quality:  fmt.Sprintf("%d%%", pct),
+			ShipBuff: 1.0,
+			LayBuff:  1.0,
+			DeflBuff: bestBuff,
+		}
+	}
+
+	if noneArt := ei.GetArtifactByKey("D-NONE"); noneArt != nil {
+		return *noneArt
+	}
+	return ei.Artifact{
+		Type:     "Deflector",
+		Quality:  "NONE",
+		ShipBuff: 1.0,
+		LayBuff:  1.0,
+		DeflBuff: 1.0,
+	}
+}
+
+func setBoosterDeflectorArtifact(b *Booster, deflArt ei.Artifact) {
+	if b == nil {
+		return
+	}
+	replaced := false
+	for i, a := range b.ArtifactSet.Artifacts {
+		if a.Type == "Deflector" {
+			b.ArtifactSet.Artifacts[i] = deflArt
+			replaced = true
+			break
+		}
+	}
+	if !replaced {
+		b.ArtifactSet.Artifacts = append(b.ArtifactSet.Artifacts, deflArt)
+	}
+	b.ArtifactSet = getUserArtifacts(b.UserID, &b.ArtifactSet)
+}
+
+// applyCoopStatusDeflectors updates the contract's boosters with deflector artifacts discovered in coopStatus.
+func applyCoopStatusDeflectors(contract *Contract, coopStatus *ei.ContractCoopStatusResponse) {
+	if contract == nil || coopStatus == nil {
+		return
+	}
+	contributors := coopStatus.GetContributors()
+	if len(contributors) == 0 {
+		return
+	}
+
+	contract.mutex.Lock()
+	defer contract.mutex.Unlock()
+
+	matchedBoosters := make(map[string]bool, len(contract.Boosters))
+	unmatchedDeflectors := make([]ei.Artifact, 0)
+
+	for _, contrib := range contributors {
+		if contrib == nil || contrib.GetUserName() == "[departed]" {
+			continue
+		}
+		deflArt := extractContributorDeflector(contrib)
+		rawName := strings.TrimSpace(contrib.GetUserName())
+		normName := strings.TrimSpace(ei.NormalizePlayerNameForDisplay(rawName))
+
+		matchedUID := ""
+		if rawName != "" {
+			if discordID, err := farmerstate.GetDiscordUserIDFromEiIgn(rawName); err == nil && discordID != "" {
+				if _, ok := contract.Boosters[discordID]; ok && !matchedBoosters[discordID] {
+					matchedUID = discordID
+				}
+			}
+		}
+		if matchedUID == "" {
+			for uid, b := range contract.Boosters {
+				if b == nil || matchedBoosters[uid] {
+					continue
+				}
+				ign := strings.TrimSpace(farmerstate.GetMiscSettingString(uid, "ei_ign"))
+				if (ign != "" && (strings.EqualFold(ign, rawName) || strings.EqualFold(ign, normName))) ||
+					strings.EqualFold(strings.TrimSpace(b.Name), rawName) ||
+					strings.EqualFold(strings.TrimSpace(b.Nick), rawName) ||
+					strings.EqualFold(strings.TrimSpace(b.UserName), rawName) ||
+					strings.EqualFold(strings.TrimSpace(b.Name), normName) ||
+					strings.EqualFold(strings.TrimSpace(b.Nick), normName) ||
+					strings.EqualFold(uid, rawName) {
+					matchedUID = uid
+					break
+				}
+			}
+		}
+
+		if matchedUID != "" {
+			matchedBoosters[matchedUID] = true
+			setBoosterDeflectorArtifact(contract.Boosters[matchedUID], deflArt)
+		} else {
+			unmatchedDeflectors = append(unmatchedDeflectors, deflArt)
+		}
+	}
+
+	// For any remaining unmatched contributors, assign deflectors in boost order to boosters without a matched deflector
+	if len(unmatchedDeflectors) > 0 {
+		idx := 0
+		for _, uid := range contract.Order {
+			if idx >= len(unmatchedDeflectors) {
+				break
+			}
+			b := contract.Boosters[uid]
+			if b == nil || matchedBoosters[uid] {
+				continue
+			}
+			hasDefl := false
+			for _, a := range b.ArtifactSet.Artifacts {
+				if a.Type == "Deflector" {
+					hasDefl = true
+					break
+				}
+			}
+			if !hasDefl {
+				matchedBoosters[uid] = true
+				setBoosterDeflectorArtifact(b, unmatchedDeflectors[idx])
+				idx++
+			}
+		}
+	}
+}
+
+// updateCoopDeflectorsFromStatus fetches coop_status for the contract and updates booster deflector artifacts.
+func updateCoopDeflectorsFromStatus(contract *Contract) {
+	if contract == nil || contract.ContractID == "" || contract.CoopID == "" {
+		return
+	}
+
+	eeidOverride := ""
+	contract.mutex.Lock()
+	for uid := range contract.Boosters {
+		if id := farmerstate.GetMiscSettingString(uid, "encrypted_ei_id"); id != "" {
+			eeidOverride = id
+			break
+		}
+	}
+	if eeidOverride == "" {
+		for _, cid := range contract.CreatorID {
+			if id := farmerstate.GetMiscSettingString(cid, "encrypted_ei_id"); id != "" {
+				eeidOverride = id
+				break
+			}
+		}
+	}
+	contractID := contract.ContractID
+	coopID := contract.CoopID
+	contractHash := contract.ContractHash
+	contract.mutex.Unlock()
+
+	coopStatus, err := fetchCoopStatusForDeflectors(contractID, coopID, eeidOverride)
+	if err != nil || coopStatus == nil {
+		if err != nil {
+			log.Printf("updateCoopDeflectorsFromStatus error for %s/%s: %v", contractID, coopID, err)
+		}
+		return
+	}
+
+	applyCoopStatusDeflectors(contract, coopStatus)
+	if contractHash != "" {
+		saveData(contractHash)
+	}
 }

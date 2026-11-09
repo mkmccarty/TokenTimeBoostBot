@@ -1687,6 +1687,7 @@ func pollCoopStatus(contract *Contract) {
 		log.Printf("pollCoopStatus error: %v", err)
 		return
 	}
+	applyCoopStatusDeflectors(contract, coopStatus)
 	log.Printf("pollCoopStatus: successfully retrieved status for %s, response: %s", contract.ContractHash, coopStatus.GetResponseStatus().String())
 }
 

@@ -296,6 +296,90 @@ func TestCalculateBoostSchedule_UsesKnownArtifacts(t *testing.T) {
 	}
 }
 
+func TestUpdateCoopDeflectorsFromStatus(t *testing.T) {
+	now := time.Date(2026, 11, 9, 12, 0, 0, 0, time.UTC)
+	hash := "test-coop-status-deflectors"
+	chanID := "200000000000000022"
+	listMsgID := "300000000000000022"
+	contract := setupBoostReactionTestContract(hash, chanID, listMsgID, ContractPlaystyleFastrun)
+	contract.CoopSize = 3
+	defer func() {
+		ContractsMutex.Lock()
+		delete(Contracts, hash)
+		ContractsMutex.Unlock()
+	}()
+
+	origFetch := fetchCoopStatusForDeflectors
+	defer func() {
+		fetchCoopStatusForDeflectors = origFetch
+	}()
+
+	deflName := ei.ArtifactSpec_TACHYON_DEFLECTOR
+	lvlT4 := ei.ArtifactSpec_GREATER
+	rarLeg := ei.ArtifactSpec_LEGENDARY
+	rarEpic := ei.ArtifactSpec_EPIC
+	buffT4C := 1.15
+
+	pA := "PlayerA"
+	pB := "PlayerB"
+	pC := "PlayerC"
+
+	fetchCoopStatusForDeflectors = func(contractID, coopID, eeidOverride string) (*ei.ContractCoopStatusResponse, error) {
+		return &ei.ContractCoopStatusResponse{
+			Contributors: []*ei.ContractCoopStatusResponse_ContributionInfo{
+				{
+					UserName: &pA,
+					FarmInfo: &ei.PlayerFarmInfo{
+						EquippedArtifacts: []*ei.CompleteArtifact{
+							{
+								Spec: &ei.ArtifactSpec{
+									Name:   &deflName,
+									Level:  &lvlT4,
+									Rarity: &rarLeg,
+								},
+							},
+						},
+					},
+				},
+				{
+					UserName: &pB,
+					FarmInfo: &ei.PlayerFarmInfo{
+						EquippedArtifacts: []*ei.CompleteArtifact{
+							{
+								Spec: &ei.ArtifactSpec{
+									Name:   &deflName,
+									Level:  &lvlT4,
+									Rarity: &rarEpic,
+								},
+							},
+						},
+					},
+				},
+				{
+					UserName: &pC,
+					BuffHistory: []*ei.CoopBuffState{
+						{
+							EggLayingRate: &buffT4C,
+						},
+					},
+				},
+			},
+		}, nil
+	}
+
+	updateCoopDeflectorsFromStatus(contract)
+
+	// PlayerB (2nd booster) should see PlayerA (20%) + PlayerC (15%) = 35% actual deflector bonus
+	userB := "400000000000000012"
+	schedB := calculateBoostSchedule(contract, contract.Boosters[userB], now)
+	if !schedB.DeflectorIsActual {
+		t.Errorf("expected DeflectorIsActual=true after coop_status update")
+	}
+	if schedB.DeflectorPercent != 35 {
+		t.Errorf("expected DeflectorPercent=35 (20%% + 15%%), got %v", schedB.DeflectorPercent)
+	}
+}
+
 func setupBoostReactionTestContract(hash, chanID, listMsgID string, playStyle int) *Contract {
 	userA := "400000000000000011"
 	userB := "400000000000000012"

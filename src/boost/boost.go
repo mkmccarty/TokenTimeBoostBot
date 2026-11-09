@@ -2075,6 +2075,9 @@ func Boosting(client dc.Client, guildID string, channelID string) error {
 	setEstimatedBoostTimings(booster, contract)
 
 	contract.BoostedOrder = append(contract.BoostedOrder, currentBoosterID)
+	if len(contract.BoostedOrder) == 1 {
+		go updateCoopDeflectorsFromStatus(contract)
+	}
 
 	// Advance past any that have already boosted
 	// Set boost order to last spot so end of contract handling can occur
