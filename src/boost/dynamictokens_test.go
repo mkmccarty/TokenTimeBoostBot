@@ -470,7 +470,7 @@ func setupBoostReactionTestContract(hash, chanID, listMsgID string, playStyle in
 	return c
 }
 
-func TestBoostSchedule_SilentRocketAndHiddenFireReaction(t *testing.T) {
+func TestBoostSchedule_RocketAndFireReactions(t *testing.T) {
 	guildID := "100000000000000001"
 	chanID := "200000000000000011"
 	listMsgID := "300000000000000011"
@@ -478,7 +478,7 @@ func TestBoostSchedule_SilentRocketAndHiddenFireReaction(t *testing.T) {
 	userB := "400000000000000012"
 	coordID := "400000000000000099"
 
-	t.Run("hidden fire emoji reaction sends boost schedule for current active booster", func(t *testing.T) {
+	t.Run("fire emoji reaction sends boost schedule DM for current active booster", func(t *testing.T) {
 		hash := "test-fire-emoji-reaction"
 		contract := setupBoostReactionTestContract(hash, chanID, listMsgID, ContractPlaystyleFastrun)
 		defer func() {
@@ -491,13 +491,14 @@ func TestBoostSchedule_SilentRocketAndHiddenFireReaction(t *testing.T) {
 		rxEvent := dctest.ReactionEvent(guildID, chanID, listMsgID, coordID, "🔥")
 		ReactionAdd(client, rxEvent)
 
+		dmCalls := client.CallsTo("CreateUserChannel")
+		if len(dmCalls) == 0 || dmCalls[0].Args[0] != coordID {
+			t.Fatalf("expected CreateUserChannel for %s, got %v", coordID, dmCalls)
+		}
 		if len(client.SentMessages) == 0 {
-			t.Fatalf("expected SendMessage to be called for 🔥 reaction")
+			t.Fatalf("expected SendMessage to be called for 🔥 DM")
 		}
 		lastMsg := client.SentMessages[len(client.SentMessages)-1]
-		if !lastMsg.Ephemeral {
-			t.Errorf("expected 🔥 reaction message to have Ephemeral: true")
-		}
 		if !strings.Contains(lastMsg.Content, "Boost Schedule for <@"+userA+">") {
 			t.Errorf("expected schedule for active booster %s, got:\n%s", userA, lastMsg.Content)
 		}
@@ -507,35 +508,8 @@ func TestBoostSchedule_SilentRocketAndHiddenFireReaction(t *testing.T) {
 		}
 	})
 
-	t.Run("fire component reaction sends ephemeral followup for current active booster", func(t *testing.T) {
-		hash := "test-fire-component-reaction"
-		contract := setupBoostReactionTestContract(hash, chanID, listMsgID, ContractPlaystyleLeaderboard)
-		defer func() {
-			ContractsMutex.Lock()
-			delete(Contracts, hash)
-			ContractsMutex.Unlock()
-		}()
-
-		client := dctest.New()
-		ev := dctest.ComponentButtonEventFull(guildID, chanID, listMsgID, userB, "rc_#fire#"+hash)
-		HandleContractReactions(client, ev)
-
-		if ev.LastFollowup == nil {
-			t.Fatalf("expected ephemeral followup for fire reaction, got nil")
-		}
-		if !ev.LastFollowup.Ephemeral {
-			t.Errorf("expected followup to be ephemeral")
-		}
-		if !strings.Contains(ev.LastFollowup.Content, "Boost Schedule for <@"+userA+">") {
-			t.Errorf("expected Boost Schedule for active booster in followup, got:\n%s", ev.LastFollowup.Content)
-		}
-		if contract.Boosters[userA].BoostState != BoostStateTokenTime {
-			t.Errorf("expected userA to remain in BoostStateTokenTime")
-		}
-	})
-
-	t.Run("rocket reaction works silently as before while updating estimated timings", func(t *testing.T) {
-		hash := "test-fastrun-silent-rocket"
+	t.Run("fastrun active booster rocket button sends ephemeral schedule and updates on coop_status response", func(t *testing.T) {
+		hash := "test-fastrun-rocket-update"
 		contract := setupBoostReactionTestContract(hash, chanID, listMsgID, ContractPlaystyleFastrun)
 		defer func() {
 			ContractsMutex.Lock()
@@ -543,18 +517,112 @@ func TestBoostSchedule_SilentRocketAndHiddenFireReaction(t *testing.T) {
 			ContractsMutex.Unlock()
 		}()
 
+		origFetch := fetchCoopStatusForDeflectors
+		defer func() {
+			fetchCoopStatusForDeflectors = origFetch
+		}()
+		// Disable automatic fetch during initial click so we can verify initial estimated followup then coop_status update
+		fetchCoopStatusForDeflectors = func(contractID, coopID, eeidOverride string) (*ei.ContractCoopStatusResponse, error) {
+			return nil, nil
+		}
+
 		client := dctest.New()
 		ev := dctest.ComponentButtonEventFull(guildID, chanID, listMsgID, userA, "rc_#boost#"+hash)
 		HandleContractReactions(client, ev)
 
-		if ev.LastFollowup != nil && ev.LastFollowup.Content != "" {
-			t.Errorf("expected rocket button not to send schedule content, got %q", ev.LastFollowup.Content)
+		if ev.LastFollowup == nil || !ev.LastFollowup.Ephemeral {
+			t.Fatalf("expected ephemeral followup for active booster in fastrun contract, got %+v", ev.LastFollowup)
 		}
-		if contract.Boosters[userA].BoostState != BoostStateBoosted {
-			t.Errorf("expected userA to advance to BoostStateBoosted, got %v", contract.Boosters[userA].BoostState)
+		if !strings.Contains(ev.LastFollowup.Content, "Boost Schedule for <@"+userA+">") {
+			t.Errorf("expected Boost Schedule for %s, got:\n%s", userA, ev.LastFollowup.Content)
 		}
-		if contract.Boosters[userA].EstDurationOfBoost <= 0 {
-			t.Errorf("expected EstDurationOfBoost to be set silently, got %v", contract.Boosters[userA].EstDurationOfBoost)
+		if !strings.Contains(ev.LastFollowup.Content, "`60%` (estimated)") {
+			t.Errorf("expected initial 60%% (estimated) deflector bonus, got:\n%s", ev.LastFollowup.Content)
+		}
+
+		// Now simulate a coop_status API response arriving while userA is within their boost time
+		okStatus := ei.ContractCoopStatusResponse_NO_ERROR
+		deflName := ei.ArtifactSpec_TACHYON_DEFLECTOR
+		lvlT4 := ei.ArtifactSpec_GREATER
+		rarLeg := ei.ArtifactSpec_LEGENDARY
+		rarEpic := ei.ArtifactSpec_EPIC
+		pB := "PlayerB"
+		pC := "PlayerC"
+		pD := "PlayerD"
+		contract.Boosters["400000000000000014"] = &Booster{
+			UserID: "400000000000000014",
+			Name:   pD,
+			Nick:   pD,
+		}
+		contract.Order = append(contract.Order, "400000000000000014")
+
+		coopStatus := &ei.ContractCoopStatusResponse{
+			ResponseStatus: &okStatus,
+			Contributors: []*ei.ContractCoopStatusResponse_ContributionInfo{
+				{
+					UserName: &pB,
+					FarmInfo: &ei.PlayerFarmInfo{
+						EquippedArtifacts: []*ei.CompleteArtifact{
+							{Spec: &ei.ArtifactSpec{Name: &deflName, Level: &lvlT4, Rarity: &rarLeg}},
+						},
+					},
+				},
+				{
+					UserName: &pC,
+					FarmInfo: &ei.PlayerFarmInfo{
+						EquippedArtifacts: []*ei.CompleteArtifact{
+							{Spec: &ei.ArtifactSpec{Name: &deflName, Level: &lvlT4, Rarity: &rarEpic}},
+						},
+					},
+				},
+				{
+					UserName: &pD,
+					FarmInfo: &ei.PlayerFarmInfo{
+						EquippedArtifacts: []*ei.CompleteArtifact{
+							{Spec: &ei.ArtifactSpec{Name: &deflName, Level: &lvlT4, Rarity: &rarEpic}},
+						},
+					},
+				},
+			},
+		}
+
+		if ei.OnCoopStatusCallback == nil {
+			t.Fatalf("expected ei.OnCoopStatusCallback to be registered")
+		}
+		ei.OnCoopStatusCallback(contract.ContractID, contract.CoopID, coopStatus)
+
+		edits := client.CallsTo("EditFollowupMessage")
+		if len(edits) == 0 {
+			t.Fatalf("expected EditFollowupMessage to be called when coop_status arrives during boost time")
+		}
+		editedText := edits[len(edits)-1].Args[3]
+		if !strings.Contains(editedText, "`58%` (actual)") {
+			t.Errorf("expected edited ephemeral message to show 58%% (actual) deflector bonus, got:\n%s", editedText)
+		}
+	})
+
+	t.Run("coordinator or voter pressing rocket does not receive schedule ephemeral", func(t *testing.T) {
+		hash := "test-coord-and-vote-silent"
+		_ = setupBoostReactionTestContract(hash, chanID, listMsgID, ContractPlaystyleLeaderboard)
+		defer func() {
+			ContractsMutex.Lock()
+			delete(Contracts, hash)
+			ContractsMutex.Unlock()
+		}()
+
+		client := dctest.New()
+		// Voter userB clicks rocket
+		evVote := dctest.ComponentButtonEventFull(guildID, chanID, listMsgID, userB, "rc_#boost#"+hash)
+		HandleContractReactions(client, evVote)
+		if evVote.LastFollowup != nil && evVote.LastFollowup.Content != "" {
+			t.Errorf("expected voter rocket click not to send schedule content, got %q", evVote.LastFollowup.Content)
+		}
+
+		// Coordinator clicks rocket to advance active booster
+		evCoord := dctest.ComponentButtonEventFull(guildID, chanID, listMsgID, coordID, "rc_#boost#"+hash)
+		HandleContractReactions(client, evCoord)
+		if evCoord.LastFollowup != nil && evCoord.LastFollowup.Content != "" {
+			t.Errorf("expected coordinator rocket click not to send schedule content, got %q", evCoord.LastFollowup.Content)
 		}
 	})
 }

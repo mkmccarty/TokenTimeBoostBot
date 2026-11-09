@@ -5,13 +5,39 @@ import (
 	"log"
 	"math"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
+
+var (
+	activeBoostClientMu sync.RWMutex
+	activeBoostClient   dc.Client
+)
+
+func init() {
+	ei.OnCoopStatusCallback = handleCoopStatusForActiveContracts
+}
+
+func setActiveBoostClient(client dc.Client) {
+	if client == nil {
+		return
+	}
+	activeBoostClientMu.Lock()
+	activeBoostClient = client
+	activeBoostClientMu.Unlock()
+}
+
+func getActiveBoostClient() dc.Client {
+	activeBoostClientMu.RLock()
+	defer activeBoostClientMu.RUnlock()
+	return activeBoostClient
+}
 
 // DynamicTokenData is a struct that holds the data needed to calculate dynamic tokens
 type DynamicTokenData struct {
@@ -726,6 +752,9 @@ func setBoosterDeflectorArtifact(b *Booster, deflArt ei.Artifact) {
 	if b == nil {
 		return
 	}
+	if len(b.ArtifactSet.Artifacts) == 0 && b.UserID != "" {
+		b.ArtifactSet = getUserArtifacts(b.UserID, nil)
+	}
 	replaced := false
 	for i, a := range b.ArtifactSet.Artifacts {
 		if a.Type == "Deflector" {
@@ -738,6 +767,167 @@ func setBoosterDeflectorArtifact(b *Booster, deflArt ei.Artifact) {
 		b.ArtifactSet.Artifacts = append(b.ArtifactSet.Artifacts, deflArt)
 	}
 	b.ArtifactSet = getUserArtifacts(b.UserID, &b.ArtifactSet)
+}
+
+func isFastrunOrLeaderboard(contract *Contract) bool {
+	if contract == nil {
+		return false
+	}
+	return contract.PlayStyle == ContractPlaystyleFastrun || contract.PlayStyle == ContractPlaystyleLeaderboard
+}
+
+func resolveBoostClickUserID(contract *Contract, userID, currentBoosterID string) string {
+	if contract == nil || currentBoosterID == "" {
+		return userID
+	}
+	if b := contract.Boosters[userID]; b != nil && len(b.Alts) > 0 {
+		for _, altID := range b.Alts {
+			if altID == currentBoosterID {
+				return altID
+			}
+		}
+	}
+	return userID
+}
+
+// sendBoostScheduleEphemeral sends the active booster's ephemeral boost schedule message and records
+// its interaction metadata so it can be updated if a coop_status response arrives during their boost time.
+func sendBoostScheduleEphemeral(client dc.Client, e *dc.ComponentEvent, contract *Contract, booster *Booster) {
+	if e == nil || contract == nil || booster == nil {
+		return
+	}
+	setActiveBoostClient(client)
+
+	boostStart := booster.EndTime
+	if boostStart.IsZero() {
+		boostStart = time.Now()
+	}
+	sched := calculateBoostSchedule(contract, booster, boostStart)
+	scheduleMsg := formatBoostSchedule(contract, booster, sched)
+
+	msg, err := e.FollowupMessage(dc.Message{
+		Content:   scheduleMsg,
+		Ephemeral: true,
+	})
+	if err != nil {
+		return
+	}
+
+	msgID := ""
+	if msg != nil && msg.ID != "" {
+		msgID = msg.ID
+	} else if e.Client() == nil && e.Token() != "" {
+		msgID = "followup-ephemeral"
+	}
+
+	contract.mutex.Lock()
+	booster.BoostScheduleAppID = e.ApplicationID()
+	booster.BoostScheduleToken = e.Token()
+	booster.BoostScheduleMsgID = msgID
+	contract.mutex.Unlock()
+}
+
+// sendBoostScheduleDM sends a DM to recipientUserID with the boost schedule for booster and a Dismiss button.
+func sendBoostScheduleDM(client dc.Client, contract *Contract, booster *Booster, recipientUserID string) {
+	if client == nil || contract == nil || booster == nil || recipientUserID == "" {
+		return
+	}
+	setActiveBoostClient(client)
+
+	sched := calculateBoostSchedule(contract, booster, time.Now())
+	scheduleMsg := formatBoostSchedule(contract, booster, sched)
+	u, dmErr := client.CreateUserChannel(recipientUserID)
+	if dmErr != nil || u == nil {
+		return
+	}
+	msg := dc.Message{
+		Content:      scheduleMsg,
+		ComponentsV1: true,
+		Components: []dc.LayoutComponent{
+			dc.ActionRow{
+				Components: []dc.InteractiveComponent{
+					dc.Button{
+						Label:    "Dismiss",
+						Style:    dc.ButtonSecondary,
+						CustomID: "rc_#dismiss#" + contract.ContractHash,
+					},
+				},
+			},
+		},
+	}
+	_, _ = client.SendMessage(u.ID, msg)
+}
+
+type pendingScheduleEdit struct {
+	appID   string
+	token   string
+	msgID   string
+	content string
+}
+
+// updateActiveBoostScheduleMessages updates the ephemeral boost schedule message for any player
+// in the contract who is currently within their boost time.
+func updateActiveBoostScheduleMessages(client dc.Client, contract *Contract) {
+	if contract == nil {
+		return
+	}
+	now := time.Now()
+	var edits []pendingScheduleEdit
+
+	contract.mutex.Lock()
+	for _, b := range contract.Boosters {
+		if b == nil || b.EstEndOfBoost.IsZero() || !now.Before(b.EstEndOfBoost) {
+			continue
+		}
+		boostStart := b.EndTime
+		if boostStart.IsZero() {
+			boostStart = now
+		}
+		sched := calculateBoostSchedule(contract, b, boostStart)
+		b.EstDurationOfBoost = sched.TotalBoostDuration
+		b.EstRequestChickenRuns = sched.EstRequestChickenRuns
+		b.EstEndOfBoost = sched.EstEndOfBoost
+
+		if b.BoostScheduleMsgID != "" && b.BoostScheduleToken != "" && b.BoostScheduleAppID != "" {
+			edits = append(edits, pendingScheduleEdit{
+				appID:   b.BoostScheduleAppID,
+				token:   b.BoostScheduleToken,
+				msgID:   b.BoostScheduleMsgID,
+				content: formatBoostSchedule(contract, b, sched),
+			})
+		}
+	}
+	contract.mutex.Unlock()
+
+	if client == nil {
+		client = getActiveBoostClient()
+	}
+	if client == nil {
+		return
+	}
+	for _, edit := range edits {
+		if err := client.EditFollowupMessage(edit.appID, edit.token, edit.msgID, dc.Message{Content: edit.content}); err != nil {
+			log.Printf("updateActiveBoostScheduleMessages: EditFollowupMessage error: %v", err)
+		}
+	}
+}
+
+func handleCoopStatusForActiveContracts(contractID, coopID string, coopStatus *ei.ContractCoopStatusResponse) {
+	if coopStatus == nil || coopStatus.GetResponseStatus() != ei.ContractCoopStatusResponse_NO_ERROR {
+		return
+	}
+	var matching []*Contract
+	ContractsMutex.RLock()
+	for _, c := range Contracts {
+		if c != nil && strings.EqualFold(c.ContractID, contractID) && strings.EqualFold(c.CoopID, coopID) {
+			matching = append(matching, c)
+		}
+	}
+	ContractsMutex.RUnlock()
+
+	for _, c := range matching {
+		applyCoopStatusDeflectors(c, coopStatus)
+	}
 }
 
 // applyCoopStatusDeflectors updates the contract's boosters with deflector artifacts discovered in coopStatus.
@@ -754,7 +944,6 @@ func applyCoopStatusDeflectors(contract *Contract, coopStatus *ei.ContractCoopSt
 	}
 
 	contract.mutex.Lock()
-	defer contract.mutex.Unlock()
 
 	matchedBoosters := make(map[string]bool, len(contract.Boosters))
 	unmatchedDeflectors := make([]ei.Artifact, 0)
@@ -826,7 +1015,22 @@ func applyCoopStatusDeflectors(contract *Contract, coopStatus *ei.ContractCoopSt
 				idx++
 			}
 		}
+		for _, uid := range contract.Order {
+			if idx >= len(unmatchedDeflectors) {
+				break
+			}
+			b := contract.Boosters[uid]
+			if b == nil || matchedBoosters[uid] {
+				continue
+			}
+			matchedBoosters[uid] = true
+			setBoosterDeflectorArtifact(b, unmatchedDeflectors[idx])
+			idx++
+		}
 	}
+	contract.mutex.Unlock()
+
+	updateActiveBoostScheduleMessages(getActiveBoostClient(), contract)
 }
 
 // updateCoopDeflectorsFromStatus fetches coop_status for the contract and updates booster deflector artifacts.

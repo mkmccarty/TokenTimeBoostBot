@@ -2047,6 +2047,7 @@ func UserBoost(client dc.Client, guildID string, channelID string, userID string
 
 // Boosting will mark a as boosted and advance to the next in the list
 func Boosting(client dc.Client, guildID string, channelID string) error {
+	setActiveBoostClient(client)
 	var contract = FindContract(channelID)
 	if contract == nil {
 		return errors.New(errorNoContract)
@@ -2075,7 +2076,7 @@ func Boosting(client dc.Client, guildID string, channelID string) error {
 	setEstimatedBoostTimings(booster, contract)
 
 	contract.BoostedOrder = append(contract.BoostedOrder, currentBoosterID)
-	if len(contract.BoostedOrder) == 1 {
+	if len(contract.BoostedOrder) == 1 && !contract.deferFirstBoostCoopStatus {
 		go updateCoopDeflectorsFromStatus(contract)
 	}
 

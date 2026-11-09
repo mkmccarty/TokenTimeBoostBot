@@ -44,6 +44,10 @@ var (
 	// cycles) that returns true when the alternate coop_status endpoint and eeid override
 	// should be used. It is wired up in main.
 	CoopStatusFixEnabled func() bool
+
+	// OnCoopStatusCallback is an optional callback invoked whenever a ContractCoopStatusResponse
+	// is decoded by GetCoopStatus or GetCoopStatusUncached.
+	OnCoopStatusCallback func(contractID, coopID string, coopStatus *ContractCoopStatusResponse)
 )
 
 func init() {
@@ -254,6 +258,9 @@ func getCoopStatus(contractID string, coopID string, eeidOverride string, bypass
 	}
 
 	saveCoopStatusJSONDebug(contractID, coopID, eggIncID, decodeCoopStatus)
+	if OnCoopStatusCallback != nil {
+		OnCoopStatusCallback(contractID, coopID, decodeCoopStatus)
+	}
 
 	return decodeCoopStatus, timestamp, dataTimestampStr, nil
 }
@@ -497,6 +504,9 @@ func GetCoopStatusForCompletedContracts(contractID string, coopID string, eeidOv
 	}
 
 	saveCoopStatusJSONDebug(contractID, coopID, eggIncID, decodeCoopStatus)
+	if OnCoopStatusCallback != nil {
+		OnCoopStatusCallback(contractID, coopID, decodeCoopStatus)
+	}
 
 	return decodeCoopStatus, timestamp, dataTimestampStr, nil
 }

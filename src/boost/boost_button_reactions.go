@@ -25,6 +25,7 @@ import (
 // It still takes a raw session because the boost order helpers and the boost
 // list redraw are not on the facade yet.
 func HandleContractReactions(client dc.Client, e *dc.ComponentEvent) {
+	setActiveBoostClient(client)
 	_ = e.DeferUpdate()
 	callerID := e.UserID()
 
@@ -85,7 +86,7 @@ func HandleContractReactions(client dc.Client, e *dc.ComponentEvent) {
 		}
 	}
 	// Ack the message for every other command
-	if cmd != "cr" && cmd != "fire" {
+	if cmd != "cr" && cmd != "fire" && cmd != "boost" {
 		_ = e.Followup(dc.Message{})
 	}
 
@@ -105,13 +106,30 @@ func HandleContractReactions(client dc.Client, e *dc.ComponentEvent) {
 
 	switch cmd {
 	case "boost":
+		var boostedBooster *Booster
+		activeBoosterID := contract.currentBoosterID()
+		effectiveUserID := resolveBoostClickUserID(contract, userID, activeBoosterID)
+		isActiveBooster := activeBoosterID != "" && effectiveUserID == activeBoosterID && isFastrunOrLeaderboard(contract)
 		if isStale {
 			redraw = true
 		} else {
 			loc := contract.findLocation(e.ChannelID())
 			if loc != nil && e.MessageID() == loc.ListMsgID {
+				if isActiveBooster {
+					boostedBooster = contract.Boosters[activeBoosterID]
+					contract.deferFirstBoostCoopStatus = true
+				}
 				redraw = buttonReactionBoost(client, e.GuildID(), e.ChannelID(), contract, userID)
+				contract.deferFirstBoostCoopStatus = false
 			}
+		}
+		if redraw && boostedBooster != nil && boostedBooster.BoostState == BoostStateBoosted {
+			sendBoostScheduleEphemeral(client, e, contract, boostedBooster)
+			if len(contract.BoostedOrder) == 1 {
+				go updateCoopDeflectorsFromStatus(contract)
+			}
+		} else {
+			_ = e.Followup(dc.Message{})
 		}
 	case "fire":
 		if currentBooster := contract.currentBooster(); currentBooster != nil {
