@@ -745,6 +745,9 @@ func applyCoopStatusDeflectors(contract *Contract, coopStatus *ei.ContractCoopSt
 	if contract == nil || coopStatus == nil {
 		return
 	}
+	if coopStatus.GetResponseStatus() != ei.ContractCoopStatusResponse_NO_ERROR {
+		return
+	}
 	contributors := coopStatus.GetContributors()
 	if len(contributors) == 0 {
 		return
@@ -856,8 +859,13 @@ func updateCoopDeflectorsFromStatus(contract *Contract) {
 	coopStatus, err := fetchCoopStatusForDeflectors(contractID, coopID, eeidOverride)
 	if err != nil || coopStatus == nil {
 		if err != nil {
-			log.Printf("updateCoopDeflectorsFromStatus error for %s/%s: %v", contractID, coopID, err)
+			log.Printf("updateCoopDeflectorsFromStatus: unable to fetch coop_status for %s/%s (falling back to estimated deflectors): %v", contractID, coopID, err)
 		}
+		return
+	}
+	if coopStatus.GetResponseStatus() != ei.ContractCoopStatusResponse_NO_ERROR {
+		log.Printf("updateCoopDeflectorsFromStatus: coop_status returned %s for %s/%s (falling back to estimated deflectors)",
+			coopStatus.GetResponseStatus().String(), contractID, coopID)
 		return
 	}
 

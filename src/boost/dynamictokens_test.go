@@ -378,6 +378,33 @@ func TestUpdateCoopDeflectorsFromStatus(t *testing.T) {
 	if schedB.DeflectorPercent != 35 {
 		t.Errorf("expected DeflectorPercent=35 (20%% + 15%%), got %v", schedB.DeflectorPercent)
 	}
+
+	// Development scenario: coop does not exist in-game (COOP_NOT_FOUND) -> fall back to guessing
+	devHash := "test-dev-no-coop"
+	devContract := setupBoostReactionTestContract(devHash, chanID, listMsgID, ContractPlaystyleFastrun)
+	devContract.CoopSize = 4
+	defer func() {
+		ContractsMutex.Lock()
+		delete(Contracts, devHash)
+		ContractsMutex.Unlock()
+	}()
+
+	noCoopStatus := ei.ContractCoopStatusResponse_COOP_NOT_FOUND
+	fetchCoopStatusForDeflectors = func(contractID, coopID, eeidOverride string) (*ei.ContractCoopStatusResponse, error) {
+		return &ei.ContractCoopStatusResponse{
+			ResponseStatus: &noCoopStatus,
+		}, nil
+	}
+
+	updateCoopDeflectorsFromStatus(devContract)
+
+	schedDev := calculateBoostSchedule(devContract, devContract.Boosters[userB], now)
+	if schedDev.DeflectorIsActual {
+		t.Errorf("expected DeflectorIsActual=false when coop_status returns COOP_NOT_FOUND")
+	}
+	if schedDev.DeflectorPercent != 60 {
+		t.Errorf("expected estimated DeflectorPercent=60 (3 * 20%%) when no in-game coop exists, got %v", schedDev.DeflectorPercent)
+	}
 }
 
 func setupBoostReactionTestContract(hash, chanID, listMsgID string, playStyle int) *Contract {
