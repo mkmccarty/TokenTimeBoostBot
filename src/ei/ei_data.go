@@ -279,50 +279,68 @@ func NormalizePlayerNameForDisplay(name string) string {
 
 const eggUnknownName = "egg_unknown"
 
+func normalizeEggEmojiKey(eggOrig string) (keyWithPrefix string, keyWithoutPrefix string) {
+	eggClean := strings.ToLower(strings.TrimSpace(eggOrig))
+	eggClean = strings.TrimPrefix(eggClean, "egg_")
+	eggClean = strings.ReplaceAll(eggClean, " ", "")
+	eggClean = strings.ReplaceAll(eggClean, "-", "")
+	eggClean = strings.ReplaceAll(eggClean, "_", "")
+
+	return "egg_" + eggClean, eggClean
+}
+
 // FindEggEmoji will find the token emoji
 func FindEggEmoji(eggOrig string) string {
-	var eggIconString string
+	keyWithPrefix, keyWithoutPrefix := normalizeEggEmojiKey(eggOrig)
 
-	eggOrig = strings.ReplaceAll(eggOrig, " ", "")
-	eggOrig = strings.ReplaceAll(eggOrig, "-", "")
-	eggOrig = strings.ReplaceAll(eggOrig, "_", "")
-
-	if !strings.HasPrefix(eggOrig, "egg_") {
-		eggOrig = "egg_" + eggOrig
+	if emoji, ok := getBotEmojiData(keyWithPrefix); ok && emoji.ID != "" {
+		return fmt.Sprintf("<:%s:%s>", emoji.Name, emoji.ID)
+	}
+	if emoji, ok := getBotEmojiData(keyWithoutPrefix); ok && emoji.ID != "" {
+		return fmt.Sprintf("<:%s:%s>", emoji.Name, emoji.ID)
 	}
 
-	var eggEmojiData Emotes
-	eggIcon, ok := EmoteMap[strings.ToLower(eggOrig)]
-	if ok {
-		eggEmojiData = eggIcon
-		eggIconString = fmt.Sprintf("<:%s:%s>", eggEmojiData.Name, eggEmojiData.ID)
-	} else {
-		eggEmojiData = eggIcon
-		eggIconString = fmt.Sprintf("<:%s:%s>", EmoteMap[eggUnknownName].Name, EmoteMap[eggUnknownName].ID)
+	if unknown, ok := getBotEmojiData(eggUnknownName); ok && unknown.ID != "" {
+		return fmt.Sprintf("<:%s:%s>", unknown.Name, unknown.ID)
+	}
+	if unknown, ok := getBotEmojiData("unknown"); ok && unknown.ID != "" {
+		return fmt.Sprintf("<:%s:%s>", unknown.Name, unknown.ID)
 	}
 
-	return eggIconString
+	return fmt.Sprintf("<:%s:>", eggUnknownName)
 }
 
 // FindEggComponentEmoji will find the token emoji and return it as a component emoji
 func FindEggComponentEmoji(eggOrig string) *dc.Emoji {
-	eggOrig = strings.ReplaceAll(eggOrig, " ", "")
-	eggOrig = strings.ReplaceAll(eggOrig, "-", "")
-	eggOrig = strings.ReplaceAll(eggOrig, "_", "")
+	keyWithPrefix, keyWithoutPrefix := normalizeEggEmojiKey(eggOrig)
 
-	if !strings.HasPrefix(eggOrig, "egg_") {
-		eggOrig = "egg_" + eggOrig
+	if emoji, ok := getBotEmojiData(keyWithPrefix); ok && emoji.ID != "" {
+		return &dc.Emoji{
+			Name: emoji.Name,
+			ID:   emoji.ID,
+		}
+	}
+	if emoji, ok := getBotEmojiData(keyWithoutPrefix); ok && emoji.ID != "" {
+		return &dc.Emoji{
+			Name: emoji.Name,
+			ID:   emoji.ID,
+		}
 	}
 
-	if eggIcon, ok := EmoteMap[strings.ToLower(eggOrig)]; ok {
+	if unknown, ok := getBotEmojiData(eggUnknownName); ok && unknown.ID != "" {
 		return &dc.Emoji{
-			Name: eggIcon.Name,
-			ID:   eggIcon.ID,
+			Name: unknown.Name,
+			ID:   unknown.ID,
+		}
+	}
+	if unknown, ok := getBotEmojiData("unknown"); ok && unknown.ID != "" {
+		return &dc.Emoji{
+			Name: unknown.Name,
+			ID:   unknown.ID,
 		}
 	}
 	return &dc.Emoji{
-		Name: EmoteMap[eggUnknownName].Name,
-		ID:   EmoteMap[eggUnknownName].ID,
+		Name: eggUnknownName,
 	}
 }
 
@@ -335,7 +353,10 @@ type Emotes struct {
 }
 
 // EmoteMap of egg emojis from the Egg Inc Discord
-var EmoteMap map[string]Emotes
+var (
+	emoteMapMu sync.RWMutex
+	EmoteMap   map[string]Emotes
+)
 
 var (
 	emojiResolverMu sync.RWMutex
@@ -351,9 +372,12 @@ func SetEmojiResolver(resolver func(name string) (Emotes, bool)) {
 
 func getBotEmojiData(name string) (Emotes, bool) {
 	key := strings.ToLower(name)
+	emoteMapMu.RLock()
 	if emoji, ok := EmoteMap[key]; ok {
+		emoteMapMu.RUnlock()
 		return emoji, true
 	}
+	emoteMapMu.RUnlock()
 
 	emojiResolverMu.RLock()
 	resolver := emojiResolver
@@ -366,7 +390,12 @@ func getBotEmojiData(name string) (Emotes, bool) {
 	if !ok {
 		return Emotes{}, false
 	}
+	emoteMapMu.Lock()
+	if EmoteMap == nil {
+		EmoteMap = make(map[string]Emotes)
+	}
 	EmoteMap[key] = emoji
+	emoteMapMu.Unlock()
 	return emoji, true
 }
 

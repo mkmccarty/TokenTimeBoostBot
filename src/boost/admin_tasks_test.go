@@ -164,6 +164,7 @@ func TestAdminTaskListContainsNewTasks(t *testing.T) {
 		"regen-complaints":         false,
 		"refresh-token-complaints": false,
 		"refresh-status-messages":  false,
+		"commit-emojis":            false,
 		"prune-banners":            false,
 	}
 

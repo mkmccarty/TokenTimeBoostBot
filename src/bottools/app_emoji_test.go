@@ -115,3 +115,44 @@ func TestDownloadEmojiFromGit(t *testing.T) {
 		t.Errorf("expected non-empty path for badge_nah")
 	}
 }
+
+func TestEnsureEmojiCooldown(t *testing.T) {
+	clearFailedEmojiLookup()
+	defer clearFailedEmojiLookup()
+
+	client := &fakeDCClient{
+		emojisResp: []dc.Emoji{},
+	}
+
+	// First attempt will fail and record a cooldown
+	_, ok := EnsureEmojiFromLocalRepoWithClient(client, "test_unknown_egg_xyz")
+	if ok {
+		t.Fatal("expected failure for unknown egg")
+	}
+
+	if !isEmojiLookupCoolingDown("test_unknown_egg_xyz") {
+		t.Fatal("expected test_unknown_egg_xyz to be cooling down")
+	}
+
+	// Immediate next attempt returns false without querying
+	_, ok2 := EnsureEmojiFromLocalRepoWithClient(client, "test_unknown_egg_xyz")
+	if ok2 {
+		t.Fatal("expected failure on cooldown")
+	}
+}
+
+func TestCommitEmojiToGitHubNoToken(t *testing.T) {
+	// Should gracefully return nil when no token is configured
+	origToken := os.Getenv("GITHUB_TOKEN")
+	_ = os.Unsetenv("GITHUB_TOKEN")
+	defer func() {
+		if origToken != "" {
+			_ = os.Setenv("GITHUB_TOKEN", origToken)
+		}
+	}()
+
+	err := CommitEmojiToGitHub("egg_test.png", []byte("data"))
+	if err != nil {
+		t.Fatalf("expected nil error when token is unset, got: %v", err)
+	}
+}

@@ -115,6 +115,11 @@ var adminTaskList = []adminTaskDef{
 		Description: "Replace status-messages.json with latest and reload internal data",
 	},
 	{
+		ID:          "commit-emojis",
+		Name:        "Commit Emojis to GitHub",
+		Description: "Commit local/banner egg emoji images into GitHub repository emoji/",
+	},
+	{
 		ID:          "prune-banners",
 		Name:        "Prune Generated Banners",
 		Description: "Remove old generated banners for expired contracts without active Boost Bot contracts",
@@ -411,6 +416,9 @@ func HandleAdminTasksCommand(client dc.Client, e *dc.CommandEvent) {
 		taskKey == "refresh-status-messages.json" || taskKey == "status-messages" ||
 		taskKey == "status-messages.json" || taskKey == "status messages":
 		handleRefreshStatusMessagesTask(e)
+	case taskKey == "commit-emojis" || taskKey == "commit emojis" ||
+		taskKey == "commit-emojis-to-github" || taskKey == "sync-emojis" || taskKey == "sync emojis":
+		handleCommitEmojisTask(e)
 	case taskKey == "prune-banners" || taskKey == "prune banners" ||
 		taskKey == "clean-banners" || taskKey == "clean banners" ||
 		taskKey == "prune-generated-banners":
@@ -699,6 +707,26 @@ func handleRefreshStatusMessagesTask(e *dc.CommandEvent) {
 			"- **Status Messages Loaded**: %d\n"+
 			"- **Internal Data**: Updated in memory",
 		count,
+	)
+	_ = e.Followup(dc.Message{Content: responseMsg})
+}
+
+func handleCommitEmojisTask(e *dc.CommandEvent) {
+	committed, total, err := bottools.SyncMissingEmojisToGitHub()
+	if err != nil {
+		_ = e.Followup(dc.Message{
+			Content: fmt.Sprintf("❌ Failed to commit emojis to GitHub: %v", err),
+		})
+		return
+	}
+
+	responseMsg := fmt.Sprintf(
+		"## 📤 Emojis Synced to GitHub Successfully\n"+
+			"- **Repository**: `mkmccarty/TokenTimeBoostBot` (`emoji/`)\n"+
+			"- **Total Local Emojis Scanned**: %d\n"+
+			"- **Committed / Updated**: %d",
+		total,
+		committed,
 	)
 	_ = e.Followup(dc.Message{Content: responseMsg})
 }
