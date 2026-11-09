@@ -126,8 +126,10 @@ type Permissions int64
 // Discord permission bits this bot checks. Administrator implicitly grants
 // every other permission.
 const (
-	permissionSendMessages        Permissions = 1 << 11
 	permissionAdministrator       Permissions = 1 << 3
+	permissionSendMessages        Permissions = 1 << 11
+	permissionEmbedLinks          Permissions = 1 << 14
+	permissionAttachFiles         Permissions = 1 << 15
 	permissionCreatePublicThreads Permissions = 1 << 35
 )
 
@@ -138,13 +140,23 @@ func (p Permissions) Administrator() bool {
 
 // SendMessages reports whether the permission set includes Send Messages.
 func (p Permissions) SendMessages() bool {
-	return p&permissionSendMessages != 0
+	return p.Administrator() || p&permissionSendMessages != 0
+}
+
+// EmbedLinks reports whether the permission set includes Embed Links.
+func (p Permissions) EmbedLinks() bool {
+	return p.Administrator() || p&permissionEmbedLinks != 0
+}
+
+// AttachFiles reports whether the permission set includes Attach Files.
+func (p Permissions) AttachFiles() bool {
+	return p.Administrator() || p&permissionAttachFiles != 0
 }
 
 // CreatePublicThreads reports whether the permission set includes Create
 // Public Threads.
 func (p Permissions) CreatePublicThreads() bool {
-	return p&permissionCreatePublicThreads != 0
+	return p.Administrator() || p&permissionCreatePublicThreads != 0
 }
 
 // CommandRef identifies a slash command already registered with Discord, as

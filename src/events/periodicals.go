@@ -1,6 +1,7 @@
 package events
 
 import (
+	"bytes"
 	"encoding/base64"
 	"fmt"
 	"io"
@@ -8,6 +9,7 @@ import (
 	"math"
 	"net/http"
 	"net/url"
+	"os"
 	"sort"
 	"strings"
 	"sync"
@@ -368,7 +370,8 @@ func GetPeriodicalsFromAPI(client dc.Client) bool {
 					if !permissions.SendMessages() {
 						log.Printf("Bot does not have permission to send messages in channel %s", acoChannel)
 					} else {
-						_, err = client.SendMessage(acoChannel, data)
+						channelData := prepareEggMessageForChannel(data, egg, permissions)
+						_, err = client.SendMessage(acoChannel, channelData)
 						if err != nil {
 							log.Print(err)
 						}
@@ -553,4 +556,36 @@ func fetchThematicDataAsync(contractID string, eggName string, contractName stri
 			boost.PopulateThematicComplaintsForContractID(contractID, complaints)
 		}
 	}
+}
+
+// prepareEggMessageForChannel adapts a new egg message for a destination channel's permissions.
+// If the channel allows EmbedLinks, the rich embed payload is returned. Otherwise,
+// the effect description is appended to the message content and the egg image file is attached.
+func prepareEggMessageForChannel(data dc.Message, egg ei.EggIncCustomEgg, permissions dc.Permissions) dc.Message {
+	if permissions.EmbedLinks() {
+		return data
+	}
+
+	description := strings.Join(egg.DimensionValueString, ",") + " " + egg.DimensionName
+	description += fmt.Sprintf("\n%s Value: %g", ei.GetBotEmojiMarkdown(egg.ID), egg.Value)
+
+	cleanEggID := strings.ReplaceAll(strings.ReplaceAll(strings.ToLower(egg.ID), " ", ""), "-", "")
+	filePath := fmt.Sprintf("%s/egg_%s.png", config.BannerPath, cleanEggID)
+
+	var fallback strings.Builder
+	fmt.Fprintf(&fallback, "%s\n%s", data.Content, description)
+	channelData := dc.Message{
+		Content: fallback.String(),
+	}
+
+	if imgBytes, err := os.ReadFile(filePath); err == nil && permissions.AttachFiles() {
+		channelData.Files = []dc.File{{
+			Name:   fmt.Sprintf("egg_%s.png", cleanEggID),
+			Reader: bytes.NewReader(imgBytes),
+		}}
+	} else if egg.IconURL != "" {
+		channelData.Content += "\n" + egg.IconURL
+	}
+
+	return channelData
 }

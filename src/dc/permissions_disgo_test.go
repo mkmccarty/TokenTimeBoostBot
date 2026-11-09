@@ -152,7 +152,7 @@ func TestComputedPermissionsMatchTheFacadeAccessors(t *testing.T) {
 
 	perms := Permissions(memberChannelPermissions(
 		guildID, 1, 2,
-		[]discord.Role{{ID: guildID, Permissions: discord.PermissionSendMessages | discord.PermissionCreatePublicThreads}},
+		[]discord.Role{{ID: guildID, Permissions: discord.PermissionSendMessages | discord.PermissionCreatePublicThreads | discord.PermissionEmbedLinks | discord.PermissionAttachFiles}},
 		nil,
 		nil,
 	))
@@ -162,6 +162,12 @@ func TestComputedPermissionsMatchTheFacadeAccessors(t *testing.T) {
 	}
 	if !perms.CreatePublicThreads() {
 		t.Error("CreatePublicThreads() should be true")
+	}
+	if !perms.EmbedLinks() {
+		t.Error("EmbedLinks() should be true")
+	}
+	if !perms.AttachFiles() {
+		t.Error("AttachFiles() should be true")
 	}
 	if perms.Administrator() {
 		t.Error("Administrator() should be false")

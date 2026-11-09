@@ -1,9 +1,14 @@
 package events
 
 import (
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
 
@@ -158,5 +163,90 @@ func TestFindOngoingEvents(t *testing.T) {
 	}
 	if got[1].ID != "active-late-end" {
 		t.Fatalf("findOngoingEvents() second ID = %q, want %q", got[1].ID, "active-late-end")
+	}
+}
+
+func TestPrepareEggMessageForChannel_WithEmbedLinks(t *testing.T) {
+	egg := ei.EggIncCustomEgg{
+		ID:                   "test-copper",
+		Name:                 "COPPER",
+		Value:                10,
+		DimensionName:        "Hab Cost",
+		DimensionValueString: []string{"95%", "90%", "85%", "80%"},
+		IconURL:              "https://example.com/copper.png",
+	}
+
+	origMessage := dc.Message{
+		Content: "New Custom Egg Detected: COPPER",
+		Embeds: []dc.Embed{{
+			Title:       egg.Name,
+			Description: "95%,90%,85%,80% Hab Cost\nValue: 10",
+			Thumbnail:   egg.IconURL,
+		}},
+	}
+
+	// Permission with EmbedLinks (e.g. Administrator or EmbedLinks bit set)
+	perms := dc.Permissions(1 << 14) // permissionEmbedLinks
+	msg := prepareEggMessageForChannel(origMessage, egg, perms)
+
+	if len(msg.Embeds) != 1 {
+		t.Fatalf("expected 1 embed when EmbedLinks is true, got %d", len(msg.Embeds))
+	}
+	if msg.Content != origMessage.Content {
+		t.Errorf("content = %q, want %q", msg.Content, origMessage.Content)
+	}
+	if len(msg.Files) != 0 {
+		t.Errorf("expected no attached files when EmbedLinks is true, got %d", len(msg.Files))
+	}
+}
+
+func TestPrepareEggMessageForChannel_WithoutEmbedLinks(t *testing.T) {
+	tempDir := t.TempDir()
+	origBannerPath := config.BannerPath
+	config.BannerPath = tempDir
+	defer func() { config.BannerPath = origBannerPath }()
+
+	eggImageContent := []byte("fake-png-image")
+	eggFile := filepath.Join(tempDir, "egg_testcopper.png")
+	if err := os.WriteFile(eggFile, eggImageContent, 0644); err != nil {
+		t.Fatalf("failed to write test egg image: %v", err)
+	}
+
+	egg := ei.EggIncCustomEgg{
+		ID:                   "test-copper",
+		Name:                 "COPPER",
+		Value:                10,
+		DimensionName:        "Hab Cost",
+		DimensionValueString: []string{"95%", "90%", "85%", "80%"},
+		IconURL:              "https://example.com/copper.png",
+	}
+
+	origMessage := dc.Message{
+		Content: "New Custom Egg Detected: COPPER",
+		Embeds: []dc.Embed{{
+			Title:       egg.Name,
+			Description: "95%,90%,85%,80% Hab Cost\nValue: 10",
+			Thumbnail:   egg.IconURL,
+		}},
+	}
+
+	// Permission without EmbedLinks but with AttachFiles
+	perms := dc.Permissions(1<<11 | 1<<15) // SendMessages + AttachFiles
+	msg := prepareEggMessageForChannel(origMessage, egg, perms)
+
+	if len(msg.Embeds) != 0 {
+		t.Fatalf("expected 0 embeds when EmbedLinks is false, got %d", len(msg.Embeds))
+	}
+	if !strings.Contains(msg.Content, "New Custom Egg Detected: COPPER") {
+		t.Errorf("content missing title: %s", msg.Content)
+	}
+	if !strings.Contains(msg.Content, "95%,90%,85%,80% Hab Cost") {
+		t.Errorf("content missing dimension: %s", msg.Content)
+	}
+	if len(msg.Files) != 1 {
+		t.Fatalf("expected 1 file attached, got %d", len(msg.Files))
+	}
+	if msg.Files[0].Name != "egg_testcopper.png" {
+		t.Errorf("filename = %q, want egg_testcopper.png", msg.Files[0].Name)
 	}
 }
