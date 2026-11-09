@@ -524,7 +524,7 @@ func OptimizeEarnings(backup *ei.Backup, farm *ei.Backup_Simulation) *EarningsRe
 		return res
 	}
 
-	isUltra := backup != nil && backup.GetSubInfo() != nil && backup.GetSubInfo().GetStatus() == ei.UserSubscriptionInfo_ACTIVE
+	isUltra := backup.GetSubInfo() != nil && backup.GetSubInfo().GetStatus() == ei.UserSubscriptionInfo_ACTIVE
 	eventInfo := getEarningsEventInfo(isUltra)
 	res.EventMultiplier = eventInfo.Multiplier
 	res.HasActiveEvent = eventInfo.HasActiveEvent
@@ -3052,7 +3052,7 @@ func OptimizeDroneFarming(backup *ei.Backup, farm *ei.Backup_Simulation) *DroneF
 	isEnlightenment := farm.GetEggType() == ei.Egg_ENLIGHTENMENT
 	res.IsEnlightenment = isEnlightenment
 
-	isUltra := backup != nil && backup.GetSubInfo() != nil && backup.GetSubInfo().GetStatus() == ei.UserSubscriptionInfo_ACTIVE
+	isUltra := backup.GetSubInfo() != nil && backup.GetSubInfo().GetStatus() == ei.UserSubscriptionInfo_ACTIVE
 	eventInfo := getDroneEventInfo(isUltra)
 	res.EventMultiplier = eventInfo.Multiplier
 	res.HasActiveEvent = eventInfo.HasActiveEvent
