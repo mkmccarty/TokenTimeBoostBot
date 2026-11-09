@@ -2072,7 +2072,7 @@ func Boosting(client dc.Client, guildID string, channelID string) error {
 	booster.Duration = time.Since(booster.StartTime)
 
 	// Estimate timings for remaining boosters
-	setEstimatedBoostTimings(booster)
+	setEstimatedBoostTimings(booster, contract)
 
 	contract.BoostedOrder = append(contract.BoostedOrder, currentBoosterID)
 

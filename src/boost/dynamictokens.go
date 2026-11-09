@@ -1,10 +1,13 @@
 package boost
 
 import (
+	"fmt"
 	"log"
 	"math"
+	"strings"
 	"time"
 
+	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
 
@@ -131,24 +134,455 @@ func determineDynamicTokens(c *Contract) {
 
 }
 
-// setEstimatedBoostTimings calculates and sets the estimated boost timings on a booster
-func setEstimatedBoostTimings(booster *Booster) {
-	// These fields are for the dynamic token assignment, per user based on TE
-	dt := createDynamicTokenData(int64(booster.TECount))
+// BoostSchedule holds the calculated boost schedule for a player's boost run.
+type BoostSchedule struct {
+	Tokens                int
+	BoostIcons            string
+	TotalBoostDuration    time.Duration
+	CRDuration            time.Duration
+	PureCRDuration        time.Duration
+	TruckChecks           int
+	TruckWaitDuration     time.Duration
+	PostCROfflineDuration time.Duration
+	CRRequestPopulation   float64
+	MaxShippingPopulation float64
+	OfflineIHRPerMin      float64
+	EstRequestChickenRuns time.Time
+	EstEndOfBoost         time.Time
+}
 
-	// Estimate the boost timings
-	if dt != nil {
-		// Adjust the pure boost time to compensate for wiggle room for launching
-		// boosts and checking in for truck delivery and chicken runs
-		// Estimating about 20 seconds for each interruption
-		slopTime := 20 * time.Second // Add 20 seconds of slop
-		wiggleRoom := time.Duration(slopTime)
-		boostDuration, chickenRunDuration := getBoostTimeSeconds(dt, booster.TokensWanted)
-		bonusStep := 220 * time.Second // 3m40s per step, truck timings
-		extraBoost := time.Duration(boostDuration/bonusStep) * slopTime
-		totalBoostDuration := boostDuration + extraBoost
-		booster.EstDurationOfBoost = totalBoostDuration
-		booster.EstEndOfBoost = time.Now().Add(totalBoostDuration).Add(wiggleRoom)
-		booster.EstRequestChickenRuns = time.Now().Add(chickenRunDuration).Add(wiggleRoom)
+type boostItemSpec struct {
+	emojiName string
+	count     int
+	duration  string
+}
+
+func boostEmojiMarkdown(name string) string {
+	if md, ok := ei.GetBotEmojiMarkdownIfExists(name); ok {
+		return md
 	}
+	return ":" + name + ":"
+}
+
+// getExpectedBoostIcons returns the formatted boost icons and their durations for a given token count.
+func getExpectedBoostIcons(tokens int) string {
+	var items []boostItemSpec
+	switch {
+	case tokens <= 0:
+		items = []boostItemSpec{
+			{emojiName: "b_tach10x4h", count: 5, duration: "4h"},
+		}
+	case tokens == 1:
+		items = []boostItemSpec{
+			{emojiName: "b_boost2x30m", count: 1, duration: "30m"},
+			{emojiName: "b_tach10x4h", count: 4, duration: "4h"},
+		}
+	case tokens == 2:
+		items = []boostItemSpec{
+			{emojiName: "b_tach100x20m", count: 1, duration: "20m"},
+			{emojiName: "b_tach10x4h", count: 4, duration: "4h"},
+		}
+	case tokens == 3:
+		items = []boostItemSpec{
+			{emojiName: "b_tach100x20m", count: 1, duration: "20m"},
+			{emojiName: "b_boost2x30m", count: 1, duration: "30m"},
+			{emojiName: "b_tach10x4h", count: 3, duration: "4h"},
+		}
+	case tokens == 4:
+		items = []boostItemSpec{
+			{emojiName: "b_tach1000x10m", count: 1, duration: "10m"},
+			{emojiName: "b_tach10x4h", count: 4, duration: "4h"},
+		}
+	case tokens == 5:
+		items = []boostItemSpec{
+			{emojiName: "b_tach1000x10m", count: 1, duration: "10m"},
+			{emojiName: "b_boost2x30m", count: 1, duration: "30m"},
+			{emojiName: "b_tach10x4h", count: 3, duration: "4h"},
+		}
+	case tokens == 6:
+		items = []boostItemSpec{
+			{emojiName: "b_tach1000x10m", count: 1, duration: "10m"},
+			{emojiName: "b_boost2x30m", count: 2, duration: "30m"},
+			{emojiName: "b_tach10x4h", count: 2, duration: "4h"},
+		}
+	case tokens == 7:
+		items = []boostItemSpec{
+			{emojiName: "b_tach1000x10m", count: 1, duration: "10m"},
+			{emojiName: "b_boost2x30m", count: 3, duration: "30m"},
+			{emojiName: "b_tach10x4h", count: 1, duration: "4h"},
+		}
+	case tokens == 8:
+		items = []boostItemSpec{
+			{emojiName: "b_tach1000x10m", count: 1, duration: "10m"},
+			{emojiName: "b_boost10x10m", count: 1, duration: "10m"},
+			{emojiName: "b_tach10x4h", count: 3, duration: "4h"},
+		}
+	case tokens == 9:
+		items = []boostItemSpec{
+			{emojiName: "b_tach1000x10m", count: 1, duration: "10m"},
+			{emojiName: "b_boost10x10m", count: 1, duration: "10m"},
+			{emojiName: "b_boost2x30m", count: 1, duration: "30m"},
+			{emojiName: "b_tach10x4h", count: 2, duration: "4h"},
+		}
+	case tokens == 10:
+		items = []boostItemSpec{
+			{emojiName: "b_tach1000x10m", count: 1, duration: "10m"},
+			{emojiName: "b_boost10x10m", count: 1, duration: "10m"},
+			{emojiName: "b_boost2x30m", count: 2, duration: "30m"},
+			{emojiName: "b_tach10x4h", count: 1, duration: "4h"},
+		}
+	case tokens == 11:
+		items = []boostItemSpec{
+			{emojiName: "b_tach1000x10m", count: 1, duration: "10m"},
+			{emojiName: "b_boost10x10m", count: 1, duration: "10m"},
+			{emojiName: "b_boost2x30m", count: 3, duration: "30m"},
+		}
+	default:
+		items = []boostItemSpec{
+			{emojiName: "b_tach1000x10m", count: 1, duration: "10m"},
+			{emojiName: "b_boost50x10m", count: 1, duration: "10m"},
+			{emojiName: "b_tach10x4h", count: 3, duration: "4h"},
+		}
+	}
+
+	parts := make([]string, 0, len(items))
+	for _, item := range items {
+		icon := boostEmojiMarkdown(item.emojiName)
+		parts = append(parts, fmt.Sprintf("%s (%s)", strings.Repeat(icon, item.count), item.duration))
+	}
+	return strings.Join(parts, "  ")
+}
+
+// calculateBoostSchedule computes a booster's personalized boost schedule based on their boost tokens,
+// known artifacts, TE, and contract parameters.
+func calculateBoostSchedule(contract *Contract, booster *Booster, now time.Time) BoostSchedule {
+	tokens := 6
+	if booster != nil {
+		tokens = booster.TokensWanted
+	}
+	if tokens < 0 {
+		tokens = 0
+	}
+
+	modSR := 1.0
+	modELR := 1.0
+	modHab := 1.0
+	modIHR := 1.0
+	numFarmers := 4.0
+
+	if contract != nil {
+		if contract.CoopSize > 0 {
+			numFarmers = float64(contract.CoopSize)
+		} else if len(contract.Order) > 0 {
+			numFarmers = float64(len(contract.Order))
+		}
+		if c, ok := ei.EggIncContractsAll[contract.ContractID]; ok {
+			if c.ModifierSR > 0 {
+				modSR = c.ModifierSR
+			}
+			if c.ModifierELR > 0 {
+				modELR = c.ModifierELR
+			}
+			if c.ModifierHabCap > 0 {
+				modHab = c.ModifierHabCap
+			}
+			if c.ModifierIHR > 0 {
+				modIHR = c.ModifierIHR
+			}
+			if contract.CoopSize <= 0 && c.MaxCoopSize > 0 {
+				numFarmers = float64(c.MaxCoopSize)
+			}
+		}
+	}
+
+	colELR, colShip, colHab, colIHR := ei.GetColleggtibleValues()
+
+	metronome := DefaultLeggyMetronome
+	compass := DefaultLeggyCompass
+	gusset := DefaultLeggyGusset
+	deflStones := 2
+	metrStones := 3
+	compStones := 3
+	gussStones := 2
+	hasDeliveryArt := false
+
+	chalice := DefaultLeggyChalice
+	monocle := DefaultLeggyMonocle
+	ihrSlots := int(DefaultLeggyIHRSlots)
+	hasIHRArt := false
+
+	var artifacts []ei.Artifact
+	if booster != nil {
+		artifacts = booster.ArtifactSet.Artifacts
+		if len(artifacts) == 0 && booster.UserID != "" {
+			as := getUserArtifacts(booster.UserID, nil)
+			artifacts = as.Artifacts
+		}
+	}
+
+	hasColleggArt := false
+	customColELR := 1.0
+	customColShip := 1.0
+	customColHab := 1.0
+	customColIHR := 1.0
+
+	chaliceMap := map[string]float64{
+		"T1C": 1.05,
+		"T2C": 1.10, "T2E": 1.15,
+		"T3C": 1.20, "T3R": 1.23, "T3E": 1.25,
+		"T4C": 1.30, "T4E": 1.35, "T4L": 1.40,
+		"NONE": 1.0,
+	}
+	monocleMap := map[string]float64{
+		"T1C": 1.05,
+		"T2C": 1.10,
+		"T3C": 1.15,
+		"T4C": 1.20, "T4E": 1.25, "T4L": 1.30,
+		"NONE": 1.0,
+	}
+
+	customIHRSlots := 0
+	customChalice := 1.0
+	customMonocle := 1.0
+
+	for _, a := range artifacts {
+		switch a.Type {
+		case "Deflector":
+			hasDeliveryArt = true
+			deflStones = a.Stones
+		case "Metronome":
+			hasDeliveryArt = true
+			if a.LayBuff > 0 {
+				metronome = a.LayBuff
+			}
+			metrStones = a.Stones
+		case "Compass":
+			hasDeliveryArt = true
+			if a.ShipBuff > 0 {
+				compass = a.ShipBuff
+			}
+			compStones = a.Stones
+		case "Gusset":
+			hasDeliveryArt = true
+			if a.LayBuff > 0 {
+				gusset = a.LayBuff
+			}
+			gussStones = a.Stones
+		case "Chalice":
+			hasIHRArt = true
+			if mult, ok := chaliceMap[a.Quality]; ok {
+				customChalice = mult
+			}
+			customIHRSlots += a.Stones
+		case "Monocle":
+			hasIHRArt = true
+			if mult, ok := monocleMap[a.Quality]; ok {
+				customMonocle = mult
+			}
+			customIHRSlots += a.Stones
+		case "SIAB", "IHR Deflector":
+			hasIHRArt = true
+			customIHRSlots += a.Stones
+		case "Collegg":
+			if a.Quality != "NONE" {
+				hasColleggArt = true
+				switch a.Dimension {
+				case ei.GameModifier_EGG_LAYING_RATE:
+					if a.LayBuff > 0 {
+						customColELR *= a.LayBuff
+					}
+				case ei.GameModifier_HAB_CAPACITY:
+					if a.LayBuff > 0 {
+						customColHab *= a.LayBuff
+					}
+				case ei.GameModifier_SHIPPING_CAPACITY:
+					if a.ShipBuff > 0 {
+						customColShip *= a.ShipBuff
+					}
+				case ei.GameModifier_INTERNAL_HATCHERY_RATE:
+					for _, egg := range ei.CustomEggMap {
+						if egg != nil && egg.Dimension == ei.GameModifier_INTERNAL_HATCHERY_RATE && len(egg.DimensionValue) > 0 {
+							if len(egg.DimensionValueString) > 0 && egg.DimensionValueString[len(egg.DimensionValueString)-1] == a.Quality {
+								customColIHR *= egg.DimensionValue[len(egg.DimensionValue)-1]
+								break
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	deliverySlots := DefaultLeggyDeliverySlots
+	if hasDeliveryArt {
+		deliverySlots = float64(deflStones + metrStones + compStones + gussStones)
+	}
+	if hasColleggArt {
+		colELR = customColELR
+		colShip = customColShip
+		colHab = customColHab
+		if customColIHR > 1.0 {
+			colIHR = customColIHR
+		}
+	}
+	if hasIHRArt {
+		chalice = customChalice
+		monocle = customMonocle
+		ihrSlots = customIHRSlots
+	}
+
+	// Calculate max shipping population using the stone-hunt method from estimate_time.go
+	deflectorsOnFarmer := max(0.0, numFarmers-1.0)
+	deflectorMultiplier := 1.0 + DefaultLeggyDeflectorBonus*deflectorsOnFarmer
+	baseELR := 3.772 * metronome * gusset
+	baseShipping := 7.148 * compass
+	contractBaseELR := baseELR * modELR * modHab
+
+	intSlots := int(deliverySlots)
+	bestTotal := 0.0
+	contractELR := contractBaseELR * deflectorMultiplier * colELR * colHab
+	for i := 0; i <= intSlots; i++ {
+		stoneLayRate := contractBaseELR * deflectorMultiplier * math.Pow(1.05, float64(i)) * colELR * colHab
+		stoneShipRate := baseShipping * math.Pow(1.05, float64(intSlots-i)) * colShip * modSR
+		bestMin := min(stoneLayRate, stoneShipRate)
+		if bestMin > bestTotal {
+			bestTotal = bestMin
+			contractELR = stoneLayRate
+		} else if bestTotal > 0 {
+			break
+		}
+	}
+
+	unusedRatioELR := 1.0
+	if bestTotal > 0 {
+		unusedRatioELR = max(1.0, contractELR/bestTotal)
+	}
+
+	maxHabCap := (14_175_000_000.0 / DefaultLeggyGusset) * gusset * colHab * modHab
+	maxPop := maxHabCap / unusedRatioELR
+
+	// Determine online IHR per hab per minute (including TE, colleggtibles, chalice, monocle, life stones)
+	onlineIHRPerHab := 0.0
+	if booster != nil && booster.IHRRate > DefaultLeggyIHR {
+		onlineIHRPerHab = booster.IHRRate
+	} else if booster != nil && booster.UserID != "" {
+		if dbRate, _ := CalculateIHRRateFromDB(booster.UserID); dbRate > DefaultLeggyIHR {
+			onlineIHRPerHab = dbRate
+		}
+	}
+	if onlineIHRPerHab <= 0 {
+		teCount := 0
+		if booster != nil && booster.TECount > 0 {
+			teCount = booster.TECount
+		}
+		onlineIHRPerHab = DefaultLeggyIHR * colIHR * chalice * monocle * math.Pow(1.04, float64(ihrSlots)) * math.Pow(1.01, float64(teCount))
+	}
+
+	clampedTokens := min(12, max(0, tokens))
+	boostMulti := calcBoostMulti(float64(clampedTokens))
+	// 4 habs * 3x offline (Internal Hatchery Calm) = 12x online per-hab IHR
+	offlineIHRPerMin := onlineIHRPerHab * 12.0 * boostMulti * modIHR
+
+	// Calculate CR request population and post-CR offline duration (min 1m offline).
+	// When the player requests CRs, they must go offline for at least 1 minute and will
+	// gain those offline chickens in addition to the chicken runs from coop mates.
+	populationForCR := maxPop * (DefaultLeggyChickenRunPercent / 100.0)
+	crPopulation := 0.0
+	if numFarmers > 1.0 {
+		crPopulation = populationForCR * 0.05 * (numFarmers - 1.0)
+	}
+	minPostCROfflineChickens := offlineIHRPerMin * 1.0
+	totalBoostChickensNeeded := max(0.0, maxPop-crPopulation)
+
+	crRequestPop := min(populationForCR, max(0.0, totalBoostChickensNeeded-minPostCROfflineChickens))
+	remainingBoostChickens := max(minPostCROfflineChickens, totalBoostChickensNeeded-crRequestPop)
+
+	postCROfflineMinutes := max(1.0, remainingBoostChickens/offlineIHRPerMin)
+	postCROfflineDuration := time.Duration(postCROfflineMinutes * float64(time.Minute))
+
+	pureCRMinutes := max(1.0, crRequestPop/offlineIHRPerMin)
+	pureCRDuration := time.Duration(pureCRMinutes * float64(time.Minute))
+
+	// Account for 3m40s (220s) interval to check for token trucks with 30s online wait per check
+	const truckCheckInterval = 220 * time.Second
+	const truckOnlineWait = 30 * time.Second
+	truckChecks := int(pureCRDuration / truckCheckInterval)
+	truckWaitDuration := time.Duration(truckChecks) * truckOnlineWait
+	crDuration := pureCRDuration + truckWaitDuration
+
+	totalBoostDuration := crDuration + postCROfflineDuration
+
+	return BoostSchedule{
+		Tokens:                tokens,
+		BoostIcons:            getExpectedBoostIcons(tokens),
+		TotalBoostDuration:    totalBoostDuration,
+		CRDuration:            crDuration,
+		PureCRDuration:        pureCRDuration,
+		TruckChecks:           truckChecks,
+		TruckWaitDuration:     truckWaitDuration,
+		PostCROfflineDuration: postCROfflineDuration,
+		CRRequestPopulation:   crRequestPop,
+		MaxShippingPopulation: maxPop,
+		OfflineIHRPerMin:      offlineIHRPerMin,
+		EstRequestChickenRuns: now.Add(crDuration),
+		EstEndOfBoost:         now.Add(totalBoostDuration),
+	}
+}
+
+// formatBoostSchedule builds the ephemeral boost schedule message shown when a booster presses 🚀.
+func formatBoostSchedule(contract *Contract, booster *Booster, sched BoostSchedule) string {
+	tokenIcon := boostEmojiMarkdown("token")
+	if contract != nil && contract.TokenStr != "" {
+		tokenIcon = contract.TokenStr
+	}
+	crIcon := boostEmojiMarkdown("icon_chicken_run")
+
+	crPopStr := ei.FormatEIValue(sched.CRRequestPopulation, map[string]any{"decimals": 2, "trim": true})
+	maxPopStr := ei.FormatEIValue(sched.MaxShippingPopulation, map[string]any{"decimals": 2, "trim": true})
+	totalDurStr := bottools.FmtDuration(sched.TotalBoostDuration.Round(time.Second))
+	crDurStr := bottools.FmtDuration(sched.CRDuration.Round(time.Second))
+	postCRDurStr := bottools.FmtDuration(sched.PostCROfflineDuration.Round(time.Second))
+
+	truckNote := ""
+	if sched.TruckChecks > 0 {
+		truckNote = fmt.Sprintf(" (includes %dx 30s online truck check at 3m40s intervals)", sched.TruckChecks)
+	} else {
+		truckNote = " (before first 3m40s truck check)"
+	}
+
+	var sb strings.Builder
+	boosterTarget := ""
+	if booster != nil {
+		if booster.Mention != "" {
+			boosterTarget = " for " + booster.Mention
+		} else if booster.Nick != "" {
+			boosterTarget = " for " + booster.Nick
+		}
+	}
+	fmt.Fprintf(&sb, "## 🚀 Boost Schedule%s (%d %s)\n", boosterTarget, sched.Tokens, tokenIcon)
+	fmt.Fprintf(&sb, "**Total Boost Time:** `%s` (Done <t:%d:t>)\n", totalDurStr, sched.EstEndOfBoost.Unix())
+	fmt.Fprintf(&sb, "**Request Chicken Runs %s at:** `%s` chickens (Max shipping pop: `%s`)\n", crIcon, crPopStr, maxPopStr)
+	fmt.Fprintf(&sb, "**Boosts:** %s\n\n", sched.BoostIcons)
+	sb.WriteString("**Schedule:**\n")
+	fmt.Fprintf(&sb, "• **Reach CR Population (`%s`):** `%s`%s — Request CR %s <t:%d:R>\n",
+		crPopStr, crDurStr, truckNote, crIcon, sched.EstRequestChickenRuns.Unix())
+	fmt.Fprintf(&sb, "• **Offline to Max Shipping (`%s`):** `%s` (go offline for at least 1m after requesting CRs to receive runs & offline chickens)",
+		maxPopStr, postCRDurStr)
+
+	return sb.String()
+}
+
+// setEstimatedBoostTimings calculates and sets the estimated boost timings on a booster
+func setEstimatedBoostTimings(booster *Booster, contracts ...*Contract) {
+	if booster == nil {
+		return
+	}
+	var contract *Contract
+	if len(contracts) > 0 {
+		contract = contracts[0]
+	}
+	sched := calculateBoostSchedule(contract, booster, time.Now())
+	booster.EstDurationOfBoost = sched.TotalBoostDuration
+	booster.EstRequestChickenRuns = sched.EstRequestChickenRuns
+	booster.EstEndOfBoost = sched.EstEndOfBoost
 }

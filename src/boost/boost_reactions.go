@@ -120,6 +120,20 @@ func ReactionAdd(client dc.Client, e *dc.ReactionEvent) string {
 						return returnVal
 					}
 				}
+			case "🔥":
+				if booster := contract.Boosters[currentBoosterID]; booster != nil {
+					sched := calculateBoostSchedule(contract, booster, time.Now())
+					scheduleMsg := formatBoostSchedule(contract, booster, sched)
+					msg, err := client.SendMessage(e.ChannelID(), dc.Message{
+						Content:   scheduleMsg,
+						Ephemeral: true,
+					})
+					if err == nil && msg != nil {
+						time.AfterFunc(30*time.Second, func() {
+							_ = client.DeleteMessage(msg.ChannelID, msg.ID)
+						})
+					}
+				}
 			case "🔃":
 				if !isStale {
 					result := buttonReactionSwap(client, e.GuildID(), e.ChannelID(), contract, userID)

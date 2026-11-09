@@ -386,6 +386,8 @@ type ComponentEvent struct {
 	event        *events.ComponentInteractionCreate
 	client       *bot.Client
 	LastResponse *Message
+	LastFollowup *Message
+	Followups    []Message
 }
 
 // CustomID is the component's identifier, which carries this bot's
@@ -564,9 +566,6 @@ func (e *ComponentEvent) Defer(ephemeral bool) (err error) {
 // Followup sends a message after the interaction has been deferred or already
 // answered.
 func (e *ComponentEvent) Followup(m Message) error {
-	if e.client == nil {
-		return nil
-	}
 	_, err := e.FollowupMessage(m)
 	return err
 }
@@ -591,6 +590,9 @@ func (e *ComponentEvent) DeleteResponse() error {
 
 // FollowupMessage sends a followup and returns the message it created.
 func (e *ComponentEvent) FollowupMessage(m Message) (*MessageRef, error) {
+	msg := m
+	e.LastFollowup = &msg
+	e.Followups = append(e.Followups, m)
 	if e.client == nil {
 		return nil, nil
 	}

@@ -85,7 +85,7 @@ func HandleContractReactions(client dc.Client, e *dc.ComponentEvent) {
 		}
 	}
 	// Ack the message for every other command
-	if cmd != "cr" {
+	if cmd != "cr" && cmd != "fire" {
 		_ = e.Followup(dc.Message{})
 	}
 
@@ -112,6 +112,17 @@ func HandleContractReactions(client dc.Client, e *dc.ComponentEvent) {
 			if loc != nil && e.MessageID() == loc.ListMsgID {
 				redraw = buttonReactionBoost(client, e.GuildID(), e.ChannelID(), contract, userID)
 			}
+		}
+	case "fire":
+		if currentBooster := contract.currentBooster(); currentBooster != nil {
+			sched := calculateBoostSchedule(contract, currentBooster, time.Now())
+			scheduleMsg := formatBoostSchedule(contract, currentBooster, sched)
+			_ = e.Followup(dc.Message{
+				Content:   scheduleMsg,
+				Ephemeral: true,
+			})
+		} else {
+			_ = e.Followup(dc.Message{})
 		}
 	case "bag":
 		var r bool

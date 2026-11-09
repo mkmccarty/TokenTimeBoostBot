@@ -59,7 +59,7 @@ func buttonReactionBag(client dc.Client, GuildID string, ChannelID string, contr
 			contract.Boosters[b.UserID].TokenValue -= tval * float64(tokensToSend)
 
 			// Set the estimated boost timings for the booster
-			setEstimatedBoostTimings(b)
+			setEstimatedBoostTimings(b, contract)
 			/*
 				if contract.Style&ContractFlagDynamicTokens != 0 {
 					// Determine the dynamic tokens
