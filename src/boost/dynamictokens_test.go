@@ -115,6 +115,15 @@ func TestGetExpectedBoostIcons(t *testing.T) {
 				t.Errorf("getExpectedBoostIcons(%d) = %q, missing %q", tc.tokens, got, sub)
 			}
 		}
+		if tc.tokens >= 4 {
+			gotLong := getExpectedBoostIcons(tc.tokens, 11*time.Minute)
+			if !strings.Contains(gotLong, "b_tach1000x1h") || !strings.Contains(gotLong, "(1h)") {
+				t.Errorf("getExpectedBoostIcons(%d, 11m) = %q, expected b_tach1000x1h (1h)", tc.tokens, gotLong)
+			}
+			if strings.Contains(gotLong, "b_tach1000x10m") {
+				t.Errorf("getExpectedBoostIcons(%d, 11m) = %q, should not contain b_tach1000x10m", tc.tokens, gotLong)
+			}
+		}
 	}
 }
 
@@ -143,6 +152,9 @@ func TestCalculateBoostSchedule_TruckChecksAndOfflineMinimum(t *testing.T) {
 	}
 	if sched4.TotalBoostDuration != sched4.CRDuration+sched4.PostCROfflineDuration {
 		t.Errorf("expected TotalBoostDuration=%v, got %v", sched4.CRDuration+sched4.PostCROfflineDuration, sched4.TotalBoostDuration)
+	}
+	if sched4.TotalBoostDuration > 10*time.Minute && !strings.Contains(sched4.BoostIcons, "b_tach1000x1h") {
+		t.Errorf("expected >10m 4-token boost (%v) to select b_tach1000x1h, got %q", sched4.TotalBoostDuration, sched4.BoostIcons)
 	}
 
 	// High-token boost in a large coop where CRs + 1m offline exceed 30% of maxPop:

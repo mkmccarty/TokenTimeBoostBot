@@ -208,7 +208,15 @@ func boostEmojiMarkdown(name string) string {
 }
 
 // getExpectedBoostIcons returns the formatted boost icons and their durations for a given token count.
-func getExpectedBoostIcons(tokens int) string {
+// If the total boost duration exceeds 10 minutes, the 1-hour 1000x Tachyon Prism is selected over the 10-minute one.
+func getExpectedBoostIcons(tokens int, boostDuration ...time.Duration) string {
+	tach1000Emoji := "b_tach1000x10m"
+	tach1000Dur := "10m"
+	if len(boostDuration) > 0 && boostDuration[0] > 10*time.Minute {
+		tach1000Emoji = "b_tach1000x1h"
+		tach1000Dur = "1h"
+	}
+
 	var items []boostItemSpec
 	switch {
 	case tokens <= 0:
@@ -233,56 +241,56 @@ func getExpectedBoostIcons(tokens int) string {
 		}
 	case tokens == 4:
 		items = []boostItemSpec{
-			{emojiName: "b_tach1000x10m", count: 1, duration: "10m"},
+			{emojiName: tach1000Emoji, count: 1, duration: tach1000Dur},
 			{emojiName: "b_tach10x4h", count: 4, duration: "4h"},
 		}
 	case tokens == 5:
 		items = []boostItemSpec{
-			{emojiName: "b_tach1000x10m", count: 1, duration: "10m"},
+			{emojiName: tach1000Emoji, count: 1, duration: tach1000Dur},
 			{emojiName: "b_boost2x30m", count: 1, duration: "30m"},
 			{emojiName: "b_tach10x4h", count: 3, duration: "4h"},
 		}
 	case tokens == 6:
 		items = []boostItemSpec{
-			{emojiName: "b_tach1000x10m", count: 1, duration: "10m"},
+			{emojiName: tach1000Emoji, count: 1, duration: tach1000Dur},
 			{emojiName: "b_boost2x30m", count: 2, duration: "30m"},
 			{emojiName: "b_tach10x4h", count: 2, duration: "4h"},
 		}
 	case tokens == 7:
 		items = []boostItemSpec{
-			{emojiName: "b_tach1000x10m", count: 1, duration: "10m"},
+			{emojiName: tach1000Emoji, count: 1, duration: tach1000Dur},
 			{emojiName: "b_boost2x30m", count: 3, duration: "30m"},
 			{emojiName: "b_tach10x4h", count: 1, duration: "4h"},
 		}
 	case tokens == 8:
 		items = []boostItemSpec{
-			{emojiName: "b_tach1000x10m", count: 1, duration: "10m"},
+			{emojiName: tach1000Emoji, count: 1, duration: tach1000Dur},
 			{emojiName: "b_boost10x10m", count: 1, duration: "10m"},
 			{emojiName: "b_tach10x4h", count: 3, duration: "4h"},
 		}
 	case tokens == 9:
 		items = []boostItemSpec{
-			{emojiName: "b_tach1000x10m", count: 1, duration: "10m"},
+			{emojiName: tach1000Emoji, count: 1, duration: tach1000Dur},
 			{emojiName: "b_boost10x10m", count: 1, duration: "10m"},
 			{emojiName: "b_boost2x30m", count: 1, duration: "30m"},
 			{emojiName: "b_tach10x4h", count: 2, duration: "4h"},
 		}
 	case tokens == 10:
 		items = []boostItemSpec{
-			{emojiName: "b_tach1000x10m", count: 1, duration: "10m"},
+			{emojiName: tach1000Emoji, count: 1, duration: tach1000Dur},
 			{emojiName: "b_boost10x10m", count: 1, duration: "10m"},
 			{emojiName: "b_boost2x30m", count: 2, duration: "30m"},
 			{emojiName: "b_tach10x4h", count: 1, duration: "4h"},
 		}
 	case tokens == 11:
 		items = []boostItemSpec{
-			{emojiName: "b_tach1000x10m", count: 1, duration: "10m"},
+			{emojiName: tach1000Emoji, count: 1, duration: tach1000Dur},
 			{emojiName: "b_boost10x10m", count: 1, duration: "10m"},
 			{emojiName: "b_boost2x30m", count: 3, duration: "30m"},
 		}
 	default:
 		items = []boostItemSpec{
-			{emojiName: "b_tach1000x10m", count: 1, duration: "10m"},
+			{emojiName: tach1000Emoji, count: 1, duration: tach1000Dur},
 			{emojiName: "b_boost50x10m", count: 1, duration: "10m"},
 			{emojiName: "b_tach10x4h", count: 3, duration: "4h"},
 		}
@@ -692,7 +700,7 @@ func calculateBoostSchedule(contract *Contract, booster *Booster, now time.Time)
 
 	return BoostSchedule{
 		Tokens:                tokens,
-		BoostIcons:            getExpectedBoostIcons(tokens),
+		BoostIcons:            getExpectedBoostIcons(tokens, totalBoostDuration),
 		TotalBoostDuration:    totalBoostDuration,
 		CRDuration:            crDuration,
 		PureCRDuration:        pureCRDuration,
