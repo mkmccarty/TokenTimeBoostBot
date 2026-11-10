@@ -922,6 +922,9 @@ func isFastrunOrLeaderboard(contract *Contract) bool {
 	if contract == nil {
 		return false
 	}
+	if contract.Style&ContractFlagBanker != 0 || contract.State == ContractStateBanker {
+		return false
+	}
 	return contract.PlayStyle == ContractPlaystyleFastrun || contract.PlayStyle == ContractPlaystyleLeaderboard
 }
 
