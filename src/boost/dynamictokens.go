@@ -1274,6 +1274,35 @@ var knownActiveBoostMap = map[string]activeBoostMeta{
 	"boost_beacon_orange":      {emojiName: "b_boost50x10m", duration: "10m", isBeacon: true, multiplier: 50},
 }
 
+func getBoostBaseDuration(boostID string) time.Duration {
+	switch strings.ToLower(strings.TrimSpace(boostID)) {
+	case "tachyon_prism_orange", "tachyon_prism_purple", "tachyon_prism_purple_v2", "tachyon_prism_blue", "tachyon_prism_blue_v2":
+		return 10 * time.Minute
+	case "tachyon_prism_orange_big":
+		return 1 * time.Hour
+	case "tachyon_prism_purple_big":
+		return 2 * time.Hour
+	case "tachyon_prism_blue_big":
+		return 4 * time.Hour
+	default:
+		return 10 * time.Minute
+	}
+}
+
+func getActivePaidTachyonBoost(activeBoosts []*ei.Backup_ActiveBoost) (*ei.Backup_ActiveBoost, activeBoostMeta, bool) {
+	for _, ab := range activeBoosts {
+		if ab == nil || ab.TimeRemaining == nil || ab.GetTimeRemaining() <= 0 {
+			continue
+		}
+		rawID := strings.ToLower(strings.TrimSpace(ab.GetBoostId()))
+		meta, ok := knownActiveBoostMap[rawID]
+		if ok && meta.isTachyon && meta.multiplier >= 100 {
+			return ab, meta, true
+		}
+	}
+	return nil, activeBoostMeta{}, false
+}
+
 func extractContributorActiveBoosts(activeBoosts []*ei.Backup_ActiveBoost) (float64, string) {
 	if len(activeBoosts) == 0 {
 		return 0, ""
@@ -1399,7 +1428,11 @@ func applyCoopStatusDeflectors(contract *Contract, coopStatus *ei.ContractCoopSt
 	contract.mutex.Lock()
 
 	matchedBoosters := make(map[string]bool, len(contract.Boosters))
-	unmatchedDeflectors := make([]ei.Artifact, 0)
+	type unmatchedEntry struct {
+		contrib *ei.ContractCoopStatusResponse_ContributionInfo
+		deflArt ei.Artifact
+	}
+	var unmatchedContribs []unmatchedEntry
 
 	for _, contrib := range contributors {
 		if contrib == nil || contrib.GetUserName() == "[departed]" {
@@ -1449,8 +1482,113 @@ func applyCoopStatusDeflectors(contract *Contract, coopStatus *ei.ContractCoopSt
 			setBoosterDeflectorArtifact(b, deflArt)
 			applyContributorBoostAndPop(b, contrib)
 		} else {
-			unmatchedDeflectors = append(unmatchedDeflectors, deflArt)
+			unmatchedContribs = append(unmatchedContribs, unmatchedEntry{contrib: contrib, deflArt: deflArt})
 		}
+	}
+
+	// Pass 2: If the player isn't known to boost bot and the name isn't found matched up to something
+	// in the coop status response, look at the times on the players active boosts and match based on
+	// those to someone who spent tokens for one of the tachyon boosts.
+	var remainingUnmatchedContribs []unmatchedEntry
+	for _, ue := range unmatchedContribs {
+		contrib := ue.contrib
+		var activeBoosts []*ei.Backup_ActiveBoost
+		if fi := contrib.GetFarmInfo(); fi != nil {
+			activeBoosts = fi.GetActiveBoosts()
+		}
+		tachBoost, _, ok := getActivePaidTachyonBoost(activeBoosts)
+		if !ok {
+			remainingUnmatchedContribs = append(remainingUnmatchedContribs, ue)
+			continue
+		}
+
+		timeRemaining := time.Duration(tachBoost.GetTimeRemaining() * float64(time.Second))
+		offlineSec := 0.0
+		if fi := contrib.GetFarmInfo(); fi != nil && fi.Timestamp != nil {
+			if fi.GetTimestamp() < 0 {
+				offlineSec = -fi.GetTimestamp()
+			} else if fi.GetTimestamp() > 1_000_000_000 {
+				offlineSec = max(0, time.Since(time.Unix(int64(fi.GetTimestamp()), 0)).Seconds())
+			}
+		}
+		snapshotTime := time.Now().Add(-time.Duration(offlineSec * float64(time.Second)))
+		boostEndTime := snapshotTime.Add(timeRemaining)
+		baseDur := getBoostBaseDuration(tachBoost.GetBoostId())
+
+		var bestUID string
+		var minDiff time.Duration = 1<<63 - 1
+
+		for uid, b := range contract.Boosters {
+			if b == nil || matchedBoosters[uid] {
+				continue
+			}
+			if b.BoostState != BoostStateBoosted && b.EndTime.IsZero() {
+				continue
+			}
+			tokensSpent := b.TokensWanted
+			if tokensSpent < 2 && b.TokensReceived >= 2 {
+				tokensSpent = b.TokensReceived
+			}
+			if tokensSpent < 2 {
+				continue
+			}
+
+			boostTurnTime := b.EndTime
+			if boostTurnTime.IsZero() {
+				boostTurnTime = b.StartTime
+			}
+			if boostTurnTime.IsZero() {
+				continue
+			}
+
+			if boostTurnTime.After(boostEndTime) {
+				continue
+			}
+
+			nominalElapsed := time.Duration(0)
+			if timeRemaining <= baseDur {
+				nominalElapsed = baseDur - timeRemaining
+			}
+			nominalStart := snapshotTime.Add(-nominalElapsed)
+
+			diff := boostTurnTime.Sub(nominalStart)
+			if diff < 0 {
+				diff = -diff
+			}
+
+			maxWindow := time.Duration(float64(baseDur) * 2.6)
+			if maxWindow < 25*time.Minute {
+				maxWindow = 25 * time.Minute
+			}
+			if diff < maxWindow && diff < minDiff {
+				if contrib.BoostTokensSpent != nil && int(contrib.GetBoostTokensSpent()) == tokensSpent {
+					diff -= 5 * time.Minute
+					if diff < 0 {
+						diff = 0
+					}
+				}
+				minDiff = diff
+				bestUID = uid
+			}
+		}
+
+		if bestUID != "" {
+			matchedBoosters[bestUID] = true
+			b := contract.Boosters[bestUID]
+			setBoosterDeflectorArtifact(b, ue.deflArt)
+			applyContributorBoostAndPop(b, contrib)
+			rawName := strings.TrimSpace(contrib.GetUserName())
+			if rawName != "" && farmerstate.GetMiscSettingString(bestUID, "ei_ign") == "" {
+				farmerstate.SetMiscSettingString(bestUID, "ei_ign", rawName)
+			}
+		} else {
+			remainingUnmatchedContribs = append(remainingUnmatchedContribs, ue)
+		}
+	}
+
+	unmatchedDeflectors := make([]ei.Artifact, 0, len(remainingUnmatchedContribs))
+	for _, ue := range remainingUnmatchedContribs {
+		unmatchedDeflectors = append(unmatchedDeflectors, ue.deflArt)
 	}
 
 	// For any remaining unmatched contributors, assign deflectors in boost order to boosters without a matched deflector
