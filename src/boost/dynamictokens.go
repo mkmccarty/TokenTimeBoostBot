@@ -192,6 +192,7 @@ type BoostSchedule struct {
 	SIABDeliveryRate      float64
 	BoostsVerified        bool
 	CurrentPopulation     float64
+	PopulationBasis       string
 	EstRequestChickenRuns time.Time
 	EstEndOfBoost         time.Time
 }
@@ -232,12 +233,12 @@ func getExpectedBoostIcons(tokens int, boostDuration ...time.Duration) string {
 		}
 	case tokens == 2:
 		items = []boostItemSpec{
-			{emojiName: "b_tach100x20m", count: 1, duration: "20m"},
+			{emojiName: "b_tach100x2h", count: 1, duration: "2h"},
 			{emojiName: "b_tach10x4h", count: 4, duration: "4h"},
 		}
 	case tokens == 3:
 		items = []boostItemSpec{
-			{emojiName: "b_tach100x20m", count: 1, duration: "20m"},
+			{emojiName: "b_tach100x2h", count: 1, duration: "2h"},
 			{emojiName: "b_boost2x30m", count: 1, duration: "30m"},
 			{emojiName: "b_tach10x4h", count: 3, duration: "4h"},
 		}
@@ -704,13 +705,55 @@ func calculateBoostSchedule(contract *Contract, booster *Booster, now time.Time)
 	crDuration := pureCRDuration
 	totalBoostDuration := crDuration + postCROfflineDuration
 
-	refTime := now
 	currentPop := 0.0
+	popBasis := "Estimated starting from 0 (pre-boost habs not synced)"
 	if booster != nil && booster.VerifiedPopulation > 0 {
-		currentPop = booster.VerifiedPopulation
-		if !booster.VerifiedAt.IsZero() {
-			refTime = booster.VerifiedAt
+		snapPop := booster.VerifiedPopulation
+		snapStr := ei.FormatEIValue(snapPop, map[string]any{"decimals": 2, "trim": true})
+
+		if booster.VerifiedBoostMulti > 0 {
+			// Snapshot was taken with active boosts. Advance population by offline growth since snapshot.
+			refTime := booster.VerifiedAt
+			if refTime.IsZero() {
+				refTime = now
+			}
+			offlineDur := now.Sub(refTime)
+			if offlineDur < 0 {
+				offlineDur = 0
+			}
+			offlineGained := (offlineIHRPerMin / float64(time.Minute)) * float64(offlineDur)
+			currentPop = min(maxPop, snapPop+offlineGained)
+			if offlineDur >= 5*time.Second && offlineGained >= 100_000 {
+				gainedStr := ei.FormatEIValue(offlineGained, map[string]any{"decimals": 2, "trim": true})
+				durStr := bottools.FmtDuration(offlineDur.Round(time.Second))
+				popBasis = fmt.Sprintf("Snapshot %s + %s offline (%s)", snapStr, gainedStr, durStr)
+			} else {
+				popBasis = fmt.Sprintf("Active boost snapshot (%s)", snapStr)
+			}
+		} else {
+			// Snapshot was taken before boosts were active (or pre-boost habs).
+			boostStart := booster.EndTime
+			if boostStart.IsZero() {
+				boostStart = booster.VerifiedAt
+			}
+			if boostStart.IsZero() {
+				boostStart = now
+			}
+			boostElapsed := now.Sub(boostStart)
+			if boostElapsed < 0 {
+				boostElapsed = 0
+			}
+			offlineGained := (offlineIHRPerMin / float64(time.Minute)) * float64(boostElapsed)
+			currentPop = min(maxPop, snapPop+offlineGained)
+			if boostElapsed >= 5*time.Second && offlineGained >= 100_000 {
+				gainedStr := ei.FormatEIValue(offlineGained, map[string]any{"decimals": 2, "trim": true})
+				durStr := bottools.FmtDuration(boostElapsed.Round(time.Second))
+				popBasis = fmt.Sprintf("Pre-boost habs %s + %s offline (%s)", snapStr, gainedStr, durStr)
+			} else {
+				popBasis = fmt.Sprintf("Pre-boost hab snapshot (%s)", snapStr)
+			}
 		}
+
 		if currentPop < crRequestPop {
 			remCRMinutes := (crRequestPop - currentPop) / offlineIHRPerMin
 			crDuration = time.Duration(remCRMinutes * float64(time.Minute))
@@ -756,8 +799,9 @@ func calculateBoostSchedule(contract *Contract, booster *Booster, now time.Time)
 		SIABDeliveryRate:      siabBestTotal,
 		BoostsVerified:        boostsVerified,
 		CurrentPopulation:     currentPop,
-		EstRequestChickenRuns: refTime.Add(crDuration),
-		EstEndOfBoost:         refTime.Add(totalBoostDuration),
+		PopulationBasis:       popBasis,
+		EstRequestChickenRuns: now.Add(crDuration),
+		EstEndOfBoost:         now.Add(totalBoostDuration),
 	}
 }
 
@@ -803,7 +847,13 @@ func formatBoostSchedule(contract *Contract, booster *Booster, sched BoostSchedu
 	fmt.Fprintf(&sb, "**Total Boost Time:** `%s` (Done <t:%d:t>)\n", totalDurStr, sched.EstEndOfBoost.Unix())
 	if sched.CurrentPopulation > 0 {
 		curPopStr := ei.FormatEIValue(sched.CurrentPopulation, map[string]any{"decimals": 2, "trim": true})
-		fmt.Fprintf(&sb, "**Current Population:** `%s` (verified)\n", curPopStr)
+		verifiedStr := ""
+		if sched.BoostsVerified {
+			verifiedStr = " (verified)"
+		}
+		fmt.Fprintf(&sb, "**Current Population:** `%s`%s — %s\n", curPopStr, verifiedStr, sched.PopulationBasis)
+	} else if sched.PopulationBasis != "" {
+		fmt.Fprintf(&sb, "**Current Population:** `0` — %s\n", sched.PopulationBasis)
 	}
 	fmt.Fprintf(&sb, "**Request Chicken Runs %s at:** `%s` chickens (Max shipping pop: `%s`)\n", crIcon, crPopStr, maxPopStr)
 	fmt.Fprintf(&sb, "**Deflector Bonus %s:** `%.0f%%` (%s)\n", deflIcon, sched.DeflectorPercent, deflStatus)
@@ -823,8 +873,13 @@ func formatBoostSchedule(contract *Contract, booster *Booster, sched BoostSchedu
 			formatStoneRatePerHour(sched.SIABDeliveryRate), formatStoneRatePerHour(sched.SIABLayRate), formatStoneRatePerHour(sched.SIABShipRate))
 	}
 	sb.WriteString("\n**Schedule:**\n")
-	fmt.Fprintf(&sb, "• **Reach CR Population (`%s`):** `%s` — Request CR %s <t:%d:R>\n",
-		crPopStr, crDurStr, crIcon, sched.EstRequestChickenRuns.Unix())
+	if sched.CRDuration > 0 {
+		fmt.Fprintf(&sb, "• **Reach CR Population (`%s`):** `%s` — Request CR %s <t:%d:R>\n",
+			crPopStr, crDurStr, crIcon, sched.EstRequestChickenRuns.Unix())
+	} else {
+		fmt.Fprintf(&sb, "• **Reach CR Population (`%s`):** Ready now! — Request CR %s immediately\n",
+			crPopStr, crIcon)
+	}
 	fmt.Fprintf(&sb, "• **Offline to Max Shipping (`%s`):** `%s` (go offline for at least 1m after requesting CRs to receive runs & offline chickens)",
 		maxPopStr, postCRDurStr)
 
@@ -1005,6 +1060,12 @@ func formatInitialBoostSchedule(contract *Contract, booster *Booster, sched Boos
 	fmt.Fprintf(&sb, "## 🚀 Boost Schedule%s (%d %s)\n", boosterTarget, sched.Tokens, tokenIcon)
 	fmt.Fprintf(&sb, "**Boosts:** %s\n", sched.BoostIcons)
 	fmt.Fprintf(&sb, "**Estimated Boost Time:** `%s` (Request CR %s at `%s` chickens)\n", totalDurStr, crIcon, crPopStr)
+	if sched.CurrentPopulation > 0 {
+		curPopStr := ei.FormatEIValue(sched.CurrentPopulation, map[string]any{"decimals": 2, "trim": true})
+		fmt.Fprintf(&sb, "**Population Basis:** Starting from `%s` (%s)\n", curPopStr, sched.PopulationBasis)
+	} else {
+		sb.WriteString("**Population Basis:** Estimated starting from `0` chickens (pre-boost habs not yet synced)\n")
+	}
 	sb.WriteString("\n⏳ *Checking coop API in 1m to verify your active boosts, current population, and deflectors for accurate timing...*")
 	return sb.String()
 }
@@ -1179,10 +1240,11 @@ type activeBoostMeta struct {
 }
 
 var knownActiveBoostMap = map[string]activeBoostMeta{
-	"tachyon_prism_blue":       {emojiName: "b_tach10x30m", duration: "30m", isTachyon: true, multiplier: 10},
-	"tachyon_prism_purple":     {emojiName: "b_tach10x4h", duration: "4h", isTachyon: true, multiplier: 10},
-	"tachyon_prism_purple_v2":  {emojiName: "b_tach10x4h", duration: "4h", isTachyon: true, multiplier: 10},
-	"tachyon_prism_blue_big":   {emojiName: "b_tach100x20m", duration: "20m", isTachyon: true, multiplier: 100},
+	"tachyon_prism_blue":       {emojiName: "b_tach10x10m", duration: "10m", isTachyon: true, multiplier: 10},
+	"tachyon_prism_blue_v2":    {emojiName: "b_tach10x10m", duration: "10m", isTachyon: true, multiplier: 10},
+	"tachyon_prism_blue_big":   {emojiName: "b_tach10x4h", duration: "4h", isTachyon: true, multiplier: 10},
+	"tachyon_prism_purple":     {emojiName: "b_tach100x2h", duration: "2h", isTachyon: true, multiplier: 100},
+	"tachyon_prism_purple_v2":  {emojiName: "b_tach100x2h", duration: "2h", isTachyon: true, multiplier: 100},
 	"tachyon_prism_purple_big": {emojiName: "b_tach100x2h", duration: "2h", isTachyon: true, multiplier: 100},
 	"tachyon_prism_orange":     {emojiName: "b_tach1000x10m", duration: "10m", isTachyon: true, multiplier: 1000},
 	"tachyon_prism_orange_big": {emojiName: "b_tach1000x1h", duration: "1h", isTachyon: true, multiplier: 1000},
@@ -1257,24 +1319,45 @@ func applyContributorBoostAndPop(b *Booster, contrib *ei.ContractCoopStatusRespo
 	if pp := contrib.GetProductionParams(); pp != nil && pp.GetFarmPopulation() > 0 {
 		pop = pp.GetFarmPopulation()
 	}
+	var habSum uint64
+	var activeBoosts []*ei.Backup_ActiveBoost
+	var rawTimestamp float64
+	hasFarmInfo := false
 	if fi := contrib.GetFarmInfo(); fi != nil {
-		var habSum uint64
+		hasFarmInfo = true
 		for _, hp := range fi.GetHabPopulation() {
 			habSum += hp
 		}
 		if float64(habSum) > pop {
 			pop = float64(habSum)
 		}
-		boostMulti, boostIcons := extractContributorActiveBoosts(fi.GetActiveBoosts())
-		if boostMulti > 0 {
-			b.VerifiedBoostMulti = boostMulti
-			b.VerifiedBoostIcons = boostIcons
-			b.VerifiedAt = time.Now()
+		activeBoosts = fi.GetActiveBoosts()
+		if fi.Timestamp != nil {
+			rawTimestamp = fi.GetTimestamp()
 		}
+	}
+
+	snapshotTime := time.Now()
+	if hasFarmInfo {
+		offlineSec := 0.0
+		if rawTimestamp < 0 {
+			offlineSec = -rawTimestamp
+		} else if rawTimestamp > 1_000_000_000 {
+			offlineSec = max(0, time.Since(time.Unix(int64(rawTimestamp), 0)).Seconds())
+		}
+		if offlineSec > 0 {
+			snapshotTime = time.Now().Add(-time.Duration(offlineSec * float64(time.Second)))
+		}
+	}
+
+	boostMulti, boostIcons := extractContributorActiveBoosts(activeBoosts)
+	if boostMulti > 0 {
+		b.VerifiedBoostMulti = boostMulti
+		b.VerifiedBoostIcons = boostIcons
 	}
 	if pop > 0 {
 		b.VerifiedPopulation = pop
-		b.VerifiedAt = time.Now()
+		b.VerifiedAt = snapshotTime
 	}
 }
 
