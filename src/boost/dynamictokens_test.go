@@ -95,8 +95,8 @@ func TestGetExpectedBoostIcons(t *testing.T) {
 	}{
 		{0, []string{"b_tach10x4h", "(4h)"}},
 		{1, []string{"b_boost2x30m", "(30m)", "b_tach10x4h", "(4h)"}},
-		{2, []string{"b_tach100x20m", "(20m)", "b_tach10x4h", "(4h)"}},
-		{3, []string{"b_tach100x20m", "(20m)", "b_boost2x30m", "(30m)", "b_tach10x4h", "(4h)"}},
+		{2, []string{"b_tach100x2h", "(2h)", "b_tach10x4h", "(4h)"}},
+		{3, []string{"b_tach100x2h", "(2h)", "b_boost2x30m", "(30m)", "b_tach10x4h", "(4h)"}},
 		{4, []string{"b_tach1000x10m", "(10m)", "b_tach10x4h", "(4h)"}},
 		{5, []string{"b_tach1000x10m", "(10m)", "b_boost2x30m", "(30m)", "b_tach10x4h", "(4h)"}},
 		{6, []string{"b_tach1000x10m", "(10m)", "b_boost2x30m", "(30m)", "b_tach10x4h", "(4h)"}},
@@ -755,4 +755,118 @@ func TestBoostSchedule_RocketAndFireReactions(t *testing.T) {
 			t.Errorf("expected banker bag click to suppress ephemeral schedule response, got %q", evBag.LastFollowup.Content)
 		}
 	})
+}
+
+func TestCalculateBoostSchedule_PopulationBasisAndOfflineProjection(t *testing.T) {
+	contract := &Contract{
+		ContractID: "test-pop-basis",
+		CoopSize:   4,
+		PlayStyle:  ContractPlaystyleFastrun,
+	}
+
+	now := time.Date(2026, 11, 9, 12, 0, 0, 0, time.UTC)
+
+	// Case 1: Initial state before any sync (verified pop = 0)
+	boosterInitial := &Booster{
+		UserID:       "100000000000000001",
+		TokensWanted: 6,
+		TECount:      40,
+	}
+	schedInitial := calculateBoostSchedule(contract, boosterInitial, now)
+	if schedInitial.CurrentPopulation != 0 {
+		t.Errorf("expected initial population 0, got %v", schedInitial.CurrentPopulation)
+	}
+	if !strings.Contains(schedInitial.PopulationBasis, "Estimated starting from 0") {
+		t.Errorf("expected population basis 'Estimated starting from 0', got %q", schedInitial.PopulationBasis)
+	}
+	initMsg := formatInitialBoostSchedule(contract, boosterInitial, schedInitial)
+	if !strings.Contains(initMsg, "Population Basis:** Estimated starting from `0` chickens") {
+		t.Errorf("formatInitialBoostSchedule missing expected population basis:\n%s", initMsg)
+	}
+
+	// Case 2: Pre-boost baseline sync (habs full from farming, e.g. 2B chickens, no active boosts yet)
+	// Boost was started 1 minute ago.
+	boosterPreBoost := &Booster{
+		UserID:             "100000000000000002",
+		TokensWanted:       6,
+		TECount:            40,
+		EndTime:            now.Add(-1 * time.Minute),
+		VerifiedPopulation: 2_000_000_000,
+		VerifiedAt:         now.Add(-2 * time.Minute), // sync was taken during token farming
+	}
+	schedPreBoost := calculateBoostSchedule(contract, boosterPreBoost, now)
+	if schedPreBoost.CurrentPopulation <= 2_000_000_000 {
+		t.Errorf("expected population > 2B after 1m of offline boost, got %v", schedPreBoost.CurrentPopulation)
+	}
+	if !strings.Contains(schedPreBoost.PopulationBasis, "Pre-boost habs 2B") || !strings.Contains(schedPreBoost.PopulationBasis, "offline") {
+		t.Errorf("expected pre-boost habs basis with offline growth, got %q", schedPreBoost.PopulationBasis)
+	}
+	formattedPre := formatBoostSchedule(contract, boosterPreBoost, schedPreBoost)
+	if !strings.Contains(formattedPre, "**Current Population:**") || !strings.Contains(formattedPre, "Pre-boost habs 2B") {
+		t.Errorf("formatBoostSchedule missing expected pre-boost basis:\n%s", formattedPre)
+	}
+
+	// Case 3: Active boost snapshot taken 45 seconds ago
+	boosterActiveBoost := &Booster{
+		UserID:             "100000000000000003",
+		TokensWanted:       6,
+		TECount:            40,
+		VerifiedBoostMulti: 4080.0,
+		VerifiedBoostIcons: "b_tach1000x10m (10m)",
+		VerifiedPopulation: 2_500_000_000,
+		VerifiedAt:         now.Add(-45 * time.Second), // player closed game 45s ago
+	}
+	schedActive := calculateBoostSchedule(contract, boosterActiveBoost, now)
+	if schedActive.CurrentPopulation <= 2_500_000_000 {
+		t.Errorf("expected population > 2.5B after 45s offline, got %v", schedActive.CurrentPopulation)
+	}
+	if !strings.Contains(schedActive.PopulationBasis, "Snapshot 2.5B") || !strings.Contains(schedActive.PopulationBasis, "offline") {
+		t.Errorf("expected snapshot basis with offline growth, got %q", schedActive.PopulationBasis)
+	}
+	formattedActive := formatBoostSchedule(contract, boosterActiveBoost, schedActive)
+	if !strings.Contains(formattedActive, "**Current Population:**") || !strings.Contains(formattedActive, "(verified)") || !strings.Contains(formattedActive, "Snapshot 2.5B") {
+		t.Errorf("formatBoostSchedule missing expected active boost verified basis:\n%s", formattedActive)
+	}
+
+	// Case 4: Population already reached CR population
+	boosterCRReady := &Booster{
+		UserID:             "100000000000000004",
+		TokensWanted:       6,
+		TECount:            40,
+		VerifiedBoostMulti: 4080.0,
+		VerifiedPopulation: schedActive.CRRequestPopulation + 100_000_000,
+		VerifiedAt:         now,
+	}
+	schedCRReady := calculateBoostSchedule(contract, boosterCRReady, now)
+	if schedCRReady.CRDuration != 0 {
+		t.Errorf("expected CRDuration 0 when already at CR pop, got %v", schedCRReady.CRDuration)
+	}
+	formattedReady := formatBoostSchedule(contract, boosterCRReady, schedCRReady)
+	if !strings.Contains(formattedReady, "Ready now! — Request CR") {
+		t.Errorf("expected 'Ready now! — Request CR' when CR pop reached, got:\n%s", formattedReady)
+	}
+}
+
+func TestExtractContributorActiveBoosts(t *testing.T) {
+	timeRem := 14000.0
+	active := []*ei.Backup_ActiveBoost{
+		{BoostId: new("tachyon_prism_blue_big"), TimeRemaining: &timeRem},
+		{BoostId: new("tachyon_prism_blue_big"), TimeRemaining: &timeRem},
+		{BoostId: new("tachyon_prism_blue_big"), TimeRemaining: &timeRem},
+		{BoostId: new("tachyon_prism_blue_big"), TimeRemaining: &timeRem},
+		{BoostId: new("tachyon_prism_orange_big"), TimeRemaining: &timeRem},
+	}
+	multi, icons := extractContributorActiveBoosts(active)
+	if multi != 1040 {
+		t.Errorf("expected multiplier 1040 (4*10 + 1000), got %v", multi)
+	}
+	if !strings.Contains(icons, "b_tach10x4h") || !strings.Contains(icons, "(4h)") {
+		t.Errorf("expected icons to contain b_tach10x4h (4h), got %q", icons)
+	}
+	if !strings.Contains(icons, "b_tach1000x1h") || !strings.Contains(icons, "(1h)") {
+		t.Errorf("expected icons to contain b_tach1000x1h (1h), got %q", icons)
+	}
+	if strings.Contains(icons, "b_tach100x20m") {
+		t.Errorf("icons should not contain b_tach100x20m, got %q", icons)
+	}
 }
