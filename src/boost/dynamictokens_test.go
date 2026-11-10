@@ -8,6 +8,7 @@ import (
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc/dctest"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
 // Make sure to use the testing package
@@ -933,5 +934,74 @@ func TestApplyContributorBoostAndPop_TimestampOrdering(t *testing.T) {
 	}
 	if !b.VerifiedAt.Equal(recordedTime) {
 		t.Errorf("expected VerifiedAt to remain %v, got %v", recordedTime, b.VerifiedAt)
+	}
+}
+
+func TestApplyCoopStatusDeflectors_MatchByActiveBoostTime(t *testing.T) {
+	now := time.Now()
+	testUID := "100000000000000006"
+	farmerstate.SetMiscSettingString(testUID, "ei_ign", "")
+
+	c := &Contract{
+		ContractID:   "test-contract",
+		CoopID:       "test-coop",
+		State:        ContractStateFastrun,
+		Boosters:     make(map[string]*Booster),
+		Order:        []string{testUID},
+		LastSaveTime: now,
+	}
+
+	// Booster in BoostBot with Discord name, unknown in Egg Inc, boosted 60s ago with 4 tokens
+	c.Boosters[testUID] = &Booster{
+		UserID:       testUID,
+		Name:         "DiscordUnknownName",
+		Nick:         "DiscordUnknownNick",
+		UserName:     "discordunknownuser",
+		BoostState:   BoostStateBoosted,
+		TokensWanted: 4,
+		EndTime:      now.Add(-60 * time.Second),
+		TECount:      40,
+	}
+
+	// Contributor in coop status with completely different, unknown in-game name
+	ign := "MysteryFarmer_999"
+	timeRem1h := 3540.0 // 3600 - 60s
+	timeRem4h := 14340.0
+	tokensSpent := uint32(4)
+	zeroTime := 0.0
+
+	coopStatus := &ei.ContractCoopStatusResponse{
+		ResponseStatus: new(ei.ContractCoopStatusResponse_ResponseStatus),
+		Contributors: []*ei.ContractCoopStatusResponse_ContributionInfo{
+			{
+				UserName:         &ign,
+				BoostTokensSpent: &tokensSpent,
+				FarmInfo: &ei.PlayerFarmInfo{
+					Timestamp: &zeroTime,
+					ActiveBoosts: []*ei.Backup_ActiveBoost{
+						{BoostId: new("tachyon_prism_orange_big"), TimeRemaining: &timeRem1h},
+						{BoostId: new("tachyon_prism_blue_big"), TimeRemaining: &timeRem4h},
+					},
+					HabPopulation: []uint64{1_000_000_000, 1_000_000_000, 1_000_000_000, 1_000_000_000},
+				},
+			},
+		},
+	}
+	*coopStatus.ResponseStatus = ei.ContractCoopStatusResponse_NO_ERROR
+
+	applyCoopStatusDeflectors(c, coopStatus)
+
+	booster := c.Boosters[testUID]
+	if booster.VerifiedPopulation != 4_000_000_000 {
+		t.Errorf("expected booster to be matched by active boost times and have VerifiedPopulation 4B, got %v", booster.VerifiedPopulation)
+	}
+	if booster.VerifiedBoostMulti < 1000 {
+		t.Errorf("expected VerifiedBoostMulti >= 1000, got %v", booster.VerifiedBoostMulti)
+	}
+	if !strings.Contains(booster.VerifiedBoostIcons, "b_tach1000x1h") {
+		t.Errorf("expected VerifiedBoostIcons to include b_tach1000x1h, got %q", booster.VerifiedBoostIcons)
+	}
+	if farmerstate.GetMiscSettingString(testUID, "ei_ign") != "MysteryFarmer_999" {
+		t.Errorf("expected matched ei_ign to be remembered as 'MysteryFarmer_999', got %q", farmerstate.GetMiscSettingString(testUID, "ei_ign"))
 	}
 }
