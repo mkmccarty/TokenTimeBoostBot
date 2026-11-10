@@ -130,9 +130,7 @@ func HandleContractReactions(client dc.Client, e *dc.ComponentEvent) {
 			} else {
 				_ = e.Followup(dc.Message{})
 			}
-			if len(contract.BoostedOrder) == 1 {
-				go updateCoopDeflectorsFromStatus(contract)
-			}
+			scheduleBoostVerification(contract)
 		} else {
 			_ = e.Followup(dc.Message{})
 		}
