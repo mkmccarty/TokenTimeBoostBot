@@ -95,8 +95,8 @@ func TestGetExpectedBoostIcons(t *testing.T) {
 	}{
 		{0, []string{"b_tach10x4h", "(4h)"}},
 		{1, []string{"b_boost2x30m", "(30m)", "b_tach10x4h", "(4h)"}},
-		{2, []string{"b_tach100x2h", "(2h)", "b_tach10x4h", "(4h)"}},
-		{3, []string{"b_tach100x2h", "(2h)", "b_boost2x30m", "(30m)", "b_tach10x4h", "(4h)"}},
+		{2, []string{"b_tach100x10m", "(10m)", "b_tach10x4h", "(4h)"}},
+		{3, []string{"b_tach100x10m", "(10m)", "b_boost2x30m", "(30m)", "b_tach10x4h", "(4h)"}},
 		{4, []string{"b_tach1000x10m", "(10m)", "b_tach10x4h", "(4h)"}},
 		{5, []string{"b_tach1000x10m", "(10m)", "b_boost2x30m", "(30m)", "b_tach10x4h", "(4h)"}},
 		{6, []string{"b_tach1000x10m", "(10m)", "b_boost2x30m", "(30m)", "b_tach10x4h", "(4h)"}},

@@ -233,12 +233,12 @@ func getExpectedBoostIcons(tokens int, boostDuration ...time.Duration) string {
 		}
 	case tokens == 2:
 		items = []boostItemSpec{
-			{emojiName: "b_tach100x2h", count: 1, duration: "2h"},
+			{emojiName: "b_tach100x10m", count: 1, duration: "10m"},
 			{emojiName: "b_tach10x4h", count: 4, duration: "4h"},
 		}
 	case tokens == 3:
 		items = []boostItemSpec{
-			{emojiName: "b_tach100x2h", count: 1, duration: "2h"},
+			{emojiName: "b_tach100x10m", count: 1, duration: "10m"},
 			{emojiName: "b_boost2x30m", count: 1, duration: "30m"},
 			{emojiName: "b_tach10x4h", count: 3, duration: "4h"},
 		}
@@ -1243,8 +1243,8 @@ var knownActiveBoostMap = map[string]activeBoostMeta{
 	"tachyon_prism_blue":       {emojiName: "b_tach10x10m", duration: "10m", isTachyon: true, multiplier: 10},
 	"tachyon_prism_blue_v2":    {emojiName: "b_tach10x10m", duration: "10m", isTachyon: true, multiplier: 10},
 	"tachyon_prism_blue_big":   {emojiName: "b_tach10x4h", duration: "4h", isTachyon: true, multiplier: 10},
-	"tachyon_prism_purple":     {emojiName: "b_tach100x2h", duration: "2h", isTachyon: true, multiplier: 100},
-	"tachyon_prism_purple_v2":  {emojiName: "b_tach100x2h", duration: "2h", isTachyon: true, multiplier: 100},
+	"tachyon_prism_purple":     {emojiName: "b_tach100x10m", duration: "10m", isTachyon: true, multiplier: 100},
+	"tachyon_prism_purple_v2":  {emojiName: "b_tach100x10m", duration: "10m", isTachyon: true, multiplier: 100},
 	"tachyon_prism_purple_big": {emojiName: "b_tach100x2h", duration: "2h", isTachyon: true, multiplier: 100},
 	"tachyon_prism_orange":     {emojiName: "b_tach1000x10m", duration: "10m", isTachyon: true, multiplier: 1000},
 	"tachyon_prism_orange_big": {emojiName: "b_tach1000x1h", duration: "1h", isTachyon: true, multiplier: 1000},
