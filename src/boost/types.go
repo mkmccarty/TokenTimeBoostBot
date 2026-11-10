@@ -235,9 +235,9 @@ type Booster struct {
 	NonTokenMsgID          string               // Last ephemeral message ID for user reaction summary log
 	DisableEphemeralLog    bool                 // Toggle for user ephemeral reaction summary log
 	DisableBoostSchedule   bool                 // Toggle for user ephemeral boost schedule response on 🚀
-	BoostScheduleMsgID     string               `json:"-"` // Ephemeral message ID for active boost schedule
-	BoostScheduleToken     string               `json:"-"` // Interaction token for active boost schedule
-	BoostScheduleAppID     string               `json:"-"` // Application ID for active boost schedule
+	BoostScheduleMsgID     string               `json:"-"`                        // Ephemeral message ID for active boost schedule
+	BoostScheduleToken     string               `json:"-"`                        // Interaction token for active boost schedule
+	BoostScheduleAppID     string               `json:"-"`                        // Application ID for active boost schedule
 	PreviousScore          float64              `json:"previous_score,omitempty"` // CXP score from previous time player ran contract
 }
 
