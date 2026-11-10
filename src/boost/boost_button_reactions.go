@@ -124,7 +124,12 @@ func HandleContractReactions(client dc.Client, e *dc.ComponentEvent) {
 			}
 		}
 		if redraw && boostedBooster != nil && boostedBooster.BoostState == BoostStateBoosted {
-			sendBoostScheduleEphemeral(client, e, contract, boostedBooster)
+			schedDisabled := boostedBooster.DisableBoostSchedule || farmerstate.GetMiscSettingFlag(boostedBooster.UserID, "DisableBoostSchedule")
+			if !schedDisabled {
+				sendBoostScheduleEphemeral(client, e, contract, boostedBooster)
+			} else {
+				_ = e.Followup(dc.Message{})
+			}
 			if len(contract.BoostedOrder) == 1 {
 				go updateCoopDeflectorsFromStatus(contract)
 			}

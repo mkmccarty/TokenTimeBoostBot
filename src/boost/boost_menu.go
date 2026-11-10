@@ -421,6 +421,36 @@ func HandleMenuReactions(client dc.Client, e *dc.ComponentEvent) {
 			Content:   msgStr,
 			Ephemeral: true,
 		})
+	case "toggleboostsched":
+		contract.mutex.Lock()
+		booster := contract.Boosters[userID]
+		var disabled bool
+		if booster != nil {
+			booster.DisableBoostSchedule = !booster.DisableBoostSchedule
+			disabled = booster.DisableBoostSchedule
+			if disabled {
+				booster.BoostScheduleMsgID = ""
+				booster.BoostScheduleToken = ""
+				booster.BoostScheduleAppID = ""
+			}
+		} else {
+			disabled = !farmerstate.GetMiscSettingFlag(userID, "DisableBoostSchedule")
+		}
+		contract.mutex.Unlock()
+
+		farmerstate.SetMiscSettingFlag(userID, "DisableBoostSchedule", disabled)
+
+		var msgStr string
+		if disabled {
+			msgStr = "🚫 **Boost Schedule:** Disabled for your 🚀 button reactions."
+		} else {
+			msgStr = "🚀 **Boost Schedule:** Enabled for your 🚀 button reactions."
+		}
+
+		_ = e.Respond(dc.Message{
+			Content:   msgStr,
+			Ephemeral: true,
+		})
 	case "adminlogs":
 		creatorIDs := make([]string, 0)
 		var locations []LocationData

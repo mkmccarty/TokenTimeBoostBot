@@ -135,15 +135,8 @@ func TestCalculateBoostSchedule_TruckChecksAndOfflineMinimum(t *testing.T) {
 	}
 	sched4 := calculateBoostSchedule(contract, booster4, now)
 
-	if sched4.TruckChecks < 1 {
-		t.Errorf("expected at least 1 truck check for 4-token boost, got %d (pureCRDuration=%v)", sched4.TruckChecks, sched4.PureCRDuration)
-	}
-	expectedTruckWait := time.Duration(sched4.TruckChecks) * 30 * time.Second
-	if sched4.TruckWaitDuration != expectedTruckWait {
-		t.Errorf("expected TruckWaitDuration=%v, got %v", expectedTruckWait, sched4.TruckWaitDuration)
-	}
-	if sched4.CRDuration != sched4.PureCRDuration+sched4.TruckWaitDuration {
-		t.Errorf("expected CRDuration=%v, got %v", sched4.PureCRDuration+sched4.TruckWaitDuration, sched4.CRDuration)
+	if sched4.CRDuration != sched4.PureCRDuration {
+		t.Errorf("expected CRDuration=%v (pure offline boost time), got %v", sched4.PureCRDuration, sched4.CRDuration)
 	}
 	if sched4.PostCROfflineDuration < time.Minute {
 		t.Errorf("expected PostCROfflineDuration >= 1m, got %v", sched4.PostCROfflineDuration)
@@ -186,6 +179,11 @@ func TestCalculateBoostSchedule_TruckChecksAndOfflineMinimum(t *testing.T) {
 		"Total Boost Time:",
 		"Request Chicken Runs",
 		"Boosts:",
+		"Post-Boost Delivery Set:",
+		"Projected Rates:",
+		"Delivery:",
+		"LR:",
+		"SR:",
 		"b_tach1000x10m",
 		"b_boost10x10m",
 		"Reach CR Population",
@@ -194,6 +192,12 @@ func TestCalculateBoostSchedule_TruckChecksAndOfflineMinimum(t *testing.T) {
 		if !strings.Contains(formatted, expected) {
 			t.Errorf("formatBoostSchedule output missing %q:\n%s", expected, formatted)
 		}
+	}
+	if sched8.TachyonStones+sched8.QuantumStones != 10 {
+		t.Errorf("expected 10 total delivery stones for default leggy set, got %d T + %d Q", sched8.TachyonStones, sched8.QuantumStones)
+	}
+	if sched8.DeliveryRate <= 0 || sched8.LayRate <= 0 || sched8.ShipRate <= 0 {
+		t.Errorf("expected positive projected rates, got Delivery=%v, LR=%v, SR=%v", sched8.DeliveryRate, sched8.LayRate, sched8.ShipRate)
 	}
 }
 
@@ -293,6 +297,49 @@ func TestCalculateBoostSchedule_UsesKnownArtifacts(t *testing.T) {
 	actFormatted := formatBoostSchedule(contractWithDefl, boosterLeggy, schedActual)
 	if !strings.Contains(actFormatted, "`54%` (actual)") {
 		t.Errorf("expected `54%%` (actual) in formatted output, got:\n%s", actFormatted)
+	}
+	if strings.Contains(actFormatted, "Post-Boost Delivery SIAB Set:") {
+		t.Errorf("did not expect SIAB set when CxpMaxSiab is not greater than CxpMax, got:\n%s", actFormatted)
+	}
+
+	// Contract where Leaderboard max score with SIAB is greater than without SIAB
+	if ei.EggIncContractsAll == nil {
+		ei.EggIncContractsAll = make(map[string]ei.EggIncContract)
+	}
+	siabContractID := "test-sched-siab-lb"
+	ei.EggIncContractsAll[siabContractID] = ei.EggIncContract{
+		ID:         siabContractID,
+		CxpMax:     100000,
+		CxpMaxSiab: 105000,
+	}
+	defer delete(ei.EggIncContractsAll, siabContractID)
+
+	contractWithSIAB := &Contract{
+		ContractID: siabContractID,
+		CoopSize:   4,
+		PlayStyle:  ContractPlaystyleLeaderboard,
+		Boosters:   contractWithDefl.Boosters,
+	}
+	schedSIAB := calculateBoostSchedule(contractWithSIAB, boosterLeggy, now)
+	if !schedSIAB.ShowSIABSet {
+		t.Fatalf("expected ShowSIABSet=true when CxpMaxSiab > CxpMax")
+	}
+	if !strings.Contains(schedSIAB.SIABDeliveryArtifacts, "SIAB_T4L") || strings.Contains(schedSIAB.SIABDeliveryArtifacts, "GUSSET_") {
+		t.Errorf("expected SIABDeliveryArtifacts to use SIAB_T4L instead of Gusset, got %q", schedSIAB.SIABDeliveryArtifacts)
+	}
+	if schedSIAB.SIABTachyonStones+schedSIAB.SIABQuantumStones != 10 {
+		t.Errorf("expected 10 total SIAB delivery stones (2+3+3+2) for boosterLeggy, got %d T + %d Q",
+			schedSIAB.SIABTachyonStones, schedSIAB.SIABQuantumStones)
+	}
+	siabFormatted := formatBoostSchedule(contractWithSIAB, boosterLeggy, schedSIAB)
+	for _, want := range []string{
+		"Post-Boost Delivery SIAB Set:",
+		"Projected SIAB Rates:",
+		"SIAB_T4L",
+	} {
+		if !strings.Contains(siabFormatted, want) {
+			t.Errorf("expected %q in SIAB formatted output, got:\n%s", want, siabFormatted)
+		}
 	}
 }
 
@@ -623,6 +670,24 @@ func TestBoostSchedule_RocketAndFireReactions(t *testing.T) {
 		HandleContractReactions(client, evCoord)
 		if evCoord.LastFollowup != nil && evCoord.LastFollowup.Content != "" {
 			t.Errorf("expected coordinator rocket click not to send schedule content, got %q", evCoord.LastFollowup.Content)
+		}
+	})
+
+	t.Run("active booster with DisableBoostSchedule toggled on does not receive schedule ephemeral", func(t *testing.T) {
+		hash := "test-disable-boost-sched"
+		contract := setupBoostReactionTestContract(hash, chanID, listMsgID, ContractPlaystyleFastrun)
+		contract.Boosters[userA].DisableBoostSchedule = true
+		defer func() {
+			ContractsMutex.Lock()
+			delete(Contracts, hash)
+			ContractsMutex.Unlock()
+		}()
+
+		client := dctest.New()
+		evBoost := dctest.ComponentButtonEventFull(guildID, chanID, listMsgID, userA, "rc_#boost#"+hash)
+		HandleContractReactions(client, evBoost)
+		if evBoost.LastFollowup != nil && evBoost.LastFollowup.Content != "" {
+			t.Errorf("expected disabled boost schedule not to send schedule content, got %q", evBoost.LastFollowup.Content)
 		}
 	})
 }

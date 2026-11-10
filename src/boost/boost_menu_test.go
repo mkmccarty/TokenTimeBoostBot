@@ -370,6 +370,57 @@ func TestToggleReactionLogPersistenceAndJoin(t *testing.T) {
 	}
 }
 
+func TestToggleBoostSchedulePersistenceAndJoin(t *testing.T) {
+	testUserID := "4"
+	farmerstate.SetMiscSettingFlag(testUserID, "DisableBoostSchedule", true)
+	defer farmerstate.SetMiscSettingFlag(testUserID, "DisableBoostSchedule", false)
+
+	client := dctest.New().WithUser(testUserID, "Tester", "Tester")
+	contract := &Contract{
+		ContractHash: "test-sched-toggle-hash",
+		ContractID:   "test-sched-toggle-contract",
+		CoopID:       "test-sched-toggle-coop",
+		CoopSize:     10,
+		State:        ContractStateSignup,
+		CreatorID:    []string{"creator1"},
+		Order:        make([]string, 0),
+		Boosters:     make(map[string]*Booster),
+		Location:     []*LocationData{{GuildID: "guild1", ChannelID: "channel1"}},
+	}
+	Contracts[contract.ContractHash] = contract
+	defer delete(Contracts, contract.ContractHash)
+
+	// Test join carries over setting
+	b, err := AddFarmerToContract(client, contract, "guild1", "channel1", testUserID, ContractOrderSignup, false, false)
+	if err != nil {
+		t.Fatalf("unexpected error adding farmer: %v", err)
+	}
+	if !b.DisableBoostSchedule {
+		t.Errorf("expected DisableBoostSchedule to be true on join from farmerstate, got false")
+	}
+
+	// Test toggling via menu
+	ev := dctest.ComponentSelectEvent("menu#"+contract.ContractHash, "toggleboostsched")
+
+	HandleMenuReactions(client, ev)
+
+	if b.DisableBoostSchedule {
+		t.Errorf("expected DisableBoostSchedule to be toggled to false, got true")
+	}
+	if farmerstate.GetMiscSettingFlag(testUserID, "DisableBoostSchedule") {
+		t.Errorf("expected farmerstate DisableBoostSchedule to be false after toggle, got true")
+	}
+
+	// Toggle again
+	HandleMenuReactions(client, ev)
+	if !b.DisableBoostSchedule {
+		t.Errorf("expected DisableBoostSchedule to be toggled back to true, got false")
+	}
+	if !farmerstate.GetMiscSettingFlag(testUserID, "DisableBoostSchedule") {
+		t.Errorf("expected farmerstate DisableBoostSchedule to be true after second toggle, got false")
+	}
+}
+
 func TestToggleReactionLogMenuComponents(t *testing.T) {
 	contract := &Contract{
 		ContractHash: "test-menu-hash",
@@ -384,15 +435,30 @@ func TestToggleReactionLogMenuComponents(t *testing.T) {
 
 	components := getContractReactionsComponents(contract)
 	foundOption := false
+	foundSchedOption := false
+	rancoopIdx := -1
+	toggleRxIdx := -1
+	toggleSchedIdx := -1
 	for _, comp := range components {
 		if actionRow, ok := comp.(dc.ActionRow); ok {
 			for _, rowComp := range actionRow.Components {
 				if selectMenu, ok := rowComp.(dc.SelectMenu); ok {
-					for _, opt := range selectMenu.Options {
+					for idx, opt := range selectMenu.Options {
+						if opt.Value == "rancoop" {
+							rancoopIdx = idx
+						}
 						if opt.Value == "togglerxlog" {
 							foundOption = true
+							toggleRxIdx = idx
 							if opt.Description != "Toggle token log details on or off" {
 								t.Errorf("expected Description 'Toggle token log details on or off', got %q", opt.Description)
+							}
+						}
+						if opt.Value == "toggleboostsched" {
+							foundSchedOption = true
+							toggleSchedIdx = idx
+							if opt.Description != "Toggle 🚀 boost schedule response on or off" {
+								t.Errorf("expected Description 'Toggle 🚀 boost schedule response on or off', got %q", opt.Description)
 							}
 						}
 					}
@@ -403,6 +469,12 @@ func TestToggleReactionLogMenuComponents(t *testing.T) {
 
 	if !foundOption {
 		t.Errorf("expected togglerxlog select option not found in contract reaction components")
+	}
+	if !foundSchedOption {
+		t.Errorf("expected toggleboostsched select option not found in contract reaction components")
+	}
+	if rancoopIdx < 0 || toggleRxIdx <= rancoopIdx || toggleSchedIdx <= rancoopIdx {
+		t.Errorf("expected toggle options (rx=%d, sched=%d) to appear after chicken run options (rancoop=%d)", toggleRxIdx, toggleSchedIdx, rancoopIdx)
 	}
 }
 

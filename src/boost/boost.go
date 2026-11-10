@@ -947,6 +947,7 @@ func AddFarmerToContract(client dc.Client, contract *Contract, guildID string, c
 			b.TECount, _ = strconv.Atoi(te)
 		}
 		b.DisableEphemeralLog = farmerstate.GetMiscSettingFlag(userID, "DisableEphemeralLog")
+		b.DisableBoostSchedule = farmerstate.GetMiscSettingFlag(userID, "DisableBoostSchedule")
 		if farmerstate.GetOrderHelper(userID) || (b.Name != "" && b.Name != userID && farmerstate.GetOrderHelper(b.Name)) {
 			b.IsHelper = true
 		}

@@ -177,6 +177,19 @@ type BoostSchedule struct {
 	OfflineIHRPerMin      float64
 	DeflectorPercent      float64
 	DeflectorIsActual     bool
+	DeliveryArtifacts     string
+	TachyonStones         int
+	QuantumStones         int
+	LayRate               float64
+	ShipRate              float64
+	DeliveryRate          float64
+	ShowSIABSet           bool
+	SIABDeliveryArtifacts string
+	SIABTachyonStones     int
+	SIABQuantumStones     int
+	SIABLayRate           float64
+	SIABShipRate          float64
+	SIABDeliveryRate      float64
 	EstRequestChickenRuns time.Time
 	EstEndOfBoost         time.Time
 }
@@ -299,6 +312,7 @@ func calculateBoostSchedule(contract *Contract, booster *Booster, now time.Time)
 	modHab := 1.0
 	modIHR := 1.0
 	numFarmers := 4.0
+	showSIABSet := false
 
 	if contract != nil {
 		if contract.CoopSize > 0 {
@@ -322,6 +336,14 @@ func calculateBoostSchedule(contract *Contract, booster *Booster, now time.Time)
 			if contract.CoopSize <= 0 && c.MaxCoopSize > 0 {
 				numFarmers = float64(c.MaxCoopSize)
 			}
+			if c.CxpMaxSiab > c.CxpMax {
+				showSIABSet = true
+			} else {
+				gg, ugg, _ := ei.GetGenerousGiftEvent()
+				if (gg > 1.0 || ugg > 1.0) && c.CxpMaxSiabGG > c.CxpMaxGG {
+					showSIABSet = true
+				}
+			}
 		}
 	}
 
@@ -334,7 +356,14 @@ func calculateBoostSchedule(contract *Contract, booster *Booster, now time.Time)
 	metrStones := 3
 	compStones := 3
 	gussStones := 2
+	siabStones := 2
+	deflQuality := "T4L"
+	metrQuality := "T4L"
+	compQuality := "T4L"
+	gussQuality := "T4L"
+	siabQuality := "T4L"
 	hasDeliveryArt := false
+	hasSIABArt := false
 
 	chalice := DefaultLeggyChalice
 	monocle := DefaultLeggyMonocle
@@ -380,24 +409,36 @@ func calculateBoostSchedule(contract *Contract, booster *Booster, now time.Time)
 		case "Deflector":
 			hasDeliveryArt = true
 			deflStones = a.Stones
+			if a.Quality != "" {
+				deflQuality = a.Quality
+			}
 		case "Metronome":
 			hasDeliveryArt = true
 			if a.LayBuff > 0 {
 				metronome = a.LayBuff
 			}
 			metrStones = a.Stones
+			if a.Quality != "" {
+				metrQuality = a.Quality
+			}
 		case "Compass":
 			hasDeliveryArt = true
 			if a.ShipBuff > 0 {
 				compass = a.ShipBuff
 			}
 			compStones = a.Stones
+			if a.Quality != "" {
+				compQuality = a.Quality
+			}
 		case "Gusset":
 			hasDeliveryArt = true
 			if a.LayBuff > 0 {
 				gusset = a.LayBuff
 			}
 			gussStones = a.Stones
+			if a.Quality != "" {
+				gussQuality = a.Quality
+			}
 		case "Chalice":
 			hasIHRArt = true
 			if mult, ok := chaliceMap[a.Quality]; ok {
@@ -410,7 +451,15 @@ func calculateBoostSchedule(contract *Contract, booster *Booster, now time.Time)
 				customMonocle = mult
 			}
 			customIHRSlots += a.Stones
-		case "SIAB", "IHR Deflector":
+		case "SIAB":
+			hasIHRArt = true
+			customIHRSlots += a.Stones
+			if strings.HasPrefix(a.Quality, "T") {
+				hasSIABArt = true
+				siabQuality = a.Quality
+				siabStones = a.Stones
+			}
+		case "IHR Deflector":
 			hasIHRArt = true
 			customIHRSlots += a.Stones
 		case "Collegg":
@@ -443,9 +492,22 @@ func calculateBoostSchedule(contract *Contract, booster *Booster, now time.Time)
 		}
 	}
 
+	if !hasSIABArt && booster != nil && booster.UserID != "" {
+		if savedSIAB := farmerstate.GetMiscSettingString(booster.UserID, "SIAB"); strings.HasPrefix(savedSIAB, "T") {
+			if art := ei.GetArtifactByKey("SIAB-" + savedSIAB); art != nil {
+				siabQuality = art.Quality
+				siabStones = art.Stones
+			}
+		}
+	}
+
 	deliverySlots := DefaultLeggyDeliverySlots
 	if hasDeliveryArt {
 		deliverySlots = float64(deflStones + metrStones + compStones + gussStones)
+	}
+	siabDeliverySlots := max(0, int(DefaultLeggyDeliverySlots)-3+siabStones)
+	if hasDeliveryArt {
+		siabDeliverySlots = max(0, deflStones+metrStones+compStones+siabStones)
 	}
 	if hasColleggArt {
 		colELR = customColELR
@@ -503,16 +565,75 @@ func calculateBoostSchedule(contract *Contract, booster *Booster, now time.Time)
 
 	intSlots := int(deliverySlots)
 	bestTotal := 0.0
-	contractELR := contractBaseELR * deflectorMultiplier * colELR * colHab
+	bestTach := 0
+	bestLR := contractBaseELR * deflectorMultiplier * colELR * colHab
+	bestSR := baseShipping * colShip * modSR
+	contractELR := bestLR
 	for i := 0; i <= intSlots; i++ {
 		stoneLayRate := contractBaseELR * deflectorMultiplier * math.Pow(1.05, float64(i)) * colELR * colHab
 		stoneShipRate := baseShipping * math.Pow(1.05, float64(intSlots-i)) * colShip * modSR
 		bestMin := min(stoneLayRate, stoneShipRate)
 		if bestMin > bestTotal {
 			bestTotal = bestMin
+			bestTach = i
+			bestLR = stoneLayRate
+			bestSR = stoneShipRate
 			contractELR = stoneLayRate
 		} else if bestTotal > 0 {
 			break
+		}
+	}
+	bestQuant := max(0, intSlots-bestTach)
+
+	var deliveryArtIcons strings.Builder
+	for _, spec := range []struct {
+		prefix  string
+		quality string
+	}{
+		{"DEFL_", deflQuality},
+		{"METR_", metrQuality},
+		{"COMP_", compQuality},
+		{"GUSSET_", gussQuality},
+	} {
+		if spec.quality != "" && spec.quality != "NONE" {
+			deliveryArtIcons.WriteString(boostEmojiMarkdown(spec.prefix + spec.quality))
+		}
+	}
+
+	// Calculate Post-Boost Delivery SIAB Set (SIAB used instead of Gusset)
+	siabBaseELR := 3.772 * metronome
+	siabContractBaseELR := siabBaseELR * modELR * modHab
+	siabBestTotal := 0.0
+	siabBestTach := 0
+	siabBestLR := siabContractBaseELR * deflectorMultiplier * colELR * colHab
+	siabBestSR := baseShipping * colShip * modSR
+	for i := 0; i <= siabDeliverySlots; i++ {
+		stoneLayRate := siabContractBaseELR * deflectorMultiplier * math.Pow(1.05, float64(i)) * colELR * colHab
+		stoneShipRate := baseShipping * math.Pow(1.05, float64(siabDeliverySlots-i)) * colShip * modSR
+		bestMin := min(stoneLayRate, stoneShipRate)
+		if bestMin > siabBestTotal {
+			siabBestTotal = bestMin
+			siabBestTach = i
+			siabBestLR = stoneLayRate
+			siabBestSR = stoneShipRate
+		} else if siabBestTotal > 0 {
+			break
+		}
+	}
+	siabBestQuant := max(0, siabDeliverySlots-siabBestTach)
+
+	var siabDeliveryArtIcons strings.Builder
+	for _, spec := range []struct {
+		prefix  string
+		quality string
+	}{
+		{"DEFL_", deflQuality},
+		{"METR_", metrQuality},
+		{"COMP_", compQuality},
+		{"SIAB_", siabQuality},
+	} {
+		if spec.quality != "" && spec.quality != "NONE" {
+			siabDeliveryArtIcons.WriteString(boostEmojiMarkdown(spec.prefix + spec.quality))
 		}
 	}
 
@@ -565,13 +686,7 @@ func calculateBoostSchedule(contract *Contract, booster *Booster, now time.Time)
 
 	pureCRMinutes := max(1.0, crRequestPop/offlineIHRPerMin)
 	pureCRDuration := time.Duration(pureCRMinutes * float64(time.Minute))
-
-	// Account for 3m40s (220s) interval to check for token trucks with 30s online wait per check
-	const truckCheckInterval = 220 * time.Second
-	const truckOnlineWait = 30 * time.Second
-	truckChecks := int(pureCRDuration / truckCheckInterval)
-	truckWaitDuration := time.Duration(truckChecks) * truckOnlineWait
-	crDuration := pureCRDuration + truckWaitDuration
+	crDuration := pureCRDuration
 
 	totalBoostDuration := crDuration + postCROfflineDuration
 
@@ -581,17 +696,35 @@ func calculateBoostSchedule(contract *Contract, booster *Booster, now time.Time)
 		TotalBoostDuration:    totalBoostDuration,
 		CRDuration:            crDuration,
 		PureCRDuration:        pureCRDuration,
-		TruckChecks:           truckChecks,
-		TruckWaitDuration:     truckWaitDuration,
 		PostCROfflineDuration: postCROfflineDuration,
 		CRRequestPopulation:   crRequestPop,
 		MaxShippingPopulation: maxPop,
 		OfflineIHRPerMin:      offlineIHRPerMin,
 		DeflectorPercent:      deflectorPercent,
 		DeflectorIsActual:     deflectorIsActual,
+		DeliveryArtifacts:     deliveryArtIcons.String(),
+		TachyonStones:         bestTach,
+		QuantumStones:         bestQuant,
+		LayRate:               bestLR,
+		ShipRate:              bestSR,
+		DeliveryRate:          bestTotal,
+		ShowSIABSet:           showSIABSet,
+		SIABDeliveryArtifacts: siabDeliveryArtIcons.String(),
+		SIABTachyonStones:     siabBestTach,
+		SIABQuantumStones:     siabBestQuant,
+		SIABLayRate:           siabBestLR,
+		SIABShipRate:          siabBestSR,
+		SIABDeliveryRate:      siabBestTotal,
 		EstRequestChickenRuns: now.Add(crDuration),
 		EstEndOfBoost:         now.Add(totalBoostDuration),
 	}
+}
+
+func formatStoneRatePerHour(rate float64) string {
+	if rate < 1.0 {
+		return fmt.Sprintf("%.2fT/hr", rate*1000.0)
+	}
+	return fmt.Sprintf("%.3fq/hr", rate)
 }
 
 // formatBoostSchedule builds the ephemeral boost schedule message shown when a booster presses 🚀.
@@ -602,6 +735,8 @@ func formatBoostSchedule(contract *Contract, booster *Booster, sched BoostSchedu
 	}
 	crIcon := boostEmojiMarkdown("icon_chicken_run")
 	deflIcon := boostEmojiMarkdown("defl_T4L")
+	tachStoneIcon := boostEmojiMarkdown("afx_tachyon_stone_4")
+	quantStoneIcon := boostEmojiMarkdown("afx_quantum_stone_4")
 
 	crPopStr := ei.FormatEIValue(sched.CRRequestPopulation, map[string]any{"decimals": 2, "trim": true})
 	maxPopStr := ei.FormatEIValue(sched.MaxShippingPopulation, map[string]any{"decimals": 2, "trim": true})
@@ -612,13 +747,6 @@ func formatBoostSchedule(contract *Contract, booster *Booster, sched BoostSchedu
 	deflStatus := "estimated"
 	if sched.DeflectorIsActual {
 		deflStatus = "actual"
-	}
-
-	truckNote := ""
-	if sched.TruckChecks > 0 {
-		truckNote = fmt.Sprintf(" (includes %dx 30s online truck check at 3m40s intervals)", sched.TruckChecks)
-	} else {
-		truckNote = " (before first 3m40s truck check)"
 	}
 
 	var sb strings.Builder
@@ -634,10 +762,20 @@ func formatBoostSchedule(contract *Contract, booster *Booster, sched BoostSchedu
 	fmt.Fprintf(&sb, "**Total Boost Time:** `%s` (Done <t:%d:t>)\n", totalDurStr, sched.EstEndOfBoost.Unix())
 	fmt.Fprintf(&sb, "**Request Chicken Runs %s at:** `%s` chickens (Max shipping pop: `%s`)\n", crIcon, crPopStr, maxPopStr)
 	fmt.Fprintf(&sb, "**Deflector Bonus %s:** `%.0f%%` (%s)\n", deflIcon, sched.DeflectorPercent, deflStatus)
-	fmt.Fprintf(&sb, "**Boosts:** %s\n\n", sched.BoostIcons)
-	sb.WriteString("**Schedule:**\n")
-	fmt.Fprintf(&sb, "• **Reach CR Population (`%s`):** `%s`%s — Request CR %s <t:%d:R>\n",
-		crPopStr, crDurStr, truckNote, crIcon, sched.EstRequestChickenRuns.Unix())
+	fmt.Fprintf(&sb, "**Boosts:** %s\n", sched.BoostIcons)
+	fmt.Fprintf(&sb, "**Post-Boost Delivery Set:** %s — %s `%d`  %s `%d`\n",
+		sched.DeliveryArtifacts, tachStoneIcon, sched.TachyonStones, quantStoneIcon, sched.QuantumStones)
+	fmt.Fprintf(&sb, "**Projected Rates:** **Delivery:** `%s` (**LR:** `%s` | **SR:** `%s`)\n",
+		formatStoneRatePerHour(sched.DeliveryRate), formatStoneRatePerHour(sched.LayRate), formatStoneRatePerHour(sched.ShipRate))
+	if sched.ShowSIABSet {
+		fmt.Fprintf(&sb, "**Post-Boost Delivery SIAB Set:** %s — %s `%d`  %s `%d`\n",
+			sched.SIABDeliveryArtifacts, tachStoneIcon, sched.SIABTachyonStones, quantStoneIcon, sched.SIABQuantumStones)
+		fmt.Fprintf(&sb, "**Projected SIAB Rates:** **Delivery:** `%s` (**LR:** `%s` | **SR:** `%s`)\n",
+			formatStoneRatePerHour(sched.SIABDeliveryRate), formatStoneRatePerHour(sched.SIABLayRate), formatStoneRatePerHour(sched.SIABShipRate))
+	}
+	sb.WriteString("\n**Schedule:**\n")
+	fmt.Fprintf(&sb, "• **Reach CR Population (`%s`):** `%s` — Request CR %s <t:%d:R>\n",
+		crPopStr, crDurStr, crIcon, sched.EstRequestChickenRuns.Unix())
 	fmt.Fprintf(&sb, "• **Offline to Max Shipping (`%s`):** `%s` (go offline for at least 1m after requesting CRs to receive runs & offline chickens)",
 		maxPopStr, postCRDurStr)
 
@@ -750,6 +888,9 @@ func extractContributorDeflector(contrib *ei.ContractCoopStatusResponse_Contribu
 
 func setBoosterDeflectorArtifact(b *Booster, deflArt ei.Artifact) {
 	if b == nil {
+		return
+	}
+	if deflArt.Quality == "NONE" && (b.BoostState == BoostStateTokenTime || (!b.EstEndOfBoost.IsZero() && time.Now().Before(b.EstEndOfBoost))) {
 		return
 	}
 	if len(b.ArtifactSet.Artifacts) == 0 && b.UserID != "" {

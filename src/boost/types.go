@@ -234,6 +234,7 @@ type Booster struct {
 	NonTokenReactionTimes  []time.Time          // Timestamps of no-token button interactions
 	NonTokenMsgID          string               // Last ephemeral message ID for user reaction summary log
 	DisableEphemeralLog    bool                 // Toggle for user ephemeral reaction summary log
+	DisableBoostSchedule   bool                 // Toggle for user ephemeral boost schedule response on 🚀
 	BoostScheduleMsgID     string               `json:"-"` // Ephemeral message ID for active boost schedule
 	BoostScheduleToken     string               `json:"-"` // Interaction token for active boost schedule
 	BoostScheduleAppID     string               `json:"-"` // Application ID for active boost schedule
