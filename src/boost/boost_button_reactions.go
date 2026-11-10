@@ -1532,6 +1532,14 @@ func getContractReactionsComponents(contract *Contract) []dc.LayoutComponent {
 				Emoji: &dc.Emoji{Name: "🔃"},
 			})
 		}
+		if contract.Style&ContractFlagBanker != 0 || contract.State == ContractStateBanker {
+			menuOptions = append(menuOptions, dc.SelectOption{
+				Label:       "Get Boost Schedule",
+				Description: "View your boost schedule and post-boost stone set",
+				Value:       "boostsched",
+				Emoji:       &dc.Emoji{Name: "🚀"},
+			})
+		}
 		menuOptions = append(menuOptions, dc.SelectOption{
 			Label: "Help",
 			Value: "help",
