@@ -1058,6 +1058,12 @@ func updateActiveBoostScheduleMessages(client dc.Client, contract *Contract) {
 		return
 	}
 	for _, edit := range edits {
+		if edit.msgID == "@original" {
+			if err := client.EditInteractionResponse(edit.appID, edit.token, dc.Message{Content: edit.content}); err != nil {
+				log.Printf("updateActiveBoostScheduleMessages: EditInteractionResponse error: %v", err)
+			}
+			continue
+		}
 		if err := client.EditFollowupMessage(edit.appID, edit.token, edit.msgID, dc.Message{Content: edit.content}); err != nil {
 			log.Printf("updateActiveBoostScheduleMessages: EditFollowupMessage error: %v", err)
 		}

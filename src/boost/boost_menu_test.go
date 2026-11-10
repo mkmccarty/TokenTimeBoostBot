@@ -478,6 +478,76 @@ func TestToggleReactionLogMenuComponents(t *testing.T) {
 	}
 }
 
+func TestBankerBoostMenuGetBoostSchedule(t *testing.T) {
+	testUserID := "400000000000000022"
+	otherUserID := "400000000000000021"
+	client := dctest.New()
+	contract := &Contract{
+		ContractHash:         "test-banker-menu-sched",
+		ContractID:           "test-banker-menu-contract",
+		CoopID:               "test-banker-menu-coop",
+		CoopSize:             4,
+		State:                ContractStateBanker,
+		Style:                ContractFlagBanker,
+		PlayStyle:            ContractPlaystyleLeaderboard,
+		CreatorID:            []string{"creator1"},
+		Order:                []string{otherUserID, testUserID},
+		CurrentBoosterUserID: otherUserID,
+		Boosters: map[string]*Booster{
+			otherUserID: {
+				UserID:       otherUserID,
+				Nick:         "OtherPlayer",
+				Mention:      "<@" + otherUserID + ">",
+				TokensWanted: 6,
+			},
+			testUserID: {
+				UserID:       testUserID,
+				Nick:         "MenuCaller",
+				Mention:      "<@" + testUserID + ">",
+				TokensWanted: 8,
+			},
+		},
+		Location: []*LocationData{{GuildID: "guild1", ChannelID: "channel1"}},
+	}
+	ContractsMutex.Lock()
+	Contracts[contract.ContractHash] = contract
+	ContractsMutex.Unlock()
+	defer func() {
+		ContractsMutex.Lock()
+		delete(Contracts, contract.ContractHash)
+		ContractsMutex.Unlock()
+	}()
+
+	components := getContractReactionsComponents(contract)
+	foundBoostSched := false
+	for _, comp := range components {
+		if actionRow, ok := comp.(dc.ActionRow); ok {
+			for _, rowComp := range actionRow.Components {
+				if selectMenu, ok := rowComp.(dc.SelectMenu); ok {
+					for _, opt := range selectMenu.Options {
+						if opt.Value == "boostsched" {
+							foundBoostSched = true
+						}
+					}
+				}
+			}
+		}
+	}
+	if !foundBoostSched {
+		t.Fatalf("expected boostsched option in Banker style contract menu")
+	}
+
+	ev := dctest.ComponentSelectEventWithUser("menu#"+contract.ContractHash, testUserID, "boostsched")
+	HandleMenuReactions(client, ev)
+
+	if ev.LastResponse == nil || !ev.LastResponse.Ephemeral {
+		t.Fatalf("expected ephemeral response from boostsched menu item, got %+v", ev.LastResponse)
+	}
+	if !strings.Contains(ev.LastResponse.Content, "Boost Schedule for <@"+testUserID+">") {
+		t.Errorf("expected schedule for menu caller %s, got:\n%s", testUserID, ev.LastResponse.Content)
+	}
+}
+
 func TestBoostMenuTokenLogEscaping(t *testing.T) {
 	contract := &Contract{
 		ContractHash: "test-menu-hash",

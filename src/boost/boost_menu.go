@@ -451,6 +451,37 @@ func HandleMenuReactions(client dc.Client, e *dc.ComponentEvent) {
 			Content:   msgStr,
 			Ephemeral: true,
 		})
+	case "boostsched":
+		setActiveBoostClient(client)
+		contract.mutex.Lock()
+		booster := contract.Boosters[userID]
+		contract.mutex.Unlock()
+		if booster == nil {
+			_ = e.Respond(dc.Message{
+				Content:   "You are not part of this contract.",
+				Ephemeral: true,
+			})
+			return
+		}
+
+		now := time.Now()
+		boostStart := now
+		if booster.BoostState == BoostStateBoosted && !booster.EndTime.IsZero() && !booster.EstEndOfBoost.IsZero() && now.Before(booster.EstEndOfBoost) {
+			boostStart = booster.EndTime
+		}
+		sched := calculateBoostSchedule(contract, booster, boostStart)
+		scheduleMsg := formatBoostSchedule(contract, booster, sched)
+
+		contract.mutex.Lock()
+		booster.BoostScheduleAppID = e.ApplicationID()
+		booster.BoostScheduleToken = e.Token()
+		booster.BoostScheduleMsgID = "@original"
+		contract.mutex.Unlock()
+
+		_ = e.Respond(dc.Message{
+			Content:   scheduleMsg,
+			Ephemeral: true,
+		})
 	case "adminlogs":
 		creatorIDs := make([]string, 0)
 		var locations []LocationData
