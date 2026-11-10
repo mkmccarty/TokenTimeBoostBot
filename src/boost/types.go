@@ -235,15 +235,15 @@ type Booster struct {
 	NonTokenMsgID          string               // Last ephemeral message ID for user reaction summary log
 	DisableEphemeralLog    bool                 // Toggle for user ephemeral reaction summary log
 	DisableBoostSchedule   bool                 // Toggle for user ephemeral boost schedule response on 🚀
-	BoostScheduleMsgID     string               `json:"-"`                        // Ephemeral message ID for active boost schedule
-	BoostScheduleToken     string               `json:"-"`                        // Interaction token for active boost schedule
-	BoostScheduleAppID     string               `json:"-"`                        // Application ID for active boost schedule
-	BoostVerifyRetries     int                  `json:"-"`                        // Count of verification retries for unverified boosts
-	VerifiedBoostMulti     float64              `json:"verified_boost_multi,omitempty"`     // Active boost multiplier verified from coop_status
-	VerifiedBoostIcons     string               `json:"verified_boost_icons,omitempty"`     // Active boost icons verified from coop_status
-	VerifiedPopulation     float64              `json:"verified_population,omitempty"`      // Farm population verified from coop_status
-	VerifiedAt             time.Time            `json:"verified_at,omitempty"`              // Timestamp when boost/population were verified
-	PreviousScore          float64              `json:"previous_score,omitempty"` // CXP score from previous time player ran contract
+	BoostScheduleMsgID     string               `json:"-"`                              // Ephemeral message ID for active boost schedule
+	BoostScheduleToken     string               `json:"-"`                              // Interaction token for active boost schedule
+	BoostScheduleAppID     string               `json:"-"`                              // Application ID for active boost schedule
+	BoostVerifyRetries     int                  `json:"-"`                              // Count of verification retries for unverified boosts
+	VerifiedBoostMulti     float64              `json:"verified_boost_multi,omitempty"` // Active boost multiplier verified from coop_status
+	VerifiedBoostIcons     string               `json:"verified_boost_icons,omitempty"` // Active boost icons verified from coop_status
+	VerifiedPopulation     float64              `json:"verified_population,omitempty"`  // Farm population verified from coop_status
+	VerifiedAt             time.Time            `json:"verified_at,omitempty"`          // Timestamp when boost/population were verified
+	PreviousScore          float64              `json:"previous_score,omitempty"`       // CXP score from previous time player ran contract
 }
 
 // DisplayName returns the booster's display name, falling back through Nick, Name, UserName, GlobalName, and UserID.
