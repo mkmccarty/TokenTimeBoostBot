@@ -1947,6 +1947,7 @@ func StartContractBoosting(client dc.Client, guildID string, channelID string, u
 	contract.enforceOnlyOneTokenTimeBooster()
 
 	AddBoostersToThread(client, contract)
+	go updateCoopDeflectorsFromStatus(contract)
 
 	if contract.Style&ContractFlagAMQP != 0 && len(contract.Location) > 0 {
 		guildID := contract.Location[0].GuildID

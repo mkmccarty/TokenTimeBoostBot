@@ -723,15 +723,19 @@ func calculateBoostSchedule(contract *Contract, booster *Booster, now time.Time)
 			}
 			offlineGained := (offlineIHRPerMin / float64(time.Minute)) * float64(offlineDur)
 			currentPop = min(maxPop, snapPop+offlineGained)
+			timeStr := ""
+			if !booster.VerifiedAt.IsZero() {
+				timeStr = fmt.Sprintf(" from <t:%d:R>", booster.VerifiedAt.Unix())
+			}
 			if offlineDur >= 5*time.Second && offlineGained >= 100_000 {
 				gainedStr := ei.FormatEIValue(offlineGained, map[string]any{"decimals": 2, "trim": true})
 				durStr := bottools.FmtDuration(offlineDur.Round(time.Second))
-				popBasis = fmt.Sprintf("Snapshot %s + %s offline (%s)", snapStr, gainedStr, durStr)
+				popBasis = fmt.Sprintf("Snapshot %s%s + %s offline (%s)", snapStr, timeStr, gainedStr, durStr)
 			} else {
-				popBasis = fmt.Sprintf("Active boost snapshot (%s)", snapStr)
+				popBasis = fmt.Sprintf("Active boost snapshot %s%s", snapStr, timeStr)
 			}
 		} else {
-			// Snapshot was taken before boosts were active (or pre-boost habs).
+			// Snapshot was taken before boosts were active (pre-boost habs from prior coop_status query).
 			boostStart := booster.EndTime
 			if boostStart.IsZero() {
 				boostStart = booster.VerifiedAt
@@ -745,12 +749,16 @@ func calculateBoostSchedule(contract *Contract, booster *Booster, now time.Time)
 			}
 			offlineGained := (offlineIHRPerMin / float64(time.Minute)) * float64(boostElapsed)
 			currentPop = min(maxPop, snapPop+offlineGained)
+			timeStr := ""
+			if !booster.VerifiedAt.IsZero() {
+				timeStr = fmt.Sprintf(" from <t:%d:R>", booster.VerifiedAt.Unix())
+			}
 			if boostElapsed >= 5*time.Second && offlineGained >= 100_000 {
 				gainedStr := ei.FormatEIValue(offlineGained, map[string]any{"decimals": 2, "trim": true})
 				durStr := bottools.FmtDuration(boostElapsed.Round(time.Second))
-				popBasis = fmt.Sprintf("Pre-boost habs %s + %s offline (%s)", snapStr, gainedStr, durStr)
+				popBasis = fmt.Sprintf("Pre-boost habs %s%s + %s offline (%s)", snapStr, timeStr, gainedStr, durStr)
 			} else {
-				popBasis = fmt.Sprintf("Pre-boost hab snapshot (%s)", snapStr)
+				popBasis = fmt.Sprintf("Pre-boost hab snapshot %s%s", snapStr, timeStr)
 			}
 		}
 
@@ -1356,8 +1364,10 @@ func applyContributorBoostAndPop(b *Booster, contrib *ei.ContractCoopStatusRespo
 		b.VerifiedBoostIcons = boostIcons
 	}
 	if pop > 0 {
-		b.VerifiedPopulation = pop
-		b.VerifiedAt = snapshotTime
+		if b.VerifiedAt.IsZero() || !snapshotTime.Before(b.VerifiedAt) {
+			b.VerifiedPopulation = pop
+			b.VerifiedAt = snapshotTime
+		}
 	}
 }
 
@@ -1392,6 +1402,13 @@ func applyCoopStatusDeflectors(contract *Contract, coopStatus *ei.ContractCoopSt
 			if discordID, err := farmerstate.GetDiscordUserIDFromEiIgn(rawName); err == nil && discordID != "" {
 				if _, ok := contract.Boosters[discordID]; ok && !matchedBoosters[discordID] {
 					matchedUID = discordID
+				}
+			}
+			if matchedUID == "" {
+				if discordID, err := farmerstate.GetDiscordUserIDFromEggIncName(rawName); err == nil && discordID != "" {
+					if _, ok := contract.Boosters[discordID]; ok && !matchedBoosters[discordID] {
+						matchedUID = discordID
+					}
 				}
 			}
 		}
@@ -1464,6 +1481,7 @@ func applyCoopStatusDeflectors(contract *Contract, coopStatus *ei.ContractCoopSt
 	contract.mutex.Unlock()
 
 	updateActiveBoostScheduleMessages(getActiveBoostClient(), contract)
+	saveData(contract.ContractHash)
 }
 
 // updateCoopDeflectorsFromStatus fetches coop_status for the contract and updates booster deflector artifacts, active boosts, and population.
