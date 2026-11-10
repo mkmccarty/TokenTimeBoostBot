@@ -674,9 +674,10 @@ func calculateBoostSchedule(contract *Contract, booster *Booster, now time.Time)
 	}
 
 	clampedTokens := min(12, max(0, tokens))
-	boostMulti := calcBoostMulti(float64(clampedTokens))
+	expectedBoostMulti := calcBoostMulti(float64(clampedTokens))
+	boostMulti := expectedBoostMulti
 	boostsVerified := false
-	if booster != nil && booster.VerifiedBoostMulti > 0 {
+	if booster != nil && booster.VerifiedBoostMulti >= expectedBoostMulti*0.9 {
 		boostMulti = booster.VerifiedBoostMulti
 		boostsVerified = true
 	}
@@ -711,8 +712,8 @@ func calculateBoostSchedule(contract *Contract, booster *Booster, now time.Time)
 		snapPop := booster.VerifiedPopulation
 		snapStr := ei.FormatEIValue(snapPop, map[string]any{"decimals": 2, "trim": true})
 
-		if booster.VerifiedBoostMulti > 0 {
-			// Snapshot was taken with active boosts. Advance population by offline growth since snapshot.
+		if boostsVerified {
+			// Snapshot was taken with active token boosts verified. Advance population by offline growth since snapshot.
 			refTime := booster.VerifiedAt
 			if refTime.IsZero() {
 				refTime = now
@@ -868,6 +869,8 @@ func formatBoostSchedule(contract *Contract, booster *Booster, sched BoostSchedu
 	boostStatus := ""
 	if sched.BoostsVerified {
 		boostStatus = " (verified)"
+	} else if sched.Tokens > 0 {
+		boostStatus = " (assumed — sync pending)"
 	}
 	fmt.Fprintf(&sb, "**Boosts:** %s%s\n", sched.BoostIcons, boostStatus)
 	fmt.Fprintf(&sb, "**Post-Boost Delivery Set:** %s — %s `%d`  %s `%d`\n",
@@ -1176,6 +1179,7 @@ func updateActiveBoostScheduleMessages(client dc.Client, contract *Contract) {
 	}
 	now := time.Now()
 	var edits []pendingScheduleEdit
+	var needsRetryVerification bool
 
 	contract.mutex.Lock()
 	for _, b := range contract.Boosters {
@@ -1198,9 +1202,17 @@ func updateActiveBoostScheduleMessages(client dc.Client, contract *Contract) {
 				msgID:   b.BoostScheduleMsgID,
 				content: formatBoostSchedule(contract, b, sched),
 			})
+			if !sched.BoostsVerified && b.BoostVerifyRetries < 5 {
+				b.BoostVerifyRetries++
+				needsRetryVerification = true
+			}
 		}
 	}
 	contract.mutex.Unlock()
+
+	if needsRetryVerification {
+		scheduleBoostVerification(contract)
+	}
 
 	if client == nil {
 		client = getActiveBoostClient()

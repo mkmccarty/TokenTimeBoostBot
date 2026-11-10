@@ -845,6 +845,35 @@ func TestCalculateBoostSchedule_PopulationBasisAndOfflineProjection(t *testing.T
 	if !strings.Contains(formattedReady, "Ready now! — Request CR") {
 		t.Errorf("expected 'Ready now! — Request CR' when CR pop reached, got:\n%s", formattedReady)
 	}
+
+	// Case 5: 4-token boost where sync only picked up 50x pre-boost / free farming boosts (user report)
+	boosterSyncLag := &Booster{
+		UserID:             "100000000000000005",
+		TokensWanted:       4,
+		TECount:            40,
+		EndTime:            now.Add(-37 * time.Second),
+		VerifiedBoostMulti: 50.0, // only picked up free 10x 4h, 1000x not synced yet
+		VerifiedBoostIcons: "b_tach10x4h (4h)",
+		VerifiedPopulation: 881_310_000,
+		VerifiedAt:         now.Add(-37 * time.Second),
+	}
+	schedLag := calculateBoostSchedule(contract, boosterSyncLag, now)
+	if schedLag.BoostsVerified {
+		t.Errorf("expected BoostsVerified false when sync only has 50x for a 4-token boost (1040x expected)")
+	}
+	if schedLag.TotalBoostDuration > 40*time.Minute {
+		t.Errorf("expected TotalBoostDuration ~30m without deflectors for assumed 4-token boost (not 7 hours), got %v", schedLag.TotalBoostDuration)
+	}
+	if schedLag.CRDuration > 30*time.Minute {
+		t.Errorf("expected CRDuration ~24m without deflectors for assumed 4-token boost (not 5 hours), got %v", schedLag.CRDuration)
+	}
+	if !strings.Contains(schedLag.BoostIcons, "b_tach1000") {
+		t.Errorf("expected assumed boost icons to include 1000x tachyon, got %q", schedLag.BoostIcons)
+	}
+	formattedLag := formatBoostSchedule(contract, boosterSyncLag, schedLag)
+	if !strings.Contains(formattedLag, "(assumed — sync pending)") {
+		t.Errorf("expected boosts line to contain '(assumed — sync pending)', got:\n%s", formattedLag)
+	}
 }
 
 func TestExtractContributorActiveBoosts(t *testing.T) {
