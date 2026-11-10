@@ -190,6 +190,8 @@ type BoostSchedule struct {
 	SIABLayRate           float64
 	SIABShipRate          float64
 	SIABDeliveryRate      float64
+	BoostsVerified        bool
+	CurrentPopulation     float64
 	EstRequestChickenRuns time.Time
 	EstEndOfBoost         time.Time
 }
@@ -672,6 +674,11 @@ func calculateBoostSchedule(contract *Contract, booster *Booster, now time.Time)
 
 	clampedTokens := min(12, max(0, tokens))
 	boostMulti := calcBoostMulti(float64(clampedTokens))
+	boostsVerified := false
+	if booster != nil && booster.VerifiedBoostMulti > 0 {
+		boostMulti = booster.VerifiedBoostMulti
+		boostsVerified = true
+	}
 	// 4 habs * 3x offline (Internal Hatchery Calm) = 12x online per-hab IHR
 	offlineIHRPerMin := onlineIHRPerHab * 12.0 * boostMulti * modIHR
 
@@ -695,12 +702,36 @@ func calculateBoostSchedule(contract *Contract, booster *Booster, now time.Time)
 	pureCRMinutes := max(1.0, crRequestPop/offlineIHRPerMin)
 	pureCRDuration := time.Duration(pureCRMinutes * float64(time.Minute))
 	crDuration := pureCRDuration
-
 	totalBoostDuration := crDuration + postCROfflineDuration
+
+	refTime := now
+	currentPop := 0.0
+	if booster != nil && booster.VerifiedPopulation > 0 {
+		currentPop = booster.VerifiedPopulation
+		if !booster.VerifiedAt.IsZero() {
+			refTime = booster.VerifiedAt
+		}
+		if currentPop < crRequestPop {
+			remCRMinutes := (crRequestPop - currentPop) / offlineIHRPerMin
+			crDuration = time.Duration(remCRMinutes * float64(time.Minute))
+			totalBoostDuration = crDuration + postCROfflineDuration
+		} else {
+			crDuration = 0
+			remChickens := max(0.0, totalBoostChickensNeeded-currentPop)
+			postCROfflineMinutes = max(1.0, remChickens/offlineIHRPerMin)
+			postCROfflineDuration = time.Duration(postCROfflineMinutes * float64(time.Minute))
+			totalBoostDuration = postCROfflineDuration
+		}
+	}
+
+	boostIcons := getExpectedBoostIcons(tokens, pureCRDuration+postCROfflineDuration)
+	if boostsVerified && booster.VerifiedBoostIcons != "" {
+		boostIcons = booster.VerifiedBoostIcons
+	}
 
 	return BoostSchedule{
 		Tokens:                tokens,
-		BoostIcons:            getExpectedBoostIcons(tokens, totalBoostDuration),
+		BoostIcons:            boostIcons,
 		TotalBoostDuration:    totalBoostDuration,
 		CRDuration:            crDuration,
 		PureCRDuration:        pureCRDuration,
@@ -723,8 +754,10 @@ func calculateBoostSchedule(contract *Contract, booster *Booster, now time.Time)
 		SIABLayRate:           siabBestLR,
 		SIABShipRate:          siabBestSR,
 		SIABDeliveryRate:      siabBestTotal,
-		EstRequestChickenRuns: now.Add(crDuration),
-		EstEndOfBoost:         now.Add(totalBoostDuration),
+		BoostsVerified:        boostsVerified,
+		CurrentPopulation:     currentPop,
+		EstRequestChickenRuns: refTime.Add(crDuration),
+		EstEndOfBoost:         refTime.Add(totalBoostDuration),
 	}
 }
 
@@ -768,9 +801,17 @@ func formatBoostSchedule(contract *Contract, booster *Booster, sched BoostSchedu
 	}
 	fmt.Fprintf(&sb, "## 🚀 Boost Schedule%s (%d %s)\n", boosterTarget, sched.Tokens, tokenIcon)
 	fmt.Fprintf(&sb, "**Total Boost Time:** `%s` (Done <t:%d:t>)\n", totalDurStr, sched.EstEndOfBoost.Unix())
+	if sched.CurrentPopulation > 0 {
+		curPopStr := ei.FormatEIValue(sched.CurrentPopulation, map[string]any{"decimals": 2, "trim": true})
+		fmt.Fprintf(&sb, "**Current Population:** `%s` (verified)\n", curPopStr)
+	}
 	fmt.Fprintf(&sb, "**Request Chicken Runs %s at:** `%s` chickens (Max shipping pop: `%s`)\n", crIcon, crPopStr, maxPopStr)
 	fmt.Fprintf(&sb, "**Deflector Bonus %s:** `%.0f%%` (%s)\n", deflIcon, sched.DeflectorPercent, deflStatus)
-	fmt.Fprintf(&sb, "**Boosts:** %s\n", sched.BoostIcons)
+	boostStatus := ""
+	if sched.BoostsVerified {
+		boostStatus = " (verified)"
+	}
+	fmt.Fprintf(&sb, "**Boosts:** %s%s\n", sched.BoostIcons, boostStatus)
 	fmt.Fprintf(&sb, "**Post-Boost Delivery Set:** %s — %s `%d`  %s `%d`\n",
 		sched.DeliveryArtifacts, tachStoneIcon, sched.TachyonStones, quantStoneIcon, sched.QuantumStones)
 	fmt.Fprintf(&sb, "**Projected Rates:** **Delivery:** `%s` (**LR:** `%s` | **SR:** `%s`)\n",
@@ -942,6 +983,47 @@ func resolveBoostClickUserID(contract *Contract, userID, currentBoosterID string
 	return userID
 }
 
+// formatInitialBoostSchedule builds the initial ephemeral message shown immediately when a booster presses 🚀.
+func formatInitialBoostSchedule(contract *Contract, booster *Booster, sched BoostSchedule) string {
+	tokenIcon := boostEmojiMarkdown("token")
+	if contract != nil && contract.TokenStr != "" {
+		tokenIcon = contract.TokenStr
+	}
+	crIcon := boostEmojiMarkdown("icon_chicken_run")
+	crPopStr := ei.FormatEIValue(sched.CRRequestPopulation, map[string]any{"decimals": 2, "trim": true})
+	totalDurStr := bottools.FmtDuration(sched.TotalBoostDuration.Round(time.Second))
+
+	var sb strings.Builder
+	boosterTarget := ""
+	if booster != nil {
+		if booster.Mention != "" {
+			boosterTarget = " for " + booster.Mention
+		} else if booster.Nick != "" {
+			boosterTarget = " for " + booster.Nick
+		}
+	}
+	fmt.Fprintf(&sb, "## 🚀 Boost Schedule%s (%d %s)\n", boosterTarget, sched.Tokens, tokenIcon)
+	fmt.Fprintf(&sb, "**Boosts:** %s\n", sched.BoostIcons)
+	fmt.Fprintf(&sb, "**Estimated Boost Time:** `%s` (Request CR %s at `%s` chickens)\n", totalDurStr, crIcon, crPopStr)
+	sb.WriteString("\n⏳ *Checking coop API in 1m to verify your active boosts, current population, and deflectors for accurate timing...*")
+	return sb.String()
+}
+
+var boostVerifyDelay = 1 * time.Minute
+
+func scheduleBoostVerification(contract *Contract) {
+	if contract == nil {
+		return
+	}
+	delay := boostVerifyDelay
+	go func() {
+		if delay > 0 {
+			time.Sleep(delay)
+		}
+		updateCoopDeflectorsFromStatus(contract)
+	}()
+}
+
 // sendBoostScheduleEphemeral sends the active booster's ephemeral boost schedule message and records
 // its interaction metadata so it can be updated if a coop_status response arrives during their boost time.
 func sendBoostScheduleEphemeral(client dc.Client, e *dc.ComponentEvent, contract *Contract, booster *Booster) {
@@ -955,7 +1037,7 @@ func sendBoostScheduleEphemeral(client dc.Client, e *dc.ComponentEvent, contract
 		boostStart = time.Now()
 	}
 	sched := calculateBoostSchedule(contract, booster, boostStart)
-	scheduleMsg := formatBoostSchedule(contract, booster, sched)
+	scheduleMsg := formatInitialBoostSchedule(contract, booster, sched)
 
 	msg, err := e.FollowupMessage(dc.Message{
 		Content:   scheduleMsg,
@@ -1088,7 +1170,115 @@ func handleCoopStatusForActiveContracts(contractID, coopID string, coopStatus *e
 	}
 }
 
-// applyCoopStatusDeflectors updates the contract's boosters with deflector artifacts discovered in coopStatus.
+type activeBoostMeta struct {
+	emojiName  string
+	duration   string
+	isTachyon  bool
+	isBeacon   bool
+	multiplier float64
+}
+
+var knownActiveBoostMap = map[string]activeBoostMeta{
+	"tachyon_prism_blue":       {emojiName: "b_tach10x30m", duration: "30m", isTachyon: true, multiplier: 10},
+	"tachyon_prism_purple":     {emojiName: "b_tach10x4h", duration: "4h", isTachyon: true, multiplier: 10},
+	"tachyon_prism_purple_v2":  {emojiName: "b_tach10x4h", duration: "4h", isTachyon: true, multiplier: 10},
+	"tachyon_prism_blue_big":   {emojiName: "b_tach100x20m", duration: "20m", isTachyon: true, multiplier: 100},
+	"tachyon_prism_purple_big": {emojiName: "b_tach100x2h", duration: "2h", isTachyon: true, multiplier: 100},
+	"tachyon_prism_orange":     {emojiName: "b_tach1000x10m", duration: "10m", isTachyon: true, multiplier: 1000},
+	"tachyon_prism_orange_big": {emojiName: "b_tach1000x1h", duration: "1h", isTachyon: true, multiplier: 1000},
+	"boost_beacon_blue":        {emojiName: "b_boost2x30m", duration: "30m", isBeacon: true, multiplier: 2},
+	"boost_beacon_blue_big":    {emojiName: "b_boost5x1h", duration: "1h", isBeacon: true, multiplier: 5},
+	"boost_beacon_purple":      {emojiName: "b_boost10x10m", duration: "10m", isBeacon: true, multiplier: 10},
+	"boost_beacon_orange":      {emojiName: "b_boost50x10m", duration: "10m", isBeacon: true, multiplier: 50},
+}
+
+func extractContributorActiveBoosts(activeBoosts []*ei.Backup_ActiveBoost) (float64, string) {
+	if len(activeBoosts) == 0 {
+		return 0, ""
+	}
+	var tachSum, beaconSum float64
+	var items []boostItemSpec
+	indexByEmoji := make(map[string]int)
+
+	for _, ab := range activeBoosts {
+		if ab == nil {
+			continue
+		}
+		if ab.TimeRemaining != nil && ab.GetTimeRemaining() <= 0 {
+			continue
+		}
+		rawID := strings.ToLower(strings.TrimSpace(ab.GetBoostId()))
+		meta, ok := knownActiveBoostMap[rawID]
+		if !ok {
+			continue
+		}
+		mult := meta.multiplier
+		if ab.GetReferenceValue() > 0 {
+			mult = ab.GetReferenceValue()
+		}
+		if meta.isTachyon {
+			tachSum += mult
+		} else if meta.isBeacon {
+			beaconSum += mult
+		}
+		if idx, exists := indexByEmoji[meta.emojiName]; exists {
+			items[idx].count++
+		} else {
+			indexByEmoji[meta.emojiName] = len(items)
+			items = append(items, boostItemSpec{
+				emojiName: meta.emojiName,
+				count:     1,
+				duration:  meta.duration,
+			})
+		}
+	}
+
+	if tachSum <= 0 {
+		return 0, ""
+	}
+	if beaconSum <= 0 {
+		beaconSum = 1.0
+	}
+	totalMulti := tachSum * beaconSum
+
+	parts := make([]string, 0, len(items))
+	for _, item := range items {
+		icon := boostEmojiMarkdown(item.emojiName)
+		parts = append(parts, fmt.Sprintf("%s (%s)", strings.Repeat(icon, item.count), item.duration))
+	}
+	return totalMulti, strings.Join(parts, "  ")
+}
+
+func applyContributorBoostAndPop(b *Booster, contrib *ei.ContractCoopStatusResponse_ContributionInfo) {
+	if b == nil || contrib == nil {
+		return
+	}
+	pop := 0.0
+	if pp := contrib.GetProductionParams(); pp != nil && pp.GetFarmPopulation() > 0 {
+		pop = pp.GetFarmPopulation()
+	}
+	if fi := contrib.GetFarmInfo(); fi != nil {
+		var habSum uint64
+		for _, hp := range fi.GetHabPopulation() {
+			habSum += hp
+		}
+		if float64(habSum) > pop {
+			pop = float64(habSum)
+		}
+		boostMulti, boostIcons := extractContributorActiveBoosts(fi.GetActiveBoosts())
+		if boostMulti > 0 {
+			b.VerifiedBoostMulti = boostMulti
+			b.VerifiedBoostIcons = boostIcons
+			b.VerifiedAt = time.Now()
+		}
+	}
+	if pop > 0 {
+		b.VerifiedPopulation = pop
+		b.VerifiedAt = time.Now()
+	}
+}
+
+// applyCoopStatusDeflectors updates the contract's boosters with deflector artifacts, active boosts, and population discovered in coopStatus.
 func applyCoopStatusDeflectors(contract *Contract, coopStatus *ei.ContractCoopStatusResponse) {
 	if contract == nil || coopStatus == nil {
 		return
@@ -1143,7 +1333,9 @@ func applyCoopStatusDeflectors(contract *Contract, coopStatus *ei.ContractCoopSt
 
 		if matchedUID != "" {
 			matchedBoosters[matchedUID] = true
-			setBoosterDeflectorArtifact(contract.Boosters[matchedUID], deflArt)
+			b := contract.Boosters[matchedUID]
+			setBoosterDeflectorArtifact(b, deflArt)
+			applyContributorBoostAndPop(b, contrib)
 		} else {
 			unmatchedDeflectors = append(unmatchedDeflectors, deflArt)
 		}
@@ -1191,9 +1383,12 @@ func applyCoopStatusDeflectors(contract *Contract, coopStatus *ei.ContractCoopSt
 	updateActiveBoostScheduleMessages(getActiveBoostClient(), contract)
 }
 
-// updateCoopDeflectorsFromStatus fetches coop_status for the contract and updates booster deflector artifacts.
+// updateCoopDeflectorsFromStatus fetches coop_status for the contract and updates booster deflector artifacts, active boosts, and population.
 func updateCoopDeflectorsFromStatus(contract *Contract) {
 	if contract == nil || contract.ContractID == "" || contract.CoopID == "" {
+		if contract != nil {
+			updateActiveBoostScheduleMessages(getActiveBoostClient(), contract)
+		}
 		return
 	}
 
@@ -1223,11 +1418,13 @@ func updateCoopDeflectorsFromStatus(contract *Contract) {
 		if err != nil {
 			log.Printf("updateCoopDeflectorsFromStatus: unable to fetch coop_status for %s/%s (falling back to estimated deflectors): %v", contractID, coopID, err)
 		}
+		updateActiveBoostScheduleMessages(getActiveBoostClient(), contract)
 		return
 	}
 	if coopStatus.GetResponseStatus() != ei.ContractCoopStatusResponse_NO_ERROR {
 		log.Printf("updateCoopDeflectorsFromStatus: coop_status returned %s for %s/%s (falling back to estimated deflectors)",
 			coopStatus.GetResponseStatus().String(), contractID, coopID)
+		updateActiveBoostScheduleMessages(getActiveBoostClient(), contract)
 		return
 	}
 

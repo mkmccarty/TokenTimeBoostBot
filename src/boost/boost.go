@@ -2078,7 +2078,7 @@ func Boosting(client dc.Client, guildID string, channelID string) error {
 
 	contract.BoostedOrder = append(contract.BoostedOrder, currentBoosterID)
 	if len(contract.BoostedOrder) == 1 && !contract.deferFirstBoostCoopStatus {
-		go updateCoopDeflectorsFromStatus(contract)
+		scheduleBoostVerification(contract)
 	}
 
 	// Advance past any that have already boosted

@@ -595,8 +595,8 @@ func TestBoostSchedule_RocketAndFireReactions(t *testing.T) {
 		if !strings.Contains(ev.LastFollowup.Content, "Boost Schedule for <@"+userA+">") {
 			t.Errorf("expected Boost Schedule for %s, got:\n%s", userA, ev.LastFollowup.Content)
 		}
-		if !strings.Contains(ev.LastFollowup.Content, "`60%` (estimated)") {
-			t.Errorf("expected initial 60%% (estimated) deflector bonus, got:\n%s", ev.LastFollowup.Content)
+		if !strings.Contains(ev.LastFollowup.Content, "**Boosts:**") || !strings.Contains(ev.LastFollowup.Content, "Checking coop API in 1m") {
+			t.Errorf("expected initial boost prompt with boosts to use and 1m check notice, got:\n%s", ev.LastFollowup.Content)
 		}
 
 		// Now simulate a coop_status API response arriving while userA is within their boost time
@@ -605,9 +605,15 @@ func TestBoostSchedule_RocketAndFireReactions(t *testing.T) {
 		lvlT4 := ei.ArtifactSpec_GREATER
 		rarLeg := ei.ArtifactSpec_LEGENDARY
 		rarEpic := ei.ArtifactSpec_EPIC
+		pA := "PlayerA"
 		pB := "PlayerB"
 		pC := "PlayerC"
 		pD := "PlayerD"
+		boostTachOrange := "tachyon_prism_orange"
+		boostBeaconBlue := "boost_beacon_blue"
+		boostTachPurple := "tachyon_prism_purple"
+		remSec := 540.0
+		popA := 2_000_000_000.0
 		contract.Boosters["400000000000000014"] = &Booster{
 			UserID: "400000000000000014",
 			Name:   pD,
@@ -618,6 +624,21 @@ func TestBoostSchedule_RocketAndFireReactions(t *testing.T) {
 		coopStatus := &ei.ContractCoopStatusResponse{
 			ResponseStatus: &okStatus,
 			Contributors: []*ei.ContractCoopStatusResponse_ContributionInfo{
+				{
+					UserName: &pA,
+					ProductionParams: &ei.FarmProductionParams{
+						FarmPopulation: &popA,
+					},
+					FarmInfo: &ei.PlayerFarmInfo{
+						ActiveBoosts: []*ei.Backup_ActiveBoost{
+							{BoostId: &boostTachOrange, TimeRemaining: &remSec},
+							{BoostId: &boostBeaconBlue, TimeRemaining: &remSec},
+							{BoostId: &boostBeaconBlue, TimeRemaining: &remSec},
+							{BoostId: &boostTachPurple, TimeRemaining: &remSec},
+							{BoostId: &boostTachPurple, TimeRemaining: &remSec},
+						},
+					},
+				},
 				{
 					UserName: &pB,
 					FarmInfo: &ei.PlayerFarmInfo{
@@ -657,6 +678,12 @@ func TestBoostSchedule_RocketAndFireReactions(t *testing.T) {
 		editedText := edits[len(edits)-1].Args[3]
 		if !strings.Contains(editedText, "`58%` (actual)") {
 			t.Errorf("expected edited ephemeral message to show 58%% (actual) deflector bonus, got:\n%s", editedText)
+		}
+		if !strings.Contains(editedText, "**Current Population:** `2B` (verified)") {
+			t.Errorf("expected edited ephemeral message to show verified 2B current population, got:\n%s", editedText)
+		}
+		if !strings.Contains(editedText, "(verified)") || !strings.Contains(editedText, "b_tach1000x10m") {
+			t.Errorf("expected edited ephemeral message to show verified active boosts, got:\n%s", editedText)
 		}
 	})
 
