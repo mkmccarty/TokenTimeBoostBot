@@ -798,8 +798,8 @@ func TestCalculateBoostSchedule_PopulationBasisAndOfflineProjection(t *testing.T
 	if schedPreBoost.CurrentPopulation <= 2_000_000_000 {
 		t.Errorf("expected population > 2B after 1m of offline boost, got %v", schedPreBoost.CurrentPopulation)
 	}
-	if !strings.Contains(schedPreBoost.PopulationBasis, "Pre-boost habs 2B") || !strings.Contains(schedPreBoost.PopulationBasis, "offline") {
-		t.Errorf("expected pre-boost habs basis with offline growth, got %q", schedPreBoost.PopulationBasis)
+	if !strings.Contains(schedPreBoost.PopulationBasis, "Pre-boost habs 2B") || !strings.Contains(schedPreBoost.PopulationBasis, "offline") || !strings.Contains(schedPreBoost.PopulationBasis, "from <t:") {
+		t.Errorf("expected pre-boost habs basis with offline growth and timestamp, got %q", schedPreBoost.PopulationBasis)
 	}
 	formattedPre := formatBoostSchedule(contract, boosterPreBoost, schedPreBoost)
 	if !strings.Contains(formattedPre, "**Current Population:**") || !strings.Contains(formattedPre, "Pre-boost habs 2B") {
@@ -820,8 +820,8 @@ func TestCalculateBoostSchedule_PopulationBasisAndOfflineProjection(t *testing.T
 	if schedActive.CurrentPopulation <= 2_500_000_000 {
 		t.Errorf("expected population > 2.5B after 45s offline, got %v", schedActive.CurrentPopulation)
 	}
-	if !strings.Contains(schedActive.PopulationBasis, "Snapshot 2.5B") || !strings.Contains(schedActive.PopulationBasis, "offline") {
-		t.Errorf("expected snapshot basis with offline growth, got %q", schedActive.PopulationBasis)
+	if !strings.Contains(schedActive.PopulationBasis, "Snapshot 2.5B") || !strings.Contains(schedActive.PopulationBasis, "offline") || !strings.Contains(schedActive.PopulationBasis, "from <t:") {
+		t.Errorf("expected snapshot basis with offline growth and timestamp, got %q", schedActive.PopulationBasis)
 	}
 	formattedActive := formatBoostSchedule(contract, boosterActiveBoost, schedActive)
 	if !strings.Contains(formattedActive, "**Current Population:**") || !strings.Contains(formattedActive, "(verified)") || !strings.Contains(formattedActive, "Snapshot 2.5B") {
@@ -868,5 +868,41 @@ func TestExtractContributorActiveBoosts(t *testing.T) {
 	}
 	if strings.Contains(icons, "b_tach100x20m") {
 		t.Errorf("icons should not contain b_tach100x20m, got %q", icons)
+	}
+}
+
+func TestApplyContributorBoostAndPop_TimestampOrdering(t *testing.T) {
+	b := &Booster{
+		UserID: "100000000000000005",
+	}
+
+	// First query with newer timestamp (10 seconds ago)
+	rawTimeNewer := -10.0
+	contribNewer := &ei.ContractCoopStatusResponse_ContributionInfo{
+		FarmInfo: &ei.PlayerFarmInfo{
+			HabPopulation: []uint64{500_000_000, 500_000_000, 500_000_000, 500_000_000},
+			Timestamp:     &rawTimeNewer,
+		},
+	}
+	applyContributorBoostAndPop(b, contribNewer)
+	if b.VerifiedPopulation != 2_000_000_000 {
+		t.Errorf("expected VerifiedPopulation 2B, got %v", b.VerifiedPopulation)
+	}
+	recordedTime := b.VerifiedAt
+
+	// Second query with older timestamp (300 seconds ago, e.g. stale cache)
+	rawTimeOlder := -300.0
+	contribOlder := &ei.ContractCoopStatusResponse_ContributionInfo{
+		FarmInfo: &ei.PlayerFarmInfo{
+			HabPopulation: []uint64{250_000_000, 250_000_000, 250_000_000, 250_000_000},
+			Timestamp:     &rawTimeOlder,
+		},
+	}
+	applyContributorBoostAndPop(b, contribOlder)
+	if b.VerifiedPopulation != 2_000_000_000 {
+		t.Errorf("expected older query not to overwrite newer VerifiedPopulation 2B, got %v", b.VerifiedPopulation)
+	}
+	if !b.VerifiedAt.Equal(recordedTime) {
+		t.Errorf("expected VerifiedAt to remain %v, got %v", recordedTime, b.VerifiedAt)
 	}
 }
