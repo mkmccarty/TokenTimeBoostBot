@@ -120,6 +120,10 @@ func ReactionAdd(client dc.Client, e *dc.ReactionEvent) string {
 						return returnVal
 					}
 				}
+			case "🔥":
+				if booster := contract.Boosters[currentBoosterID]; booster != nil {
+					sendBoostScheduleDM(client, contract, booster, e.UserID())
+				}
 			case "🔃":
 				if !isStale {
 					result := buttonReactionSwap(client, e.GuildID(), e.ChannelID(), contract, userID)

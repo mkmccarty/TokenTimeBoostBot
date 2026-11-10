@@ -288,6 +288,11 @@ func speedrunReactions(client dc.Client, e *dc.ReactionEvent, contract *Contract
 				_, redraw = buttonReactionBag(client, e.GuildID(), e.ChannelID(), contract, userID)
 			}
 		}
+		if e.EmojiName() == "🔥" {
+			if currentBooster := contract.currentBooster(); currentBooster != nil {
+				sendBoostScheduleDM(client, contract, currentBooster, e.UserID())
+			}
+		}
 	}
 
 	if e.EmojiName() == "🌊" {

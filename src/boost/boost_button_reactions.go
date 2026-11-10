@@ -25,6 +25,7 @@ import (
 // It still takes a raw session because the boost order helpers and the boost
 // list redraw are not on the facade yet.
 func HandleContractReactions(client dc.Client, e *dc.ComponentEvent) {
+	setActiveBoostClient(client)
 	_ = e.DeferUpdate()
 	callerID := e.UserID()
 
@@ -85,7 +86,7 @@ func HandleContractReactions(client dc.Client, e *dc.ComponentEvent) {
 		}
 	}
 	// Ack the message for every other command
-	if cmd != "cr" {
+	if cmd != "cr" && cmd != "fire" && cmd != "boost" {
 		_ = e.Followup(dc.Message{})
 	}
 
@@ -105,13 +106,46 @@ func HandleContractReactions(client dc.Client, e *dc.ComponentEvent) {
 
 	switch cmd {
 	case "boost":
+		var boostedBooster *Booster
+		activeBoosterID := contract.currentBoosterID()
+		effectiveUserID := resolveBoostClickUserID(contract, userID, activeBoosterID)
+		isActiveBooster := activeBoosterID != "" && effectiveUserID == activeBoosterID && isFastrunOrLeaderboard(contract)
 		if isStale {
 			redraw = true
 		} else {
 			loc := contract.findLocation(e.ChannelID())
 			if loc != nil && e.MessageID() == loc.ListMsgID {
+				if isActiveBooster {
+					boostedBooster = contract.Boosters[activeBoosterID]
+					contract.deferFirstBoostCoopStatus = true
+				}
 				redraw = buttonReactionBoost(client, e.GuildID(), e.ChannelID(), contract, userID)
+				contract.deferFirstBoostCoopStatus = false
 			}
+		}
+		if redraw && boostedBooster != nil && boostedBooster.BoostState == BoostStateBoosted {
+			schedDisabled := boostedBooster.DisableBoostSchedule || farmerstate.GetMiscSettingFlag(boostedBooster.UserID, "DisableBoostSchedule")
+			if !schedDisabled {
+				sendBoostScheduleEphemeral(client, e, contract, boostedBooster)
+			} else {
+				_ = e.Followup(dc.Message{})
+			}
+			if len(contract.BoostedOrder) == 1 {
+				go updateCoopDeflectorsFromStatus(contract)
+			}
+		} else {
+			_ = e.Followup(dc.Message{})
+		}
+	case "fire":
+		if currentBooster := contract.currentBooster(); currentBooster != nil {
+			sched := calculateBoostSchedule(contract, currentBooster, time.Now())
+			scheduleMsg := formatBoostSchedule(contract, currentBooster, sched)
+			_ = e.Followup(dc.Message{
+				Content:   scheduleMsg,
+				Ephemeral: true,
+			})
+		} else {
+			_ = e.Followup(dc.Message{})
 		}
 	case "bag":
 		var r bool
@@ -1509,12 +1543,6 @@ func getContractReactionsComponents(contract *Contract) []dc.LayoutComponent {
 			Emoji: ei.GetBotComponentEmoji("token"),
 		})
 		menuOptions = append(menuOptions, dc.SelectOption{
-			Label:       "Toggle Reaction Log",
-			Description: "Toggle token log details on or off",
-			Value:       "togglerxlog",
-			Emoji:       &dc.Emoji{Name: "📊"},
-		})
-		menuOptions = append(menuOptions, dc.SelectOption{
 			Label: "My Chicken Runs",
 			Value: "mychickens",
 			Emoji: ei.GetBotComponentEmoji("icon_chicken_run"),
@@ -1523,6 +1551,18 @@ func getContractReactionsComponents(contract *Contract) []dc.LayoutComponent {
 			Label: "Ran chickens early on all farms",
 			Value: "rancoop",
 			Emoji: ei.GetBotComponentEmoji("icon_chicken_run"),
+		})
+		menuOptions = append(menuOptions, dc.SelectOption{
+			Label:       "Toggle Reaction Log",
+			Description: "Toggle token log details on or off",
+			Value:       "togglerxlog",
+			Emoji:       &dc.Emoji{Name: "📊"},
+		})
+		menuOptions = append(menuOptions, dc.SelectOption{
+			Label:       "Toggle Boost Schedule",
+			Description: "Toggle 🚀 boost schedule response on or off",
+			Value:       "toggleboostsched",
+			Emoji:       &dc.Emoji{Name: "🚀"},
 		})
 		menuOptions = append(menuOptions, dc.SelectOption{
 			Label: "Coop Tools",
@@ -1676,6 +1716,7 @@ func pollCoopStatus(contract *Contract) {
 		log.Printf("pollCoopStatus error: %v", err)
 		return
 	}
+	applyCoopStatusDeflectors(contract, coopStatus)
 	log.Printf("pollCoopStatus: successfully retrieved status for %s, response: %s", contract.ContractHash, coopStatus.GetResponseStatus().String())
 }
 

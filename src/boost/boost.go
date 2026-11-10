@@ -947,6 +947,7 @@ func AddFarmerToContract(client dc.Client, contract *Contract, guildID string, c
 			b.TECount, _ = strconv.Atoi(te)
 		}
 		b.DisableEphemeralLog = farmerstate.GetMiscSettingFlag(userID, "DisableEphemeralLog")
+		b.DisableBoostSchedule = farmerstate.GetMiscSettingFlag(userID, "DisableBoostSchedule")
 		if farmerstate.GetOrderHelper(userID) || (b.Name != "" && b.Name != userID && farmerstate.GetOrderHelper(b.Name)) {
 			b.IsHelper = true
 		}
@@ -2047,6 +2048,7 @@ func UserBoost(client dc.Client, guildID string, channelID string, userID string
 
 // Boosting will mark a as boosted and advance to the next in the list
 func Boosting(client dc.Client, guildID string, channelID string) error {
+	setActiveBoostClient(client)
 	var contract = FindContract(channelID)
 	if contract == nil {
 		return errors.New(errorNoContract)
@@ -2072,9 +2074,12 @@ func Boosting(client dc.Client, guildID string, channelID string) error {
 	booster.Duration = time.Since(booster.StartTime)
 
 	// Estimate timings for remaining boosters
-	setEstimatedBoostTimings(booster)
+	setEstimatedBoostTimings(booster, contract)
 
 	contract.BoostedOrder = append(contract.BoostedOrder, currentBoosterID)
+	if len(contract.BoostedOrder) == 1 && !contract.deferFirstBoostCoopStatus {
+		go updateCoopDeflectorsFromStatus(contract)
+	}
 
 	// Advance past any that have already boosted
 	// Set boost order to last spot so end of contract handling can occur
