@@ -546,6 +546,30 @@ func TestBankerBoostMenuGetBoostSchedule(t *testing.T) {
 	if !strings.Contains(ev.LastResponse.Content, "Boost Schedule for <@"+testUserID+">") {
 		t.Errorf("expected schedule for menu caller %s, got:\n%s", testUserID, ev.LastResponse.Content)
 	}
+	if strings.Contains(ev.LastResponse.Content, "sync pending") {
+		t.Errorf("expected unboosted player not to have sync pending status, got:\n%s", ev.LastResponse.Content)
+	}
+	if contract.Boosters[testUserID].BoostScheduleMsgID != "" {
+		t.Errorf("expected unboosted player BoostScheduleMsgID to be empty, got %q", contract.Boosters[testUserID].BoostScheduleMsgID)
+	}
+
+	// Test boosted player selecting boostsched menu item: records msgID for verification
+	contract.Boosters[otherUserID].BoostState = BoostStateBoosted
+	contract.Boosters[otherUserID].EndTime = time.Now()
+	contract.Boosters[otherUserID].EstEndOfBoost = time.Now().Add(10 * time.Minute)
+
+	ev2 := dctest.ComponentSelectEventWithUser("menu#"+contract.ContractHash, otherUserID, "boostsched")
+	HandleMenuReactions(client, ev2)
+
+	if ev2.LastResponse == nil || !ev2.LastResponse.Ephemeral {
+		t.Fatalf("expected ephemeral response from boostsched menu item for boosted player, got %+v", ev2.LastResponse)
+	}
+	if !strings.Contains(ev2.LastResponse.Content, "Boost Schedule for <@"+otherUserID+">") {
+		t.Errorf("expected schedule for boosted user %s, got:\n%s", otherUserID, ev2.LastResponse.Content)
+	}
+	if contract.Boosters[otherUserID].BoostScheduleMsgID != "@original" {
+		t.Errorf("expected boosted player BoostScheduleMsgID to be @original, got %q", contract.Boosters[otherUserID].BoostScheduleMsgID)
+	}
 }
 
 func TestBoostMenuTokenLogEscaping(t *testing.T) {
