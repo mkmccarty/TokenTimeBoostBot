@@ -1543,12 +1543,6 @@ func getContractReactionsComponents(contract *Contract) []dc.LayoutComponent {
 			Emoji: ei.GetBotComponentEmoji("token"),
 		})
 		menuOptions = append(menuOptions, dc.SelectOption{
-			Label:       "Toggle Reaction Log",
-			Description: "Toggle token log details on or off",
-			Value:       "togglerxlog",
-			Emoji:       &dc.Emoji{Name: "📊"},
-		})
-		menuOptions = append(menuOptions, dc.SelectOption{
 			Label: "My Chicken Runs",
 			Value: "mychickens",
 			Emoji: ei.GetBotComponentEmoji("icon_chicken_run"),
@@ -1557,6 +1551,18 @@ func getContractReactionsComponents(contract *Contract) []dc.LayoutComponent {
 			Label: "Ran chickens early on all farms",
 			Value: "rancoop",
 			Emoji: ei.GetBotComponentEmoji("icon_chicken_run"),
+		})
+		menuOptions = append(menuOptions, dc.SelectOption{
+			Label:       "Toggle Reaction Log",
+			Description: "Toggle token log details on or off",
+			Value:       "togglerxlog",
+			Emoji:       &dc.Emoji{Name: "📊"},
+		})
+		menuOptions = append(menuOptions, dc.SelectOption{
+			Label:       "Toggle Boost Schedule",
+			Description: "Toggle 🚀 boost schedule response on or off",
+			Value:       "toggleboostsched",
+			Emoji:       &dc.Emoji{Name: "🚀"},
 		})
 		menuOptions = append(menuOptions, dc.SelectOption{
 			Label: "Coop Tools",
