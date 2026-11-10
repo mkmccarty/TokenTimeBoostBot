@@ -465,18 +465,25 @@ func HandleMenuReactions(client dc.Client, e *dc.ComponentEvent) {
 		}
 
 		now := time.Now()
+		hasBoosted := booster.BoostState == BoostStateBoosted
 		boostStart := now
-		if booster.BoostState == BoostStateBoosted && !booster.EndTime.IsZero() && !booster.EstEndOfBoost.IsZero() && now.Before(booster.EstEndOfBoost) {
+		if hasBoosted && !booster.EndTime.IsZero() && !booster.EstEndOfBoost.IsZero() && now.Before(booster.EstEndOfBoost) {
 			boostStart = booster.EndTime
 		}
 		sched := calculateBoostSchedule(contract, booster, boostStart)
 		scheduleMsg := formatBoostSchedule(contract, booster, sched)
 
-		contract.mutex.Lock()
-		booster.BoostScheduleAppID = e.ApplicationID()
-		booster.BoostScheduleToken = e.Token()
-		booster.BoostScheduleMsgID = "@original"
-		contract.mutex.Unlock()
+		if hasBoosted {
+			contract.mutex.Lock()
+			booster.BoostScheduleAppID = e.ApplicationID()
+			booster.BoostScheduleToken = e.Token()
+			booster.BoostScheduleMsgID = "@original"
+			contract.mutex.Unlock()
+
+			if !sched.BoostsVerified {
+				scheduleBoostVerification(contract)
+			}
+		}
 
 		_ = e.Respond(dc.Message{
 			Content:   scheduleMsg,

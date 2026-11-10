@@ -869,7 +869,7 @@ func formatBoostSchedule(contract *Contract, booster *Booster, sched BoostSchedu
 	boostStatus := ""
 	if sched.BoostsVerified {
 		boostStatus = " (verified)"
-	} else if sched.Tokens > 0 {
+	} else if booster != nil && (booster.BoostState == BoostStateBoosted || !booster.EndTime.IsZero()) && sched.Tokens > 0 {
 		boostStatus = " (assumed — sync pending)"
 	}
 	fmt.Fprintf(&sb, "**Boosts:** %s%s\n", sched.BoostIcons, boostStatus)
@@ -1183,7 +1183,7 @@ func updateActiveBoostScheduleMessages(client dc.Client, contract *Contract) {
 
 	contract.mutex.Lock()
 	for _, b := range contract.Boosters {
-		if b == nil || b.EstEndOfBoost.IsZero() || !now.Before(b.EstEndOfBoost) {
+		if b == nil || b.BoostState != BoostStateBoosted || b.EstEndOfBoost.IsZero() || !now.Before(b.EstEndOfBoost) {
 			continue
 		}
 		boostStart := b.EndTime
