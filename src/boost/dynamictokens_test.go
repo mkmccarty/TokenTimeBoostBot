@@ -702,4 +702,30 @@ func TestBoostSchedule_RocketAndFireReactions(t *testing.T) {
 			t.Errorf("expected disabled boost schedule not to send schedule content, got %q", evBoost.LastFollowup.Content)
 		}
 	})
+
+	t.Run("banker style contract suppresses ephemeral schedule response", func(t *testing.T) {
+		hash := "test-banker-style-suppresses-sched"
+		contract := setupBoostReactionTestContract(hash, chanID, listMsgID, ContractPlaystyleLeaderboard)
+		contract.Style = ContractFlagBanker
+		contract.Banker.BoostingSinkUserID = userA
+		defer func() {
+			ContractsMutex.Lock()
+			delete(Contracts, hash)
+			ContractsMutex.Unlock()
+		}()
+
+		client := dctest.New()
+		ev := dctest.ComponentButtonEventFull(guildID, chanID, listMsgID, userA, "rc_#boost#"+hash)
+		HandleContractReactions(client, ev)
+		if ev.LastFollowup != nil && ev.LastFollowup.Content != "" {
+			t.Errorf("expected banker style contract to suppress ephemeral schedule response, got %q", ev.LastFollowup.Content)
+		}
+
+		contract.State = ContractStateBanker
+		evBag := dctest.ComponentButtonEventFull(guildID, chanID, listMsgID, userA, "rc_#bag#"+hash)
+		HandleContractReactions(client, evBag)
+		if evBag.LastFollowup != nil && evBag.LastFollowup.Content != "" {
+			t.Errorf("expected banker bag click to suppress ephemeral schedule response, got %q", evBag.LastFollowup.Content)
+		}
+	})
 }
