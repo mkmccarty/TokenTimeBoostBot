@@ -979,6 +979,24 @@ func TestBoostSchedule_RocketAndFireReactions(t *testing.T) {
 			t.Errorf("expected banker bag click to suppress ephemeral schedule response, got %q", evBag.LastFollowup.Content)
 		}
 	})
+
+	t.Run("aco cooperative active booster rocket button sends ephemeral schedule", func(t *testing.T) {
+		hash := "test-aco-rocket-sched"
+		_ = setupBoostReactionTestContract(hash, chanID, listMsgID, ContractPlaystyleACOCooperative)
+		defer func() {
+			ContractsMutex.Lock()
+			delete(Contracts, hash)
+			ContractsMutex.Unlock()
+		}()
+
+		client := dctest.New()
+		evBoost := dctest.ComponentButtonEventFull(guildID, chanID, listMsgID, userA, "rc_#boost#"+hash)
+		HandleContractReactions(client, evBoost)
+
+		if evBoost.LastFollowup == nil || !strings.Contains(evBoost.LastFollowup.Content, "Boost Schedule for <@"+userA+">") {
+			t.Fatalf("expected ephemeral schedule response on ACO contract rocket click, got %+v", evBoost.LastFollowup)
+		}
+	})
 }
 
 func TestCalculateBoostSchedule_PopulationBasisAndOfflineProjection(t *testing.T) {

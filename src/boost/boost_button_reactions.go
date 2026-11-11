@@ -109,7 +109,7 @@ func HandleContractReactions(client dc.Client, e *dc.ComponentEvent) {
 		var boostedBooster *Booster
 		activeBoosterID := contract.currentBoosterID()
 		effectiveUserID := resolveBoostClickUserID(contract, userID, activeBoosterID)
-		isActiveBooster := activeBoosterID != "" && effectiveUserID == activeBoosterID && isFastrunOrLeaderboard(contract)
+		isActiveBooster := activeBoosterID != "" && effectiveUserID == activeBoosterID && isAutoBoostScheduleEligible(contract)
 		if isStale {
 			redraw = true
 		} else {
