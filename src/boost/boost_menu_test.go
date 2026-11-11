@@ -385,7 +385,7 @@ func TestToggleBoostSchedulePersistenceAndJoin(t *testing.T) {
 		CreatorID:    []string{"creator1"},
 		Order:        make([]string, 0),
 		Boosters:     make(map[string]*Booster),
-		Location:     []*LocationData{{GuildID: "guild1", ChannelID: "channel1"}},
+		Location:     []*LocationData{{GuildID: "guild1", ChannelID: "channel1", ListMsgID: "listMsg1"}},
 	}
 	Contracts[contract.ContractHash] = contract
 	defer delete(Contracts, contract.ContractHash)
@@ -399,6 +399,8 @@ func TestToggleBoostSchedulePersistenceAndJoin(t *testing.T) {
 		t.Errorf("expected DisableBoostSchedule to be true on join from farmerstate, got false")
 	}
 
+	initialEdits := len(client.EditedMessages)
+
 	// Test toggling via menu
 	ev := dctest.ComponentSelectEvent("menu#"+contract.ContractHash, "toggleboostsched")
 
@@ -410,14 +412,29 @@ func TestToggleBoostSchedulePersistenceAndJoin(t *testing.T) {
 	if farmerstate.GetMiscSettingFlag(testUserID, "DisableBoostSchedule") {
 		t.Errorf("expected farmerstate DisableBoostSchedule to be false after toggle, got true")
 	}
+	if len(client.EditedMessages) <= initialEdits {
+		t.Errorf("expected refreshBoostListMessage edit after menu toggle, got %d edits", len(client.EditedMessages))
+	}
 
 	// Toggle again
+	editsBeforeSecond := len(client.EditedMessages)
 	HandleMenuReactions(client, ev)
 	if !b.DisableBoostSchedule {
 		t.Errorf("expected DisableBoostSchedule to be toggled back to true, got false")
 	}
 	if !farmerstate.GetMiscSettingFlag(testUserID, "DisableBoostSchedule") {
 		t.Errorf("expected farmerstate DisableBoostSchedule to be true after second toggle, got false")
+	}
+	if len(client.EditedMessages) <= editsBeforeSecond {
+		t.Errorf("expected refreshBoostListMessage edit after second toggle, got %d edits", len(client.EditedMessages))
+	}
+
+	// Test menu deselection (values is empty) refreshes the message to reset the dropdown placeholder
+	editsBeforeDeselect := len(client.EditedMessages)
+	evEmpty := dctest.ComponentSelectEvent("menu#" + contract.ContractHash)
+	HandleMenuReactions(client, evEmpty)
+	if len(client.EditedMessages) <= editsBeforeDeselect {
+		t.Errorf("expected refreshBoostListMessage edit after menu deselection, got %d edits", len(client.EditedMessages))
 	}
 }
 
@@ -632,6 +649,7 @@ func TestBuildSandboxMessage(t *testing.T) {
 		CoopSize:        3,
 		MinutesPerToken: 60,
 		LengthInSeconds: 86400,
+		CreatorID:       []string{"u1"},
 		Order:           []string{"u1"},
 		Boosters: map[string]*Booster{
 			"u1": {
@@ -686,6 +704,7 @@ func TestBoostMenuSandboxEphemeralResponse(t *testing.T) {
 		CoopSize:        5,
 		MinutesPerToken: 60,
 		LengthInSeconds: 86400,
+		CreatorID:       []string{"u1"},
 		Order:           []string{"u1"},
 		Boosters: map[string]*Booster{
 			"u1": {

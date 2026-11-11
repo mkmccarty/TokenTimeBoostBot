@@ -937,6 +937,8 @@ func TestBoostSchedule_RocketAndFireReactions(t *testing.T) {
 	t.Run("active booster with DisableBoostSchedule toggled on does not receive schedule ephemeral", func(t *testing.T) {
 		hash := "test-disable-boost-sched"
 		contract := setupBoostReactionTestContract(hash, chanID, listMsgID, ContractPlaystyleFastrun)
+		farmerstate.SetMiscSettingFlag(userA, "DisableBoostSchedule", true)
+		defer farmerstate.SetMiscSettingFlag(userA, "DisableBoostSchedule", false)
 		contract.Boosters[userA].DisableBoostSchedule = true
 		defer func() {
 			ContractsMutex.Lock()

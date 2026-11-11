@@ -191,6 +191,17 @@ func HandleMenuReactions(client dc.Client, e *dc.ComponentEvent) {
 	contractHash := dc.SplitContractHash(e.CustomID())
 	contract := FindContractByHash(contractHash)
 
+	if client == nil {
+		client = getActiveBoostClient()
+	}
+
+	var refreshed bool
+	defer func() {
+		if !refreshed && contract != nil && client != nil {
+			refreshBoostListMessage(client, contract, false)
+		}
+	}()
+
 	// menu # HASH
 	values := e.Values()
 	if len(values) == 0 || contract == nil {
@@ -314,12 +325,14 @@ func HandleMenuReactions(client dc.Client, e *dc.ComponentEvent) {
 			Content: fmt.Sprintf(message, contract.Boosters[userID].Nick),
 		})
 		refreshBoostListMessage(client, contract, false)
+		refreshed = true
 	case "send":
 		_ = e.DeferUpdate()
 		wantUser := cmd[1]
 		_, redraw := buttonReactionToken(client, e.GuildID(), e.ChannelID(), contract, userID, 1, wantUser)
 		if redraw {
 			refreshBoostListMessage(client, contract, false)
+			refreshed = true
 		}
 		sendOrUpdateUserReactionSummary(e, contract, userID)
 	case "next":
@@ -328,6 +341,7 @@ func HandleMenuReactions(client dc.Client, e *dc.ComponentEvent) {
 		_, redraw := buttonReactionToken(client, e.GuildID(), e.ChannelID(), contract, userID, 1, nextUser)
 		if redraw {
 			refreshBoostListMessage(client, contract, false)
+			refreshed = true
 		}
 		sendOrUpdateUserReactionSummary(e, contract, userID)
 	case "next2":
@@ -336,6 +350,7 @@ func HandleMenuReactions(client dc.Client, e *dc.ComponentEvent) {
 		_, redraw := buttonReactionToken(client, e.GuildID(), e.ChannelID(), contract, userID, 2, nextUser)
 		if redraw {
 			refreshBoostListMessage(client, contract, false)
+			refreshed = true
 		}
 		sendOrUpdateUserReactionSummary(e, contract, userID)
 	case "grange":
@@ -394,21 +409,18 @@ func HandleMenuReactions(client dc.Client, e *dc.ComponentEvent) {
 		})
 		buttonReactionRanCoop(client, e, contract, userID)
 	case "togglerxlog":
+		disabled := !farmerstate.GetMiscSettingFlag(userID, "DisableEphemeralLog")
+		farmerstate.SetMiscSettingFlag(userID, "DisableEphemeralLog", disabled)
+
 		contract.mutex.Lock()
 		booster := contract.Boosters[userID]
-		var disabled bool
 		if booster != nil {
-			booster.DisableEphemeralLog = !booster.DisableEphemeralLog
-			disabled = booster.DisableEphemeralLog
+			booster.DisableEphemeralLog = disabled
 			if disabled {
 				booster.NonTokenMsgID = ""
 			}
-		} else {
-			disabled = !farmerstate.GetMiscSettingFlag(userID, "DisableEphemeralLog")
 		}
 		contract.mutex.Unlock()
-
-		farmerstate.SetMiscSettingFlag(userID, "DisableEphemeralLog", disabled)
 
 		var msgStr string
 		if disabled {
@@ -422,23 +434,20 @@ func HandleMenuReactions(client dc.Client, e *dc.ComponentEvent) {
 			Ephemeral: true,
 		})
 	case "toggleboostsched":
+		disabled := !farmerstate.GetMiscSettingFlag(userID, "DisableBoostSchedule")
+		farmerstate.SetMiscSettingFlag(userID, "DisableBoostSchedule", disabled)
+
 		contract.mutex.Lock()
 		booster := contract.Boosters[userID]
-		var disabled bool
 		if booster != nil {
-			booster.DisableBoostSchedule = !booster.DisableBoostSchedule
-			disabled = booster.DisableBoostSchedule
+			booster.DisableBoostSchedule = disabled
 			if disabled {
 				booster.BoostScheduleMsgID = ""
 				booster.BoostScheduleToken = ""
 				booster.BoostScheduleAppID = ""
 			}
-		} else {
-			disabled = !farmerstate.GetMiscSettingFlag(userID, "DisableBoostSchedule")
 		}
 		contract.mutex.Unlock()
-
-		farmerstate.SetMiscSettingFlag(userID, "DisableBoostSchedule", disabled)
 
 		var msgStr string
 		if disabled {
@@ -565,12 +574,14 @@ func HandleMenuReactions(client dc.Client, e *dc.ComponentEvent) {
 		_ = e.DeferUpdate()
 		if redraw {
 			refreshBoostListMessage(client, contract, false)
+			refreshed = true
 		}
 	case "last":
 		_, redraw := buttonReactionLast(client, e.GuildID(), e.ChannelID(), contract, userID)
 		_ = e.DeferUpdate()
 		if redraw {
 			refreshBoostListMessage(client, contract, false)
+			refreshed = true
 		}
 	case "ihrlog":
 		var logLines []string
