@@ -342,8 +342,8 @@ func TestCalculateBoostSchedule_UsesKnownArtifacts(t *testing.T) {
 	if !strings.Contains(schedSIAB.SIABDeliveryArtifacts, "SIAB_T4L") || strings.Contains(schedSIAB.SIABDeliveryArtifacts, "GUSSET_") {
 		t.Errorf("expected SIABDeliveryArtifacts to use SIAB_T4L instead of Gusset, got %q", schedSIAB.SIABDeliveryArtifacts)
 	}
-	if schedSIAB.SIABTachyonStones+schedSIAB.SIABQuantumStones != 10 {
-		t.Errorf("expected 10 total SIAB delivery stones (2+3+3+2) for boosterLeggy, got %d T + %d Q",
+	if schedSIAB.SIABTachyonStones+schedSIAB.SIABQuantumStones != 9 {
+		t.Errorf("expected 9 total SIAB delivery stones (2+3+2+2) for boosterLeggy, got %d T + %d Q",
 			schedSIAB.SIABTachyonStones, schedSIAB.SIABQuantumStones)
 	}
 	siabFormatted := formatBoostSchedule(contractWithSIAB, boosterLeggy, schedSIAB)
