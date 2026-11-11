@@ -183,6 +183,7 @@ type BoostSchedule struct {
 	LayRate               float64
 	ShipRate              float64
 	DeliveryRate          float64
+	IsSIABRun             bool
 	ShowSIABSet           bool
 	SIABDeliveryArtifacts string
 	SIABTachyonStones     int
@@ -365,7 +366,7 @@ func calculateBoostSchedule(contract *Contract, booster *Booster, now time.Time)
 	gusset := DefaultLeggyGusset
 	deflStones := 2
 	metrStones := 3
-	compStones := 3
+	compStones := 2
 	gussStones := 2
 	siabStones := 2
 	deflQuality := "T4L"
@@ -374,6 +375,7 @@ func calculateBoostSchedule(contract *Contract, booster *Booster, now time.Time)
 	gussQuality := "T4L"
 	siabQuality := "T4L"
 	hasDeliveryArt := false
+	hasGussetArt := false
 	hasSIABArt := false
 
 	chalice := DefaultLeggyChalice
@@ -443,6 +445,7 @@ func calculateBoostSchedule(contract *Contract, booster *Booster, now time.Time)
 			}
 		case "Gusset":
 			hasDeliveryArt = true
+			hasGussetArt = true
 			if a.LayBuff > 0 {
 				gusset = a.LayBuff
 			}
@@ -503,8 +506,28 @@ func calculateBoostSchedule(contract *Contract, booster *Booster, now time.Time)
 		}
 	}
 
+	if !hasGussetArt && booster != nil && booster.UserID != "" {
+		savedGuss := farmerstate.GetMiscSettingString(booster.UserID, "guss")
+		if savedGuss == "" {
+			savedGuss = farmerstate.GetMiscSettingString(booster.UserID, "GUSSET")
+		}
+		if strings.HasPrefix(savedGuss, "T") {
+			if art := ei.GetArtifactByKey("G-" + savedGuss); art != nil {
+				gussQuality = art.Quality
+				gussStones = art.Stones
+				if art.LayBuff > 0 {
+					gusset = art.LayBuff
+				}
+			}
+		}
+	}
+
 	if !hasSIABArt && booster != nil && booster.UserID != "" {
-		if savedSIAB := farmerstate.GetMiscSettingString(booster.UserID, "SIAB"); strings.HasPrefix(savedSIAB, "T") {
+		savedSIAB := farmerstate.GetMiscSettingString(booster.UserID, "siab")
+		if savedSIAB == "" {
+			savedSIAB = farmerstate.GetMiscSettingString(booster.UserID, "SIAB")
+		}
+		if strings.HasPrefix(savedSIAB, "T") {
 			if art := ei.GetArtifactByKey("SIAB-" + savedSIAB); art != nil {
 				siabQuality = art.Quality
 				siabStones = art.Stones
@@ -512,12 +535,25 @@ func calculateBoostSchedule(contract *Contract, booster *Booster, now time.Time)
 		}
 	}
 
+	isSIABRun := showSIABSet
+
+	fourthQuality := gussQuality
+	fourthStones := gussStones
+	fourthPrefix := "GUSSET_"
+	activeGussetMultiplier := gusset
+	if isSIABRun {
+		fourthQuality = siabQuality
+		fourthStones = siabStones
+		fourthPrefix = "SIAB_"
+		activeGussetMultiplier = 1.0 // SIAB remains in place, no gusset
+	}
+
 	deliverySlots := DefaultLeggyDeliverySlots
-	if hasDeliveryArt {
-		deliverySlots = float64(deflStones + metrStones + compStones + gussStones)
+	if hasDeliveryArt || (isSIABRun && hasSIABArt) || (!isSIABRun && hasGussetArt) {
+		deliverySlots = float64(deflStones + metrStones + compStones + fourthStones)
 	}
 	siabDeliverySlots := max(0, int(DefaultLeggyDeliverySlots)-3+siabStones)
-	if hasDeliveryArt {
+	if hasDeliveryArt || hasSIABArt {
 		siabDeliverySlots = max(0, deflStones+metrStones+compStones+siabStones)
 	}
 	if hasColleggArt {
@@ -570,7 +606,7 @@ func calculateBoostSchedule(contract *Contract, booster *Booster, now time.Time)
 
 	// Calculate max shipping population using the stone-hunt method from estimate_time.go
 	deflectorMultiplier := 1.0 + totalDeflectorBonus
-	baseELR := 3.772 * metronome * gusset
+	baseELR := 3.772 * metronome * activeGussetMultiplier
 	baseShipping := 7.148 * compass
 	contractBaseELR := baseELR * modELR * modHab
 
@@ -604,7 +640,7 @@ func calculateBoostSchedule(contract *Contract, booster *Booster, now time.Time)
 		{"DEFL_", deflQuality},
 		{"METR_", metrQuality},
 		{"COMP_", compQuality},
-		{"GUSSET_", gussQuality},
+		{fourthPrefix, fourthQuality},
 	} {
 		if spec.quality != "" && spec.quality != "NONE" {
 			deliveryArtIcons.WriteString(boostEmojiMarkdown(spec.prefix + spec.quality))
@@ -653,7 +689,7 @@ func calculateBoostSchedule(contract *Contract, booster *Booster, now time.Time)
 		unusedRatioELR = max(1.0, contractELR/bestTotal)
 	}
 
-	maxHabCap := (14_175_000_000.0 / DefaultLeggyGusset) * gusset * colHab * modHab
+	maxHabCap := (14_175_000_000.0 / DefaultLeggyGusset) * activeGussetMultiplier * colHab * modHab
 	maxPop := maxHabCap / unusedRatioELR
 
 	// Determine online IHR per hab per minute (including TE, colleggtibles, chalice, monocle, life stones)
@@ -799,6 +835,7 @@ func calculateBoostSchedule(contract *Contract, booster *Booster, now time.Time)
 		LayRate:               bestLR,
 		ShipRate:              bestSR,
 		DeliveryRate:          bestTotal,
+		IsSIABRun:             isSIABRun,
 		ShowSIABSet:           showSIABSet,
 		SIABDeliveryArtifacts: siabDeliveryArtIcons.String(),
 		SIABTachyonStones:     siabBestTach,
@@ -873,16 +910,16 @@ func formatBoostSchedule(contract *Contract, booster *Booster, sched BoostSchedu
 		boostStatus = " (assumed — sync pending)"
 	}
 	fmt.Fprintf(&sb, "**Boosts:** %s%s\n", sched.BoostIcons, boostStatus)
-	fmt.Fprintf(&sb, "**Post-Boost Delivery Set:** %s — %s `%d`  %s `%d`\n",
-		sched.DeliveryArtifacts, tachStoneIcon, sched.TachyonStones, quantStoneIcon, sched.QuantumStones)
-	fmt.Fprintf(&sb, "**Projected Rates:** **Delivery:** `%s` (**LR:** `%s` | **SR:** `%s`)\n",
-		formatStoneRatePerHour(sched.DeliveryRate), formatStoneRatePerHour(sched.LayRate), formatStoneRatePerHour(sched.ShipRate))
-	if sched.ShowSIABSet {
-		fmt.Fprintf(&sb, "**Post-Boost Delivery SIAB Set:** %s — %s `%d`  %s `%d`\n",
-			sched.SIABDeliveryArtifacts, tachStoneIcon, sched.SIABTachyonStones, quantStoneIcon, sched.SIABQuantumStones)
-		fmt.Fprintf(&sb, "**Projected SIAB Rates:** **Delivery:** `%s` (**LR:** `%s` | **SR:** `%s`)\n",
-			formatStoneRatePerHour(sched.SIABDeliveryRate), formatStoneRatePerHour(sched.SIABLayRate), formatStoneRatePerHour(sched.SIABShipRate))
+	deliverySetLabel := "**Post-Boost Delivery Set:**"
+	projectedRatesLabel := "**Projected Rates:**"
+	if sched.IsSIABRun {
+		deliverySetLabel = "**Post-Boost Delivery SIAB Set:**"
+		projectedRatesLabel = "**Projected SIAB Rates:**"
 	}
+	fmt.Fprintf(&sb, "%s %s — %s `%d`  %s `%d`\n",
+		deliverySetLabel, sched.DeliveryArtifacts, tachStoneIcon, sched.TachyonStones, quantStoneIcon, sched.QuantumStones)
+	fmt.Fprintf(&sb, "%s **Delivery:** `%s` (**LR:** `%s` | **SR:** `%s`)\n",
+		projectedRatesLabel, formatStoneRatePerHour(sched.DeliveryRate), formatStoneRatePerHour(sched.LayRate), formatStoneRatePerHour(sched.ShipRate))
 	sb.WriteString("\n**Schedule:**\n")
 	if sched.CRDuration > 0 {
 		fmt.Fprintf(&sb, "• **Reach CR Population (`%s`):** `%s` — Request CR %s <t:%d:R>\n",
@@ -942,17 +979,18 @@ func extractContributorDeflector(contrib *ei.ContractCoopStatusResponse_Contribu
 			if lvl >= 0 && lvl < len(ei.ArtifactLevels) && rar >= 0 && rar < len(ei.ArtifactRarity) {
 				strType := ei.ArtifactLevels[lvl] + ei.ArtifactRarity[rar]
 				if art := ei.GetArtifactByKey("D-" + strType); art != nil {
-					return *art
+					a := *art
+					a.Stones = len(artifact.GetStones())
+					return a
 				}
 				if buff, ok := deflectorBuffMap[strType]; ok {
-					numStones, _ := ei.GetStones(spec.GetName(), spec.GetLevel(), spec.GetRarity())
 					return ei.Artifact{
 						Type:     "Deflector",
 						Quality:  strType,
 						ShipBuff: 1.0,
 						LayBuff:  1.0,
 						DeflBuff: buff,
-						Stones:   numStones,
+						Stones:   len(artifact.GetStones()),
 					}
 				}
 			}
@@ -1021,6 +1059,97 @@ func setBoosterDeflectorArtifact(b *Booster, deflArt ei.Artifact) {
 	}
 	if !replaced {
 		b.ArtifactSet.Artifacts = append(b.ArtifactSet.Artifacts, deflArt)
+	}
+	b.ArtifactSet = getUserArtifacts(b.UserID, &b.ArtifactSet)
+}
+
+func extractContributorArtifacts(contrib *ei.ContractCoopStatusResponse_ContributionInfo) []ei.Artifact {
+	if contrib == nil {
+		return nil
+	}
+	fi := contrib.GetFarmInfo()
+	if fi == nil || len(fi.GetEquippedArtifacts()) == 0 {
+		return nil
+	}
+	var res []ei.Artifact
+	for _, artifact := range fi.GetEquippedArtifacts() {
+		spec := artifact.GetSpec()
+		if spec == nil {
+			continue
+		}
+		lvl := int(spec.GetLevel())
+		rar := int(spec.GetRarity())
+		if lvl < 0 || lvl >= len(ei.ArtifactLevels) || rar < 0 || rar >= len(ei.ArtifactRarity) {
+			continue
+		}
+		strType := ei.ArtifactLevels[lvl] + ei.ArtifactRarity[rar]
+
+		prefix := ""
+		artType := ""
+		switch spec.GetName() {
+		case ei.ArtifactSpec_TACHYON_DEFLECTOR:
+			prefix = "D-"
+			artType = "Deflector"
+		case ei.ArtifactSpec_QUANTUM_METRONOME:
+			prefix = "M-"
+			artType = "Metronome"
+		case ei.ArtifactSpec_INTERSTELLAR_COMPASS:
+			prefix = "C-"
+			artType = "Compass"
+		case ei.ArtifactSpec_ORNATE_GUSSET:
+			prefix = "G-"
+			artType = "Gusset"
+		case ei.ArtifactSpec_SHIP_IN_A_BOTTLE:
+			prefix = "SIAB-"
+			artType = "SIAB"
+		case ei.ArtifactSpec_THE_CHALICE:
+			prefix = "CH-"
+			artType = "Chalice"
+		case ei.ArtifactSpec_DILITHIUM_MONOCLE:
+			prefix = "MO-"
+			artType = "Monocle"
+		}
+		slottedStones := len(artifact.GetStones())
+		if prefix != "" {
+			if art := ei.GetArtifactByKey(prefix + strType); art != nil {
+				a := *art
+				a.Stones = slottedStones
+				res = append(res, a)
+			} else {
+				res = append(res, ei.Artifact{
+					Type:    artType,
+					Quality: strType,
+					Stones:  slottedStones,
+				})
+			}
+		}
+	}
+	return res
+}
+
+func updateBoosterArtifactsFromFarmInfo(b *Booster, contrib *ei.ContractCoopStatusResponse_ContributionInfo) {
+	if b == nil || contrib == nil {
+		return
+	}
+	equipped := extractContributorArtifacts(contrib)
+	if len(equipped) == 0 {
+		return
+	}
+	if len(b.ArtifactSet.Artifacts) == 0 && b.UserID != "" {
+		b.ArtifactSet = getUserArtifacts(b.UserID, nil)
+	}
+	for _, ea := range equipped {
+		replaced := false
+		for i, a := range b.ArtifactSet.Artifacts {
+			if a.Type == ea.Type {
+				b.ArtifactSet.Artifacts[i] = ea
+				replaced = true
+				break
+			}
+		}
+		if !replaced {
+			b.ArtifactSet.Artifacts = append(b.ArtifactSet.Artifacts, ea)
+		}
 	}
 	b.ArtifactSet = getUserArtifacts(b.UserID, &b.ArtifactSet)
 }
@@ -1480,6 +1609,7 @@ func applyCoopStatusDeflectors(contract *Contract, coopStatus *ei.ContractCoopSt
 			matchedBoosters[matchedUID] = true
 			b := contract.Boosters[matchedUID]
 			setBoosterDeflectorArtifact(b, deflArt)
+			updateBoosterArtifactsFromFarmInfo(b, contrib)
 			applyContributorBoostAndPop(b, contrib)
 		} else {
 			unmatchedContribs = append(unmatchedContribs, unmatchedEntry{contrib: contrib, deflArt: deflArt})
@@ -1576,6 +1706,7 @@ func applyCoopStatusDeflectors(contract *Contract, coopStatus *ei.ContractCoopSt
 			matchedBoosters[bestUID] = true
 			b := contract.Boosters[bestUID]
 			setBoosterDeflectorArtifact(b, ue.deflArt)
+			updateBoosterArtifactsFromFarmInfo(b, contrib)
 			applyContributorBoostAndPop(b, contrib)
 			rawName := strings.TrimSpace(contrib.GetUserName())
 			if rawName != "" && farmerstate.GetMiscSettingString(bestUID, "ei_ign") == "" {
