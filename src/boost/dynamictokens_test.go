@@ -476,9 +476,9 @@ func TestBoostSchedule_PartiallySlottedArtifacts(t *testing.T) {
 			EquippedArtifacts: []*ei.CompleteArtifact{
 				{
 					Spec: &ei.ArtifactSpec{
-						Name:    ei.ArtifactSpec_TACHYON_DEFLECTOR.Enum(),
-						Level:   ei.ArtifactSpec_GREATER.Enum(),
-						Rarity:  ei.ArtifactSpec_RARE.Enum(),
+						Name:   ei.ArtifactSpec_TACHYON_DEFLECTOR.Enum(),
+						Level:  ei.ArtifactSpec_GREATER.Enum(),
+						Rarity: ei.ArtifactSpec_RARE.Enum(),
 					},
 					Stones: []*ei.ArtifactSpec{
 						{Name: ei.ArtifactSpec_QUANTUM_STONE.Enum(), Level: ei.ArtifactSpec_NORMAL.Enum()},
@@ -486,9 +486,9 @@ func TestBoostSchedule_PartiallySlottedArtifacts(t *testing.T) {
 				},
 				{
 					Spec: &ei.ArtifactSpec{
-						Name:    ei.ArtifactSpec_QUANTUM_METRONOME.Enum(),
-						Level:   ei.ArtifactSpec_GREATER.Enum(),
-						Rarity:  ei.ArtifactSpec_LEGENDARY.Enum(),
+						Name:   ei.ArtifactSpec_QUANTUM_METRONOME.Enum(),
+						Level:  ei.ArtifactSpec_GREATER.Enum(),
+						Rarity: ei.ArtifactSpec_LEGENDARY.Enum(),
 					},
 					Stones: []*ei.ArtifactSpec{
 						{Name: ei.ArtifactSpec_TACHYON_STONE.Enum(), Level: ei.ArtifactSpec_NORMAL.Enum()},
@@ -498,9 +498,9 @@ func TestBoostSchedule_PartiallySlottedArtifacts(t *testing.T) {
 				},
 				{
 					Spec: &ei.ArtifactSpec{
-						Name:    ei.ArtifactSpec_INTERSTELLAR_COMPASS.Enum(),
-						Level:   ei.ArtifactSpec_GREATER.Enum(),
-						Rarity:  ei.ArtifactSpec_LEGENDARY.Enum(),
+						Name:   ei.ArtifactSpec_INTERSTELLAR_COMPASS.Enum(),
+						Level:  ei.ArtifactSpec_GREATER.Enum(),
+						Rarity: ei.ArtifactSpec_LEGENDARY.Enum(),
 					},
 					Stones: []*ei.ArtifactSpec{
 						{Name: ei.ArtifactSpec_TACHYON_STONE.Enum(), Level: ei.ArtifactSpec_NORMAL.Enum()},
@@ -509,9 +509,9 @@ func TestBoostSchedule_PartiallySlottedArtifacts(t *testing.T) {
 				},
 				{
 					Spec: &ei.ArtifactSpec{
-						Name:    ei.ArtifactSpec_ORNATE_GUSSET.Enum(),
-						Level:   ei.ArtifactSpec_GREATER.Enum(),
-						Rarity:  ei.ArtifactSpec_LEGENDARY.Enum(),
+						Name:   ei.ArtifactSpec_ORNATE_GUSSET.Enum(),
+						Level:  ei.ArtifactSpec_GREATER.Enum(),
+						Rarity: ei.ArtifactSpec_LEGENDARY.Enum(),
 					},
 					Stones: []*ei.ArtifactSpec{
 						{Name: ei.ArtifactSpec_QUANTUM_STONE.Enum(), Level: ei.ArtifactSpec_NORMAL.Enum()},
