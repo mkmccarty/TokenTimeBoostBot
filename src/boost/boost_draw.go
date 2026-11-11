@@ -254,7 +254,9 @@ func DrawBoostListCustom(contract *Contract, compact bool) []dc.LayoutComponent 
 			}
 		}
 	}
-	fmt.Fprintf(&header, "> Coordinator: <@%s>\n", contract.CreatorID[0])
+	if len(contract.CreatorID) > 0 {
+		fmt.Fprintf(&header, "> Coordinator: <@%s>\n", contract.CreatorID[0])
+	}
 	if contract.Location[0].GuildContractRole.ID != "" {
 		fmt.Fprintf(&header, "> Team Role: %s\n", contract.Location[0].RoleMention)
 	}

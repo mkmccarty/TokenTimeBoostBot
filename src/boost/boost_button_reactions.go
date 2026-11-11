@@ -124,7 +124,8 @@ func HandleContractReactions(client dc.Client, e *dc.ComponentEvent) {
 			}
 		}
 		if redraw && boostedBooster != nil && boostedBooster.BoostState == BoostStateBoosted {
-			schedDisabled := boostedBooster.DisableBoostSchedule || farmerstate.GetMiscSettingFlag(boostedBooster.UserID, "DisableBoostSchedule")
+			schedDisabled := farmerstate.GetMiscSettingFlag(boostedBooster.UserID, "DisableBoostSchedule")
+			boostedBooster.DisableBoostSchedule = schedDisabled
 			if !schedDisabled {
 				sendBoostScheduleEphemeral(client, e, contract, boostedBooster)
 			} else {
