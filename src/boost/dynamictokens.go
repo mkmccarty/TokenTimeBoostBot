@@ -367,7 +367,7 @@ func calculateBoostSchedule(contract *Contract, booster *Booster, now time.Time)
 	deflStones := 2
 	metrStones := 3
 	compStones := 2
-	gussStones := 2
+	gussStones := 3
 	siabStones := 2
 	deflQuality := "T4L"
 	metrQuality := "T4L"

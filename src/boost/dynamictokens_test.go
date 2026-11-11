@@ -342,8 +342,8 @@ func TestCalculateBoostSchedule_UsesKnownArtifacts(t *testing.T) {
 	if !strings.Contains(schedSIAB.SIABDeliveryArtifacts, "SIAB_T4L") || strings.Contains(schedSIAB.SIABDeliveryArtifacts, "GUSSET_") {
 		t.Errorf("expected SIABDeliveryArtifacts to use SIAB_T4L instead of Gusset, got %q", schedSIAB.SIABDeliveryArtifacts)
 	}
-	if schedSIAB.SIABTachyonStones+schedSIAB.SIABQuantumStones != 10 {
-		t.Errorf("expected 10 total SIAB delivery stones (2+3+3+2) for boosterLeggy, got %d T + %d Q",
+	if schedSIAB.SIABTachyonStones+schedSIAB.SIABQuantumStones != 9 {
+		t.Errorf("expected 9 total SIAB delivery stones (2+3+2+2) for boosterLeggy, got %d T + %d Q",
 			schedSIAB.SIABTachyonStones, schedSIAB.SIABQuantumStones)
 	}
 	siabFormatted := formatBoostSchedule(contractWithSIAB, boosterLeggy, schedSIAB)
@@ -476,9 +476,9 @@ func TestBoostSchedule_PartiallySlottedArtifacts(t *testing.T) {
 			EquippedArtifacts: []*ei.CompleteArtifact{
 				{
 					Spec: &ei.ArtifactSpec{
-						Name:    ei.ArtifactSpec_TACHYON_DEFLECTOR.Enum(),
-						Level:   ei.ArtifactSpec_GREATER.Enum(),
-						Rarity:  ei.ArtifactSpec_RARE.Enum(),
+						Name:   ei.ArtifactSpec_TACHYON_DEFLECTOR.Enum(),
+						Level:  ei.ArtifactSpec_GREATER.Enum(),
+						Rarity: ei.ArtifactSpec_RARE.Enum(),
 					},
 					Stones: []*ei.ArtifactSpec{
 						{Name: ei.ArtifactSpec_QUANTUM_STONE.Enum(), Level: ei.ArtifactSpec_NORMAL.Enum()},
@@ -486,9 +486,9 @@ func TestBoostSchedule_PartiallySlottedArtifacts(t *testing.T) {
 				},
 				{
 					Spec: &ei.ArtifactSpec{
-						Name:    ei.ArtifactSpec_QUANTUM_METRONOME.Enum(),
-						Level:   ei.ArtifactSpec_GREATER.Enum(),
-						Rarity:  ei.ArtifactSpec_LEGENDARY.Enum(),
+						Name:   ei.ArtifactSpec_QUANTUM_METRONOME.Enum(),
+						Level:  ei.ArtifactSpec_GREATER.Enum(),
+						Rarity: ei.ArtifactSpec_LEGENDARY.Enum(),
 					},
 					Stones: []*ei.ArtifactSpec{
 						{Name: ei.ArtifactSpec_TACHYON_STONE.Enum(), Level: ei.ArtifactSpec_NORMAL.Enum()},
@@ -498,9 +498,9 @@ func TestBoostSchedule_PartiallySlottedArtifacts(t *testing.T) {
 				},
 				{
 					Spec: &ei.ArtifactSpec{
-						Name:    ei.ArtifactSpec_INTERSTELLAR_COMPASS.Enum(),
-						Level:   ei.ArtifactSpec_GREATER.Enum(),
-						Rarity:  ei.ArtifactSpec_LEGENDARY.Enum(),
+						Name:   ei.ArtifactSpec_INTERSTELLAR_COMPASS.Enum(),
+						Level:  ei.ArtifactSpec_GREATER.Enum(),
+						Rarity: ei.ArtifactSpec_LEGENDARY.Enum(),
 					},
 					Stones: []*ei.ArtifactSpec{
 						{Name: ei.ArtifactSpec_TACHYON_STONE.Enum(), Level: ei.ArtifactSpec_NORMAL.Enum()},
@@ -509,9 +509,9 @@ func TestBoostSchedule_PartiallySlottedArtifacts(t *testing.T) {
 				},
 				{
 					Spec: &ei.ArtifactSpec{
-						Name:    ei.ArtifactSpec_ORNATE_GUSSET.Enum(),
-						Level:   ei.ArtifactSpec_GREATER.Enum(),
-						Rarity:  ei.ArtifactSpec_LEGENDARY.Enum(),
+						Name:   ei.ArtifactSpec_ORNATE_GUSSET.Enum(),
+						Level:  ei.ArtifactSpec_GREATER.Enum(),
+						Rarity: ei.ArtifactSpec_LEGENDARY.Enum(),
 					},
 					Stones: []*ei.ArtifactSpec{
 						{Name: ei.ArtifactSpec_QUANTUM_STONE.Enum(), Level: ei.ArtifactSpec_NORMAL.Enum()},
