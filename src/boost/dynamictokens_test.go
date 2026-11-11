@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"google.golang.org/protobuf/proto"
+
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc/dctest"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
@@ -229,7 +231,7 @@ func TestCalculateBoostSchedule_UsesKnownArtifacts(t *testing.T) {
 			Artifacts: []ei.Artifact{
 				{Type: "Deflector", Quality: "T4L", DeflBuff: 1.20, Stones: 2},
 				{Type: "Metronome", Quality: "T4L", LayBuff: 1.35, Stones: 3},
-				{Type: "Compass", Quality: "T4L", ShipBuff: 1.50, Stones: 3},
+				{Type: "Compass", Quality: "T4L", ShipBuff: 1.50, Stones: 2},
 				{Type: "Gusset", Quality: "T4L", LayBuff: 1.25, Stones: 3},
 				{Type: "Chalice", Quality: "T4L", Stones: 3},
 				{Type: "Monocle", Quality: "T4L", Stones: 3},
@@ -353,6 +355,225 @@ func TestCalculateBoostSchedule_UsesKnownArtifacts(t *testing.T) {
 		if !strings.Contains(siabFormatted, want) {
 			t.Errorf("expected %q in SIAB formatted output, got:\n%s", want, siabFormatted)
 		}
+	}
+}
+
+func TestBoostSchedule_SIABVsGussetSwap(t *testing.T) {
+	now := time.Date(2026, 11, 11, 12, 0, 0, 0, time.UTC)
+	testUID := "100000000000000099"
+
+	// Booster has SIAB equipped (from boosting/IHR) and a T4E Gusset saved in farmerstate
+	farmerstate.SetMiscSettingString(testUID, "guss", "T4E")
+	farmerstate.SetMiscSettingString(testUID, "siab", "T4L")
+
+	boosterWithSIAB := &Booster{
+		UserID:       testUID,
+		TokensWanted: 6,
+		ArtifactSet: ArtifactSet{
+			Artifacts: []ei.Artifact{
+				{Type: "Deflector", Quality: "T4L", DeflBuff: 1.20, Stones: 2},
+				{Type: "Metronome", Quality: "T4L", LayBuff: 1.35, Stones: 3},
+				{Type: "Compass", Quality: "T4L", ShipBuff: 1.50, Stones: 2},
+				{Type: "SIAB", Quality: "T4L", Stones: 2},
+			},
+		},
+	}
+
+	// 1. Non-SIAB run contract: estimate should assume SIAB is swapped with Gusset
+	nonSIABContractID := "test-sched-nonsiab"
+	ei.EggIncContractsAll[nonSIABContractID] = ei.EggIncContract{
+		ID:         nonSIABContractID,
+		CxpMax:     100000,
+		CxpMaxSiab: 95000, // CxpMaxSiab < CxpMax -> Not a SIAB run
+	}
+	defer delete(ei.EggIncContractsAll, nonSIABContractID)
+
+	contractNonSIAB := &Contract{
+		ContractID: nonSIABContractID,
+		CoopSize:   4,
+		PlayStyle:  ContractPlaystyleLeaderboard,
+		Boosters: map[string]*Booster{
+			testUID: boosterWithSIAB,
+		},
+	}
+
+	schedNonSIAB := calculateBoostSchedule(contractNonSIAB, boosterWithSIAB, now)
+	if schedNonSIAB.IsSIABRun {
+		t.Errorf("expected IsSIABRun=false on non-SIAB contract")
+	}
+	// Delivery set should use the swapped Gusset (T4E Gusset from farmerstate, 2 stones)
+	if !strings.Contains(schedNonSIAB.DeliveryArtifacts, "GUSSET_T4E") {
+		t.Errorf("expected delivery artifacts to swap SIAB for GUSSET_T4E, got %q", schedNonSIAB.DeliveryArtifacts)
+	}
+	if strings.Contains(schedNonSIAB.DeliveryArtifacts, "SIAB_") {
+		t.Errorf("expected delivery artifacts NOT to contain SIAB on non-SIAB run, got %q", schedNonSIAB.DeliveryArtifacts)
+	}
+	// Total stones: 2 (defl) + 3 (metr) + 2 (comp) + 2 (guss T4E) = 9 stones
+	if schedNonSIAB.TachyonStones+schedNonSIAB.QuantumStones != 9 {
+		t.Errorf("expected 9 total stones with swapped Gusset, got %d T + %d Q", schedNonSIAB.TachyonStones, schedNonSIAB.QuantumStones)
+	}
+	nonSIABMsg := formatBoostSchedule(contractNonSIAB, boosterWithSIAB, schedNonSIAB)
+	if !strings.Contains(nonSIABMsg, "Post-Boost Delivery Set:") || strings.Contains(nonSIABMsg, "Post-Boost Delivery SIAB Set:") {
+		t.Errorf("expected standard Post-Boost Delivery Set label on non-SIAB run, got:\n%s", nonSIABMsg)
+	}
+
+	// 2. SIAB run contract: estimate should assume SIAB remains in place (no gusset)
+	siabContractID := "test-sched-is-siab"
+	ei.EggIncContractsAll[siabContractID] = ei.EggIncContract{
+		ID:         siabContractID,
+		CxpMax:     100000,
+		CxpMaxSiab: 108000, // CxpMaxSiab > CxpMax -> SIAB run!
+	}
+	defer delete(ei.EggIncContractsAll, siabContractID)
+
+	contractSIAB := &Contract{
+		ContractID: siabContractID,
+		CoopSize:   4,
+		PlayStyle:  ContractPlaystyleLeaderboard,
+		Boosters: map[string]*Booster{
+			testUID: boosterWithSIAB,
+		},
+	}
+
+	schedSIAB := calculateBoostSchedule(contractSIAB, boosterWithSIAB, now)
+	if schedSIAB.MaxShippingPopulation >= schedNonSIAB.MaxShippingPopulation {
+		t.Errorf("expected SIAB run to have lower max shipping population (%v) than Gusset run (%v)",
+			schedSIAB.MaxShippingPopulation, schedNonSIAB.MaxShippingPopulation)
+	}
+	if !schedSIAB.IsSIABRun {
+		t.Errorf("expected IsSIABRun=true on SIAB contract")
+	}
+	// Delivery set should keep SIAB in place (SIAB_T4L, 2 stones)
+	if !strings.Contains(schedSIAB.DeliveryArtifacts, "SIAB_T4L") {
+		t.Errorf("expected delivery artifacts to keep SIAB_T4L in place, got %q", schedSIAB.DeliveryArtifacts)
+	}
+	if strings.Contains(schedSIAB.DeliveryArtifacts, "GUSSET_") {
+		t.Errorf("expected delivery artifacts NOT to contain Gusset on SIAB run, got %q", schedSIAB.DeliveryArtifacts)
+	}
+	// Max shipping population should reflect base hab capacity without gusset
+	if schedSIAB.MaxShippingPopulation > 14.2e9 {
+		t.Errorf("expected MaxShippingPopulation to be base habs without gusset (~14.175B), got %v", schedSIAB.MaxShippingPopulation)
+	}
+	siabMsg := formatBoostSchedule(contractSIAB, boosterWithSIAB, schedSIAB)
+	if !strings.Contains(siabMsg, "Post-Boost Delivery SIAB Set:") {
+		t.Errorf("expected Post-Boost Delivery SIAB Set label on SIAB run, got:\n%s", siabMsg)
+	}
+}
+
+func TestBoostSchedule_PartiallySlottedArtifacts(t *testing.T) {
+	now := time.Date(2026, 11, 11, 12, 0, 0, 0, time.UTC)
+	testUID := "100000000000000098"
+
+	// Contributor equipped with:
+	// - T4R Deflector (1 stone)
+	// - T4L Metronome (3 stones)
+	// - T4L Compass with only 2 stones slotted (out of 3 possible)
+	// - T4L Gusset (3 stones)
+	// Total stone slots available to use: 1 + 3 + 2 + 3 = 9 stones!
+	contrib := &ei.ContractCoopStatusResponse_ContributionInfo{
+		UserName: proto.String("DummyUser"),
+		FarmInfo: &ei.PlayerFarmInfo{
+			EquippedArtifacts: []*ei.CompleteArtifact{
+				{
+					Spec: &ei.ArtifactSpec{
+						Name:    ei.ArtifactSpec_TACHYON_DEFLECTOR.Enum(),
+						Level:   ei.ArtifactSpec_GREATER.Enum(),
+						Rarity:  ei.ArtifactSpec_RARE.Enum(),
+					},
+					Stones: []*ei.ArtifactSpec{
+						{Name: ei.ArtifactSpec_QUANTUM_STONE.Enum(), Level: ei.ArtifactSpec_NORMAL.Enum()},
+					},
+				},
+				{
+					Spec: &ei.ArtifactSpec{
+						Name:    ei.ArtifactSpec_QUANTUM_METRONOME.Enum(),
+						Level:   ei.ArtifactSpec_GREATER.Enum(),
+						Rarity:  ei.ArtifactSpec_LEGENDARY.Enum(),
+					},
+					Stones: []*ei.ArtifactSpec{
+						{Name: ei.ArtifactSpec_TACHYON_STONE.Enum(), Level: ei.ArtifactSpec_NORMAL.Enum()},
+						{Name: ei.ArtifactSpec_TACHYON_STONE.Enum(), Level: ei.ArtifactSpec_NORMAL.Enum()},
+						{Name: ei.ArtifactSpec_TACHYON_STONE.Enum(), Level: ei.ArtifactSpec_NORMAL.Enum()},
+					},
+				},
+				{
+					Spec: &ei.ArtifactSpec{
+						Name:    ei.ArtifactSpec_INTERSTELLAR_COMPASS.Enum(),
+						Level:   ei.ArtifactSpec_GREATER.Enum(),
+						Rarity:  ei.ArtifactSpec_LEGENDARY.Enum(),
+					},
+					Stones: []*ei.ArtifactSpec{
+						{Name: ei.ArtifactSpec_TACHYON_STONE.Enum(), Level: ei.ArtifactSpec_NORMAL.Enum()},
+						{Name: ei.ArtifactSpec_TACHYON_STONE.Enum(), Level: ei.ArtifactSpec_NORMAL.Enum()},
+					},
+				},
+				{
+					Spec: &ei.ArtifactSpec{
+						Name:    ei.ArtifactSpec_ORNATE_GUSSET.Enum(),
+						Level:   ei.ArtifactSpec_GREATER.Enum(),
+						Rarity:  ei.ArtifactSpec_LEGENDARY.Enum(),
+					},
+					Stones: []*ei.ArtifactSpec{
+						{Name: ei.ArtifactSpec_QUANTUM_STONE.Enum(), Level: ei.ArtifactSpec_NORMAL.Enum()},
+						{Name: ei.ArtifactSpec_QUANTUM_STONE.Enum(), Level: ei.ArtifactSpec_NORMAL.Enum()},
+						{Name: ei.ArtifactSpec_QUANTUM_STONE.Enum(), Level: ei.ArtifactSpec_NORMAL.Enum()},
+					},
+				},
+			},
+		},
+	}
+
+	extracted := extractContributorArtifacts(contrib)
+	var compArt *ei.Artifact
+	for i := range extracted {
+		if extracted[i].Type == "Compass" {
+			compArt = &extracted[i]
+			break
+		}
+	}
+	if compArt == nil {
+		t.Fatalf("expected Compass artifact extracted")
+	}
+	if compArt.Stones != 2 {
+		t.Errorf("expected Compass to have 2 slotted stones, got %d", compArt.Stones)
+	}
+
+	booster := &Booster{
+		UserID:       testUID,
+		TokensWanted: 5,
+		ArtifactSet: ArtifactSet{
+			Artifacts: extracted,
+		},
+	}
+
+	contractID := "test-sched-partial-slots"
+	ei.EggIncContractsAll[contractID] = ei.EggIncContract{
+		ID:          contractID,
+		CxpMax:      100000,
+		CxpMaxSiab:  90000,
+		MaxCoopSize: 5,
+	}
+	defer delete(ei.EggIncContractsAll, contractID)
+
+	contract := &Contract{
+		ContractID: contractID,
+		CoopSize:   5,
+		PlayStyle:  ContractPlaystyleFastrun,
+		Boosters: map[string]*Booster{
+			testUID: booster,
+		},
+	}
+
+	sched := calculateBoostSchedule(contract, booster, now)
+	totalStones := sched.TachyonStones + sched.QuantumStones
+	if totalStones != 9 {
+		t.Errorf("expected schedule to pick exactly 9 stone slots to use, got %d (%d T + %d Q)",
+			totalStones, sched.TachyonStones, sched.QuantumStones)
+	}
+
+	msg := formatBoostSchedule(contract, booster, sched)
+	if !strings.Contains(strings.ToLower(msg), "defl_t4r") || !strings.Contains(strings.ToLower(msg), "comp_t4l") {
+		t.Errorf("expected delivery artifacts icon sequence, got:\n%s", msg)
 	}
 }
 
