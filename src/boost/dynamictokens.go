@@ -1154,14 +1154,16 @@ func updateBoosterArtifactsFromFarmInfo(b *Booster, contrib *ei.ContractCoopStat
 	b.ArtifactSet = getUserArtifacts(b.UserID, &b.ArtifactSet)
 }
 
-func isFastrunOrLeaderboard(contract *Contract) bool {
+func isAutoBoostScheduleEligible(contract *Contract) bool {
 	if contract == nil {
 		return false
 	}
 	if contract.Style&ContractFlagBanker != 0 || contract.State == ContractStateBanker {
 		return false
 	}
-	return contract.PlayStyle == ContractPlaystyleFastrun || contract.PlayStyle == ContractPlaystyleLeaderboard
+	return contract.PlayStyle == ContractPlaystyleFastrun ||
+		contract.PlayStyle == ContractPlaystyleLeaderboard ||
+		contract.PlayStyle == ContractPlaystyleACOCooperative
 }
 
 func resolveBoostClickUserID(contract *Contract, userID, currentBoosterID string) string {
