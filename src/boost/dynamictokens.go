@@ -536,7 +536,11 @@ func calculateBoostSchedule(contract *Contract, booster *Booster, now time.Time)
 		}
 	}
 
-	isSIABRun := showSIABSet
+	isHelper := false
+	if booster != nil {
+		isHelper = isBoosterHelper(booster) || farmerstate.GetOrderHelper(booster.UserID) || (booster.Name != "" && booster.Name != booster.UserID && farmerstate.GetOrderHelper(booster.Name))
+	}
+	isSIABRun := showSIABSet && !isHelper
 
 	fourthQuality := gussQuality
 	fourthStones := gussStones

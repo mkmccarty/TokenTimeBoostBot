@@ -458,6 +458,43 @@ func TestBoostSchedule_SIABVsGussetSwap(t *testing.T) {
 	if !strings.Contains(siabMsg, "Post-Boost Delivery SIAB Set:") {
 		t.Errorf("expected Post-Boost Delivery SIAB Set label on SIAB run, got:\n%s", siabMsg)
 	}
+
+	// 3. Helper on SIAB run contract: Helper will likely never be using a SIAB in their delivery artifact set
+	helperUID := "100000000000000097"
+	farmerstate.SetMiscSettingString(helperUID, "guss", "T4E")
+	farmerstate.SetMiscSettingString(helperUID, "siab", "T4L")
+	helperBooster := &Booster{
+		UserID:       helperUID,
+		IsHelper:     true,
+		TokensWanted: 6,
+		ArtifactSet: ArtifactSet{
+			Artifacts: []ei.Artifact{
+				{Type: "Deflector", Quality: "T4L", DeflBuff: 1.20, Stones: 2},
+				{Type: "Metronome", Quality: "T4L", LayBuff: 1.35, Stones: 3},
+				{Type: "Compass", Quality: "T4L", ShipBuff: 1.50, Stones: 2},
+				{Type: "SIAB", Quality: "T4L", Stones: 2},
+			},
+		},
+	}
+	contractSIAB.Boosters[helperUID] = helperBooster
+
+	schedHelper := calculateBoostSchedule(contractSIAB, helperBooster, now)
+	if schedHelper.IsSIABRun {
+		t.Errorf("expected IsSIABRun=false for Helper on SIAB contract")
+	}
+	if !schedHelper.ShowSIABSet {
+		t.Errorf("expected ShowSIABSet=true on SIAB contract even for Helper")
+	}
+	if !strings.Contains(schedHelper.DeliveryArtifacts, "GUSSET_T4E") {
+		t.Errorf("expected Helper delivery artifacts to swap SIAB for GUSSET_T4E, got %q", schedHelper.DeliveryArtifacts)
+	}
+	if strings.Contains(schedHelper.DeliveryArtifacts, "SIAB_") {
+		t.Errorf("expected Helper delivery artifacts NOT to contain SIAB, got %q", schedHelper.DeliveryArtifacts)
+	}
+	helperMsg := formatBoostSchedule(contractSIAB, helperBooster, schedHelper)
+	if !strings.Contains(helperMsg, "Post-Boost Delivery Set:") || strings.Contains(helperMsg, "Post-Boost Delivery SIAB Set:") {
+		t.Errorf("expected standard Post-Boost Delivery Set label for Helper, got:\n%s", helperMsg)
+	}
 }
 
 func TestBoostSchedule_PartiallySlottedArtifacts(t *testing.T) {
