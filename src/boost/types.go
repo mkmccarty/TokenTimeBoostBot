@@ -244,6 +244,7 @@ type Booster struct {
 	VerifiedPopulation     float64              `json:"verified_population,omitempty"`  // Farm population verified from coop_status
 	VerifiedAt             time.Time            `json:"verified_at,omitempty"`          // Timestamp when boost/population were verified
 	PreviousScore          float64              `json:"previous_score,omitempty"`       // CXP score from previous time player ran contract
+	LastAPIDuration        time.Duration        `json:"-"`                              // Latency of the most recent coop_status API request
 }
 
 // DisplayName returns the booster's display name, falling back through Nick, Name, UserName, GlobalName, and UserID.
@@ -404,7 +405,8 @@ type Contract struct {
 
 	renameTimer               *time.Timer
 	deferFirstBoostCoopStatus bool
-	mutex                     sync.Mutex // Keep this contract thread safe
+	LastAPIDuration           time.Duration `json:"-"`
+	mutex                     sync.Mutex    // Keep this contract thread safe
 }
 
 // Bookmark represents a bookmark for a specific channel in the dashboard

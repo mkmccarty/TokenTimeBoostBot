@@ -196,6 +196,7 @@ type BoostSchedule struct {
 	PopulationBasis       string
 	EstRequestChickenRuns time.Time
 	EstEndOfBoost         time.Time
+	APIDuration           time.Duration
 }
 
 type boostItemSpec struct {
@@ -817,6 +818,13 @@ func calculateBoostSchedule(contract *Contract, booster *Booster, now time.Time)
 		boostIcons = booster.VerifiedBoostIcons
 	}
 
+	var apiDuration time.Duration
+	if booster != nil && booster.LastAPIDuration > 0 {
+		apiDuration = booster.LastAPIDuration
+	} else if contract != nil && contract.LastAPIDuration > 0 {
+		apiDuration = contract.LastAPIDuration
+	}
+
 	return BoostSchedule{
 		Tokens:                tokens,
 		BoostIcons:            boostIcons,
@@ -848,6 +856,7 @@ func calculateBoostSchedule(contract *Contract, booster *Booster, now time.Time)
 		PopulationBasis:       popBasis,
 		EstRequestChickenRuns: now.Add(crDuration),
 		EstEndOfBoost:         now.Add(totalBoostDuration),
+		APIDuration:           apiDuration,
 	}
 }
 
@@ -856,6 +865,16 @@ func formatStoneRatePerHour(rate float64) string {
 		return fmt.Sprintf("%.2fT/hr", rate*1000.0)
 	}
 	return fmt.Sprintf("%.3fq/hr", rate)
+}
+
+func formatAPIDuration(d time.Duration) string {
+	if d < time.Millisecond {
+		return "<1ms"
+	}
+	if d < time.Second {
+		return fmt.Sprintf("%dms", d.Milliseconds())
+	}
+	return fmt.Sprintf("%.2fs", d.Seconds())
 }
 
 // formatBoostSchedule builds the ephemeral boost schedule message shown when a booster presses 🚀.
@@ -930,6 +949,10 @@ func formatBoostSchedule(contract *Contract, booster *Booster, sched BoostSchedu
 	}
 	fmt.Fprintf(&sb, "• **Offline to Max Shipping (`%s`):** `%s` (go offline for at least 1m after requesting CRs to receive runs & offline chickens)",
 		maxPopStr, postCRDurStr)
+
+	if sched.APIDuration > 0 {
+		fmt.Fprintf(&sb, "\n\n-# API request took %s", formatAPIDuration(sched.APIDuration))
+	}
 
 	return sb.String()
 }
@@ -1707,6 +1730,9 @@ func applyCoopStatusDeflectors(contract *Contract, coopStatus *ei.ContractCoopSt
 		if bestUID != "" {
 			matchedBoosters[bestUID] = true
 			b := contract.Boosters[bestUID]
+			if contract.LastAPIDuration > 0 {
+				b.LastAPIDuration = contract.LastAPIDuration
+			}
 			setBoosterDeflectorArtifact(b, ue.deflArt)
 			updateBoosterArtifactsFromFarmInfo(b, contrib)
 			applyContributorBoostAndPop(b, contrib)
@@ -1797,7 +1823,21 @@ func updateCoopDeflectorsFromStatus(contract *Contract) {
 	contractHash := contract.ContractHash
 	contract.mutex.Unlock()
 
+	apiStart := time.Now()
 	coopStatus, err := fetchCoopStatusForDeflectors(contractID, coopID, eeidOverride)
+	apiDuration := time.Since(apiStart)
+
+	if coopStatus != nil || err != nil {
+		contract.mutex.Lock()
+		contract.LastAPIDuration = apiDuration
+		for _, b := range contract.Boosters {
+			if b != nil {
+				b.LastAPIDuration = apiDuration
+			}
+		}
+		contract.mutex.Unlock()
+	}
+
 	if err != nil || coopStatus == nil {
 		if err != nil {
 			log.Printf("updateCoopDeflectorsFromStatus: unable to fetch coop_status for %s/%s (falling back to estimated deflectors): %v", contractID, coopID, err)
