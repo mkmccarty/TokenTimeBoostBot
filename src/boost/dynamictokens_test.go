@@ -891,6 +891,7 @@ func TestBoostSchedule_RocketAndFireReactions(t *testing.T) {
 		if ei.OnCoopStatusCallback == nil {
 			t.Fatalf("expected ei.OnCoopStatusCallback to be registered")
 		}
+		contract.LastAPIDuration = 345 * time.Millisecond
 		ei.OnCoopStatusCallback(contract.ContractID, contract.CoopID, coopStatus)
 
 		edits := client.CallsTo("EditFollowupMessage")
@@ -906,6 +907,9 @@ func TestBoostSchedule_RocketAndFireReactions(t *testing.T) {
 		}
 		if !strings.Contains(editedText, "(verified)") || !strings.Contains(editedText, "b_tach1000x10m") {
 			t.Errorf("expected edited ephemeral message to show verified active boosts, got:\n%s", editedText)
+		}
+		if !strings.Contains(editedText, "-# API request took 345ms") {
+			t.Errorf("expected edited ephemeral message to include API request latency footnote, got:\n%s", editedText)
 		}
 	})
 
@@ -1244,5 +1248,28 @@ func TestApplyCoopStatusDeflectors_MatchByActiveBoostTime(t *testing.T) {
 	}
 	if farmerstate.GetMiscSettingString(testUID, "ei_ign") != "MysteryFarmer_999" {
 		t.Errorf("expected matched ei_ign to be remembered as 'MysteryFarmer_999', got %q", farmerstate.GetMiscSettingString(testUID, "ei_ign"))
+	}
+}
+
+func TestFormatAPIDuration(t *testing.T) {
+	tests := []struct {
+		d        time.Duration
+		expected string
+	}{
+		{d: 0, expected: "<1ms"},
+		{d: 500 * time.Microsecond, expected: "<1ms"},
+		{d: 1 * time.Millisecond, expected: "1ms"},
+		{d: 345 * time.Millisecond, expected: "345ms"},
+		{d: 999 * time.Millisecond, expected: "999ms"},
+		{d: 1000 * time.Millisecond, expected: "1.00s"},
+		{d: 1250 * time.Millisecond, expected: "1.25s"},
+		{d: 2500 * time.Millisecond, expected: "2.50s"},
+	}
+
+	for _, tc := range tests {
+		actual := formatAPIDuration(tc.d)
+		if actual != tc.expected {
+			t.Errorf("formatAPIDuration(%v) = %q; expected %q", tc.d, actual, tc.expected)
+		}
 	}
 }
