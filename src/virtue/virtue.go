@@ -10,7 +10,6 @@ import (
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/boost"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
@@ -115,10 +114,24 @@ func ExecuteVirtueTarget(e dc.InteractionEvent, options dc.OptionValues, eggIncI
 		}, components...)
 	}
 
-	_ = e.Followup(dc.Message{
+	msgRef, err := e.FollowupMessage(dc.Message{
 		Ephemeral:  ephemeral,
 		Components: components,
 	})
+	if !ephemeral && err == nil && msgRef != nil && msgRef.ID != "" {
+		scheduleVirtueButtonCleanup(virtueTimerRecord{
+			ChannelID:    msgRef.ChannelID,
+			MessageID:    msgRef.ID,
+			TargetUserID: targetUserID,
+			EggIncID:     eggIncID,
+			SimulatedEgg: int(simulatedEgg),
+			TargetTE:     targetTE,
+			Compact:      compact,
+			AvatarURL:    avatarURL,
+			ActAsText:    actAsText,
+			ExpiresAt:    time.Now().Add(10 * time.Minute).Unix(),
+		})
+	}
 }
 
 // ExecuteVirtue executes the /virtue display logic and responds to the interaction event.
@@ -223,7 +236,7 @@ func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE
 		isSelected := false
 		if simulatedEgg != -1 {
 			if simulatedEgg == ei.Egg(int(ei.Egg_CURIOSITY)+i) {
-				selected = " (simulated)"
+				selected = " 🤖"
 				selectedEggIndex = i
 				selectedTarget = nextTier
 				selectedDelivered = delivered
@@ -239,7 +252,7 @@ func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE
 				eovEarned = ei.CountTruthEggTiersPassed(delivered)
 				eovPending = ei.PendingTruthEggs(delivered, eov)
 				nextTier = ei.NextTruthEggThreshold(delivered, eov)
-				selected = " (simulated)"
+				selected = " 🤖"
 			}
 		} else {
 			if eggType == ei.Egg(int(ei.Egg_CURIOSITY)+i) {
@@ -305,11 +318,9 @@ func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE
 	cte := ei.CalculateClothedTE(backup)
 	maxCTEResult := ei.CalculateMaxClothedTEWithSlotHint(backup, len(inUseArtifacts))
 	maxCTE := maxCTEResult.ClothedTE
-	cteDelta := maxCTE - cte
 
 	fmt.Fprintf(&header, "**CTE**: %.0f  **Max CTE**: %.0f **Pending:** %.0f\n", cte, maxCTE, maxCTE+float64(futureEov))
 	artifactIcons := ""
-	maxArtifactIcons := ""
 
 	for _, artifact := range virtueArtifacts {
 		artifactID := artifact.GetItemId()
@@ -327,17 +338,6 @@ func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE
 					artifactIcons += ei.GetBotEmojiMarkdown(fmt.Sprintf("%s%s", ei.ShortArtifactName[int32(spec.GetName())], strType))
 				}
 			}
-		}
-	}
-
-	if config.IsDevBot() {
-		for _, a := range maxCTEResult.Artifacts {
-			if a == nil || a.GetSpec() == nil {
-				continue
-			}
-			spec := a.GetSpec()
-			strType := ei.ArtifactLevels[spec.GetLevel()] + ei.ArtifactRarity[spec.GetRarity()]
-			maxArtifactIcons += ei.GetBotEmojiMarkdown(fmt.Sprintf("%s%s", ei.ShortArtifactName[int32(spec.GetName())], strType))
 		}
 	}
 
@@ -691,19 +691,6 @@ func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE
 		fmt.Fprint(&stats, "\n")
 	}
 
-	if config.IsDevBot() {
-		if maxArtifactIcons != "" {
-			fmt.Fprintf(&stats, "%s **Max CTE** %.0f\n", maxArtifactIcons, maxCTE)
-			for _, line := range ei.DescribeArtifactSetWithStones(maxCTEResult.Artifacts) {
-				fmt.Fprintf(&stats, "-# %s\n", line)
-			}
-		}
-
-		if artifactIcons != "" && maxArtifactIcons != "" && artifactIcons != maxArtifactIcons && cteDelta > 0 {
-			fmt.Fprintf(&stats, "%s ➜ %s  **+%.0f CTE**\n", artifactIcons, maxArtifactIcons, cteDelta)
-		}
-	}
-
 	fmt.Fprintf(&stats, "%s", ei.GetBotEmojiMarkdown("collegg"))
 	if colBuffs.SR != 1 {
 		fmt.Fprintf(&stats, " SR:%s", ei.FormatModifierValue(colBuffs.SR))
@@ -729,9 +716,11 @@ func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE
 	fmt.Fprint(&stats, "\n")
 
 	now := time.Now()
+	syncStale := false
 	if onVirtueFarm {
 		syncStr := fmt.Sprintf("Sync:%s", bottools.WrapTimestamp(syncTime.Unix(), bottools.TimestampShortTime))
 		if now.Sub(syncTime) > 15*time.Minute {
+			syncStale = true
 			syncStr = fmt.Sprintf("⚠️ %s ⚠️", syncStr)
 		}
 		fmt.Fprintf(&footer, "-# Report:%s  %s  🗓️%s:%s\n",
@@ -743,6 +732,7 @@ func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE
 		syncTime := time.Unix(int64(backup.GetApproxTime()), 0)
 		syncStr := fmt.Sprintf("Backup Sync:%s", bottools.WrapTimestamp(syncTime.Unix(), bottools.TimestampShortTime))
 		if now.Sub(syncTime) > 15*time.Minute {
+			syncStale = true
 			syncStr = fmt.Sprintf("⚠️ %s ⚠️", syncStr)
 		}
 		fmt.Fprintf(&footer, "-# Report:%s  %s\n",
@@ -861,6 +851,31 @@ func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE
 	components = append(components, dc.TextDisplay{
 		Content: rockets.String(),
 	})
+	if eggType >= ei.Egg_CURIOSITY && eggType <= ei.Egg_KINDNESS {
+		var rowButtons []dc.InteractiveComponent
+		if syncStale {
+			rowButtons = append(rowButtons, dc.Button{
+				Label:    "⚠️ Resync",
+				Style:    dc.ButtonSecondary,
+				CustomID: fmt.Sprintf("virtue_refresh#%s#%d#%d", userID, int(simulatedEgg), targetTE),
+			})
+		}
+		rowButtons = append(rowButtons,
+			dc.Button{
+				Label:    "Show All TE",
+				Style:    dc.ButtonSecondary,
+				CustomID: fmt.Sprintf("virtue_all#%s#%d#%d#0", userID, int(simulatedEgg), targetTE),
+			},
+			dc.Button{
+				Label:    "Dismiss",
+				Style:    dc.ButtonSecondary,
+				CustomID: fmt.Sprintf("virtue_dismiss#%s", userID),
+			},
+		)
+		components = append(components, dc.ActionRow{
+			Components: rowButtons,
+		})
+	}
 	components = append(components, dc.TextDisplay{
 		Content: footer.String(),
 	})

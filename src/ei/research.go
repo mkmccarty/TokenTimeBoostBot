@@ -248,9 +248,6 @@ func TimeToDeliverEggs(initialPop, maxPop, growthRatePerMinute, layingRatePerHou
 	// No population growth possible - either no IHR or already at max capacity
 	if growthRatePerMinute <= 0 || initialPop >= maxPopulation {
 		minutes := targetEggs / startingEggLayingRate
-		if minutes > 525_600 { // 1 year in minutes
-			return -1.0
-		}
 		return minutes * 60.0
 	}
 
@@ -261,8 +258,8 @@ func TimeToDeliverEggs(initialPop, maxPop, growthRatePerMinute, layingRatePerHou
 			((maxPopulation-initialPop)*(maxPopulation-initialPop))/(2.0*growthRatePerMinute)) / maxPopulation
 	}
 
-	// Safety break if the target is unreachable or exceeds 1 year
-	if math.IsNaN(timeToTarget) || math.IsInf(timeToTarget, 0) || timeToTarget > 525_600 {
+	// Safety break if the target is unreachable
+	if math.IsNaN(timeToTarget) || math.IsInf(timeToTarget, 0) {
 		return -1.0
 	}
 
