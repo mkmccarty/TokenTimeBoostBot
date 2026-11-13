@@ -26,7 +26,7 @@ type virtueTimerRecord struct {
 }
 
 var (
-	virtueClient   dc.Client
+	virtueClientFn func() dc.Client
 	virtueTimersMu sync.Mutex
 )
 
@@ -57,9 +57,9 @@ func saveVirtueTimersLocked(records []virtueTimerRecord) {
 
 // StartButtonCleanup loads any pending virtue button-removal timers from disk
 // and schedules them to fire at their expiration time.
-func StartButtonCleanup(client dc.Client) {
+func StartButtonCleanup(clientFn func() dc.Client) {
 	virtueTimersMu.Lock()
-	virtueClient = client
+	virtueClientFn = clientFn
 	records := loadVirtueTimersLocked()
 	virtueTimersMu.Unlock()
 
@@ -103,8 +103,12 @@ func expireVirtueButtons(rec virtueTimerRecord) {
 	removeVirtueTimer(rec.ChannelID, rec.MessageID)
 
 	virtueTimersMu.Lock()
-	client := virtueClient
+	clientFn := virtueClientFn
 	virtueTimersMu.Unlock()
+	if clientFn == nil {
+		return
+	}
+	client := clientFn()
 	if client == nil {
 		return
 	}

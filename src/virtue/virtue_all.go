@@ -44,7 +44,7 @@ func HandleVirtueRefresh(e *dc.ComponentEvent) {
 		return
 	}
 	targetUserID := parts[1]
-	simEggInt, _ := strconv.Atoi(parts[2])
+	simEggInt, _ := strconv.ParseInt(parts[2], 10, 32)
 	simulatedEgg := ei.Egg(simEggInt)
 	targetTE, _ := strconv.ParseUint(parts[3], 10, 64)
 
@@ -95,7 +95,7 @@ func HandleVirtueShowAll(e *dc.ComponentEvent) {
 		return
 	}
 	targetUserID := parts[1]
-	simEggInt, _ := strconv.Atoi(parts[2])
+	simEggInt, _ := strconv.ParseInt(parts[2], 10, 32)
 	simulatedEgg := ei.Egg(simEggInt)
 	targetTE, _ := strconv.ParseUint(parts[3], 10, 64)
 	page, _ := strconv.Atoi(parts[4])
@@ -212,7 +212,7 @@ func buildVirtueAllTEPage(backup *ei.Backup, simulatedEgg ei.Egg, targetTE uint6
 	elapsed := max(time.Since(lastSaved).Seconds(), 0)
 
 	maxTE := uint32(98)
-	if targetTE > 0 && uint32(targetTE) < maxTE {
+	if targetTE > 0 && targetTE < 98 {
 		maxTE = uint32(targetTE)
 	}
 
@@ -236,7 +236,7 @@ func buildVirtueAllTEPage(backup *ei.Backup, simulatedEgg ei.Egg, targetTE uint6
 					te, emote,
 					ei.FormatEIValue(target, map[string]any{"decimals": 4, "trim": true, "max_length": 5}),
 					eta, eta,
-					bottools.FmtDuration((time.Duration(int64(totalSec)) * time.Second).Round(time.Minute))))
+					bottools.FmtDuration((time.Duration(int64(totalSec))*time.Second).Round(time.Minute))))
 			}
 		}
 	}
@@ -251,7 +251,7 @@ func buildVirtueAllTEPage(backup *ei.Backup, simulatedEgg ei.Egg, targetTE uint6
 			appendEggLines(curIdx, curEarned+1, maxTE, curDelivered, habPop, eggLayingRate, fuelRate, -elapsed)
 		}
 		// Offset to reach targetTE on current egg
-		curTarget := ei.TruthEggThresholdByIndex(uint32(targetTE))
+		curTarget := ei.TruthEggThresholdByIndex(maxTE)
 		remOffset := ei.TimeToDeliverEggs(habPop, habCap, offlineRate, eggLayingRate-fuelRate, shippingRate, curTarget-curDelivered)
 		offsetSec := 0.0
 		if remOffset != -1.0 {

@@ -1044,7 +1044,7 @@ func connectWithRetry() error {
 }
 
 func main() {
-	virtue.StartButtonCleanup(botClient())
+	virtue.StartButtonCleanup(botClient)
 	defer handleCrash()
 
 	setupCommands()
