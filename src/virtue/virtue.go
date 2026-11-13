@@ -235,6 +235,11 @@ func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE
 				currentEggIndex = i
 				currentDelivered = delivered
 				currentEggEmote = ei.GetBotEmojiMarkdown("egg_" + strings.ToLower(egg))
+				delivered = ei.TruthEggThresholdByIndex(uint32(targetTE))
+				eovEarned = ei.CountTruthEggTiersPassed(delivered)
+				eovPending = ei.PendingTruthEggs(delivered, eov)
+				nextTier = ei.NextTruthEggThreshold(delivered, eov)
+				selected = " (simulated)"
 			}
 		} else {
 			if eggType == ei.Egg(int(ei.Egg_CURIOSITY)+i) {
