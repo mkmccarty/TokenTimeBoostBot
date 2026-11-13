@@ -314,7 +314,7 @@ func NextTruthEggThreshold(delivered float64, eov uint32) float64 {
 // TruthEggThresholdByIndex returns the threshold value for a 1-based Truth Egg target.
 // If targetTE is out of range, it returns +Inf.
 func TruthEggThresholdByIndex(targetTE uint32) float64 {
-	if targetTE == 0 || int(targetTE) > len(truthEggBreakpointsCTE) {
+	if targetTE == 0 || uint64(targetTE) > uint64(len(truthEggBreakpointsCTE)) {
 		return math.Inf(1)
 	}
 	return truthEggBreakpointsCTE[targetTE-1]

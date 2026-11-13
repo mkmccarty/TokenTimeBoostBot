@@ -323,6 +323,9 @@ var (
 		"fd_teamwork":             boost.HandleTeamworkPage,
 		"bo_order":                func(e *dc.ComponentEvent) { boost.HandleBoostOrderReactions(botClient(), e) },
 		"bo_custom":               func(e *dc.ComponentEvent) { boost.HandleCustomOrderReactions(botClient(), e) },
+		"virtue_all":              virtue.HandleVirtueShowAll,
+		"virtue_dismiss":          virtue.HandleVirtueDismiss,
+		"virtue_refresh":          virtue.HandleVirtueRefresh,
 		"bo_define":               func(e *dc.ComponentEvent) { boost.HandleDefineCustomOrderReactions(botClient(), e) },
 		"predictions":             boost.HandlePredictionsPage,
 		"pred":                    func(e *dc.ComponentEvent) { boost.HandlePredPage(botClient(), e) },
@@ -1041,6 +1044,7 @@ func connectWithRetry() error {
 }
 
 func main() {
+	virtue.StartButtonCleanup(botClient)
 	defer handleCrash()
 
 	setupCommands()
