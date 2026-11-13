@@ -60,7 +60,7 @@ require (
 	golang.org/x/crypto v0.59.0 // indirect
 	golang.org/x/net v0.62.0 // indirect
 	golang.org/x/sys v0.50.0 // indirect
-	google.golang.org/api v0.313.0 // indirect
+	google.golang.org/api v0.314.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20261110000943-09e21b237f2c // indirect
 	google.golang.org/grpc v1.85.0 // indirect
 	modernc.org/libc v1.81.0 // indirect
