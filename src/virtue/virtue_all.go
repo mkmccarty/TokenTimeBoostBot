@@ -45,8 +45,11 @@ func HandleVirtueRefresh(e *dc.ComponentEvent) {
 	}
 	targetUserID := parts[1]
 	simEggInt, _ := strconv.ParseInt(parts[2], 10, 32)
+	if simEggInt < math.MinInt32 || simEggInt > math.MaxInt32 {
+		simEggInt = -1
+	}
 	simulatedEgg := ei.Egg(simEggInt)
-	targetTE, _ := strconv.ParseUint(parts[3], 10, 64)
+	targetTE, _ := strconv.ParseUint(parts[3], 10, 32)
 
 	callerID := e.UserID()
 	altController := farmerstate.GetMiscSettingString(targetUserID, "AltController")
@@ -96,8 +99,11 @@ func HandleVirtueShowAll(e *dc.ComponentEvent) {
 	}
 	targetUserID := parts[1]
 	simEggInt, _ := strconv.ParseInt(parts[2], 10, 32)
+	if simEggInt < math.MinInt32 || simEggInt > math.MaxInt32 {
+		simEggInt = -1
+	}
 	simulatedEgg := ei.Egg(simEggInt)
-	targetTE, _ := strconv.ParseUint(parts[3], 10, 64)
+	targetTE, _ := strconv.ParseUint(parts[3], 10, 32)
 	page, _ := strconv.Atoi(parts[4])
 	isNav := len(parts) >= 6 && parts[5] == "nav"
 
@@ -213,7 +219,7 @@ func buildVirtueAllTEPage(backup *ei.Backup, simulatedEgg ei.Egg, targetTE uint6
 
 	maxTE := uint32(98)
 	if targetTE > 0 && targetTE < 98 {
-		maxTE = uint32(targetTE)
+		maxTE = uint32(min(targetTE, 98))
 	}
 
 	var lines []string
