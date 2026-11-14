@@ -17,12 +17,24 @@ func messageRefFrom(msg *discord.Message) *MessageRef {
 	if msg == nil {
 		return nil
 	}
+	var components []LayoutComponent
+	for _, component := range msg.Components {
+		if component == nil {
+			continue
+		}
+		if component.Type() == discord.ComponentTypeActionRow {
+			components = append(components, ActionRow{})
+		} else {
+			components = append(components, rawComponent{component: component})
+		}
+	}
 	return &MessageRef{
-		ID:        idString(msg.ID),
-		ChannelID: idString(msg.ChannelID),
-		Content:   msg.Content,
-		Author:    userFrom(&msg.Author),
-		Timestamp: msg.CreatedAt,
+		ID:         idString(msg.ID),
+		ChannelID:  idString(msg.ChannelID),
+		Content:    msg.Content,
+		Components: components,
+		Author:     userFrom(&msg.Author),
+		Timestamp:  msg.CreatedAt,
 	}
 }
 

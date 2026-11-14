@@ -147,7 +147,7 @@ func HandleVirtueShowAll(e *dc.ComponentEvent) {
 	}
 	eggIncID := decryptEggIncID(eiID)
 
-	backup, _ := ei.GetFirstContactFromAPINoCache(eggIncID, targetUserID, false)
+	backup, _ := ei.GetFirstContactFromAPI(eggIncID, targetUserID, false)
 	if backup == nil {
 		_ = e.Respond(dc.Message{
 			Ephemeral: true,

@@ -5,11 +5,12 @@ import "time"
 // MessageRef is a Discord message returned by a Client call: the result of
 // sending, editing, or fetching one.
 type MessageRef struct {
-	ID        string
-	ChannelID string
-	Content   string
-	Author    *User
-	Timestamp time.Time
+	ID         string
+	ChannelID  string
+	Content    string
+	Components []LayoutComponent
+	Author     *User
+	Timestamp  time.Time
 }
 
 // Channel is a Discord channel or thread.
