@@ -434,6 +434,19 @@ func (e *ComponentEvent) MessageComponentsWithoutActionRows() []LayoutComponent 
 	return kept
 }
 
+// FirstThumbnailURL returns the URL of the first Thumbnail accessory found in
+// the message's top-level Section components, or "" if none is present.
+func (e *ComponentEvent) FirstThumbnailURL() string {
+	for _, component := range e.event.Message.Components {
+		if sec, ok := component.(discord.SectionComponent); ok {
+			if thumb, ok := sec.Accessory.(discord.ThumbnailComponent); ok && thumb.Media.URL != "" {
+				return thumb.Media.URL
+			}
+		}
+	}
+	return ""
+}
+
 // MessageIsEphemeral reports whether the message the component lives on is
 // ephemeral. A handler replacing that message has to carry the flag forward,
 // since Discord will not infer it from the original.
