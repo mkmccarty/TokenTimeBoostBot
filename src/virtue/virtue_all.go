@@ -110,6 +110,17 @@ func HandleVirtueRefresh(e *dc.ComponentEvent) {
 	_ = e.Update(dc.Message{
 		Components: components,
 	})
+	scheduleVirtueButtonCleanup(virtueTimerRecord{
+		ChannelID:    e.ChannelID(),
+		MessageID:    e.MessageID(),
+		TargetUserID: targetUserID,
+		EggIncID:     eggIncID,
+		SimulatedEgg: int(simulatedEgg),
+		TargetTE:     targetTE,
+		Compact:      compact,
+		AvatarURL:    avatarURL,
+		ExpiresAt:    time.Now().Add(10 * time.Minute).Unix(),
+	})
 }
 
 // HandleVirtueShowAll handles the "Show All TE" button and its ephemeral pagination buttons.
