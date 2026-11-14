@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
 
 type virtueTimerRecord struct {
@@ -113,14 +112,16 @@ func expireVirtueButtons(rec virtueTimerRecord) {
 		return
 	}
 
-	backup, _ := ei.GetFirstContactFromAPINoCache(rec.EggIncID, rec.TargetUserID, false)
-	if backup == nil {
+	msg, err := client.GetMessage(rec.ChannelID, rec.MessageID)
+	if err != nil || msg == nil {
+		if err != nil {
+			log.Printf("virtue button cleanup GetMessage error (channel=%s message=%s): %v", rec.ChannelID, rec.MessageID, err)
+		}
 		return
 	}
 
-	components := printVirtue(rec.TargetUserID, backup, ei.Egg(rec.SimulatedEgg), rec.TargetTE, rec.Compact, rec.AvatarURL, rec.ActAsText)
-	kept := make([]dc.LayoutComponent, 0, len(components))
-	for _, c := range components {
+	kept := make([]dc.LayoutComponent, 0, len(msg.Components))
+	for _, c := range msg.Components {
 		if _, isRow := c.(dc.ActionRow); isRow {
 			continue
 		}
