@@ -1072,18 +1072,24 @@ func AddFarmerToContract(client dc.Client, contract *Contract, guildID string, c
 			contract.OrderRevision++
 			contract.mutex.Unlock()
 
+			controllers := getBoosterMainControllers(b)
 			for _, el := range contract.Location {
-				if (guildID == "" || el.GuildID == guildID) && dc.IsSnowflake(b.UserID) {
+				if guildID == "" || el.GuildID == guildID {
 					if el.GuildContractRole.ID != "" {
-						_ = client.AddGuildMemberRole(el.GuildID, b.UserID, el.GuildContractRole.ID)
+						if dc.IsSnowflake(b.UserID) {
+							_ = client.AddGuildMemberRole(el.GuildID, b.UserID, el.GuildContractRole.ID)
+						}
+						for _, controllerID := range controllers {
+							_ = client.AddGuildMemberRole(el.GuildID, controllerID, el.GuildContractRole.ID)
+						}
 					}
-				}
-			}
-
-			for _, el := range contract.Location {
-				if (guildID == "" || el.GuildID == guildID) && dc.IsSnowflake(b.UserID) {
 					if contract.State != ContractStateSignup && el.ChannelID != "" {
-						AddThreadMemberDelayed(client, contract.ContractHash, el.ChannelID, b.UserID, manualAddThreadMemberDelay)
+						if dc.IsSnowflake(b.UserID) {
+							AddThreadMemberDelayed(client, contract.ContractHash, el.ChannelID, b.UserID, manualAddThreadMemberDelay)
+						}
+						for _, controllerID := range controllers {
+							AddThreadMemberDelayed(client, contract.ContractHash, el.ChannelID, controllerID, manualAddThreadMemberDelay)
+						}
 					}
 				}
 			}
