@@ -15,6 +15,19 @@ import (
 
 const virtueAllPageSize = 15
 
+func canControlVirtueTarget(callerID, targetUserID string, e *dc.ComponentEvent) bool {
+	if callerID == targetUserID {
+		return true
+	}
+	if altController := farmerstate.GetMiscSettingString(targetUserID, "AltController"); altController != "" && callerID == altController {
+		return true
+	}
+	if farmerstate.IsActAsLinked(callerID, targetUserID) {
+		return true
+	}
+	return farmerstate.GetEffectiveUserID(callerID, e.MessageID(), e.ChannelID()) == targetUserID
+}
+
 // HandleVirtueDismiss removes the action row buttons from the virtue display.
 func HandleVirtueDismiss(e *dc.ComponentEvent) {
 	parts := strings.Split(e.CustomID(), "#")
@@ -23,8 +36,7 @@ func HandleVirtueDismiss(e *dc.ComponentEvent) {
 	}
 	targetUserID := parts[1]
 	callerID := e.UserID()
-	altController := farmerstate.GetMiscSettingString(targetUserID, "AltController")
-	if callerID != targetUserID && (altController == "" || callerID != altController) {
+	if !canControlVirtueTarget(callerID, targetUserID, e) {
 		_ = e.Respond(dc.Message{
 			Ephemeral: true,
 			Content:   "Only the original caller can use this button.",
@@ -52,8 +64,7 @@ func HandleVirtueRefresh(e *dc.ComponentEvent) {
 	targetTE, _ := strconv.ParseUint(parts[3], 10, 32)
 
 	callerID := e.UserID()
-	altController := farmerstate.GetMiscSettingString(targetUserID, "AltController")
-	if callerID != targetUserID && (altController == "" || callerID != altController) {
+	if !canControlVirtueTarget(callerID, targetUserID, e) {
 		_ = e.Respond(dc.Message{
 			Ephemeral: true,
 			Content:   "Only the original caller can use this button.",
@@ -118,8 +129,7 @@ func HandleVirtueShowAll(e *dc.ComponentEvent) {
 	isNav := len(parts) >= 6 && parts[5] == "nav"
 
 	callerID := e.UserID()
-	altController := farmerstate.GetMiscSettingString(targetUserID, "AltController")
-	if callerID != targetUserID && (altController == "" || callerID != altController) {
+	if !canControlVirtueTarget(callerID, targetUserID, e) {
 		_ = e.Respond(dc.Message{
 			Ephemeral: true,
 			Content:   "Only the original caller can use this button.",
