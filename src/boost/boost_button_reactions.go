@@ -1183,7 +1183,7 @@ func buttonReactionRanChicken(client dc.Client, e *dc.ComponentEvent, contract *
 	}
 }
 
-func buttonReactionRanCoop(client dc.Client, e *dc.ComponentEvent, contract *Contract, cUserID string) {
+func buttonReactionRanCoop(client dc.Client, e *dc.ComponentEvent, contract *Contract, cUserID string) bool {
 	defer func() {
 		if r := recover(); r != nil {
 			msgID := ""
@@ -1208,7 +1208,7 @@ func buttonReactionRanCoop(client dc.Client, e *dc.ComponentEvent, contract *Con
 		log.Printf("buttonReactionRanCoop invalid input: contractNil=%t interactionNil=%t messageNil=%t userID=%s",
 			contract == nil, e == nil, e == nil || e.MessageID() == "", cUserID,
 		)
-		return
+		return false
 	}
 
 	if !UserInContract(contract, cUserID) {
@@ -1216,7 +1216,7 @@ func buttonReactionRanCoop(client dc.Client, e *dc.ComponentEvent, contract *Con
 			Content:   "User isn't in this contract.",
 			Ephemeral: true,
 		})
-		return
+		return false
 	}
 
 	contract.mutex.Lock()
@@ -1225,7 +1225,7 @@ func buttonReactionRanCoop(client dc.Client, e *dc.ComponentEvent, contract *Con
 		contract.mutex.Unlock()
 		log.Printf("buttonReactionRanCoop missing booster entry for reacting user: contractHash=%s reactingUserID=%s",
 			contract.ContractHash, cUserID)
-		return
+		return false
 	}
 
 	oldColor := getChickenRunAccentColor(contract)
@@ -1233,7 +1233,9 @@ func buttonReactionRanCoop(client dc.Client, e *dc.ComponentEvent, contract *Con
 	// User IDs for reacting user and their alts
 	reactingUserIDs := append([]string{cUserID}, userBooster.Alts...)
 
-	// Mark all other boosters in the coop as having chickens run on them
+	// Check if all other boosters in the coop are already marked as having chickens run on them
+	allMarked := true
+	hasOtherCoopMembers := false
 	for _, id := range reactingUserIDs {
 		targetBooster := contract.Boosters[id]
 		if targetBooster == nil {
@@ -1243,8 +1245,40 @@ func buttonReactionRanCoop(client dc.Client, e *dc.ComponentEvent, contract *Con
 			if slices.Contains(reactingUserIDs, coopMemberID) {
 				continue
 			}
+			hasOtherCoopMembers = true
 			if !slices.Contains(targetBooster.RanChickensOn, coopMemberID) {
-				targetBooster.RanChickensOn = append(targetBooster.RanChickensOn, coopMemberID)
+				allMarked = false
+				break
+			}
+		}
+		if !allMarked {
+			break
+		}
+	}
+
+	cleared := hasOtherCoopMembers && allMarked
+	if cleared {
+		// Second press: clear run status for this player and their alts
+		for _, id := range reactingUserIDs {
+			targetBooster := contract.Boosters[id]
+			if targetBooster != nil {
+				targetBooster.RanChickensOn = nil
+			}
+		}
+	} else {
+		// First press: mark all other boosters in the coop as having chickens run on them
+		for _, id := range reactingUserIDs {
+			targetBooster := contract.Boosters[id]
+			if targetBooster == nil {
+				continue
+			}
+			for _, coopMemberID := range contract.Order {
+				if slices.Contains(reactingUserIDs, coopMemberID) {
+					continue
+				}
+				if !slices.Contains(targetBooster.RanChickensOn, coopMemberID) {
+					targetBooster.RanChickensOn = append(targetBooster.RanChickensOn, coopMemberID)
+				}
 			}
 		}
 	}
@@ -1291,6 +1325,7 @@ func buttonReactionRanCoop(client dc.Client, e *dc.ComponentEvent, contract *Con
 	if newColor != oldColor {
 		refreshBoostListMessage(client, contract, false)
 	}
+	return cleared
 }
 
 func buttonReactionHelp(client dc.Client, e dc.InteractionEvent, contract *Contract) {

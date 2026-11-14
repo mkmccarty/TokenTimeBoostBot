@@ -8,10 +8,46 @@ import (
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
 // manualAddThreadMemberDelay is the duration to wait before adding a manually added farmer to a thread.
 var manualAddThreadMemberDelay = 1 * time.Minute
+
+// getBoosterMainControllers returns deduplicated Discord snowflake IDs of main controllers
+// for a booster (via AltController and /act-as links), excluding the booster's own UserID.
+func getBoosterMainControllers(b *Booster) []string {
+	if b == nil {
+		return nil
+	}
+	var controllers []string
+	add := func(id string) {
+		if id != "" && id != b.UserID && dc.IsSnowflake(id) && !slices.Contains(controllers, id) {
+			controllers = append(controllers, id)
+		}
+	}
+	add(b.AltController)
+	add(farmerstate.GetMiscSettingString(b.UserID, "AltController"))
+	if b.Name != "" && b.Name != b.UserID {
+		add(farmerstate.GetMiscSettingString(b.Name, "AltController"))
+	}
+	for _, mainID := range farmerstate.GetActAsMains(b.UserID) {
+		add(mainID)
+	}
+	return controllers
+}
+
+func userInOrControlsContract(contract *Contract, userID string) bool {
+	if UserInContract(contract, userID) {
+		return true
+	}
+	for _, b := range contract.Boosters {
+		if slices.Contains(getBoosterMainControllers(b), userID) {
+			return true
+		}
+	}
+	return false
+}
 
 // AddThreadMemberDelayed waits for manualAddThreadMemberDelay (or the specified delay)
 // and checks if the farmer has already joined the thread. If not, it adds them.
@@ -24,13 +60,13 @@ func AddThreadMemberDelayed(client dc.Client, contractHash string, channelID, us
 	}
 
 	time.AfterFunc(delay, func() {
-		// Verify contract still exists and user is still in the contract
+		// Verify contract still exists and user is still in the contract (or controls an alt in it)
 		contract := FindContractByHash(contractHash)
 		if contract == nil {
 			return
 		}
 		contract.mutex.Lock()
-		if contract.State == ContractStateSignup || !UserInContract(contract, userID) {
+		if contract.State == ContractStateSignup || !userInOrControlsContract(contract, userID) {
 			contract.mutex.Unlock()
 			return
 		}
@@ -46,8 +82,8 @@ func AddThreadMemberDelayed(client dc.Client, contractHash string, channelID, us
 	})
 }
 
-// AddBoostersToThread adds all contract boosters and creators to the contract thread(s)
-// when the contract is not in signup mode.
+// AddBoostersToThread adds all contract boosters, their main controllers, and creators
+// to the contract thread(s) when the contract is not in signup mode.
 func AddBoostersToThread(client dc.Client, contract *Contract) {
 	if client == nil || contract == nil || contract.State == ContractStateSignup {
 		return
@@ -56,9 +92,12 @@ func AddBoostersToThread(client dc.Client, contract *Contract) {
 		if el == nil || el.ChannelID == "" {
 			continue
 		}
-		for userID := range contract.Boosters {
+		for userID, b := range contract.Boosters {
 			if dc.IsSnowflake(userID) {
 				_ = client.AddThreadMember(el.ChannelID, userID)
+			}
+			for _, controllerID := range getBoosterMainControllers(b) {
+				_ = client.AddThreadMember(el.ChannelID, controllerID)
 			}
 		}
 		for _, creatorID := range contract.CreatorID {

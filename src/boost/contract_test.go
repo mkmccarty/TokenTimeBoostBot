@@ -2519,3 +2519,73 @@ func TestAddFarmerToContract_EscapesMarkdownCharacters(t *testing.T) {
 		t.Errorf("b2.DisplayName() = %q, want %q", b2.DisplayName(), `star\_player\*`)
 	}
 }
+
+func TestAddFarmerToContract_ActAsAddsMainControllerToGroup(t *testing.T) {
+	oldDelay := manualAddThreadMemberDelay
+	manualAddThreadMemberDelay = 10 * time.Millisecond
+	defer func() { manualAddThreadMemberDelay = oldDelay }()
+
+	mainID := "100000000000000101"
+	altID := "100000000000000102"
+	_ = farmerstate.AddActAsLink(mainID, altID)
+	defer func() { _ = farmerstate.RemoveActAsLink(mainID, altID) }()
+
+	client := dctest.New()
+	contract := &Contract{
+		ContractHash: "test-hash-actas-group",
+		ContractID:   "test-contract",
+		CoopID:       "test-coop",
+		CoopSize:     5,
+		State:        ContractStateFastrun,
+		Style:        ContractStyleFastrun,
+		CreatorID:    []string{"100000000000000100"},
+		Boosters:     make(map[string]*Booster),
+		Location: []*LocationData{{
+			GuildID:           "guild1",
+			ChannelID:         "thread-actas",
+			GuildContractRole: GuildRole{ID: "role-actas"},
+		}},
+	}
+	ContractsMutex.Lock()
+	Contracts[contract.ContractHash] = contract
+	ContractsMutex.Unlock()
+	defer func() {
+		ContractsMutex.Lock()
+		delete(Contracts, contract.ContractHash)
+		ContractsMutex.Unlock()
+	}()
+
+	_, err := AddFarmerToContract(client, contract, "guild1", "thread-actas", altID, ContractOrderSignup, false, false)
+	if err != nil {
+		t.Fatalf("AddFarmerToContract failed: %v", err)
+	}
+
+	time.Sleep(50 * time.Millisecond)
+
+	var addedMainThread, addedAltThread, addedMainRole bool
+	for _, call := range client.AllCalls() {
+		if call.Method == "AddThreadMember" && len(call.Args) >= 2 && call.Args[0] == "thread-actas" {
+			if call.Args[1] == mainID {
+				addedMainThread = true
+			}
+			if call.Args[1] == altID {
+				addedAltThread = true
+			}
+		}
+		if call.Method == "AddGuildMemberRole" && len(call.Args) >= 3 && call.Args[0] == "guild1" && call.Args[2] == "role-actas" {
+			if call.Args[1] == mainID {
+				addedMainRole = true
+			}
+		}
+	}
+
+	if !addedMainThread {
+		t.Errorf("expected AddThreadMember for main controller %s, calls: %v", mainID, client.AllCalls())
+	}
+	if !addedAltThread {
+		t.Errorf("expected AddThreadMember for alt %s, calls: %v", altID, client.AllCalls())
+	}
+	if !addedMainRole {
+		t.Errorf("expected AddGuildMemberRole for main controller %s, calls: %v", mainID, client.AllCalls())
+	}
+}

@@ -403,11 +403,16 @@ func HandleMenuReactions(client dc.Client, e *dc.ComponentEvent) {
 			})
 			return
 		}
+		cleared := buttonReactionRanCoop(client, e, contract, userID)
+		refreshBoostListMessage(client, contract, false)
+		msgStr := fmt.Sprintf("%s Marked all farms that you've run chickens.", ei.GetBotEmojiMarkdown("icon_chicken_run"))
+		if cleared {
+			msgStr = fmt.Sprintf("%s Cleared your chicken run status for all farms.", ei.GetBotEmojiMarkdown("icon_chicken_run"))
+		}
 		_ = e.Respond(dc.Message{
-			Content:   fmt.Sprintf("%s Marked all farms that you've run chickens.", ei.GetBotEmojiMarkdown("icon_chicken_run")),
+			Content:   msgStr,
 			Ephemeral: true,
 		})
-		buttonReactionRanCoop(client, e, contract, userID)
 	case "togglerxlog":
 		disabled := !farmerstate.GetMiscSettingFlag(userID, "DisableEphemeralLog")
 		farmerstate.SetMiscSettingFlag(userID, "DisableEphemeralLog", disabled)

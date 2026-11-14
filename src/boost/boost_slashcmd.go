@@ -583,9 +583,11 @@ func tokenIDAutoCompleteChoices(e *dc.AutocompleteEvent) []dc.Choice[int] {
 		return choices
 	}
 
+	effectiveUserID := farmerstate.GetEffectiveUserID(e.UserID(), e.ChannelID())
+
 	var myTokes []ei.TokenUnitLog
 	for _, t := range c.TokenLog {
-		if t.FromUserID == e.UserID() {
+		if t.FromUserID == effectiveUserID || t.FromUserID == e.UserID() {
 			t.Value = bottools.GetTokenValue(t.Time.Sub(c.StartTime).Seconds(), c.EstimatedDuration.Seconds()) * float64(t.Quantity)
 			myTokes = append(myTokes, t)
 		}
