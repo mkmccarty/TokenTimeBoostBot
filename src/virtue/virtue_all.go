@@ -96,15 +96,7 @@ func HandleVirtueRefresh(e *dc.ComponentEvent) {
 		compact, _ = strconv.ParseBool(savedCompact)
 	}
 
-	avatarURL := ""
-	for _, c := range e.MessageComponentsWithoutActionRows() {
-		if sec, ok := c.(dc.Section); ok {
-			if thumb, ok := sec.Accessory.(dc.Thumbnail); ok && thumb.URL != "" {
-				avatarURL = thumb.URL
-				break
-			}
-		}
-	}
+	avatarURL := e.FirstThumbnailURL()
 
 	components := printVirtue(targetUserID, backup, simulatedEgg, targetTE, compact, avatarURL)
 	_ = e.Update(dc.Message{
