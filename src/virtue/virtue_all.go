@@ -201,6 +201,30 @@ func HandleVirtueShowAll(e *dc.ComponentEvent) {
 	}
 }
 
+func getVirtueArtifactSet(backup *ei.Backup) []*ei.CompleteArtifact {
+	afxDB := backup.GetArtifactsDb().GetVirtueAfxDb()
+	if afxDB == nil {
+		return nil
+	}
+	activeSet := afxDB.GetActiveArtifacts()
+	if activeSet == nil || len(activeSet.GetSlots()) == 0 {
+		return nil
+	}
+	itemsByID := make(map[uint64]*ei.CompleteArtifact, len(afxDB.GetInventoryItems()))
+	for _, it := range afxDB.GetInventoryItems() {
+		itemsByID[it.GetItemId()] = it.GetArtifact()
+	}
+	var result []*ei.CompleteArtifact
+	for _, slot := range activeSet.GetSlots() {
+		if slot.GetOccupied() {
+			if a := itemsByID[slot.GetItemId()]; a != nil {
+				result = append(result, a)
+			}
+		}
+	}
+	return result
+}
+
 func buildVirtueAllTEPage(backup *ei.Backup, simulatedEgg ei.Egg, targetTE uint64, page int) (string, int, int) {
 	if len(backup.GetFarms()) == 0 {
 		return "No farm data available.", 0, 1
@@ -219,7 +243,7 @@ func buildVirtueAllTEPage(backup *ei.Backup, simulatedEgg ei.Egg, targetTE uint6
 
 	virtueEggNames := []string{"Curiosity", "Integrity", "Humility", "Resilience", "Kindness"}
 	colBuffs := ei.GetColleggtibleBuffs(backup.GetContracts())
-	artifactBuffs := ei.GetArtifactBuffs(nil)
+	artifactBuffs := ei.GetArtifactBuffs(getVirtueArtifactSet(backup))
 	shippingRate := ei.GetShippingRateFromBackup(farm, backup.GetGame()) * artifactBuffs.SR * colBuffs.SR
 	eggLayingRate, habPop, habCap := ei.GetEggLayingRateFromBackup(farm, backup.GetGame(), colBuffs.Hab)
 	elrPerChicken := 0.0
