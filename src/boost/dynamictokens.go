@@ -913,7 +913,7 @@ func formatBoostSchedule(contract *Contract, booster *Booster, sched BoostSchedu
 		}
 	}
 	fmt.Fprintf(&sb, "## 🚀 Boost Schedule%s (%d %s)\n", boosterTarget, sched.Tokens, tokenIcon)
-	fmt.Fprintf(&sb, "**Total Boost Time:** `%s` (Done <t:%d:t>)\n", totalDurStr, sched.EstEndOfBoost.Unix())
+	fmt.Fprintf(&sb, "**Total Boost Time:** `%s` (Done <t:%d:T>)\n", totalDurStr, sched.EstEndOfBoost.Unix())
 	if sched.CurrentPopulation > 0 {
 		curPopStr := ei.FormatEIValue(sched.CurrentPopulation, map[string]any{"decimals": 2, "trim": true})
 		verifiedStr := ""
@@ -945,7 +945,7 @@ func formatBoostSchedule(contract *Contract, booster *Booster, sched BoostSchedu
 		projectedRatesLabel, formatStoneRatePerHour(sched.DeliveryRate), formatStoneRatePerHour(sched.LayRate), formatStoneRatePerHour(sched.ShipRate))
 	sb.WriteString("\n**Schedule:**\n")
 	if sched.CRDuration > 0 {
-		fmt.Fprintf(&sb, "• **Reach CR Population (`%s`):** `%s` — Request CR %s <t:%d:R>\n",
+		fmt.Fprintf(&sb, "• **Reach CR Population (`%s`):** `%s` — Request CR %s at <t:%d:T>\n",
 			crPopStr, crDurStr, crIcon, sched.EstRequestChickenRuns.Unix())
 	} else {
 		fmt.Fprintf(&sb, "• **Reach CR Population (`%s`):** Ready now! — Request CR %s immediately\n",
