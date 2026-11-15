@@ -365,6 +365,10 @@ var (
 		"watch-clear-confirm":     watch.HandleClearConfirm,
 		"watch-test-contract":     func(e *dc.ComponentEvent) { watch.HandleTestContract(botClient(), e) },
 		"watch-test-colleggtible": func(e *dc.ComponentEvent) { watch.HandleTestColleggtible(botClient(), e) },
+		"watch-vsilos-toggle":     watch.HandleVirtueSilosToggle,
+		"watch-vsilos-confirm":    func(e *dc.ComponentEvent) { watch.HandleVirtueSilosConfirm(botClient(), e) },
+		"watch-vsilos-clear":      watch.HandleVirtueSilosClear,
+		"watch-vsilos-cancel":     watch.HandleVirtueSilosCancel,
 	}
 )
 
@@ -946,6 +950,7 @@ func registerGatewayHandlers() {
 
 	bot.OnReady(func() {
 		log.Printf("Ready message for: %v (%v)", botClient().BotUsername(), bot.UserID())
+		watch.LoadVirtueSiloWatches(botClient())
 	})
 
 	bot.OnMessage(func(e *dc.MessageEvent) {

@@ -45,6 +45,9 @@ func DecryptEID(encryptedString string) string {
 }
 
 // GetFirstContactFromAPI will download the player data from the Egg Inc API
+// OnBackupFetched is an optional hook invoked when a fresh (non-cached) backup is fetched.
+var OnBackupFetched func(discordID string, backup *Backup)
+
 func GetFirstContactFromAPI(eggIncID string, discordID string, okayToSave bool) (*Backup, bool) {
 	return GetFirstContactFromAPICacheDuration(eggIncID, discordID, okayToSave, 30*time.Second)
 }
@@ -97,6 +100,9 @@ func GetFirstContactFromAPICacheDuration(eggIncID string, discordID string, okay
 	if backup == nil {
 		log.Print("No backup found in Egg Inc API response")
 		return nil, cachedData
+	}
+	if !cachedData && OnBackupFetched != nil {
+		OnBackupFetched(discordID, backup)
 	}
 	// Write the backup as a JSON file for debugging purposes
 	if config.IsDevBot() {

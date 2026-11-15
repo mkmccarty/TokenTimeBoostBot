@@ -867,6 +867,11 @@ func printVirtue(userID string, backup *ei.Backup, simulatedEgg ei.Egg, targetTE
 				CustomID: fmt.Sprintf("virtue_all#%s#%d#%d#0", userID, int(simulatedEgg), targetTE),
 			},
 			dc.Button{
+				Label:    "Silo Watch",
+				Style:    dc.ButtonSecondary,
+				CustomID: fmt.Sprintf("watch-vsilos-toggle#%s", userID),
+			},
+			dc.Button{
 				Label:    "Dismiss",
 				Style:    dc.ButtonSecondary,
 				CustomID: fmt.Sprintf("virtue_dismiss#%s", userID),
