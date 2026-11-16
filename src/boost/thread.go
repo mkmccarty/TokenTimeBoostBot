@@ -27,10 +27,6 @@ func getBoosterMainControllers(b *Booster) []string {
 		}
 	}
 	add(b.AltController)
-	add(farmerstate.GetMiscSettingString(b.UserID, "AltController"))
-	if b.Name != "" && b.Name != b.UserID {
-		add(farmerstate.GetMiscSettingString(b.Name, "AltController"))
-	}
 	for _, mainID := range farmerstate.GetActAsMains(b.UserID) {
 		add(mainID)
 	}
