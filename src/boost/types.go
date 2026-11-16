@@ -363,6 +363,7 @@ type Contract struct {
 	ThresholdTokensA           int   // A TE threshold
 	LengthInSeconds            int
 	BoostOrder                 int // How the contract is sorted
+	OriginalBoostOrder         int // Original sort order before transitioning to Signup
 	BoostVoting                int
 	CurrentBoosterUserID       string    // Current booster UserID (source of truth)
 	BoostPosition              int       // Starting Slot

@@ -2521,10 +2521,14 @@ func GetContractBoostOrderLines(contract *Contract) []string {
 	if contract == nil {
 		return []string{"SIGNUP"}
 	}
-	if contract.BoostOrder == ContractOrderCustom && len(contract.CustomOrderLines) > 0 {
+	order := contract.BoostOrder
+	if order == ContractOrderSignup && contract.OriginalBoostOrder != 0 && contract.OriginalBoostOrder != ContractOrderSignup {
+		order = contract.OriginalBoostOrder
+	}
+	if order == ContractOrderCustom && len(contract.CustomOrderLines) > 0 {
 		return contract.CustomOrderLines
 	}
-	switch contract.BoostOrder {
+	switch order {
 	case ContractOrderSignup:
 		return []string{"<ROLE", "SIGNUP"}
 	case ContractOrderReverse:
@@ -2624,17 +2628,27 @@ func BuildBoostOrderPreviewMessage(contract *Contract) (dc.Message, error) {
 	}
 
 	lines := GetContractBoostOrderLines(contract)
+	displayOrder := contract.BoostOrder
+	showingOriginal := false
+	if displayOrder == ContractOrderSignup && contract.OriginalBoostOrder != 0 && contract.OriginalBoostOrder != ContractOrderSignup {
+		displayOrder = contract.OriginalBoostOrder
+		showingOriginal = true
+	}
 	orderName := "Custom Boost Order"
-	if contract.BoostOrder != ContractOrderCustom {
-		if int(contract.BoostOrder) < len(contractOrderNames) {
-			orderName = contractOrderNames[contract.BoostOrder]
+	if displayOrder != ContractOrderCustom {
+		if int(displayOrder) < len(contractOrderNames) {
+			orderName = contractOrderNames[displayOrder]
 		}
 	} else {
 		orderName = strings.TrimPrefix(GetContractCustomOrderName(contract), "CBO: ")
 	}
 
 	var headerSb strings.Builder
-	fmt.Fprintf(&headerSb, "## ⚙️ Boost Order: **%s**\n", orderName)
+	if showingOriginal {
+		fmt.Fprintf(&headerSb, "## ⚙️ Boost Order: **%s** *(Original Sort Order; contract is now in Sign-up)*\n", orderName)
+	} else {
+		fmt.Fprintf(&headerSb, "## ⚙️ Boost Order: **%s**\n", orderName)
+	}
 	fmt.Fprintf(&headerSb, "**Contract:** `%s` | **Coop:** `%s`\n", contract.ContractID, contract.CoopID)
 
 	if len(lines) > 0 {
