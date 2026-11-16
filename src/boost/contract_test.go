@@ -2161,6 +2161,12 @@ func TestAddFarmerToContract_AutoLinkAlts(t *testing.T) {
 
 	farmerstate.SetMiscSettingString(altID, "AltController", mainID)
 	farmerstate.SetMiscSettingString(guestAlt, "AltController", mainID)
+	_ = farmerstate.AddActAsLink(mainID, altID)
+	_ = farmerstate.AddActAsLink(mainID, guestAlt)
+	defer func() {
+		_ = farmerstate.RemoveActAsLink(mainID, altID)
+		_ = farmerstate.RemoveActAsLink(mainID, guestAlt)
+	}()
 
 	contract := &Contract{
 		ContractHash: "test-hash-autolink",
