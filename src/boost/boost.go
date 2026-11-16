@@ -379,6 +379,7 @@ func getBoostOrderString(contract *Contract) string {
 		}
 		orderThresholdTime := contract.StartTime.Add(15 * time.Minute)
 		if time.Now().After(orderThresholdTime) {
+			contract.OriginalBoostOrder = contract.BoostOrder
 			contract.BoostOrder = ContractOrderSignup
 			return "in Sign-up order"
 		}
@@ -1074,6 +1075,7 @@ func AddFarmerToContract(client dc.Client, contract *Contract, guildID string, c
 				if time.Since(contract.StartTime) <= 15*time.Minute {
 					insertBoosterInOrder(contract, b)
 				} else {
+					contract.OriginalBoostOrder = contract.BoostOrder
 					contract.BoostOrder = ContractOrderSignup
 					contract.Order = append(contract.Order, b.UserID)
 				}
