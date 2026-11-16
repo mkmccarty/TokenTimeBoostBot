@@ -370,8 +370,19 @@ func getBoostOrderString(contract *Contract) string {
 			return "Random order"
 		}
 		return fmt.Sprintf("Random -> Sign-up <t:%d:R> ", thresholdStartTime.Unix())
-	case ContractOrderELR:
-		return fmt.Sprintf("Egg Lay Rate order (%s)", bottools.GetFormattedCommand("artifact"))
+	case ContractOrderELR, ContractOrderTokenAsk, ContractOrderTE, ContractOrderTEFuzzy, ContractOrderIHR, ContractOrderIHRFuzzy:
+		if contract.StartTime.IsZero() || contract.State == ContractStateSignup {
+			if contract.BoostOrder == ContractOrderELR {
+				return fmt.Sprintf("Egg Lay Rate order (%s)", bottools.GetFormattedCommand("artifact"))
+			}
+			return contractOrderNames[contract.BoostOrder]
+		}
+		orderThresholdTime := contract.StartTime.Add(15 * time.Minute)
+		if time.Now().After(orderThresholdTime) {
+			contract.BoostOrder = ContractOrderSignup
+			return "in Sign-up order"
+		}
+		return fmt.Sprintf("%s -> Sign-up <t:%d:R> ", contractOrderNames[contract.BoostOrder], orderThresholdTime.Unix())
 	case ContractOrderCustom:
 		orderName := GetContractCustomOrderName(contract)
 		return strings.TrimPrefix(orderName, "CBO: ")
@@ -1058,6 +1069,13 @@ func AddFarmerToContract(client dc.Client, contract *Contract, guildID string, c
 				contract.Order = append(contract.Order, b.UserID)
 				if contract.State == ContractStateWaiting && !alreadyBoosted {
 					contract.setCurrentBoosterByIndex(len(contract.Order) - 1)
+				}
+			} else if isDeferredSignupOrder(contract.BoostOrder) {
+				if time.Since(contract.StartTime) <= 15*time.Minute {
+					insertBoosterInOrder(contract, b)
+				} else {
+					contract.BoostOrder = ContractOrderSignup
+					contract.Order = append(contract.Order, b.UserID)
 				}
 			} else {
 				contract.Order = append(contract.Order, b.UserID)
@@ -2363,6 +2381,59 @@ func FinishContract(client dc.Client, contract *Contract) {
 	_, _ = DeleteContract(client, contract.Location[0].GuildID, contract.Location[0].ChannelID)
 }
 
+func isDeferredSignupOrder(order int) bool {
+	switch order {
+	case ContractOrderELR, ContractOrderTokenAsk, ContractOrderTE, ContractOrderTEFuzzy, ContractOrderIHR, ContractOrderIHRFuzzy:
+		return true
+	default:
+		return false
+	}
+}
+
+// insertBoosterInOrder inserts a late-joining booster into contract.Order according to the
+// active boost order (non-helpers before helpers) without displacing the current booster or anyone before them.
+func insertBoosterInOrder(contract *Contract, b *Booster) {
+	startIdx := 0
+	if currentIdx := slices.Index(contract.Order, contract.CurrentBoosterUserID); currentIdx >= 0 {
+		startIdx = currentIdx + 1
+	}
+
+	bHelper := isBoosterHelper(b)
+	insertIdx := len(contract.Order)
+	for i := startIdx; i < len(contract.Order); i++ {
+		existing := contract.Boosters[contract.Order[i]]
+		if existing == nil {
+			continue
+		}
+		eHelper := isBoosterHelper(existing)
+		if !bHelper && eHelper {
+			insertIdx = i
+			break
+		}
+		if bHelper == eHelper && boosterOutranks(contract.BoostOrder, b, existing) {
+			insertIdx = i
+			break
+		}
+	}
+
+	contract.Order = slices.Insert(contract.Order, insertIdx, b.UserID)
+}
+
+func boosterOutranks(order int, b, existing *Booster) bool {
+	switch order {
+	case ContractOrderELR:
+		return b.ArtifactSet.LayRate > existing.ArtifactSet.LayRate
+	case ContractOrderTokenAsk:
+		return b.TokensWanted > existing.TokensWanted
+	case ContractOrderTE, ContractOrderTEFuzzy:
+		return b.TECount > existing.TECount
+	case ContractOrderIHR, ContractOrderIHRFuzzy:
+		return b.IHRRate > existing.IHRRate
+	default:
+		return false
+	}
+}
+
 func reorderBoosters(contract *Contract) {
 
 	type teOrderPair struct {
@@ -2444,8 +2515,7 @@ func reorderBoosters(contract *Contract) {
 			orderedNames = append(orderedNames, pair.Name)
 		}
 		contract.Order = orderedNames
-		// Reset this to Signup after the initial ELR sort
-		contract.BoostOrder = ContractOrderSignup
+		// Keep ContractOrderELR active for 15 minutes after start so late joiners can be inserted in place
 	case ContractOrderTokenAsk:
 		type TokenPair struct {
 			Name string
