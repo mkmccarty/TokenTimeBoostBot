@@ -192,6 +192,8 @@ type BoostSchedule struct {
 	SIABShipRate          float64
 	SIABDeliveryRate      float64
 	BoostsVerified        bool
+	IHRArtifactsMissing   bool
+	KnownPlayerIHR        bool
 	CurrentPopulation     float64
 	PopulationBasis       string
 	EstRequestChickenRuns time.Time
@@ -699,11 +701,14 @@ func calculateBoostSchedule(contract *Contract, booster *Booster, now time.Time)
 
 	// Determine online IHR per hab per minute (including TE, colleggtibles, chalice, monocle, life stones)
 	onlineIHRPerHab := 0.0
+	knownPlayerIHR := false
 	if booster != nil && booster.IHRRate > DefaultLeggyIHR {
 		onlineIHRPerHab = booster.IHRRate
+		knownPlayerIHR = true
 	} else if booster != nil && booster.UserID != "" {
 		if dbRate, _ := CalculateIHRRateFromDB(booster.UserID); dbRate > DefaultLeggyIHR {
 			onlineIHRPerHab = dbRate
+			knownPlayerIHR = true
 		}
 	}
 	if onlineIHRPerHab <= 0 {
@@ -856,6 +861,8 @@ func calculateBoostSchedule(contract *Contract, booster *Booster, now time.Time)
 		SIABShipRate:          siabBestSR,
 		SIABDeliveryRate:      siabBestTotal,
 		BoostsVerified:        boostsVerified,
+		IHRArtifactsMissing:   !hasIHRArt,
+		KnownPlayerIHR:        knownPlayerIHR,
 		CurrentPopulation:     currentPop,
 		PopulationBasis:       popBasis,
 		EstRequestChickenRuns: now.Add(crDuration),
@@ -954,8 +961,19 @@ func formatBoostSchedule(contract *Contract, booster *Booster, sched BoostSchedu
 	fmt.Fprintf(&sb, "• **Offline to Max Shipping (`%s`):** `%s` (go offline for at least 1m after requesting CRs to receive runs & offline chickens)",
 		maxPopStr, postCRDurStr)
 
+	if sched.IHRArtifactsMissing {
+		if sched.KnownPlayerIHR {
+			sb.WriteString("\n\n-# Note: IHR artifacts not found in coop status; using known player IHR from farmerstate/contract.")
+		} else {
+			sb.WriteString("\n\n-# Note: IHR artifacts not found in coop status; using default IHR estimates.")
+		}
+	}
 	if sched.APIDuration > 0 {
-		fmt.Fprintf(&sb, "\n\n-# API request took %s", formatAPIDuration(sched.APIDuration))
+		prefix := "\n\n"
+		if sched.IHRArtifactsMissing {
+			prefix = "\n"
+		}
+		fmt.Fprintf(&sb, "%s-# API request took %s", prefix, formatAPIDuration(sched.APIDuration))
 	}
 
 	return sb.String()
@@ -1442,6 +1460,10 @@ func getBoostBaseDuration(boostID string) time.Duration {
 		return 2 * time.Hour
 	case "tachyon_prism_blue_big":
 		return 4 * time.Hour
+	case "boost_beacon_blue":
+		return 30 * time.Minute
+	case "boost_beacon_blue_big":
+		return 1 * time.Hour
 	default:
 		return 10 * time.Minute
 	}
@@ -1490,14 +1512,26 @@ func extractContributorActiveBoosts(activeBoosts []*ei.Backup_ActiveBoost) (floa
 		} else if meta.isBeacon {
 			beaconSum += mult
 		}
+		durStr := meta.duration
+		isFreeBoost := meta.isTachyon && meta.multiplier < 100
+		if !isFreeBoost && ab.TimeRemaining != nil {
+			rem := time.Duration(ab.GetTimeRemaining() * float64(time.Second))
+			baseDur := getBoostBaseDuration(rawID)
+			if rem > baseDur {
+				durStr = fmt.Sprintf("%s, %s left", meta.duration, bottools.FmtDuration(rem.Round(time.Second)))
+			}
+		}
 		if idx, exists := indexByEmoji[meta.emojiName]; exists {
 			items[idx].count++
+			if durStr != meta.duration && items[idx].duration == meta.duration {
+				items[idx].duration = durStr
+			}
 		} else {
 			indexByEmoji[meta.emojiName] = len(items)
 			items = append(items, boostItemSpec{
 				emojiName: meta.emojiName,
 				count:     1,
-				duration:  meta.duration,
+				duration:  durStr,
 			})
 		}
 	}
