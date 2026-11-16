@@ -1016,7 +1016,7 @@ func AddFarmerToContract(client dc.Client, contract *Contract, guildID string, c
 			if parentID == "" && b.Name != "" && b.Name != b.UserID {
 				parentID = farmerstate.GetMiscSettingString(b.Name, "AltController")
 			}
-			if parentID != "" && parentID != b.UserID {
+			if parentID != "" && parentID != b.UserID && farmerstate.IsActAsLinked(parentID, b.UserID) {
 				if parentBooster, ok := contract.Boosters[parentID]; ok && parentBooster != nil {
 					b.AltController = parentID
 					if !slices.Contains(parentBooster.Alts, b.UserID) {
@@ -1040,7 +1040,7 @@ func AddFarmerToContract(client dc.Client, contract *Contract, guildID string, c
 						}
 					}
 				}
-				if altBooster != nil {
+				if altBooster != nil && farmerstate.IsActAsLinked(b.UserID, altBooster.UserID) {
 					altBooster.AltController = b.UserID
 					if !slices.Contains(b.Alts, altBooster.UserID) {
 						b.Alts = append(b.Alts, altBooster.UserID)
