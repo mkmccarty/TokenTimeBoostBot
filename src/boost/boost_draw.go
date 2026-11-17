@@ -851,14 +851,7 @@ func renderBoosterLines(contract *Contract, orderSubset []string, offset int, re
 						fmt.Fprintf(builder, "%s **%s**%s %s%s%s%s%s\n", prefix, name, deflStr, signupCountStr, sortRate, currentStartTime, sinkIcon, server)
 					}
 				case BoostStateBoosted:
-					boostingString := ""
-					if now.Before(b.EstEndOfBoost) {
-						if b.RunChickensTime.IsZero() {
-							boostingString = fmt.Sprintf(" %s<t:%d:R> / ", diamond, b.EstRequestChickenRuns.Unix())
-						} else {
-							boostingString = fmt.Sprintf(" %s<t:%d:R>", habFull, b.EstEndOfBoost.Unix())
-						}
-					}
+					boostingString := formatBoostingStatus(b, now, diamond, habFull)
 					fmt.Fprintf(builder, "%s ~~%s~~%s%s  %s %s%s%s%s\n", prefix, name, deflStr, sortRate, contract.Boosters[element].Duration.Round(time.Second), sinkIcon, boostingString, chickenStr, server)
 				}
 			} else {
@@ -880,14 +873,7 @@ func renderBoosterLines(contract *Contract, orderSubset []string, offset int, re
 						}
 					}
 				case BoostStateBoosted:
-					boostingString := ""
-					if now.Before(b.EstEndOfBoost) {
-						if b.RunChickensTime.IsZero() {
-							boostingString = fmt.Sprintf(" %s<t:%d:R> / ", diamond, b.EstRequestChickenRuns.Unix())
-						} else {
-							boostingString = fmt.Sprintf(" %s<t:%d:R>", habFull, b.EstEndOfBoost.Unix())
-						}
-					}
+					boostingString := formatBoostingStatus(b, now, diamond, habFull)
 					fmt.Fprintf(builder, "%s ~~%s~~%s%s  %s %s%s%s%s\n", prefix, name, deflStr, sortRate, contract.Boosters[element].Duration.Round(time.Second), sinkIcon, boostingString, chickenStr, server)
 				}
 			}
@@ -899,4 +885,14 @@ func renderBoosterLines(contract *Contract, orderSubset []string, offset int, re
 			builder.Reset()
 		}
 	}
+}
+
+func formatBoostingStatus(b *Booster, now time.Time, diamond, habFull string) string {
+	if b == nil || !now.Before(b.EstEndOfBoost) {
+		return ""
+	}
+	if b.RunChickensTime.IsZero() && now.Before(b.EstRequestChickenRuns) {
+		return fmt.Sprintf(" %s<t:%d:R> / ", diamond, b.EstRequestChickenRuns.Unix())
+	}
+	return fmt.Sprintf(" %s<t:%d:R>", habFull, b.EstEndOfBoost.Unix())
 }
