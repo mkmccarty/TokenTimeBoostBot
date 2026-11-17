@@ -1175,8 +1175,8 @@ func TestExtractContributorActiveBoosts(t *testing.T) {
 	if !strings.Contains(icons, "b_tach10x4h") || !strings.Contains(icons, "(4h)") {
 		t.Errorf("expected icons to contain b_tach10x4h (4h), got %q", icons)
 	}
-	if !strings.Contains(icons, "b_tach1000x1h") || !strings.Contains(icons, "(1h, 3h53m20s left)") {
-		t.Errorf("expected icons to contain b_tach1000x1h (1h, 3h53m20s left), got %q", icons)
+	if !strings.Contains(icons, "b_tach1000x1h") || !strings.Contains(icons, "(<t:") || !strings.Contains(icons, ":R>)") {
+		t.Errorf("expected icons to contain b_tach1000x1h (<t:...:R>), got %q", icons)
 	}
 	if strings.Contains(icons, "b_tach100x20m") {
 		t.Errorf("icons should not contain b_tach100x20m, got %q", icons)

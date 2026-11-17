@@ -1518,7 +1518,7 @@ func extractContributorActiveBoosts(activeBoosts []*ei.Backup_ActiveBoost) (floa
 			rem := time.Duration(ab.GetTimeRemaining() * float64(time.Second))
 			baseDur := getBoostBaseDuration(rawID)
 			if rem > baseDur {
-				durStr = fmt.Sprintf("%s, %s left", meta.duration, bottools.FmtDuration(rem.Round(time.Second)))
+				durStr = fmt.Sprintf("<t:%d:R>", time.Now().Add(rem).Unix())
 			}
 		}
 		if idx, exists := indexByEmoji[meta.emojiName]; exists {
