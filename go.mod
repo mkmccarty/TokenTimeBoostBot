@@ -12,7 +12,7 @@ require (
 	github.com/natefinch/lumberjack/v3 v3.0.0-alpha
 	github.com/peterbourgon/diskv/v3 v3.0.1
 	github.com/pkg/errors v0.9.1
-	github.com/rabbitmq/amqp091-go v1.16.0
+	github.com/rabbitmq/amqp091-go v1.17.0
 	github.com/wI2L/jsondiff v0.7.1
 	github.com/xhit/go-str2duration/v2 v2.2.0
 	golang.org/x/image v0.48.0
@@ -61,7 +61,7 @@ require (
 	golang.org/x/net v0.62.0 // indirect
 	golang.org/x/sys v0.50.0 // indirect
 	google.golang.org/api v0.315.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20261110000943-09e21b237f2c // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20261116203732-fd2c7689a808 // indirect
 	google.golang.org/grpc v1.85.0 // indirect
 	modernc.org/libc v1.81.2 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
