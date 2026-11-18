@@ -132,6 +132,8 @@ func bumpCRMessages(client dc.Client, contract *Contract) {
 	prevRequesters := append([]string(nil), contract.CRActiveRequesters...)
 	contract.mutex.Unlock()
 
+	completedShown := false
+	var lastNewRequesters []string
 	for _, location := range locations {
 		contract.mutex.Lock()
 		msg, _ := buildCRMessage(contract, location.RoleMention)
@@ -150,6 +152,10 @@ func bumpCRMessages(client dc.Client, contract *Contract) {
 			continue
 		}
 
+		lastNewRequesters = newRequesters
+		if isCRCompletionMessage(msg) {
+			completedShown = true
+		}
 		setChickenRunMessageID(contract, location.ChannelID, newMsg.ID)
 		contract.mutex.Lock()
 		contract.CRNoticeCount++
@@ -206,6 +212,11 @@ func bumpCRMessages(client dc.Client, contract *Contract) {
 				}
 			}
 		}
+	}
+	if completedShown {
+		contract.mutex.Lock()
+		markCRCompletedShown(contract, lastNewRequesters)
+		contract.mutex.Unlock()
 	}
 }
 

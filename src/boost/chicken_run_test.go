@@ -968,3 +968,126 @@ func TestChickenRunInteractionOnStaleMessageRedirects(t *testing.T) {
 		t.Errorf("ping message link should not point to stale message 201, got: %s", client.SentMessages[0].Content)
 	}
 }
+
+func TestChickenRunCompletedGreenBarDoesNotMigrateWithin10Minutes(t *testing.T) {
+	client := dctest.New()
+	c := &Contract{
+		ContractHash: "test-cr-green-no-migrate",
+		Location: []*LocationData{
+			{
+				ChannelID:   "101",
+				GuildID:     "100",
+				RoleMention: "@role",
+			},
+		},
+		Order: []string{"1001", "1002", "1003"},
+		Boosters: map[string]*Booster{
+			"1001": {
+				UserID:          "1001",
+				Nick:            "Player1",
+				UserName:        "player1",
+				Mention:         "<@1001>",
+				BoostState:      BoostStateBoosted,
+				RunChickensTime: time.Now().Add(-2 * time.Minute), // within 10m
+			},
+			"1002": {
+				UserID:        "1002",
+				Nick:          "Player2",
+				UserName:      "player2",
+				Mention:       "<@1002>",
+				BoostState:    BoostStateBoosted,
+				RanChickensOn: []string{"1001"},
+			},
+			"1003": {
+				UserID:     "1003",
+				Nick:       "Player3",
+				UserName:   "player3",
+				Mention:    "<@1003>",
+				BoostState: BoostStateBoosted,
+			},
+		},
+		CRMessageIDs: map[string]string{
+			"101": "201",
+		},
+		CRActiveRequesters: []string{"1001"},
+	}
+
+	ContractsMutex.Lock()
+	Contracts[c.ContractHash] = c
+	ContractsMutex.Unlock()
+	defer func() {
+		ContractsMutex.Lock()
+		delete(Contracts, c.ContractHash)
+		ContractsMutex.Unlock()
+	}()
+
+	// 1. User 1003 completes the final run for 1001 -> 201 turns into green-bar completion notice
+	ev := dctest.ComponentButtonEventFull("100", "101", "201", "1003", fmt.Sprintf("rc_#RanChicken#1001#%s", c.ContractHash))
+	buttonReactionRanChicken(client, ev, c, "1003", "1001")
+
+	if !c.Boosters["1001"].CRCompletedShown {
+		t.Fatalf("expected CRCompletedShown to be true after green-bar completion message was shown")
+	}
+
+	// 2. User 1002 requests chicken runs while 1001 is still within 10 minutes
+	client.SentMessages = nil
+	client.EditedMessages = nil
+	ok, _ := buttonReactionRunChickens(client, c, "1002")
+	if !ok {
+		t.Fatalf("expected buttonReactionRunChickens for 1002 to succeed")
+	}
+
+	var secondMsgID string
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		c.mutex.Lock()
+		secondMsgID = c.CRMessageIDs["101"]
+		c.mutex.Unlock()
+		if secondMsgID != "" && secondMsgID != "201" {
+			break
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	if secondMsgID == "" || secondMsgID == "201" {
+		t.Fatalf("expected CR message ID to update from 201, got %q", secondMsgID)
+	}
+
+	if len(client.SentMessages) != 1 {
+		t.Fatalf("expected 1 new CR message sent, got %d", len(client.SentMessages))
+	}
+	newMsg := client.SentMessages[0]
+	if len(newMsg.Embeds) != 1 {
+		t.Fatalf("expected 1 embed on new CR message, got %d", len(newMsg.Embeds))
+	}
+	if strings.Contains(newMsg.Embeds[0].Description, "Player1") {
+		t.Errorf("expected Player1 NOT to migrate into new CR message after green-bar completion, got: %s", newMsg.Embeds[0].Description)
+	}
+	if !strings.Contains(newMsg.Embeds[0].Description, "Player2") {
+		t.Errorf("expected Player2 in new CR message, got: %s", newMsg.Embeds[0].Description)
+	}
+
+	// Old message msg-1 should still show Player1's green completion bar + redirect
+	var editedOld *dc.Message
+	for _, m := range client.EditedMessages {
+		if len(m.Embeds) > 0 && strings.Contains(m.Embeds[0].Description, secondMsgID) {
+			editedOld = &m
+			break
+		}
+	}
+	if editedOld == nil {
+		t.Fatalf("expected msg-1 to be edited with green completion embed + redirect, got edits: %+v", client.EditedMessages)
+	}
+	if editedOld.Embeds[0].Color != 0x00ff00 {
+		t.Errorf("expected green embed color 0x00ff00 on msg-1, got %#x", editedOld.Embeds[0].Color)
+	}
+	if !strings.Contains(editedOld.Embeds[0].Description, "**Player1**'s chicken run request is complete!") {
+		t.Errorf("expected msg-1 to keep Player1 completion text, got: %s", editedOld.Embeds[0].Description)
+	}
+
+	c.mutex.Lock()
+	activeRequesters := append([]string(nil), c.CRActiveRequesters...)
+	c.mutex.Unlock()
+	if !slices.Equal(activeRequesters, []string{"1002"}) {
+		t.Errorf("expected CRActiveRequesters to be [1002], got %v", activeRequesters)
+	}
+}

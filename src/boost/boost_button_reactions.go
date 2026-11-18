@@ -512,6 +512,8 @@ func buttonReactionRunChickens(client dc.Client, contract *Contract, cUserID str
 		go func() {
 			client := client
 			sendSuccess := false
+			completedShown := false
+			var lastNewRequesters []string
 			for _, location := range contract.Location {
 				contract.mutex.Lock()
 				msg, _ := buildCRMessage(contract, location.RoleMention)
@@ -535,6 +537,10 @@ func buttonReactionRunChickens(client dc.Client, contract *Contract, cUserID str
 				}
 
 				sendSuccess = true
+				lastNewRequesters = newRequesters
+				if isCRCompletionMessage(msg) {
+					completedShown = true
+				}
 				setChickenRunMessageID(contract, location.ChannelID, newMsg.ID)
 				contract.mutex.Lock()
 				contract.CRNoticeCount++
@@ -600,10 +606,16 @@ func buttonReactionRunChickens(client dc.Client, contract *Contract, cUserID str
 				contract.mutex.Lock()
 				if booster := contract.Boosters[userID]; booster != nil {
 					booster.RunChickensTime = time.Time{}
+					booster.CRCompletedShown = false
 				}
 				contract.CRActiveRequesters = prevRequesters
 				contract.mutex.Unlock()
 			} else {
+				if completedShown {
+					contract.mutex.Lock()
+					markCRCompletedShown(contract, lastNewRequesters)
+					contract.mutex.Unlock()
+				}
 				saveData(contract.ContractHash)
 			}
 		}()
@@ -688,7 +700,7 @@ func getActiveCRRequesters(contract *Contract) []string {
 	}
 	requesters := make([]string, 0, len(contract.Boosters))
 	for id, b := range contract.Boosters {
-		if b == nil || b.RunChickensTime.IsZero() {
+		if b == nil || b.RunChickensTime.IsZero() || b.CRCompletedShown {
 			continue
 		}
 		if time.Since(b.RunChickensTime) > 10*time.Minute {
@@ -700,6 +712,35 @@ func getActiveCRRequesters(contract *Contract) []string {
 		return contract.Boosters[a].RunChickensTime.Compare(contract.Boosters[b].RunChickensTime)
 	})
 	return requesters
+}
+
+// isCRCompletionMessage reports whether msg is the collapsed green-bar completion dialog.
+func isCRCompletionMessage(msg dc.Message) bool {
+	return msg.ClearComponents && len(msg.Embeds) == 1 && msg.Embeds[0].Color == 0x00ff00
+}
+
+// markCRCompletedShown records that the given requesters were shown in a green-bar completion message
+// so they stay in that message instead of migrating to newer CR dialogs within the 10-minute window.
+func markCRCompletedShown(contract *Contract, requesterIDs []string) {
+	if contract == nil {
+		return
+	}
+	for _, reqID := range requesterIDs {
+		if b := contract.Boosters[reqID]; b != nil {
+			b.CRCompletedShown = true
+		}
+	}
+}
+
+// updateCRStateAfterEdit updates CRActiveRequesters and marks completed requesters if the green-bar dialog was shown.
+func updateCRStateAfterEdit(contract *Contract, msg dc.Message, editSucceeded bool) {
+	contract.mutex.Lock()
+	active := getActiveCRRequesters(contract)
+	contract.CRActiveRequesters = active
+	if editSucceeded && isCRCompletionMessage(msg) {
+		markCRCompletedShown(contract, active)
+	}
+	contract.mutex.Unlock()
 }
 
 // formatCompletedCRRequestersText formats a completion message line for dropped completed requesters.
@@ -1163,14 +1204,12 @@ func buttonReactionRanChicken(client dc.Client, e *dc.ComponentEvent, contract *
 	if targetMsgID != "" {
 		msg, allowedMentions := buildCRMessage(contract, roleMention)
 		msg.AllowedMentions = &dc.AllowedMentions{Users: allowedMentions}
-		if _, err := client.EditMessage(e.ChannelID(), targetMsgID, msg); err != nil {
+		_, editErr := client.EditMessage(e.ChannelID(), targetMsgID, msg)
+		if editErr != nil {
 			log.Printf("ChannelMessageEditComplex error: contractHash=%s messageID=%s error=%v",
-				contract.ContractHash, targetMsgID, err)
+				contract.ContractHash, targetMsgID, editErr)
 		}
-
-		contract.mutex.Lock()
-		contract.CRActiveRequesters = getActiveCRRequesters(contract)
-		contract.mutex.Unlock()
+		updateCRStateAfterEdit(contract, msg, editErr == nil)
 	}
 
 	if e.MessageID() != "" && targetMsgID != "" && e.MessageID() != targetMsgID {
@@ -1307,14 +1346,12 @@ func buttonReactionRanCoop(client dc.Client, e *dc.ComponentEvent, contract *Con
 
 		msg, allowedMentions := buildCRMessage(contract, roleMention)
 		msg.AllowedMentions = &dc.AllowedMentions{Users: allowedMentions}
-		if _, err := client.EditMessage(e.ChannelID(), targetMsgID, msg); err != nil {
+		_, editErr := client.EditMessage(e.ChannelID(), targetMsgID, msg)
+		if editErr != nil {
 			log.Printf("EditMessage error: contractHash=%s messageID=%s error=%v",
-				contract.ContractHash, targetMsgID, err)
+				contract.ContractHash, targetMsgID, editErr)
 		}
-
-		contract.mutex.Lock()
-		contract.CRActiveRequesters = getActiveCRRequesters(contract)
-		contract.mutex.Unlock()
+		updateCRStateAfterEdit(contract, msg, editErr == nil)
 	}
 
 	if e.MessageID() != "" && targetMsgID != "" && e.MessageID() != targetMsgID {
