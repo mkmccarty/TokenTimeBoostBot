@@ -450,6 +450,7 @@ func HandleMenuReactions(client dc.Client, e *dc.ComponentEvent) {
 				booster.BoostScheduleMsgID = ""
 				booster.BoostScheduleToken = ""
 				booster.BoostScheduleAppID = ""
+				booster.BoostScheduleUpdated = false
 			}
 		}
 		contract.mutex.Unlock()
@@ -492,6 +493,7 @@ func HandleMenuReactions(client dc.Client, e *dc.ComponentEvent) {
 			booster.BoostScheduleAppID = e.ApplicationID()
 			booster.BoostScheduleToken = e.Token()
 			booster.BoostScheduleMsgID = "@original"
+			booster.BoostScheduleUpdated = true
 			contract.mutex.Unlock()
 
 			if !sched.BoostsVerified {

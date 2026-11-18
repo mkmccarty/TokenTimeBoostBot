@@ -264,6 +264,9 @@ func speedrunReactions(client dc.Client, e *dc.ReactionEvent, contract *Contract
 	// Token reaction handling
 	tokenReactionStr := "token"
 	userID := resolveContractUserID(client, contract, e.UserID())
+	if e.EmojiName() == "🏓" {
+		handlePingPongForceSync(client, contract, userID)
+	}
 	// Special handling for alt icons representing token reactions
 	if strings.ToLower(e.EmojiName()) == tokenReactionStr {
 		_, redraw = buttonReactionToken(client, e.GuildID(), e.ChannelID(), contract, userID, 1, "")
