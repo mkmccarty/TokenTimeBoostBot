@@ -565,3 +565,217 @@ func TestStickyHelper_AppliesOnFutureContractJoins(t *testing.T) {
 		t.Errorf("expected 1002 to default to Main (IsHelper=false) after sticky was removed, got %v", b4.IsHelper)
 	}
 }
+
+func TestAddFarmerToContract_AutoLinkAlts_GuestAndActAs(t *testing.T) {
+	client := dctest.New().
+		WithGuild("guild-alt-1", "Guild 1").
+		WithChannel("chan-alt-1", "guild-alt-1", "contract-channel").
+		WithUser("main-u1", "mainUser", "Main User").
+		WithUser("alt-u1", "altUser", "Alt User").
+		WithUser("stranger-u1", "strangerUser", "Stranger User")
+
+	mainID := "main-u1"
+	altID := "alt-u1"
+	strangerID := "stranger-u1"
+	guestAlt := "GuestAltOnly"
+
+	// Guest alt has AltController only (no act_as_links).
+	farmerstate.SetMiscSettingString(guestAlt, "AltController", mainID)
+	// Discord alt with AltController only (no act_as_links) should also auto-link.
+	farmerstate.SetMiscSettingString(strangerID, "AltController", mainID)
+	// Discord alt with act_as_links only (no AltController) should also auto-link.
+	_ = farmerstate.AddActAsLink(mainID, altID)
+	defer func() {
+		farmerstate.SetMiscSettingString(guestAlt, "AltController", "")
+		farmerstate.SetMiscSettingString(strangerID, "AltController", "")
+		_ = farmerstate.RemoveActAsLink(mainID, altID)
+	}()
+
+	contract := &Contract{
+		ContractHash: "test-hash-autolink-guest-actas",
+		ContractID:   "test-contract",
+		CoopID:       "test-coop",
+		CoopSize:     10,
+		State:        ContractStateSignup,
+		CreatorID:    []string{mainID},
+		Order:        make([]string, 0),
+		Boosters:     make(map[string]*Booster),
+		Location:     []*LocationData{{GuildID: "guild-alt-1", ChannelID: "chan-alt-1"}},
+	}
+	ContractsMutex.Lock()
+	Contracts[contract.ContractHash] = contract
+	ContractsMutex.Unlock()
+	defer func() {
+		ContractsMutex.Lock()
+		delete(Contracts, contract.ContractHash)
+		ContractsMutex.Unlock()
+	}()
+
+	// Add alts BEFORE main joins to test reverse-direction auto-linking too.
+	guestB, err := AddFarmerToContract(client, contract, "guild-alt-1", "chan-alt-1", guestAlt, ContractOrderSignup, false, false)
+	if err != nil || guestB == nil {
+		t.Fatalf("failed to add guest alt: %v", err)
+	}
+	altB, err := AddFarmerToContract(client, contract, "guild-alt-1", "chan-alt-1", altID, ContractOrderSignup, false, false)
+	if err != nil || altB == nil {
+		t.Fatalf("failed to add discord alt: %v", err)
+	}
+	strangerB, err := AddFarmerToContract(client, contract, "guild-alt-1", "chan-alt-1", strangerID, ContractOrderSignup, false, false)
+	if err != nil || strangerB == nil {
+		t.Fatalf("failed to add stranger: %v", err)
+	}
+
+	mainB, err := AddFarmerToContract(client, contract, "guild-alt-1", "chan-alt-1", mainID, ContractOrderSignup, true, false)
+	if err != nil || mainB == nil {
+		t.Fatalf("failed to add main: %v", err)
+	}
+
+	if guestB.AltController != mainID || !slices.Contains(mainB.Alts, guestAlt) {
+		t.Errorf("guest alt not auto-linked: AltController=%q, main.Alts=%v", guestB.AltController, mainB.Alts)
+	}
+	if altB.AltController != mainID || !slices.Contains(mainB.Alts, altID) {
+		t.Errorf("act-as discord alt not auto-linked: AltController=%q, main.Alts=%v", altB.AltController, mainB.Alts)
+	}
+	if strangerB.AltController != mainID || !slices.Contains(mainB.Alts, strangerID) {
+		t.Errorf("discord alt with AltController not auto-linked: AltController=%q, main.Alts=%v", strangerB.AltController, mainB.Alts)
+	}
+}
+
+func newLinkAlternateCommandEvent(guildID, channelID, userID, farmerName string) (*dc.CommandEvent, error) {
+	payload := fmt.Sprintf(`{
+		"id": "101",
+		"application_id": "200",
+		"type": 2,
+		"token": "tok",
+		"version": 1,
+		"guild_id": %q,
+		"channel": {"id": %q, "type": 0},
+		"member": {"user": {"id": %q, "username": "user", "discriminator": "0"}},
+		"user": {"id": %q, "username": "user", "discriminator": "0"},
+		"data": {"id": "1", "name": "link-alternate", "type": 1, "options": [{"name": "farmer-name", "type": 3, "value": %q}]}
+	}`, guildID, channelID, userID, userID, farmerName)
+	return dc.NewCommandEventFromPayload([]byte(payload))
+}
+
+func newLinkAlternateAutocompleteEvent(guildID, channelID, userID string) (*dc.AutocompleteEvent, error) {
+	payload := fmt.Sprintf(`{
+		"id": "102",
+		"application_id": "200",
+		"type": 4,
+		"token": "tok",
+		"version": 1,
+		"guild_id": %q,
+		"channel": {"id": %q, "type": 0},
+		"member": {"user": {"id": %q, "username": "user", "discriminator": "0"}},
+		"user": {"id": %q, "username": "user", "discriminator": "0"},
+		"data": {"id": "1", "name": "link-alternate", "type": 1, "options": [{"name": "farmer-name", "type": 3, "value": "", "focused": true}]}
+	}`, guildID, channelID, userID, userID)
+	return dc.NewAutocompleteEventFromPayload([]byte(payload))
+}
+
+func TestHandleLinkAlternate_DiscordAndGuestAlts(t *testing.T) {
+	guildID := "900000000000000001"
+	channelID := "900000000000000002"
+	mainID := "100000000000000201"
+	linkedAltID := "100000000000000202"
+	unlinkedID := "100000000000000203"
+	guestAlt := "GuestTwo"
+
+	client := dctest.New().
+		WithGuild(guildID, "Test Guild").
+		WithChannel(channelID, guildID, "contract-channel")
+
+	_ = farmerstate.AddActAsLink(mainID, linkedAltID)
+	defer func() {
+		_ = farmerstate.RemoveActAsLink(mainID, linkedAltID)
+		farmerstate.SetMiscSettingString(linkedAltID, "AltController", "")
+		farmerstate.SetMiscSettingString(guestAlt, "AltController", "")
+	}()
+
+	contract := &Contract{
+		ContractHash: "test-hash-link-alternate",
+		ContractID:   "test-contract",
+		CoopID:       "test-coop",
+		CoopSize:     10,
+		State:        ContractStateSignup,
+		CreatorID:    []string{mainID},
+		Location:     []*LocationData{{GuildID: guildID, ChannelID: channelID}},
+		Order:        []string{mainID, linkedAltID, unlinkedID, guestAlt},
+		Boosters: map[string]*Booster{
+			mainID:      {UserID: mainID, Name: "MainName", Nick: "MainName", Mention: "<@" + mainID + ">"},
+			linkedAltID: {UserID: linkedAltID, Name: "LinkedAltName", Nick: "LinkedAltName", Mention: "<@" + linkedAltID + ">"},
+			unlinkedID:  {UserID: unlinkedID, Name: "OtherPlayer", Nick: "OtherPlayer", Mention: "<@" + unlinkedID + ">"},
+			guestAlt:    {UserID: guestAlt, Name: guestAlt, Nick: guestAlt, Mention: guestAlt},
+		},
+	}
+	ContractsMutex.Lock()
+	Contracts[contract.ContractHash] = contract
+	ContractsMutex.Unlock()
+	defer func() {
+		ContractsMutex.Lock()
+		delete(Contracts, contract.ContractHash)
+		ContractsMutex.Unlock()
+	}()
+
+	// 1. Autocomplete should include all other unlinked boosters (Discord and guest), but NOT self.
+	acEvent, err := newLinkAlternateAutocompleteEvent(guildID, channelID, mainID)
+	if err != nil {
+		t.Fatalf("failed to create autocomplete event: %v", err)
+	}
+	HandleLinkAlternateAutoComplete(acEvent)
+	choices := acEvent.LastChoices
+	var choiceValues []string
+	for _, c := range choices {
+		choiceValues = append(choiceValues, fmt.Sprint(c.Value))
+	}
+	if !slices.Contains(choiceValues, linkedAltID) {
+		t.Errorf("autocomplete choices %v missing linked Discord alt %s", choiceValues, linkedAltID)
+	}
+	if !slices.Contains(choiceValues, unlinkedID) {
+		t.Errorf("autocomplete choices %v missing Discord booster %s", choiceValues, unlinkedID)
+	}
+	if !slices.Contains(choiceValues, guestAlt) {
+		t.Errorf("autocomplete choices %v missing guest alt %s", choiceValues, guestAlt)
+	}
+	if slices.Contains(choiceValues, mainID) {
+		t.Errorf("autocomplete choices %v should not include self %s", choiceValues, mainID)
+	}
+
+	// 2. Linking self must be rejected.
+	eSelf, _ := newLinkAlternateCommandEvent(guildID, channelID, mainID, "MainName")
+	HandleLinkAlternateCommand(client, eSelf)
+	if contract.Boosters[mainID].AltController != "" {
+		t.Errorf("self should not be linked, got AltController=%q", contract.Boosters[mainID].AltController)
+	}
+
+	// 3. Linking a Discord alt without /act-as by display name must succeed.
+	eUnlinked, _ := newLinkAlternateCommandEvent(guildID, channelID, mainID, "OtherPlayer")
+	HandleLinkAlternateCommand(client, eUnlinked)
+	if contract.Boosters[unlinkedID].AltController != mainID {
+		t.Errorf("Discord alt without act-as AltController = %q, want %q", contract.Boosters[unlinkedID].AltController, mainID)
+	}
+	if !slices.Contains(contract.Boosters[mainID].Alts, unlinkedID) {
+		t.Errorf("main Alts %v missing %s", contract.Boosters[mainID].Alts, unlinkedID)
+	}
+	farmerstate.SetMiscSettingString(unlinkedID, "AltController", "")
+
+	// 3. Linking a linked Discord alt by display name must succeed.
+	eLinked, _ := newLinkAlternateCommandEvent(guildID, channelID, mainID, "LinkedAltName")
+	HandleLinkAlternateCommand(client, eLinked)
+	if contract.Boosters[linkedAltID].AltController != mainID {
+		t.Errorf("linked Discord alt AltController = %q, want %q", contract.Boosters[linkedAltID].AltController, mainID)
+	}
+	if !slices.Contains(contract.Boosters[mainID].Alts, linkedAltID) {
+		t.Errorf("main Alts %v missing %s", contract.Boosters[mainID].Alts, linkedAltID)
+	}
+
+	// 4. Linking a guest alt by name must succeed.
+	eGuest, _ := newLinkAlternateCommandEvent(guildID, channelID, mainID, guestAlt)
+	HandleLinkAlternateCommand(client, eGuest)
+	if contract.Boosters[guestAlt].AltController != mainID {
+		t.Errorf("guest alt AltController = %q, want %q", contract.Boosters[guestAlt].AltController, mainID)
+	}
+	if !slices.Contains(contract.Boosters[mainID].Alts, guestAlt) {
+		t.Errorf("main Alts %v missing %s", contract.Boosters[mainID].Alts, guestAlt)
+	}
+}

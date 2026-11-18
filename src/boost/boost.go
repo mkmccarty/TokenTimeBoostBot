@@ -854,6 +854,23 @@ func getUserArtifacts(userID string, inSet *ArtifactSet) ArtifactSet {
 	return mySet
 }
 
+// isAuthorizedAltLink reports whether mainID can link altBooster as an alt in a contract.
+func isAuthorizedAltLink(mainID string, altBooster *Booster) bool {
+	return altBooster != nil && mainID != "" && altBooster.UserID != "" && mainID != altBooster.UserID
+}
+
+// linkAltInContract records the bidirectional main/alt relationship on a contract's boosters.
+func linkAltInContract(contract *Contract, mainBooster, altBooster *Booster) {
+	if mainBooster == nil || altBooster == nil {
+		return
+	}
+	altBooster.AltController = mainBooster.UserID
+	if !slices.Contains(mainBooster.Alts, altBooster.UserID) {
+		mainBooster.Alts = append(mainBooster.Alts, altBooster.UserID)
+	}
+	contract.buttonComponents = nil
+}
+
 // AddFarmerToContract adds a farmer to a contract
 func AddFarmerToContract(client dc.Client, contract *Contract, guildID string, channelID string, userID string, order int, progenitor bool, alreadyBoosted bool) (*Booster, error) {
 	log.Println("AddFarmerToContract", "GuildID: ", guildID, "ChannelID: ", channelID, "UserID: ", userID, "Order: ", order)
@@ -1023,22 +1040,29 @@ func AddFarmerToContract(client dc.Client, contract *Contract, guildID string, c
 				}
 			}
 
-			// Auto-link alternate accounts if AltController is established in farmerstate
+			// Auto-link alternate accounts if AltController or act-as linkage is established in farmerstate
 			parentID := farmerstate.GetMiscSettingString(b.UserID, "AltController")
 			if parentID == "" && b.Name != "" && b.Name != b.UserID {
 				parentID = farmerstate.GetMiscSettingString(b.Name, "AltController")
 			}
-			if parentID != "" && parentID != b.UserID && farmerstate.IsActAsLinked(parentID, b.UserID) {
+			if isAuthorizedAltLink(parentID, b) {
 				if parentBooster, ok := contract.Boosters[parentID]; ok && parentBooster != nil {
-					b.AltController = parentID
-					if !slices.Contains(parentBooster.Alts, b.UserID) {
-						parentBooster.Alts = append(parentBooster.Alts, b.UserID)
+					linkAltInContract(contract, parentBooster, b)
+				}
+			}
+			if b.AltController == "" && b.UserID != b.Name {
+				for _, mainID := range farmerstate.GetActAsMains(b.UserID) {
+					if mainID == "" || mainID == b.UserID {
+						continue
 					}
-					contract.buttonComponents = nil
+					if parentBooster, ok := contract.Boosters[mainID]; ok && parentBooster != nil {
+						linkAltInContract(contract, parentBooster, b)
+						break
+					}
 				}
 			}
 
-			// If this booster is an AltController for any alts already in the contract, link them
+			// If this booster is a controller for any alts already in the contract, link them
 			for _, altID := range farmerstate.GetAltControllerByMiscString("AltController", b.UserID) {
 				if altID == "" || altID == b.UserID {
 					continue
@@ -1052,12 +1076,16 @@ func AddFarmerToContract(client dc.Client, contract *Contract, guildID string, c
 						}
 					}
 				}
-				if altBooster != nil && farmerstate.IsActAsLinked(b.UserID, altBooster.UserID) {
-					altBooster.AltController = b.UserID
-					if !slices.Contains(b.Alts, altBooster.UserID) {
-						b.Alts = append(b.Alts, altBooster.UserID)
-					}
-					contract.buttonComponents = nil
+				if isAuthorizedAltLink(b.UserID, altBooster) {
+					linkAltInContract(contract, b, altBooster)
+				}
+			}
+			for _, altID := range farmerstate.GetActAsLinks(b.UserID) {
+				if altID == "" || altID == b.UserID {
+					continue
+				}
+				if altBooster := contract.Boosters[altID]; altBooster != nil && altBooster.AltController == "" {
+					linkAltInContract(contract, b, altBooster)
 				}
 			}
 
