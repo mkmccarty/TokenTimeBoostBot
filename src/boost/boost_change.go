@@ -874,33 +874,54 @@ func HandleLinkAlternateCommand(client dc.Client, e *dc.CommandEvent) {
 		if opt, ok := e.OptString("farmer-name"); ok {
 			newAlt = strings.TrimSpace(opt)
 
-			// Is this booster in the contract?
-			if _, ok := contract.Boosters[newAlt]; !ok {
+			altBooster := findContractAltBooster(contract, newAlt)
+			if altBooster == nil {
 				str = "This farmer is not in the contract"
+			} else if altBooster.UserID == userID {
+				str = "You cannot link yourself as an alternate."
 			} else {
 				b := contract.Boosters[userID]
+				altID := altBooster.UserID
+				altDisplay := altBooster.Name
+				if altDisplay == "" {
+					altDisplay = altID
+				}
 
-				// Save remember this alt's owner so we can auto link next time
-				farmerstate.SetMiscSettingString(newAlt, "AltController", userID)
+				// Save this alt's owner so we can auto link next time
+				farmerstate.SetMiscSettingString(altID, "AltController", userID)
 
-				b.Alts = append(b.Alts, newAlt)
-				contract.Boosters[newAlt].AltController = userID
-				str = "Associated your `" + newAlt + "` alt with <@" + userID + ">\n"
+				linkAltInContract(contract, b, altBooster)
+				str = "Associated your `" + altDisplay + "` alt with <@" + userID + ">\n"
 				str += "> Use the Signup sink buttons to select your alt for sinks, these cycle through alts so you may need to press them multiple times.\n"
 				str += "> Use the " + boostIcon + " reaction to indicate when your main or alt(s) boost.\n"
-				str += "> Use the normal token buttons to indicate when `" + newAlt + "` sends tokens."
-				contract.buttonComponents = nil // reset button components
+				str += "> Use the normal token buttons to indicate when `" + altDisplay + "` sends tokens."
 				defer saveData(contract.ContractHash)
-				//if contract.State == ContractStateSignup {
 				refreshBoostListMessage(client, contract, false)
-				//} else {
-				//	_ = RedrawBoostList(client, e.GuildID(), e.ChannelID())
-				//}
 			}
 		}
 	}
 
 	_ = e.Followup(dc.Message{Content: str})
+}
+
+func findContractAltBooster(contract *Contract, query string) *Booster {
+	if contract == nil || query == "" {
+		return nil
+	}
+	if b, ok := contract.Boosters[query]; ok && b != nil {
+		return b
+	}
+	for _, b := range contract.Boosters {
+		if b != nil && (b.Name == query || b.Nick == query) {
+			return b
+		}
+	}
+	for _, b := range contract.Boosters {
+		if b != nil && (strings.EqualFold(b.Name, query) || strings.EqualFold(b.Nick, query)) {
+			return b
+		}
+	}
+	return nil
 }
 
 // HandleLinkAlternateAutoComplete will handle the /link-alternate autocomplete
@@ -910,17 +931,19 @@ func HandleLinkAlternateAutoComplete(e *dc.AutocompleteEvent) {
 
 	contract := FindContract(e.ChannelID())
 	if contract != nil {
+		userID := e.UserID()
 		for _, b := range contract.Boosters {
-			if b.UserID != b.Name {
-				continue
-			}
-			if b.AltController != "" {
+			if b == nil || b.AltController != "" || b.UserID == userID {
 				continue
 			}
 
+			display := b.Name
+			if display == "" {
+				display = b.UserID
+			}
 			choices = append(choices, dc.Choice[string]{
-				Name:  b.Name,
-				Value: b.Name,
+				Name:  display,
+				Value: b.UserID,
 			})
 		}
 	}
