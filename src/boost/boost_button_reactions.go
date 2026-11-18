@@ -1202,10 +1202,10 @@ func buttonReactionRanChicken(client dc.Client, e *dc.ComponentEvent, contract *
 			redirectOldCRMessage(client, e.GuildID(), e.ChannelID(), e.MessageID(), targetMsgID)
 		} else if expired && targetMsgID != "" {
 			if targetMsgID == "" {
-		targetMsgID = e.MessageID()
-	}
+				targetMsgID = e.MessageID()
+			}
 
-	editCRMessage(client, contract, e.ChannelID(), targetMsgID)
+			editCRMessage(client, contract, e.ChannelID(), targetMsgID)
 		}
 		return
 	}
