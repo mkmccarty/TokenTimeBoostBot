@@ -1040,6 +1040,162 @@ func TestBoostSchedule_RocketAndFireReactions(t *testing.T) {
 	})
 }
 
+func TestBoostSchedule_PingPongForceSync(t *testing.T) {
+	guildID := "100000000000000001"
+	chanID := "200000000000000012"
+	listMsgID := "300000000000000012"
+	userA := "400000000000000011"
+
+	t.Run("ping pong reaction triggers force sync only after updated schedule was sent", func(t *testing.T) {
+		hash := "test-pingpong-force-sync"
+		contract := setupBoostReactionTestContract(hash, chanID, listMsgID, ContractPlaystyleFastrun)
+		defer func() {
+			ContractsMutex.Lock()
+			delete(Contracts, hash)
+			ContractsMutex.Unlock()
+		}()
+
+		origFetch := fetchCoopStatusForDeflectors
+		defer func() {
+			fetchCoopStatusForDeflectors = origFetch
+		}()
+
+		fetchCh := make(chan struct{}, 4)
+		fetchCoopStatusForDeflectors = func(contractID, coopID, eeidOverride string) (*ei.ContractCoopStatusResponse, error) {
+			fetchCh <- struct{}{}
+			okStatus := ei.ContractCoopStatusResponse_NO_ERROR
+			pA := "PlayerA"
+			popA := 1_500_000_000.0
+			return &ei.ContractCoopStatusResponse{
+				ResponseStatus: &okStatus,
+				Contributors: []*ei.ContractCoopStatusResponse_ContributionInfo{
+					{
+						UserName: &pA,
+						ProductionParams: &ei.FarmProductionParams{
+							FarmPopulation: &popA,
+						},
+					},
+				},
+			}, nil
+		}
+
+		client := dctest.New()
+		ev := dctest.ComponentButtonEventFull(guildID, chanID, listMsgID, userA, "rc_#boost#"+hash)
+		HandleContractReactions(client, ev)
+
+		// Drain any initial fetch if triggered, though initial verification is delayed 1m
+		select {
+		case <-fetchCh:
+			t.Fatalf("unexpected coop_status fetch right after initial rocket click")
+		default:
+		}
+
+		// Reacting with 🏓 before receiving the updated boost schedule message should NOT trigger a force sync
+		rxBefore := dctest.ReactionEvent(guildID, chanID, listMsgID, userA, "🏓")
+		ReactionAdd(client, rxBefore)
+
+		select {
+		case <-fetchCh:
+			t.Fatalf("expected 🏓 before updated boost schedule not to trigger force sync")
+		case <-time.After(50 * time.Millisecond):
+		}
+
+		// Deliver the updated boost schedule message
+		updateActiveBoostScheduleMessages(client, contract)
+		if !contract.Boosters[userA].BoostScheduleUpdated {
+			t.Fatalf("expected BoostScheduleUpdated to be true after updateActiveBoostScheduleMessages")
+		}
+
+		editCountBefore := len(client.CallsTo("EditFollowupMessage"))
+
+		// Now reacting with 🏓 on the boost list should trigger a force sync and update the schedule message
+		rxAfter := dctest.ReactionEvent(guildID, chanID, listMsgID, userA, "🏓")
+		ReactionAdd(client, rxAfter)
+
+		select {
+		case <-fetchCh:
+		case <-time.After(2 * time.Second):
+			t.Fatalf("expected 🏓 after updated boost schedule to trigger coop_status fetch")
+		}
+
+		deadline := time.Now().Add(2 * time.Second)
+		for time.Now().Before(deadline) {
+			if len(client.CallsTo("EditFollowupMessage")) > editCountBefore {
+				break
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+		if len(client.CallsTo("EditFollowupMessage")) <= editCountBefore {
+			t.Errorf("expected EditFollowupMessage to be called after 🏓 force sync")
+		}
+	})
+
+	t.Run("ping pong reaction also works when contract is in completed state", func(t *testing.T) {
+		hash := "test-pingpong-completed-state"
+		contract := setupBoostReactionTestContract(hash, chanID, listMsgID, ContractPlaystyleFastrun)
+		defer func() {
+			ContractsMutex.Lock()
+			delete(Contracts, hash)
+			ContractsMutex.Unlock()
+		}()
+
+		origFetch := fetchCoopStatusForDeflectors
+		defer func() {
+			fetchCoopStatusForDeflectors = origFetch
+		}()
+
+		fetchCh := make(chan struct{}, 2)
+		fetchCoopStatusForDeflectors = func(contractID, coopID, eeidOverride string) (*ei.ContractCoopStatusResponse, error) {
+			fetchCh <- struct{}{}
+			okStatus := ei.ContractCoopStatusResponse_NO_ERROR
+			pA := "PlayerA"
+			popA := 1_500_000_000.0
+			return &ei.ContractCoopStatusResponse{
+				ResponseStatus: &okStatus,
+				Contributors: []*ei.ContractCoopStatusResponse_ContributionInfo{
+					{
+						UserName: &pA,
+						ProductionParams: &ei.FarmProductionParams{
+							FarmPopulation: &popA,
+						},
+					},
+				},
+			}, nil
+		}
+
+		client := dctest.New()
+		contract.State = ContractStateCompleted
+		b := contract.Boosters[userA]
+		b.BoostState = BoostStateBoosted
+		b.EndTime = time.Now()
+		b.EstEndOfBoost = time.Now().Add(10 * time.Minute)
+		b.BoostScheduleAppID = "app-1"
+		b.BoostScheduleToken = "tok-1"
+		b.BoostScheduleMsgID = "@original"
+		b.BoostScheduleUpdated = true
+
+		rx := dctest.ReactionEvent(guildID, chanID, listMsgID, userA, "🏓")
+		ReactionAdd(client, rx)
+
+		select {
+		case <-fetchCh:
+		case <-time.After(2 * time.Second):
+			t.Fatalf("expected 🏓 in ContractStateCompleted to trigger coop_status fetch")
+		}
+
+		deadline := time.Now().Add(2 * time.Second)
+		for time.Now().Before(deadline) {
+			if len(client.CallsTo("EditInteractionResponse")) > 0 {
+				break
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+		if len(client.CallsTo("EditInteractionResponse")) == 0 {
+			t.Errorf("expected EditInteractionResponse to be called after 🏓 force sync in completed state")
+		}
+	})
+}
+
 func TestCalculateBoostSchedule_PopulationBasisAndOfflineProjection(t *testing.T) {
 	contract := &Contract{
 		ContractID: "test-pop-basis",

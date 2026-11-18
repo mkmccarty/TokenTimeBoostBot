@@ -1306,6 +1306,7 @@ func sendBoostScheduleEphemeral(client dc.Client, e *dc.ComponentEvent, contract
 	booster.BoostScheduleAppID = e.ApplicationID()
 	booster.BoostScheduleToken = e.Token()
 	booster.BoostScheduleMsgID = msgID
+	booster.BoostScheduleUpdated = false
 	contract.mutex.Unlock()
 }
 
@@ -1341,6 +1342,7 @@ func sendBoostScheduleDM(client dc.Client, contract *Contract, booster *Booster,
 }
 
 type pendingScheduleEdit struct {
+	userID  string
 	appID   string
 	token   string
 	msgID   string
@@ -1358,7 +1360,7 @@ func updateActiveBoostScheduleMessages(client dc.Client, contract *Contract) {
 	var needsRetryVerification bool
 
 	contract.mutex.Lock()
-	for _, b := range contract.Boosters {
+	for uid, b := range contract.Boosters {
 		if b == nil || b.BoostState != BoostStateBoosted || b.EstEndOfBoost.IsZero() || !now.Before(b.EstEndOfBoost) {
 			continue
 		}
@@ -1373,6 +1375,7 @@ func updateActiveBoostScheduleMessages(client dc.Client, contract *Contract) {
 
 		if b.BoostScheduleMsgID != "" && b.BoostScheduleToken != "" && b.BoostScheduleAppID != "" {
 			edits = append(edits, pendingScheduleEdit{
+				userID:  uid,
 				appID:   b.BoostScheduleAppID,
 				token:   b.BoostScheduleToken,
 				msgID:   b.BoostScheduleMsgID,
@@ -1396,17 +1399,56 @@ func updateActiveBoostScheduleMessages(client dc.Client, contract *Contract) {
 	if client == nil {
 		return
 	}
+	var updatedUserIDs []string
 	for _, edit := range edits {
 		if edit.msgID == "@original" {
 			if err := client.EditInteractionResponse(edit.appID, edit.token, dc.Message{Content: edit.content}); err != nil {
 				log.Printf("updateActiveBoostScheduleMessages: EditInteractionResponse error: %v", err)
+			} else {
+				updatedUserIDs = append(updatedUserIDs, edit.userID)
 			}
 			continue
 		}
 		if err := client.EditFollowupMessage(edit.appID, edit.token, edit.msgID, dc.Message{Content: edit.content}); err != nil {
 			log.Printf("updateActiveBoostScheduleMessages: EditFollowupMessage error: %v", err)
+		} else {
+			updatedUserIDs = append(updatedUserIDs, edit.userID)
 		}
 	}
+	if len(updatedUserIDs) > 0 {
+		contract.mutex.Lock()
+		for _, uid := range updatedUserIDs {
+			if b := contract.Boosters[uid]; b != nil {
+				b.BoostScheduleUpdated = true
+			}
+		}
+		contract.mutex.Unlock()
+	}
+}
+
+// handlePingPongForceSync triggers an uncached coop_status refresh and schedule update when a booster
+// who has already received an updated boost schedule message reacts with 🏓 on the boost list.
+func handlePingPongForceSync(client dc.Client, contract *Contract, userID string) {
+	if contract == nil || userID == "" {
+		return
+	}
+	now := time.Now()
+	contract.mutex.Lock()
+	b := contract.Boosters[userID]
+	canSync := b != nil &&
+		b.BoostState == BoostStateBoosted &&
+		b.BoostScheduleUpdated &&
+		b.BoostScheduleMsgID != "" &&
+		b.BoostScheduleToken != "" &&
+		b.BoostScheduleAppID != "" &&
+		!b.EstEndOfBoost.IsZero() &&
+		now.Before(b.EstEndOfBoost)
+	contract.mutex.Unlock()
+	if !canSync {
+		return
+	}
+	setActiveBoostClient(client)
+	go updateCoopDeflectorsFromStatus(contract)
 }
 
 func handleCoopStatusForActiveContracts(contractID, coopID string, coopStatus *ei.ContractCoopStatusResponse) {

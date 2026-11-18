@@ -239,6 +239,7 @@ type Booster struct {
 	BoostScheduleMsgID     string               `json:"-"`                              // Ephemeral message ID for active boost schedule
 	BoostScheduleToken     string               `json:"-"`                              // Interaction token for active boost schedule
 	BoostScheduleAppID     string               `json:"-"`                              // Application ID for active boost schedule
+	BoostScheduleUpdated   bool                 `json:"-"`                              // Whether an updated boost schedule message has been sent
 	BoostVerifyRetries     int                  `json:"-"`                              // Count of verification retries for unverified boosts
 	VerifiedBoostMulti     float64              `json:"verified_boost_multi,omitempty"` // Active boost multiplier verified from coop_status
 	VerifiedBoostIcons     string               `json:"verified_boost_icons,omitempty"` // Active boost icons verified from coop_status

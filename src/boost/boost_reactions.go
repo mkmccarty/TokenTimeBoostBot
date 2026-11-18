@@ -222,6 +222,8 @@ func ReactionAdd(client dc.Client, e *dc.ReactionEvent) string {
 				}
 				redraw = true
 			}
+		case "🏓":
+			handlePingPongForceSync(client, contract, userID)
 		}
 
 		// Token reaction handling
