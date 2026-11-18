@@ -45,6 +45,7 @@ type statusContractEntry struct {
 	CoopID     string
 	State      int
 	Links      []string
+	MessageURL string
 	Accounts   []string
 }
 
@@ -120,6 +121,9 @@ func buildStatusMessage(userID, channelID string) string {
 			label := c.ContractID
 			if c.CoopID != "" {
 				label = fmt.Sprintf("%s / %s", c.ContractID, c.CoopID)
+			}
+			if c.MessageURL != "" {
+				label = fmt.Sprintf("[%s](%s)", label, c.MessageURL)
 			}
 			stateLabel := statusContractStateLabel(c.State)
 			if len(c.Links) > 0 {
@@ -242,21 +246,18 @@ func collectStatusContracts(accountIDs []string) []statusContractEntry {
 		}
 
 		var links []string
+		var messageURL string
 		for _, loc := range c.Location {
 			if loc == nil {
 				continue
 			}
-			switch {
-			case loc.GuildID != "" && loc.ChannelID != "":
-				url := fmt.Sprintf("https://discord.com/channels/%s/%s", loc.GuildID, loc.ChannelID)
+			if messageURL == "" && loc.GuildID != "" && loc.ChannelID != "" {
+				messageURL = fmt.Sprintf("https://discord.com/channels/%s/%s", loc.GuildID, loc.ChannelID)
 				if loc.ListMsgID != "" {
-					url += "/" + loc.ListMsgID
+					messageURL += "/" + loc.ListMsgID
 				}
-				linkText := loc.ChannelMention
-				if linkText == "" {
-					linkText = fmt.Sprintf("<#%s>", loc.ChannelID)
-				}
-				links = append(links, fmt.Sprintf("[%s](%s)", linkText, url))
+			}
+			switch {
 			case loc.ChannelMention != "":
 				links = append(links, loc.ChannelMention)
 			case loc.ChannelID != "":
@@ -269,6 +270,7 @@ func collectStatusContracts(accountIDs []string) []statusContractEntry {
 			CoopID:     c.CoopID,
 			State:      c.State,
 			Links:      links,
+			MessageURL: messageURL,
 			Accounts:   matched,
 		})
 	}

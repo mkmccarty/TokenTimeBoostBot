@@ -106,13 +106,16 @@ func TestHandleStatusCommand_EphemeralAndContent(t *testing.T) {
 		"<@" + actAsAltID + ">",
 		"<@" + linkedDiscordAltID + ">",
 		"`" + guestAlt + "`",
-		"https://discord.com/channels/" + guildID + "/" + channelID + "/900000000000000399",
-		"status-contract / status-coop",
+		"<#" + channelID + "> (Fastrun)",
+		"[status-contract / status-coop](https://discord.com/channels/" + guildID + "/" + channelID + "/900000000000000399)",
 		"`" + guestAlt + "` (waitlist)",
 	}
 	for _, want := range checks {
 		if !strings.Contains(resp.Content, want) {
 			t.Errorf("status output missing %q\nfull output:\n%s", want, resp.Content)
 		}
+	}
+	if strings.Contains(resp.Content, "[<#") {
+		t.Errorf("status output should not wrap channel mention in markdown link:\n%s", resp.Content)
 	}
 }
