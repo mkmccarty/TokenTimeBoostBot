@@ -1091,3 +1091,62 @@ func TestChickenRunCompletedGreenBarDoesNotMigrateWithin10Minutes(t *testing.T) 
 		t.Errorf("expected CRActiveRequesters to be [1002], got %v", activeRequesters)
 	}
 }
+
+func TestChickenRunExpiredMessageEdit(t *testing.T) {
+	client := dctest.New()
+	expiredTime := time.Now().Add(-15 * time.Minute)
+	c := &Contract{
+		ContractHash: "cr-expired-test",
+		PlayStyle:    ContractPlaystyleACOCooperative,
+		Location: []*LocationData{
+			{GuildID: "100", ChannelID: "101", RoleMention: "@role"},
+		},
+		Order:        []string{"1001", "1002", "1003"},
+		CRMessageIDs: map[string]string{"101": "201"},
+		Boosters: map[string]*Booster{
+			"1001": {UserID: "1001", Name: "Player1", Nick: "Player1", Mention: "<@1001>", RunChickensTime: expiredTime},
+			"1002": {UserID: "1002", Name: "Player2", Nick: "Player2", Mention: "<@1002>"},
+			"1003": {UserID: "1003", Name: "Player3", Nick: "Player3", Mention: "<@1003>"},
+		},
+	}
+
+	// 1. User 1002 clicks RanChicken on expired message 201 -> run is recorded and message is marked expired
+	ev := dctest.ComponentButtonEventFull("100", "101", "201", "1002", "rc_#RanChicken#1001#"+c.ContractHash)
+	buttonReactionRanChicken(client, ev, c, "1002", "1001")
+
+	if !slices.Contains(c.Boosters["1002"].RanChickensOn, "1001") {
+		t.Fatalf("expected user 1002 to record run on 1001 even after CR window expired")
+	}
+	if len(client.EditedMessages) != 1 {
+		t.Fatalf("expected 1 edited message, got %d", len(client.EditedMessages))
+	}
+	edited := client.EditedMessages[0]
+	if !strings.Contains(edited.Content, "expired") || !edited.ClearComponents || !edited.ClearEmbeds {
+		t.Errorf("expected expired message edit with cleared components and embeds, got: %+v", edited)
+	}
+
+	// 2. User 1002 clicks RanChicken again (already ran) on expired message 201 -> message is still marked expired
+	client.EditedMessages = nil
+	buttonReactionRanChicken(client, ev, c, "1002", "1001")
+	if len(client.EditedMessages) != 1 {
+		t.Fatalf("expected 1 edited message on repeat click of expired dialog, got %d", len(client.EditedMessages))
+	}
+	if !strings.Contains(client.EditedMessages[0].Content, "expired") || !client.EditedMessages[0].ClearComponents {
+		t.Errorf("expected expired message edit on repeat click, got: %+v", client.EditedMessages[0])
+	}
+
+	// 3. User 1003 clicks RanCoop on expired message 201 -> run is recorded and message is marked expired
+	client.EditedMessages = nil
+	coopEv := dctest.ComponentButtonEventFull("100", "101", "201", "1003", "rc_#RanCoop#"+c.ContractHash)
+	buttonReactionRanCoop(client, coopEv, c, "1003")
+
+	if !slices.Contains(c.Boosters["1003"].RanChickensOn, "1001") {
+		t.Fatalf("expected user 1003 to record run on 1001 via RanCoop after CR window expired")
+	}
+	if len(client.EditedMessages) != 1 {
+		t.Fatalf("expected 1 edited message from RanCoop on expired dialog, got %d", len(client.EditedMessages))
+	}
+	if !strings.Contains(client.EditedMessages[0].Content, "expired") || !client.EditedMessages[0].ClearComponents || !client.EditedMessages[0].ClearEmbeds {
+		t.Errorf("expected expired message edit from RanCoop, got: %+v", client.EditedMessages[0])
+	}
+}
