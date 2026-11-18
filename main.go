@@ -142,6 +142,7 @@ const slashChill string = "chill"
 const slashRoll string = "roll"
 const slashWatch string = "watch"
 const slashActAs string = "act-as"
+const slashStatus string = "status"
 
 // const slashSignup string = "signup"
 var bot = dc.NewBot()
@@ -553,6 +554,11 @@ func setupCommands() {
 			Category:     CmdCategoryGlobal,
 			Handler:      func(e *dc.CommandEvent) { farmerstate.HandleActAsCommand(botClient(), e) },
 			Autocomplete: farmerstate.HandleActAsAutocomplete,
+		},
+		{
+			AppCmd:   boost.GetSlashStatusCommand(slashStatus),
+			Category: CmdCategoryGlobal,
+			Handler:  boost.HandleStatusCommand,
 		},
 
 		{
