@@ -1092,9 +1092,9 @@ func AddFarmerToContract(client dc.Client, contract *Contract, guildID string, c
 			contract.OrderRevision++
 			contract.mutex.Unlock()
 
-			controllers := getBoosterMainControllers(b)
 			for _, el := range contract.Location {
 				if guildID == "" || el.GuildID == guildID {
+					controllers := getBoosterMainControllers(b, el.ChannelID, channelID)
 					if el.GuildContractRole.ID != "" {
 						if dc.IsSnowflake(b.UserID) {
 							_ = client.AddGuildMemberRole(el.GuildID, b.UserID, el.GuildContractRole.ID)

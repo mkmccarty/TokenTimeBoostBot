@@ -401,15 +401,17 @@ func (c *disgoClient) UserChannelPermissions(userID, channelID string) (Permissi
 		// one.
 		return c.permissionsFromREST(ids[0], ids[1])
 	}
-	member, ok := c.bot.Caches.Member(channel.GuildID(), ids[0])
-	if !ok {
-		fetched, err := c.bot.Rest.GetMember(channel.GuildID(), ids[0])
-		if err != nil {
-			return 0, wrapAPIError(err)
-		}
-		member = *fetched
+	// Always fetch the member over REST rather than reading Caches.Member:
+	// without IntentGuildMembers, GUILD_MEMBER_UPDATE events do not arrive to
+	// refresh cached role assignments when a user's roles change.
+	fetched, err := c.bot.Rest.GetMember(channel.GuildID(), ids[0])
+	if err != nil {
+		return 0, wrapAPIError(err)
 	}
-	return Permissions(c.bot.Caches.MemberPermissionsInChannel(channel, member)), nil
+	if fetched.GuildID == 0 {
+		fetched.GuildID = channel.GuildID()
+	}
+	return Permissions(c.bot.Caches.MemberPermissionsInChannel(channel, *fetched)), nil
 }
 
 // RemoveMessageReaction removes one user's reaction from a message.
