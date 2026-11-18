@@ -732,6 +732,42 @@ func markCRCompletedShown(contract *Contract, requesterIDs []string) {
 	}
 }
 
+// editCRMessage updates the active CR dialog message for channelID, or marks it expired
+// when no active chicken run requests remain within the active window.
+func editCRMessage(client dc.Client, contract *Contract, channelID, targetMsgID string) {
+	if client == nil || contract == nil || channelID == "" || targetMsgID == "" {
+		return
+	}
+
+	var roleMention string
+	for _, loc := range contract.Location {
+		if loc.ChannelID == channelID {
+			roleMention = loc.RoleMention
+			break
+		}
+	}
+
+	msg, allowedMentions := buildCRMessage(contract, roleMention)
+	if msg.Content == "" && len(msg.Embeds) == 0 {
+		msg = dc.Message{
+			Content:         "-# Chicken Run request expired.",
+			ComponentsV1:    true,
+			ClearComponents: true,
+			ClearEmbeds:     true,
+			AllowedMentions: &dc.AllowedMentions{},
+		}
+	} else {
+		msg.AllowedMentions = &dc.AllowedMentions{Users: allowedMentions}
+	}
+
+	_, editErr := client.EditMessage(channelID, targetMsgID, msg)
+	if editErr != nil {
+		log.Printf("EditMessage error: contractHash=%s messageID=%s error=%v",
+			contract.ContractHash, targetMsgID, editErr)
+	}
+	updateCRStateAfterEdit(contract, msg, editErr == nil)
+}
+
 // updateCRStateAfterEdit updates CRActiveRequesters and marks completed requesters if the green-bar dialog was shown.
 func updateCRStateAfterEdit(contract *Contract, msg dc.Message, editSucceeded bool) {
 	contract.mutex.Lock()
@@ -1160,9 +1196,16 @@ func buttonReactionRanChicken(client dc.Client, e *dc.ComponentEvent, contract *
 
 	// Already ran for this requester?
 	if slices.Contains(userBooster.RanChickensOn, requesterUserID) {
+		expired := len(getActiveCRRequesters(contract)) == 0
 		contract.mutex.Unlock()
 		if targetMsgID != "" && e.MessageID() != targetMsgID {
 			redirectOldCRMessage(client, e.GuildID(), e.ChannelID(), e.MessageID(), targetMsgID)
+		} else if expired && targetMsgID != "" {
+			if targetMsgID == "" {
+		targetMsgID = e.MessageID()
+	}
+
+	editCRMessage(client, contract, e.ChannelID(), targetMsgID)
 		}
 		return
 	}
@@ -1188,29 +1231,11 @@ func buttonReactionRanChicken(client dc.Client, e *dc.ComponentEvent, contract *
 	newColor := getChickenRunAccentColor(contract)
 	contract.mutex.Unlock()
 
-	// Find role mention for this channel to rebuild the header
-	var roleMention string
-	for _, loc := range contract.Location {
-		if loc.ChannelID == e.ChannelID() {
-			roleMention = loc.RoleMention
-			break
-		}
-	}
-
 	if targetMsgID == "" {
 		targetMsgID = e.MessageID()
 	}
 
-	if targetMsgID != "" {
-		msg, allowedMentions := buildCRMessage(contract, roleMention)
-		msg.AllowedMentions = &dc.AllowedMentions{Users: allowedMentions}
-		_, editErr := client.EditMessage(e.ChannelID(), targetMsgID, msg)
-		if editErr != nil {
-			log.Printf("ChannelMessageEditComplex error: contractHash=%s messageID=%s error=%v",
-				contract.ContractHash, targetMsgID, editErr)
-		}
-		updateCRStateAfterEdit(contract, msg, editErr == nil)
-	}
+	editCRMessage(client, contract, e.ChannelID(), targetMsgID)
 
 	if e.MessageID() != "" && targetMsgID != "" && e.MessageID() != targetMsgID {
 		redirectOldCRMessage(client, e.GuildID(), e.ChannelID(), e.MessageID(), targetMsgID)
@@ -1329,30 +1354,15 @@ func buttonReactionRanCoop(client dc.Client, e *dc.ComponentEvent, contract *Con
 	}
 	contract.mutex.Unlock()
 
-	// Determine the CR message ID to update for this channel
 	if targetMsgID == "" {
 		targetMsgID = e.MessageID()
 	}
 
-	if targetMsgID != "" {
-		// Find role mention for this channel to rebuild the header
-		var roleMention string
-		for _, loc := range contract.Location {
-			if loc.ChannelID == e.ChannelID() {
-				roleMention = loc.RoleMention
-				break
-			}
-		}
-
-		msg, allowedMentions := buildCRMessage(contract, roleMention)
-		msg.AllowedMentions = &dc.AllowedMentions{Users: allowedMentions}
-		_, editErr := client.EditMessage(e.ChannelID(), targetMsgID, msg)
-		if editErr != nil {
-			log.Printf("EditMessage error: contractHash=%s messageID=%s error=%v",
-				contract.ContractHash, targetMsgID, editErr)
-		}
-		updateCRStateAfterEdit(contract, msg, editErr == nil)
+	if targetMsgID == "" {
+		targetMsgID = e.MessageID()
 	}
+
+	editCRMessage(client, contract, e.ChannelID(), targetMsgID)
 
 	if e.MessageID() != "" && targetMsgID != "" && e.MessageID() != targetMsgID {
 		redirectOldCRMessage(client, e.GuildID(), e.ChannelID(), e.MessageID(), targetMsgID)
