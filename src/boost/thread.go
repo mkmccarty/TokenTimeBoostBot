@@ -15,8 +15,9 @@ import (
 var manualAddThreadMemberDelay = 1 * time.Minute
 
 // getBoosterMainControllers returns deduplicated Discord snowflake IDs of main controllers
-// for a booster (via AltController and /act-as links), excluding the booster's own UserID.
-func getBoosterMainControllers(b *Booster) []string {
+// for a booster (via AltController and active /act-as switches in the given channels),
+// excluding the booster's own UserID.
+func getBoosterMainControllers(b *Booster, channelIDs ...string) []string {
 	if b == nil {
 		return nil
 	}
@@ -28,17 +29,25 @@ func getBoosterMainControllers(b *Booster) []string {
 	}
 	add(b.AltController)
 	for _, mainID := range farmerstate.GetActAsMains(b.UserID) {
-		add(mainID)
+		for _, chID := range channelIDs {
+			if chID == "" {
+				continue
+			}
+			if altID, _, active := farmerstate.GetActAsSwitch(mainID, chID); active && altID == b.UserID {
+				add(mainID)
+				break
+			}
+		}
 	}
 	return controllers
 }
 
-func userInOrControlsContract(contract *Contract, userID string) bool {
+func userInOrControlsContract(contract *Contract, userID string, channelID string) bool {
 	if UserInContract(contract, userID) {
 		return true
 	}
 	for _, b := range contract.Boosters {
-		if slices.Contains(getBoosterMainControllers(b), userID) {
+		if slices.Contains(getBoosterMainControllers(b, channelID), userID) {
 			return true
 		}
 	}
@@ -62,7 +71,7 @@ func AddThreadMemberDelayed(client dc.Client, contractHash string, channelID, us
 			return
 		}
 		contract.mutex.Lock()
-		if contract.State == ContractStateSignup || !userInOrControlsContract(contract, userID) {
+		if contract.State == ContractStateSignup || !userInOrControlsContract(contract, userID, channelID) {
 			contract.mutex.Unlock()
 			return
 		}
@@ -92,7 +101,7 @@ func AddBoostersToThread(client dc.Client, contract *Contract) {
 			if dc.IsSnowflake(userID) {
 				_ = client.AddThreadMember(el.ChannelID, userID)
 			}
-			for _, controllerID := range getBoosterMainControllers(b) {
+			for _, controllerID := range getBoosterMainControllers(b, el.ChannelID) {
 				_ = client.AddThreadMember(el.ChannelID, controllerID)
 			}
 		}
