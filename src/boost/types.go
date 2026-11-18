@@ -217,6 +217,7 @@ type Booster struct {
 	BoostingTokenTimestamp time.Time            // When the boosting token was last received
 	VotingList             []string             // Record list of those that voted to boost
 	RunChickensTime        time.Time            // Time Farmer triggered chicken run reaction
+	CRCompletedShown       bool                 // Whether CR completion was shown in a green-bar CR message
 	LastCRAttempt          time.Time            // Time user last clicked the CR button (when not boosted)
 	RanChickensOn          []string             // Array of users that the farmer ran chickens on
 	BoostTriggerTime       time.Time            // Used for time remaining in boost
