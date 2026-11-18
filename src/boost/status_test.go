@@ -99,6 +99,20 @@ func TestHandleStatusCommand_EphemeralAndContent(t *testing.T) {
 	if !resp.Ephemeral {
 		t.Errorf("expected ephemeral response, got Ephemeral=%v", resp.Ephemeral)
 	}
+	if resp.ComponentsV1 {
+		t.Errorf("expected Components V2 response, got ComponentsV1=true")
+	}
+	if resp.Content != "" {
+		t.Errorf("expected empty Content for Components V2 response, got %q", resp.Content)
+	}
+	if len(resp.Components) != 1 {
+		t.Fatalf("expected 1 component, got %d", len(resp.Components))
+	}
+	td, ok := resp.Components[0].(dc.TextDisplay)
+	if !ok {
+		t.Fatalf("expected dc.TextDisplay component, got %T", resp.Components[0])
+	}
+	text := td.Content
 
 	checks := []string{
 		"MainFarmer",
@@ -111,11 +125,11 @@ func TestHandleStatusCommand_EphemeralAndContent(t *testing.T) {
 		"`" + guestAlt + "` (waitlist)",
 	}
 	for _, want := range checks {
-		if !strings.Contains(resp.Content, want) {
-			t.Errorf("status output missing %q\nfull output:\n%s", want, resp.Content)
+		if !strings.Contains(text, want) {
+			t.Errorf("status output missing %q\nfull output:\n%s", want, text)
 		}
 	}
-	if strings.Contains(resp.Content, "[<#") {
-		t.Errorf("status output should not wrap channel mention in markdown link:\n%s", resp.Content)
+	if strings.Contains(text, "[<#") {
+		t.Errorf("status output should not wrap channel mention in markdown link:\n%s", text)
 	}
 }

@@ -33,11 +33,28 @@ func HandleStatusCommand(e *dc.CommandEvent) {
 	if e == nil {
 		return
 	}
-	content := buildStatusMessage(e.UserID(), e.ChannelID())
+	content := truncateStatusToLimit(buildStatusMessage(e.UserID(), e.ChannelID()), discordComponentsV2TotalCharLimit)
 	_ = e.Respond(dc.Message{
-		Content:   content,
+		Components: []dc.LayoutComponent{
+			dc.TextDisplay{Content: content},
+		},
 		Ephemeral: true,
 	})
+}
+
+func truncateStatusToLimit(s string, limit int) string {
+	if len(s) <= limit {
+		return s
+	}
+	const ellipsis = "\n- … *(truncated)*"
+	cut := limit - len(ellipsis)
+	if cut <= 0 {
+		return s[:limit]
+	}
+	if idx := strings.LastIndex(s[:cut], "\n"); idx > 0 {
+		cut = idx
+	}
+	return s[:cut] + ellipsis
 }
 
 type statusContractEntry struct {
