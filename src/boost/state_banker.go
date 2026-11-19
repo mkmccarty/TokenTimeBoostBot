@@ -3,6 +3,7 @@ package boost
 import (
 	"fmt"
 	"log"
+	"slices"
 	"time"
 	"uuid"
 
@@ -14,14 +15,8 @@ import (
 func buttonReactionBag(client dc.Client, GuildID string, ChannelID string, contract *Contract, cUserID string) (bool, bool) {
 	redraw := false
 
-	if contract.Boosters[cUserID] != nil && len(contract.Boosters[cUserID].Alts) > 0 {
-		// Find the most recent boost time among the user and their alts
-		for _, altID := range contract.Boosters[cUserID].Alts {
-			if altID == contract.Banker.BoostingSinkUserID {
-				cUserID = altID
-				break
-			}
-		}
+	if _, members := contractLinkedGroup(contract, cUserID); slices.Contains(members, contract.Banker.BoostingSinkUserID) {
+		cUserID = contract.Banker.BoostingSinkUserID
 	}
 
 	if cUserID == contract.Banker.BoostingSinkUserID {
@@ -69,8 +64,17 @@ func buttonReactionBag(client dc.Client, GuildID string, ChannelID string, contr
 		}
 
 		str := fmt.Sprintf("**%s** ", contract.Boosters[b.UserID].Mention)
-		if contract.Boosters[b.UserID].AltController != "" {
-			str = fmt.Sprintf("%s **(%s)** ", contract.Boosters[contract.Boosters[b.UserID].AltController].Mention, b.UserID)
+		if ctrlID := contract.Boosters[b.UserID].AltController; ctrlID != "" {
+			if ctrl := contract.Boosters[ctrlID]; ctrl != nil {
+				altLabel := b.Nick
+				if altLabel == "" {
+					altLabel = b.Name
+				}
+				if altLabel == "" {
+					altLabel = b.UserID
+				}
+				str = fmt.Sprintf("%s **(%s)** ", ctrl.Mention, altLabel)
+			}
 		}
 		str += fmt.Sprintf("you've been sent %d tokens to boost with!", b.TokensWanted)
 

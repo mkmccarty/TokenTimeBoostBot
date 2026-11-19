@@ -861,14 +861,54 @@ func isAuthorizedAltLink(mainID string, altBooster *Booster) bool {
 
 // linkAltInContract records the bidirectional main/alt relationship on a contract's boosters.
 func linkAltInContract(contract *Contract, mainBooster, altBooster *Booster) {
-	if mainBooster == nil || altBooster == nil {
+	if contract == nil || mainBooster == nil || altBooster == nil || mainBooster.UserID == altBooster.UserID {
 		return
+	}
+	// Prevent cycles (e.g. A -> B -> A)
+	if mainBooster.AltController == altBooster.UserID {
+		return
+	}
+	if prevCtrlID := altBooster.AltController; prevCtrlID != "" && prevCtrlID != mainBooster.UserID {
+		if prevCtrl := contract.Boosters[prevCtrlID]; prevCtrl != nil {
+			if idx := slices.Index(prevCtrl.Alts, altBooster.UserID); idx != -1 {
+				prevCtrl.Alts = removeIndex(prevCtrl.Alts, idx)
+			}
+		}
 	}
 	altBooster.AltController = mainBooster.UserID
 	if !slices.Contains(mainBooster.Alts, altBooster.UserID) {
 		mainBooster.Alts = append(mainBooster.Alts, altBooster.UserID)
 	}
 	contract.buttonComponents = nil
+}
+
+// contractLinkedGroup returns the controller ID and all contract booster IDs belonging to
+// userID's linked alt group (controller first, followed by its alts).
+// It works identically whether userID is the main controller or any linked alt.
+func contractLinkedGroup(contract *Contract, userID string) (string, []string) {
+	if contract == nil || userID == "" {
+		return userID, nil
+	}
+	b := contract.Boosters[userID]
+	if b == nil {
+		return userID, nil
+	}
+	controllerID := userID
+	if b.AltController != "" && contract.Boosters[b.AltController] != nil {
+		controllerID = b.AltController
+	}
+	controller := contract.Boosters[controllerID]
+	members := make([]string, 0, 1+len(controller.Alts))
+	members = append(members, controllerID)
+	for _, altID := range controller.Alts {
+		if altID != "" && contract.Boosters[altID] != nil && !slices.Contains(members, altID) {
+			members = append(members, altID)
+		}
+	}
+	if !slices.Contains(members, userID) {
+		members = append(members, userID)
+	}
+	return controllerID, members
 }
 
 // AddFarmerToContract adds a farmer to a contract
@@ -1040,25 +1080,15 @@ func AddFarmerToContract(client dc.Client, contract *Contract, guildID string, c
 				}
 			}
 
-			// Auto-link alternate accounts if AltController or act-as linkage is established in farmerstate
+			// Auto-link alternate accounts if AltController is established in farmerstate.
+			// Note: /act-as is a separate concept and does not auto-link AltController.
 			parentID := farmerstate.GetMiscSettingString(b.UserID, "AltController")
-			if parentID == "" && b.Name != "" && b.Name != b.UserID {
+			if parentID == "" && !dc.IsSnowflake(b.UserID) && b.Name != "" && b.Name != b.UserID {
 				parentID = farmerstate.GetMiscSettingString(b.Name, "AltController")
 			}
 			if isAuthorizedAltLink(parentID, b) {
 				if parentBooster, ok := contract.Boosters[parentID]; ok && parentBooster != nil {
 					linkAltInContract(contract, parentBooster, b)
-				}
-			}
-			if b.AltController == "" && b.UserID != b.Name {
-				for _, mainID := range farmerstate.GetActAsMains(b.UserID) {
-					if mainID == "" || mainID == b.UserID {
-						continue
-					}
-					if parentBooster, ok := contract.Boosters[mainID]; ok && parentBooster != nil {
-						linkAltInContract(contract, parentBooster, b)
-						break
-					}
 				}
 			}
 
@@ -1068,23 +1098,15 @@ func AddFarmerToContract(client dc.Client, contract *Contract, guildID string, c
 					continue
 				}
 				altBooster := contract.Boosters[altID]
-				if altBooster == nil {
+				if altBooster == nil && !dc.IsSnowflake(altID) {
 					for _, cand := range contract.Boosters {
-						if cand != nil && cand.Name == altID {
+						if cand != nil && !dc.IsSnowflake(cand.UserID) && cand.Name == altID {
 							altBooster = cand
 							break
 						}
 					}
 				}
 				if isAuthorizedAltLink(b.UserID, altBooster) {
-					linkAltInContract(contract, b, altBooster)
-				}
-			}
-			for _, altID := range farmerstate.GetActAsLinks(b.UserID) {
-				if altID == "" || altID == b.UserID {
-					continue
-				}
-				if altBooster := contract.Boosters[altID]; altBooster != nil && altBooster.AltController == "" {
 					linkAltInContract(contract, b, altBooster)
 				}
 			}

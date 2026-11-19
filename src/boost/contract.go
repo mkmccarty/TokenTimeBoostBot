@@ -1022,8 +1022,10 @@ func HandleContractSettingsReactions(client dc.Client, e *dc.ComponentEvent) {
 			})
 			return
 		}
-		alts := []string{sid}
-		alts = append(alts, booster.Alts...)
+		_, alts := contractLinkedGroup(contract, sid)
+		if len(alts) == 0 {
+			alts = []string{sid}
+		}
 		altIdx := slices.Index(alts, contract.Banker.BoostingSinkUserID)
 		if altIdx != -1 {
 			if altIdx != len(alts)-1 {
@@ -1031,6 +1033,8 @@ func HandleContractSettingsReactions(client dc.Client, e *dc.ComponentEvent) {
 			} else {
 				sid = alts[0] // Allow for the state to reset
 			}
+		} else {
+			sid = alts[0]
 		}
 
 		if contract.Banker.BoostingSinkUserID == sid {
@@ -1051,8 +1055,10 @@ func HandleContractSettingsReactions(client dc.Client, e *dc.ComponentEvent) {
 			})
 			return
 		}
-		alts := []string{sid}
-		alts = append(alts, booster.Alts...)
+		_, alts := contractLinkedGroup(contract, sid)
+		if len(alts) == 0 {
+			alts = []string{sid}
+		}
 		altIdx := slices.Index(alts, contract.Banker.PostSinkUserID)
 		if altIdx != -1 {
 			if altIdx != len(alts)-1 {
@@ -1060,6 +1066,8 @@ func HandleContractSettingsReactions(client dc.Client, e *dc.ComponentEvent) {
 			} else {
 				sid = alts[0] // Allow for the state to reset
 			}
+		} else {
+			sid = alts[0]
 		}
 		if contract.Banker.PostSinkUserID == sid {
 			contract.Banker.PostSinkUserID = ""
