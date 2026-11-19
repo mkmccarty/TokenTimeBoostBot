@@ -232,7 +232,8 @@ func HandleBoostOrderHelpersCommand(client dc.Client, e *dc.CommandEvent) {
 		var notFound []string
 		isAll := false
 
-		if trimmed == "" {
+		switch trimmed {
+		case "":
 			if contract.Boosters[userID] != nil {
 				_, matchedIDs = contractLinkedGroup(contract, userID)
 				for altID, b := range contract.Boosters {
@@ -254,7 +255,7 @@ func HandleBoostOrderHelpersCommand(client dc.Client, e *dc.CommandEvent) {
 				}
 				return
 			}
-		} else if trimmed == "all" {
+		case "all":
 			if !isCoord {
 				_ = e.Respond(dc.Message{
 					Content:   "Only contract coordinators or channel admins can clear all helpers.",
@@ -263,7 +264,7 @@ func HandleBoostOrderHelpersCommand(client dc.Client, e *dc.CommandEvent) {
 				return
 			}
 			isAll = true
-		} else {
+		default:
 			matchedIDs, notFound = parseContractFarmerList(contract, farmersInput)
 			if len(matchedIDs) == 0 && len(notFound) > 0 {
 				_ = e.Respond(dc.Message{
