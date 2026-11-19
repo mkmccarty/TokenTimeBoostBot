@@ -278,12 +278,8 @@ func speedrunReactions(client dc.Client, e *dc.ReactionEvent, contract *Contract
 		if _, ok := contract.Boosters[e.UserID()]; ok {
 			actingUser = e.UserID()
 		}
-		if b, ok := contract.Boosters[actingUser]; ok {
-			idx := slices.Index(b.Alts, contract.Banker.BoostingSinkUserID)
-			if idx != -1 {
-				// This is an alternate
-				userID = b.Alts[idx]
-			}
+		if _, members := contractLinkedGroup(contract, actingUser); slices.Contains(members, contract.Banker.BoostingSinkUserID) {
+			userID = contract.Banker.BoostingSinkUserID
 		}
 
 		if userID == contract.Banker.BoostingSinkUserID {

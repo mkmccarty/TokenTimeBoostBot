@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -1215,12 +1216,9 @@ func resolveBoostClickUserID(contract *Contract, userID, currentBoosterID string
 	if contract == nil || currentBoosterID == "" {
 		return userID
 	}
-	if b := contract.Boosters[userID]; b != nil && len(b.Alts) > 0 {
-		for _, altID := range b.Alts {
-			if altID == currentBoosterID {
-				return altID
-			}
-		}
+	_, members := contractLinkedGroup(contract, userID)
+	if slices.Contains(members, currentBoosterID) {
+		return currentBoosterID
 	}
 	return userID
 }

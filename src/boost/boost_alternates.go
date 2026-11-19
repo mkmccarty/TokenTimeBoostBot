@@ -71,10 +71,10 @@ func canManageBooster(client dc.Client, contract *Contract, callerID string, tar
 	if callerID == targetID {
 		return true
 	}
-	if b := contract.Boosters[targetID]; b != nil && b.AltController == callerID {
+	if _, members := contractLinkedGroup(contract, callerID); slices.Contains(members, targetID) {
 		return true
 	}
-	if pb := contract.Boosters[callerID]; pb != nil && slices.Contains(pb.Alts, targetID) {
+	if b := contract.Boosters[targetID]; b != nil && b.AltController == callerID {
 		return true
 	}
 	return false
@@ -234,15 +234,10 @@ func HandleBoostOrderHelpersCommand(client dc.Client, e *dc.CommandEvent) {
 
 		if trimmed == "" {
 			if contract.Boosters[userID] != nil {
-				matchedIDs = []string{userID}
+				_, matchedIDs = contractLinkedGroup(contract, userID)
 				for altID, b := range contract.Boosters {
-					if altID == userID {
-						continue
-					}
-					if b.AltController == userID || slices.Contains(contract.Boosters[userID].Alts, altID) {
-						if !slices.Contains(matchedIDs, altID) {
-							matchedIDs = append(matchedIDs, altID)
-						}
+					if b != nil && b.AltController == userID && !slices.Contains(matchedIDs, altID) {
+						matchedIDs = append(matchedIDs, altID)
 					}
 				}
 			} else {

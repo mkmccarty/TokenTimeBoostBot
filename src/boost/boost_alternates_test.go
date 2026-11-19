@@ -3,9 +3,9 @@ package boost
 import (
 	"fmt"
 	"slices"
-	"testing"
-
 	"strings"
+	"testing"
+	"time"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc/dctest"
@@ -583,7 +583,8 @@ func TestAddFarmerToContract_AutoLinkAlts_GuestAndActAs(t *testing.T) {
 	farmerstate.SetMiscSettingString(guestAlt, "AltController", mainID)
 	// Discord alt with AltController only (no act_as_links) should also auto-link.
 	farmerstate.SetMiscSettingString(strangerID, "AltController", mainID)
-	// Discord alt with act_as_links only (no AltController) should also auto-link.
+	// Discord alt with act_as_links only (no AltController) must NOT auto-link because
+	// /act-as and AltController are separate concepts.
 	_ = farmerstate.AddActAsLink(mainID, altID)
 	defer func() {
 		farmerstate.SetMiscSettingString(guestAlt, "AltController", "")
@@ -633,11 +634,164 @@ func TestAddFarmerToContract_AutoLinkAlts_GuestAndActAs(t *testing.T) {
 	if guestB.AltController != mainID || !slices.Contains(mainB.Alts, guestAlt) {
 		t.Errorf("guest alt not auto-linked: AltController=%q, main.Alts=%v", guestB.AltController, mainB.Alts)
 	}
-	if altB.AltController != mainID || !slices.Contains(mainB.Alts, altID) {
-		t.Errorf("act-as discord alt not auto-linked: AltController=%q, main.Alts=%v", altB.AltController, mainB.Alts)
+	if altB.AltController != "" || slices.Contains(mainB.Alts, altID) {
+		t.Errorf("act-as-only discord user should NOT be auto-linked as AltController: AltController=%q, main.Alts=%v", altB.AltController, mainB.Alts)
 	}
 	if strangerB.AltController != mainID || !slices.Contains(mainB.Alts, strangerID) {
 		t.Errorf("discord alt with AltController not auto-linked: AltController=%q, main.Alts=%v", strangerB.AltController, mainB.Alts)
+	}
+}
+
+func TestAddFarmerToContract_DiscordNameDoesNotCollideWithGuestAltController(t *testing.T) {
+	mainID := "100000000000000301"
+	discordOtherID := "100000000000000302"
+	guestName := "SharedFarmName"
+
+	client := dctest.New().
+		WithGuild("guild-col-1", "Guild Col").
+		WithChannel("chan-col-1", "guild-col-1", "contract-channel").
+		WithUser(mainID, "mainUser", "MainUser").
+		WithUser(discordOtherID, guestName, guestName)
+
+	farmerstate.SetMiscSettingString(guestName, "AltController", mainID)
+	defer farmerstate.SetMiscSettingString(guestName, "AltController", "")
+
+	contract := &Contract{
+		ContractHash: "test-hash-name-collision",
+		ContractID:   "test-contract",
+		CoopID:       "test-coop",
+		CoopSize:     10,
+		State:        ContractStateSignup,
+		CreatorID:    []string{mainID},
+		Order:        make([]string, 0),
+		Boosters:     make(map[string]*Booster),
+		Location:     []*LocationData{{GuildID: "guild-col-1", ChannelID: "chan-col-1"}},
+	}
+	ContractsMutex.Lock()
+	Contracts[contract.ContractHash] = contract
+	ContractsMutex.Unlock()
+	defer func() {
+		ContractsMutex.Lock()
+		delete(Contracts, contract.ContractHash)
+		ContractsMutex.Unlock()
+	}()
+
+	mainB, err := AddFarmerToContract(client, contract, "guild-col-1", "chan-col-1", mainID, ContractOrderSignup, true, false)
+	if err != nil || mainB == nil {
+		t.Fatalf("failed to add main: %v", err)
+	}
+	otherB, err := AddFarmerToContract(client, contract, "guild-col-1", "chan-col-1", discordOtherID, ContractOrderSignup, false, false)
+	if err != nil || otherB == nil {
+		t.Fatalf("failed to add other discord user: %v", err)
+	}
+
+	if otherB.AltController != "" || slices.Contains(mainB.Alts, discordOtherID) {
+		t.Errorf("Discord user %s should not auto-link via guest name collision: AltController=%q, main.Alts=%v", discordOtherID, otherB.AltController, mainB.Alts)
+	}
+}
+
+func TestLinkedAltBidirectionalInteractions(t *testing.T) {
+	mainID := "100000000000000401"
+	altID := "100000000000000402"
+	alt2ID := "100000000000000403"
+	otherID := "100000000000000404"
+	guildID := "900000000000000401"
+	channelID := "900000000000000402"
+
+	makeContract := func() *Contract {
+		return &Contract{
+			ContractHash: "test-hash-bidir",
+			ContractID:   "test-contract",
+			CoopID:       "test-coop",
+			CoopSize:     4,
+			State:        ContractStateFastrun,
+			CreatorID:    []string{otherID},
+			Location:     []*LocationData{{GuildID: guildID, ChannelID: channelID, ListMsgID: "msg-list"}},
+			Order:        []string{mainID, altID, alt2ID, otherID},
+			Boosters: map[string]*Booster{
+				mainID:  {UserID: mainID, Name: "Main", Nick: "Main", Mention: "<@" + mainID + ">", Alts: []string{altID, alt2ID}},
+				altID:   {UserID: altID, Name: "AltOne", Nick: "AltOne", Mention: "<@" + altID + ">", AltController: mainID},
+				alt2ID:  {UserID: alt2ID, Name: "AltTwo", Nick: "AltTwo", Mention: "<@" + alt2ID + ">", AltController: mainID},
+				otherID: {UserID: otherID, Name: "Other", Nick: "Other", Mention: "<@" + otherID + ">"},
+			},
+			CRMessageIDs: map[string]string{channelID: "900000000000000499"},
+		}
+	}
+
+	// 1. resolveBoostClickUserID works for main->alt, alt->main, and alt1->alt2
+	c := makeContract()
+	if got := resolveBoostClickUserID(c, mainID, altID); got != altID {
+		t.Errorf("resolveBoostClickUserID(main, alt) = %q, want %q", got, altID)
+	}
+	if got := resolveBoostClickUserID(c, altID, mainID); got != mainID {
+		t.Errorf("resolveBoostClickUserID(alt, main) = %q, want %q", got, mainID)
+	}
+	if got := resolveBoostClickUserID(c, altID, alt2ID); got != alt2ID {
+		t.Errorf("resolveBoostClickUserID(alt1, alt2) = %q, want %q", got, alt2ID)
+	}
+	if got := resolveBoostClickUserID(c, altID, otherID); got != altID {
+		t.Errorf("resolveBoostClickUserID(alt, other) = %q, want %q", got, altID)
+	}
+
+	// 2. buttonReactionRunChickens works when alt clicks and main is boosted
+	client := dctest.New().
+		WithGuild(guildID, "Test Guild").
+		WithChannel(channelID, guildID, "contract-channel")
+	c2 := makeContract()
+	c2.Boosters[mainID].BoostState = BoostStateBoosted
+	c2.Boosters[altID].BoostState = BoostStateUnboosted
+	ok, _ := buttonReactionRunChickens(client, c2, altID)
+	if !ok {
+		t.Fatalf("expected buttonReactionRunChickens from altID to succeed for boosted mainID")
+	}
+	if c2.Boosters[mainID].RunChickensTime.IsZero() {
+		t.Errorf("expected mainID.RunChickensTime to be set when altID clicked CR")
+	}
+
+	// 3. buttonReactionRanChicken from altID marks mainID, altID, and alt2ID
+	c3 := makeContract()
+	c3.Boosters[otherID].BoostState = BoostStateBoosted
+	c3.Boosters[otherID].RunChickensTime = time.Now()
+	crPayload := fmt.Sprintf(`{
+		"id": "201",
+		"application_id": "200",
+		"type": 3,
+		"token": "tok",
+		"version": 1,
+		"guild_id": %q,
+		"channel": {"id": %q, "type": 0},
+		"message": {"id": "900000000000000499", "channel_id": %q},
+		"member": {"user": {"id": %q, "username": "alt", "discriminator": "0"}},
+		"user": {"id": %q, "username": "alt", "discriminator": "0"},
+		"data": {"component_type": 2, "custom_id": "rc_#RanChicken#%s#%s"}
+	}`, guildID, channelID, channelID, altID, altID, otherID, c3.ContractHash)
+	crEvent, err := dc.NewComponentEventFromPayload([]byte(crPayload))
+	if err != nil {
+		t.Fatalf("failed to create component event: %v", err)
+	}
+	buttonReactionRanChicken(client, crEvent, c3, altID, otherID)
+	for _, id := range []string{mainID, altID, alt2ID} {
+		if !slices.Contains(c3.Boosters[id].RanChickensOn, otherID) {
+			t.Errorf("expected %s to have %s in RanChickensOn after alt clicked RanChicken, got %v", id, otherID, c3.Boosters[id].RanChickensOn)
+		}
+	}
+
+	// 4. buttonReactionRanCoop from altID marks all linked accounts, and second press from mainID clears all
+	c4 := makeContract()
+	buttonReactionRanCoop(client, crEvent, c4, altID)
+	for _, id := range []string{mainID, altID, alt2ID} {
+		if !slices.Contains(c4.Boosters[id].RanChickensOn, otherID) {
+			t.Errorf("expected %s to have %s in RanChickensOn after alt clicked RanCoop", id, otherID)
+		}
+		if slices.Contains(c4.Boosters[id].RanChickensOn, mainID) || slices.Contains(c4.Boosters[id].RanChickensOn, altID) {
+			t.Errorf("linked member %s should not mark self/group in RanCoop: %v", id, c4.Boosters[id].RanChickensOn)
+		}
+	}
+	buttonReactionRanCoop(client, crEvent, c4, mainID)
+	for _, id := range []string{mainID, altID, alt2ID} {
+		if len(c4.Boosters[id].RanChickensOn) != 0 {
+			t.Errorf("expected %s RanChickensOn to be cleared on second RanCoop press from main, got %v", id, c4.Boosters[id].RanChickensOn)
+		}
 	}
 }
 

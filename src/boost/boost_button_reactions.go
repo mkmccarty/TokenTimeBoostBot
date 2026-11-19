@@ -203,10 +203,10 @@ func HandleContractReactions(client dc.Client, e *dc.ComponentEvent) {
 	case "predmenu":
 		values := e.Values()
 		if b := contract.Boosters[userID]; b != nil {
-			b.Availability.Contract = values
-			for _, altID := range b.Alts {
-				if altBooster := contract.Boosters[altID]; altBooster != nil {
-					altBooster.Availability.Contract = values
+			_, groupIDs := contractLinkedGroup(contract, userID)
+			for _, id := range groupIDs {
+				if member := contract.Boosters[id]; member != nil {
+					member.Availability.Contract = values
 				}
 			}
 			saveData(contract.ContractHash)
@@ -219,10 +219,10 @@ func HandleContractReactions(client dc.Client, e *dc.ComponentEvent) {
 		values := e.Values()
 		if b := contract.Boosters[userID]; b != nil {
 			values = NormalizeTimeslotValues(values, b.Availability.Timeslots)
-			b.Availability.Timeslots = values
-			for _, altID := range b.Alts {
-				if altBooster := contract.Boosters[altID]; altBooster != nil {
-					altBooster.Availability.Timeslots = values
+			_, groupIDs := contractLinkedGroup(contract, userID)
+			for _, id := range groupIDs {
+				if member := contract.Boosters[id]; member != nil {
+					member.Availability.Timeslots = values
 				}
 			}
 			saveData(contract.ContractHash)
@@ -261,16 +261,7 @@ func buttonReactionBoost(client dc.Client, GuildID string, ChannelID string, con
 		panic("The boost option is only available during fastrun contracts")
 	}
 
-	userID := cUserID
-	if contract.Boosters[cUserID] != nil && len(contract.Boosters[cUserID].Alts) > 0 {
-		// Find the most recent boost time among the user and their alts
-		for _, altID := range contract.Boosters[cUserID].Alts {
-			if altID == currentBoosterID {
-				userID = altID
-				break
-			}
-		}
-	}
+	userID := resolveBoostClickUserID(contract, cUserID, currentBoosterID)
 
 	if userID != currentBoosterID {
 		b := contract.Boosters[currentBoosterID]
@@ -398,7 +389,8 @@ func buttonReactionSwap(client dc.Client, GuildID string, ChannelID string, cont
 	if currentID == "" || currentIdx < 0 {
 		return false
 	}
-	if cUserID == currentID || creatorOfContract(client, contract, cUserID) {
+	_, linkedMembers := contractLinkedGroup(contract, cUserID)
+	if cUserID == currentID || slices.Contains(linkedMembers, currentID) || creatorOfContract(client, contract, cUserID) {
 		if (currentIdx + 1) < len(contract.Order) {
 			_ = SkipBooster(client, GuildID, ChannelID, "")
 			return true
@@ -441,12 +433,13 @@ func buttonReactionRunChickens(client dc.Client, contract *Contract, cUserID str
 		return false, "Unable to process chicken run request right now."
 	}
 
-	// Indicate that a farmer is ready for chicken runs
-	if len(contract.Boosters[cUserID].Alts) > 0 {
-		ids := append(contract.Boosters[cUserID].Alts, cUserID)
+	// Indicate that a farmer is ready for chicken runs (works whether main or alt clicks)
+	_, ids := contractLinkedGroup(contract, cUserID)
+	if len(ids) > 1 {
+		var boostedID string
 		var fallbackID string
 		for _, id := range contract.Order {
-			if slices.Index(ids, id) != -1 {
+			if slices.Contains(ids, id) {
 				alt := contract.Boosters[id]
 				if alt == nil {
 					log.Printf("buttonReactionRunChickens missing alt/main booster during selection: contractHash=%s requestUserID=%s targetID=%s",
@@ -458,12 +451,14 @@ func buttonReactionRunChickens(client dc.Client, contract *Contract, cUserID str
 					fallbackID = id
 				}
 				if alt.BoostState == BoostStateBoosted && alt.RunChickensTime.IsZero() {
-					userID = id
+					boostedID = id
 					break
 				}
 			}
 		}
-		if userID == cUserID && fallbackID != "" {
+		if boostedID != "" {
+			userID = boostedID
+		} else if fallbackID != "" {
 			userID = fallbackID
 		}
 	}
@@ -1194,8 +1189,20 @@ func buttonReactionRanChicken(client dc.Client, e *dc.ComponentEvent, contract *
 		targetMsgID = contract.CRMessageIDs[e.ChannelID()]
 	}
 
-	// Already ran for this requester?
-	if slices.Contains(userBooster.RanChickensOn, requesterUserID) {
+	_, reactingUserIDs := contractLinkedGroup(contract, cUserID)
+
+	// Already ran for this requester across the entire linked group?
+	allGroupAlreadyRan := true
+	for _, id := range reactingUserIDs {
+		if id == requesterUserID {
+			continue
+		}
+		if tb := contract.Boosters[id]; tb != nil && !slices.Contains(tb.RanChickensOn, requesterUserID) {
+			allGroupAlreadyRan = false
+			break
+		}
+	}
+	if allGroupAlreadyRan {
 		expired := len(getActiveCRRequesters(contract)) == 0
 		contract.mutex.Unlock()
 		if targetMsgID != "" && e.MessageID() != targetMsgID {
@@ -1212,8 +1219,8 @@ func buttonReactionRanChicken(client dc.Client, e *dc.ComponentEvent, contract *
 
 	oldColor := getChickenRunAccentColor(contract)
 
-	// Mark the run for the current user and all their alts
-	for _, id := range append([]string{cUserID}, userBooster.Alts...) {
+	// Mark the run for the current user and all linked accounts (main + alts)
+	for _, id := range reactingUserIDs {
 		if id == requesterUserID {
 			continue
 		}
@@ -1294,8 +1301,8 @@ func buttonReactionRanCoop(client dc.Client, e *dc.ComponentEvent, contract *Con
 
 	oldColor := getChickenRunAccentColor(contract)
 
-	// User IDs for reacting user and their alts
-	reactingUserIDs := append([]string{cUserID}, userBooster.Alts...)
+	// User IDs for reacting user and all linked accounts (main + alts)
+	_, reactingUserIDs := contractLinkedGroup(contract, cUserID)
 
 	// Check if all other boosters in the coop are already marked as having chickens run on them
 	allMarked := true

@@ -42,10 +42,22 @@ func HandleAltsAutoComplete(e *dc.AutocompleteEvent) {
 
 	contract := FindContract(e.ChannelID())
 	if contract != nil && contract.Boosters[userID] != nil {
-		for _, name := range contract.Boosters[userID].Alts {
+		_, members := contractLinkedGroup(contract, userID)
+		for _, id := range members {
+			if id == userID {
+				continue
+			}
+			display := id
+			if b := contract.Boosters[id]; b != nil {
+				if b.Nick != "" {
+					display = b.Nick
+				} else if b.Name != "" {
+					display = b.Name
+				}
+			}
 			choices = append(choices, dc.Choice[string]{
-				Name:  name,
-				Value: name,
+				Name:  display,
+				Value: id,
 			})
 		}
 	}

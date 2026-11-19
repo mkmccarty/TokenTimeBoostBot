@@ -879,6 +879,8 @@ func HandleLinkAlternateCommand(client dc.Client, e *dc.CommandEvent) {
 				str = "This farmer is not in the contract"
 			} else if altBooster.UserID == userID {
 				str = "You cannot link yourself as an alternate."
+			} else if contract.Boosters[userID].AltController == altBooster.UserID {
+				str = "Cannot create a circular alternate link."
 			} else {
 				b := contract.Boosters[userID]
 				altID := altBooster.UserID
