@@ -109,7 +109,8 @@ func FindAltDiscordID(altID string, callerIDs ...string) string {
 		}
 	}
 
-	altEID := strings.TrimSpace(GetMiscSettingString(altID, "encrypted_ei_id"))
+	altDecryptedEID := GetUserEggIncID(altID)
+	altRawEID := strings.TrimSpace(GetMiscSettingString(altID, "encrypted_ei_id"))
 
 	for _, controller := range controllers {
 		linkedUsers := GetAllActAsLinkedUsers(controller)
@@ -127,15 +128,31 @@ func FindAltDiscordID(altID string, callerIDs ...string) string {
 			if uIGN != "" && (strings.EqualFold(uIGN, altID) || (altIGN != "" && strings.EqualFold(uIGN, altIGN))) {
 				return u
 			}
-			uEID := strings.TrimSpace(GetMiscSettingString(u, "encrypted_ei_id"))
-			if altEID != "" && uEID != "" && uEID == altEID {
+			uDecryptedEID := GetUserEggIncID(u)
+			if altDecryptedEID != "" && uDecryptedEID != "" && uDecryptedEID == altDecryptedEID {
 				return u
+			}
+			if altDecryptedEID == "" && uDecryptedEID == "" {
+				uRawEID := strings.TrimSpace(GetMiscSettingString(u, "encrypted_ei_id"))
+				if altRawEID != "" && uRawEID != "" && uRawEID == altRawEID {
+					return u
+				}
 			}
 		}
 
 		// If controller has exactly one linked /act-as account, associate that account with the alt
+		// only when it does not conflict with the alt's known IGN or Egg Inc ID.
 		if len(validSnowflakes) == 1 {
-			return validSnowflakes[0]
+			cand := validSnowflakes[0]
+			candDecryptedEID := GetUserEggIncID(cand)
+			if altDecryptedEID != "" && candDecryptedEID != "" && candDecryptedEID != altDecryptedEID {
+				continue
+			}
+			candIGN := strings.TrimSpace(GetMiscSettingString(cand, "ei_ign"))
+			if altIGN != "" && candIGN != "" && !strings.EqualFold(candIGN, altIGN) {
+				continue
+			}
+			return cand
 		}
 	}
 

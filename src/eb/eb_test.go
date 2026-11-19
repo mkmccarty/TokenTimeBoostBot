@@ -759,6 +759,40 @@ func TestFindAltDiscordID(t *testing.T) {
 	// Clean up links
 	_ = farmerstate.RemoveActAsLink(controllerSnowflake, altSnowflake)
 	_ = farmerstate.RemoveActAsLink(controllerSnowflake, altSnowflake2)
+
+	// 7. Single /act-as link with conflicting IGN must NOT match
+	conflictController := "666666666666666666"
+	conflictDiscordAlt := "777777777777777777"
+	conflictGuestAlt := "unrelated-guest-alt"
+	_ = farmerstate.DeleteAllActAsLinks(conflictController)
+	farmerstate.SetMiscSettingString(conflictDiscordAlt, "ei_ign", "DiscordAltFarm")
+	farmerstate.SetMiscSettingString(conflictGuestAlt, "ei_ign", "GuestAltFarm")
+	farmerstate.SetMiscSettingString(conflictGuestAlt, "AltController", conflictController)
+	_ = farmerstate.AddActAsLink(conflictController, conflictDiscordAlt)
+	if got := findAltDiscordID(conflictGuestAlt); got != "" {
+		t.Errorf("findAltDiscordID(%q) with conflicting IGN = %q; want empty string", conflictGuestAlt, got)
+	}
+
+	// 8. Single /act-as link with conflicting decrypted Egg Inc ID must NOT match
+	farmerstate.SetMiscSettingString(conflictDiscordAlt, "ei_ign", "")
+	farmerstate.SetMiscSettingString(conflictGuestAlt, "ei_ign", "")
+	farmerstate.SetMiscSettingString(conflictDiscordAlt, "encrypted_ei_id", makeTestEncryptedEID(t, "EI1111111111111111"))
+	farmerstate.SetMiscSettingString(conflictGuestAlt, "encrypted_ei_id", makeTestEncryptedEID(t, "EI2222222222222222"))
+	if got := findAltDiscordID(conflictGuestAlt); got != "" {
+		t.Errorf("findAltDiscordID(%q) with conflicting Egg Inc ID = %q; want empty string", conflictGuestAlt, got)
+	}
+
+	// 9. Matching decrypted Egg Inc ID (different random-nonce ciphertexts) MUST match
+	farmerstate.SetMiscSettingString(conflictGuestAlt, "encrypted_ei_id", makeTestEncryptedEID(t, "EI1111111111111111"))
+	if got := findAltDiscordID(conflictGuestAlt); got != conflictDiscordAlt {
+		t.Errorf("findAltDiscordID(%q) with matching decrypted Egg Inc ID = %q; want %q", conflictGuestAlt, got, conflictDiscordAlt)
+	}
+
+	// Clean up
+	_ = farmerstate.RemoveActAsLink(conflictController, conflictDiscordAlt)
+	farmerstate.SetMiscSettingString(conflictDiscordAlt, "encrypted_ei_id", "")
+	farmerstate.SetMiscSettingString(conflictGuestAlt, "encrypted_ei_id", "")
+	farmerstate.SetMiscSettingString(conflictGuestAlt, "AltController", "")
 }
 
 func TestGetDiscordAvatarURL(t *testing.T) {
