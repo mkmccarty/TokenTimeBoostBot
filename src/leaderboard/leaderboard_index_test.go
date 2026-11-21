@@ -253,3 +253,39 @@ func TestUpdatePostedMetricsIndexLink(t *testing.T) {
 		t.Fatalf("expected edited message to contain %q, got:\n%s", expectedPrefix, td.Content)
 	}
 }
+
+func TestBuildMetricComponentBlocks_PaginatedPreservesIndexFooter(t *testing.T) {
+	def, ok := LBDefByKey(LBPrestiges)
+	if !ok {
+		t.Fatalf("expected leaderboard definition for %s", LBPrestiges)
+	}
+
+	var rows []LBEntry
+	for i := 0; i < 30; i++ {
+		rows = append(rows, LBEntry{
+			LBType:   LBPrestiges,
+			Player:   fmt.Sprintf("test_user_%02d", i),
+			GameName: fmt.Sprintf("LongPlayerName%02d", i),
+			Value:    float64(1000000 - i),
+		})
+	}
+
+	indexURL := "https://discord.com/channels/100000000000000001/200000000000000002/300000000000000003"
+	componentBlocks := buildMetricComponentBlocks(def, LBPrestiges, "2026-11-21", rows, map[string]float64{}, indexURL)
+	if len(componentBlocks) != 1 {
+		t.Fatalf("expected 1 paginated component block, got %d", len(componentBlocks))
+	}
+
+	td, ok := componentBlocks[0][0].(dc.TextDisplay)
+	if !ok {
+		t.Fatalf("expected dc.TextDisplay, got %T", componentBlocks[0][0])
+	}
+	if len(td.Content) > discordMessageCharLimit {
+		t.Fatalf("expected paginated content <= %d chars, got %d", discordMessageCharLimit, len(td.Content))
+	}
+	expectedPrefix := fmt.Sprintf("-# [Index](%s) • Updated:", indexURL)
+	if !strings.Contains(td.Content, expectedPrefix) {
+		t.Fatalf("expected paginated block to preserve footer %q, got:\n%s", expectedPrefix, td.Content)
+	}
+}
+
