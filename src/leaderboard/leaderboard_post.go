@@ -401,7 +401,7 @@ func buildChannelIndexComponents(guildID, channelID string, configs []LBConfig, 
 		return nil
 	}
 
-	title := fmt.Sprintf("## 📑 Leaderboard Index\n%s\n", bottools.WrapTimestamp(postedAt.Unix(), bottools.TimestampShortDateTime))
+	title := fmt.Sprintf("## 📑 Leaderboard Index\n%s\n\n", bottools.WrapTimestamp(postedAt.Unix(), bottools.TimestampShortDateTime))
 	var components []dc.LayoutComponent
 	current := title
 	for _, entry := range entries {
