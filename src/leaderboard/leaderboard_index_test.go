@@ -289,3 +289,56 @@ func TestBuildMetricComponentBlocks_PaginatedPreservesIndexFooter(t *testing.T) 
 	}
 }
 
+func TestPostLeaderboards_NewActionPostsSeparator(t *testing.T) {
+	origDelay := rateLimitDelay
+	rateLimitDelay = 0
+	t.Cleanup(func() { rateLimitDelay = origDelay })
+
+	guildID := "test_guild_new_sep"
+	chID := "test_chan_new_sep"
+	userID := "test_user_new_sep"
+	snapDate := "2026-11-21"
+
+	t.Cleanup(func() {
+		_ = DeleteGuildLBConfig(guildID, LBDrones)
+		_ = guildstate.DeleteGuildState(guildID)
+		_ = farmerstate.DeleteLeaderboardStatsForPlayer(userID, LBDrones)
+		_ = farmerstate.DeleteAllLeaderboardOptInsForUserInGuild(guildID, userID)
+	})
+
+	_ = guildstate.DeleteGuildState(guildID)
+	AddPlayerOptInTypes(guildID, userID, []string{LBDrones})
+	SaveLBEntry(LBEntry{
+		LBType:   LBDrones,
+		Player:   userID,
+		GameName: "TestFarmer",
+		SnapDate: snapDate,
+		Value:    100,
+	})
+	if err := UpsertGuildLBConfig(LBConfig{
+		LBType:    LBDrones,
+		GuildID:   guildID,
+		ChannelID: chID,
+	}); err != nil {
+		t.Fatalf("UpsertGuildLBConfig: %v", err)
+	}
+
+	client := dctest.New().WithGuild(guildID, "Test Guild")
+	PostLeaderboards(client, snapDate, guildID, "", "new", nil)
+
+	if len(client.SentMessages) == 0 {
+		t.Fatalf("expected messages to be sent")
+	}
+	if client.SentMessages[0].Content != "———— LB Update ————" {
+		t.Fatalf("expected first sent message to be separator %q, got %q", "———— LB Update ————", client.SentMessages[0].Content)
+	}
+
+	// Verify update action does not post the separator.
+	updateClient := dctest.New().WithGuild(guildID, "Test Guild")
+	PostLeaderboards(updateClient, snapDate, guildID, "", "update", nil)
+	for _, msg := range updateClient.SentMessages {
+		if msg.Content == "———— LB Update ————" {
+			t.Fatalf("did not expect separator message on update action")
+		}
+	}
+}
