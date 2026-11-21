@@ -199,7 +199,6 @@ func saveData(contractHash string) {
 			return
 		}
 
-		contract.LastSaveTime = time.Now()
 		saveSqliteData(contract)
 		return
 	}
@@ -219,9 +218,7 @@ func saveData(contractHash string) {
 	}
 	ContractsMutex.RUnlock()
 
-	now := time.Now()
 	for _, c := range byChannel {
-		c.LastSaveTime = now
 		saveSqliteData(c)
 	}
 }
@@ -351,6 +348,7 @@ func saveSqliteData(contract *Contract) {
 	}
 
 	contract.mutex.Lock()
+	contract.LastSaveTime = time.Now()
 
 	// Check if AMQP Publish is enabled and configured
 	if contract.Style&ContractFlagAMQP != 0 {

@@ -33,6 +33,13 @@ func ReactionAdd(client dc.Client, e *dc.ReactionEvent) string {
 		redraw = true
 	}
 
+	pingPongForceSync := false
+	pingPongUserID := ""
+	defer func() {
+		if pingPongForceSync {
+			handlePingPongForceSync(client, contract, pingPongUserID)
+		}
+	}()
 	defer saveData(contract.ContractHash)
 
 	if emojiName == "⚙️" || emojiName == "⚙" {
@@ -223,7 +230,8 @@ func ReactionAdd(client dc.Client, e *dc.ReactionEvent) string {
 				redraw = true
 			}
 		case "🏓":
-			handlePingPongForceSync(client, contract, userID)
+			pingPongForceSync = true
+			pingPongUserID = userID
 		}
 
 		// Token reaction handling
