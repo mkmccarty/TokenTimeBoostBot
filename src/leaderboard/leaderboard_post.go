@@ -636,11 +636,11 @@ func buildMetricComponentBlocks(def LBDef, lbType, snapDate string, guildRows []
 		displayRows = guildRows[:pageSize]
 	}
 
-	blocks := buildMessageBlocks(def, displayRows, snapDate, prevMap, 0, indexURL)
-
-	// If using pagination, we enforce ONE message for the page.
-	if usePagination && len(blocks) > 1 {
-		blocks = blocks[:1]
+	var blocks []string
+	if usePagination {
+		blocks = []string{buildPaginatedPageBlock(def, displayRows, snapDate, prevMap, 0, indexURL)}
+	} else {
+		blocks = buildMessageBlocks(def, displayRows, snapDate, prevMap, 0, indexURL)
 	}
 
 	out := make([][]dc.LayoutComponent, 0, len(blocks))
@@ -762,13 +762,10 @@ func HandleLBPageButton(e *dc.ComponentEvent) {
 	displayRows := guildRows[start:end]
 	indexMsgID := guildstate.GetGuildSettingString(e.GuildID(), channelIndexSettingKey(e.ChannelID()))
 	indexURL := channelIndexURL(e.GuildID(), e.ChannelID(), indexMsgID)
-	blocks := buildMessageBlocks(def, displayRows, snapDate, prevMap, start, indexURL)
-	if len(blocks) == 0 {
+	text := buildPaginatedPageBlock(def, displayRows, snapDate, prevMap, start, indexURL)
+	if text == "" {
 		return
 	}
-
-	// Use only the first block for paginated view to ensure consistent button behavior.
-	text := blocks[0]
 
 	components := []dc.LayoutComponent{
 		dc.TextDisplay{Content: text},
@@ -838,9 +835,7 @@ func isChannelNotFound(err error) bool {
 	return dc.IsUnknownChannel(err)
 }
 
-// buildMessageBlocks formats the leaderboard rows into one or more text blocks
-// that each fit within discordMessageCharLimit.
-func buildMessageBlocks(def LBDef, rows []LBEntry, snapDate string, prevMap map[string]float64, rankOffset int, indexURL string) []string {
+func prepareMessageParts(def LBDef, rows []LBEntry, snapDate string, prevMap map[string]float64, rankOffset int, indexURL string) (string, string, []string, string) {
 	header := fmt.Sprintf("## 🏆 %s\n", def.DisplayName)
 	if def.Key == LBCXPWeeklyDelta {
 		header += fmt.Sprintf("### Week of %s\n", snapDate)
@@ -853,6 +848,31 @@ func buildMessageBlocks(def LBDef, rows []LBEntry, snapDate string, prevMap map[
 	if indexURL != "" {
 		footer = fmt.Sprintf("-# [Index](%s) • %s", indexURL, strings.TrimPrefix(footer, "-# "))
 	}
+	return header, colHeader, rowLines, footer
+}
+
+// buildPaginatedPageBlock formats a single page of leaderboard rows that fits
+// within discordMessageCharLimit while preserving the footer (index link and timestamp).
+func buildPaginatedPageBlock(def LBDef, rows []LBEntry, snapDate string, prevMap map[string]float64, rankOffset int, indexURL string) string {
+	header, colHeader, rowLines, footer := prepareMessageParts(def, rows, snapDate, prevMap, rankOffset, indexURL)
+	current := header + colHeader
+	for _, line := range rowLines {
+		candidate := current + line
+		if len(candidate)+len("```\n")+len(footer) > discordMessageCharLimit {
+			break
+		}
+		current = candidate
+	}
+	if current == "" {
+		return ""
+	}
+	return current + "```\n" + footer
+}
+
+// buildMessageBlocks formats the leaderboard rows into one or more text blocks
+// that each fit within discordMessageCharLimit.
+func buildMessageBlocks(def LBDef, rows []LBEntry, snapDate string, prevMap map[string]float64, rankOffset int, indexURL string) []string {
+	header, colHeader, rowLines, footer := prepareMessageParts(def, rows, snapDate, prevMap, rankOffset, indexURL)
 
 	var blocks []string
 	current := header + colHeader
