@@ -253,4 +253,3 @@ func TestUpdatePostedMetricsIndexLink(t *testing.T) {
 		t.Fatalf("expected edited message to contain %q, got:\n%s", expectedPrefix, td.Content)
 	}
 }
-
