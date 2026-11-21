@@ -184,6 +184,14 @@ func PostLeaderboards(client dc.Client, snapDate string, guildID string, target 
 				existingIndexMsgID = guildstate.GetGuildSettingString(guildIDForChannel, channelIndexSettingKey(chID))
 			}
 
+			if action == "new" && client != nil {
+				if _, err := client.SendMessage(chID, dc.Message{Content: "———— LB Update ————"}); err != nil {
+					log.Printf("leaderboard: failed to post separator in channel %s: %v", chID, err)
+				} else {
+					time.Sleep(rateLimitDelay)
+				}
+			}
+
 			var postedMetrics []postedMetricInfo
 			for _, cfg := range cList {
 				metrics := postOneLeaderboard(client, cfg, snapDate, targetSet, action, existingIndexMsgID, &prog, onProgress)
