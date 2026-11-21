@@ -14,11 +14,14 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
 )
 
 const discordMessageCharLimit = 1900
 const leaderboardUpdateConfirmationTTL = 1 * time.Minute
-const rateLimitDelay = 2000 * time.Millisecond
+
+var rateLimitDelay = 2000 * time.Millisecond
+
 const maxConcurrentChannels = 2
 
 // PostProgress tracks the progress of posting multiple leaderboards, allowing for ETA estimation and progress reporting.
@@ -178,6 +181,7 @@ func PostLeaderboards(client dc.Client, snapDate string, guildID string, target 
 			for _, cfg := range cList {
 				postOneLeaderboard(client, cfg, snapDate, targetSet, action, &prog, onProgress)
 			}
+			postChannelIndex(client, cList[0].GuildID, chID, action, time.Now())
 			postChannelUpdateConfirmation(client, chID)
 		}()
 	}
@@ -318,6 +322,127 @@ func postChannelUpdateConfirmation(client dc.Client, channelID string) {
 			log.Printf("leaderboard: failed to auto-delete channel update confirmation %s in %s: %v", msgID, chID, err)
 		}
 	}(channelID, msg.ID)
+}
+
+func channelIndexSettingKey(channelID string) string {
+	return "lb_index_" + channelID
+}
+
+type lbIndexEntry struct {
+	DisplayName string
+	MessageID   string
+}
+
+func buildChannelIndexComponents(guildID, channelID string, configs []LBConfig, postedAt time.Time) []dc.LayoutComponent {
+	var entries []lbIndexEntry
+	seen := make(map[string]bool)
+
+	for _, cfg := range configs {
+		if cfg.ChannelID != channelID {
+			continue
+		}
+		memberKeys := ExpandConfigKey(cfg.LBType)
+		for i, lbType := range memberKeys {
+			if i >= len(cfg.MessageIDs) || cfg.MessageIDs[i] == "" {
+				continue
+			}
+			if seen[lbType] {
+				continue
+			}
+			def, ok := LBDefByKey(lbType)
+			if !ok {
+				continue
+			}
+			seen[lbType] = true
+			entries = append(entries, lbIndexEntry{
+				DisplayName: def.DisplayName,
+				MessageID:   cfg.MessageIDs[i],
+			})
+		}
+	}
+
+	if len(entries) == 0 {
+		return nil
+	}
+
+	title := fmt.Sprintf("## 📑 Leaderboard Index — %s\n", bottools.WrapTimestamp(postedAt.Unix(), bottools.TimestampShortDateTime))
+	var components []dc.LayoutComponent
+	current := title
+	for _, entry := range entries {
+		line := fmt.Sprintf("- [%s](https://discord.com/channels/%s/%s/%s)\n", entry.DisplayName, guildID, channelID, entry.MessageID)
+		if len(current)+len(line) > discordMessageCharLimit && current != title {
+			components = append(components, dc.TextDisplay{Content: strings.TrimRight(current, "\n")})
+			current = line
+		} else {
+			current += line
+		}
+	}
+	if current != "" {
+		components = append(components, dc.TextDisplay{Content: strings.TrimRight(current, "\n")})
+	}
+	return components
+}
+
+// postChannelIndex posts or updates the channel's leaderboard index message
+// according to the requested action ("update", "bump", or "new").
+func postChannelIndex(client dc.Client, guildID, channelID, action string, postedAt time.Time) {
+	if client == nil || guildID == "" || channelID == "" {
+		return
+	}
+
+	configs, err := GetGuildLBConfigs(guildID)
+	if err != nil {
+		log.Printf("leaderboard: postChannelIndex: failed to load configs for guild %s: %v", guildID, err)
+		return
+	}
+
+	components := buildChannelIndexComponents(guildID, channelID, configs, postedAt)
+	if len(components) == 0 {
+		return
+	}
+
+	key := channelIndexSettingKey(channelID)
+	oldMsgID := guildstate.GetGuildSettingString(guildID, key)
+	forceNew := action == "bump" || action == "new"
+
+	if !forceNew && oldMsgID != "" {
+		if _, err := client.EditMessage(channelID, oldMsgID, dc.Message{Components: components}); err != nil {
+			log.Printf("leaderboard: failed to edit index message %s in channel %s: %v", oldMsgID, channelID, err)
+			switch classifyEditFailure(err) {
+			case editFailureRepost:
+				if msg, sendErr := sendNewLBMessage(client, channelID, components); sendErr == nil {
+					guildstate.SetGuildSettingString(guildID, key, msg.ID)
+				} else if isChannelNotFound(sendErr) {
+					guildstate.SetGuildSettingString(guildID, key, "")
+				} else {
+					log.Printf("leaderboard: failed to repost index message in channel %s: %v", channelID, sendErr)
+				}
+			case editFailureChannelGone:
+				guildstate.SetGuildSettingString(guildID, key, "")
+			case editFailureRetryLater:
+				// Retain oldMsgID for the next update attempt.
+			}
+		}
+		return
+	}
+
+	msg, err := sendNewLBMessage(client, channelID, components)
+	if err != nil {
+		if isChannelNotFound(err) {
+			guildstate.SetGuildSettingString(guildID, key, "")
+		} else {
+			log.Printf("leaderboard: failed to post index message in channel %s: %v", channelID, err)
+		}
+		return
+	}
+	guildstate.SetGuildSettingString(guildID, key, msg.ID)
+
+	if action == "bump" && oldMsgID != "" && oldMsgID != msg.ID {
+		time.Sleep(rateLimitDelay)
+		if err := client.DeleteMessage(channelID, oldMsgID); err != nil {
+			log.Printf("leaderboard: failed to delete old index message %s in channel %s: %v", oldMsgID, channelID, err)
+		}
+	}
 }
 
 func getGuildRows(lbType string, snapDate string, guildID string) ([]LBEntry, map[string]float64) {
