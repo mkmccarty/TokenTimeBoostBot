@@ -178,10 +178,22 @@ func PostLeaderboards(client dc.Client, snapDate string, guildID string, target 
 			defer wg.Done()
 			defer func() { <-sem }()
 
-			for _, cfg := range cList {
-				postOneLeaderboard(client, cfg, snapDate, targetSet, action, &prog, onProgress)
+			guildIDForChannel := cList[0].GuildID
+			existingIndexMsgID := ""
+			if action != "bump" && action != "new" {
+				existingIndexMsgID = guildstate.GetGuildSettingString(guildIDForChannel, channelIndexSettingKey(chID))
 			}
-			postChannelIndex(client, cList[0].GuildID, chID, action, time.Now())
+
+			var postedMetrics []postedMetricInfo
+			for _, cfg := range cList {
+				metrics := postOneLeaderboard(client, cfg, snapDate, targetSet, action, existingIndexMsgID, &prog, onProgress)
+				postedMetrics = append(postedMetrics, metrics...)
+			}
+
+			newIndexMsgID := postChannelIndex(client, guildIDForChannel, chID, action, time.Now())
+			if newIndexMsgID != "" && newIndexMsgID != existingIndexMsgID {
+				updatePostedMetricsIndexLink(client, guildIDForChannel, chID, snapDate, newIndexMsgID, postedMetrics)
+			}
 			postChannelUpdateConfirmation(client, chID)
 		}()
 	}
@@ -220,10 +232,16 @@ func resolveGuildName(client dc.Client, guildID string) string {
 	return guildID
 }
 
+type postedMetricInfo struct {
+	LBType    string
+	MessageID string
+}
+
 // postOneLeaderboard handles the expanded posting of a single config (which might be a group).
-func postOneLeaderboard(client dc.Client, cfg LBConfig, snapDate string, targetSet map[string]struct{}, action string, prog *PostProgress, onProgress func(string)) {
+func postOneLeaderboard(client dc.Client, cfg LBConfig, snapDate string, targetSet map[string]struct{}, action string, indexMsgID string, prog *PostProgress, onProgress func(string)) []postedMetricInfo {
 	memberKeys := ExpandConfigKey(cfg.LBType)
 	var newMsgIDs []string
+	var postedMetrics []postedMetricInfo
 	msgIDOffset := 0
 	forceNewPosts := false
 
@@ -238,6 +256,7 @@ func postOneLeaderboard(client dc.Client, cfg LBConfig, snapDate string, targetS
 	}
 
 	guildLabel := resolveGuildName(client, cfg.GuildID)
+	indexURL := channelIndexURL(cfg.GuildID, cfg.ChannelID, indexMsgID)
 
 	for _, lbType := range memberKeys {
 		if !shouldProcessMember(lbType, targetSet) {
@@ -280,7 +299,16 @@ func postOneLeaderboard(client dc.Client, cfg LBConfig, snapDate string, targetS
 		}
 
 		start := time.Now()
-		postSingleMetric(client, cfg, lbType, snapDate, &newMsgIDs, &msgIDOffset, &forceNewPosts)
+		prevCount := len(newMsgIDs)
+		postSingleMetric(client, cfg, lbType, snapDate, indexURL, &newMsgIDs, &msgIDOffset, &forceNewPosts)
+		if len(newMsgIDs) > prevCount {
+			if msgID := newMsgIDs[len(newMsgIDs)-1]; msgID != "" {
+				postedMetrics = append(postedMetrics, postedMetricInfo{
+					LBType:    lbType,
+					MessageID: msgID,
+				})
+			}
+		}
 		time.Sleep(rateLimitDelay)
 		if prog != nil {
 			prog.recordMetric(time.Since(start))
@@ -306,6 +334,7 @@ func postOneLeaderboard(client dc.Client, cfg LBConfig, snapDate string, targetS
 	}
 
 	UpdateGuildLBConfigMessageIDs(cfg.GuildID, cfg.LBType, newMsgIDs)
+	return postedMetrics
 }
 
 func postChannelUpdateConfirmation(client dc.Client, channelID string) {
@@ -326,6 +355,13 @@ func postChannelUpdateConfirmation(client dc.Client, channelID string) {
 
 func channelIndexSettingKey(channelID string) string {
 	return "lb_index_" + channelID
+}
+
+func channelIndexURL(guildID, channelID, indexMsgID string) string {
+	if guildID == "" || channelID == "" || indexMsgID == "" {
+		return ""
+	}
+	return fmt.Sprintf("https://discord.com/channels/%s/%s/%s", guildID, channelID, indexMsgID)
 }
 
 type lbIndexEntry struct {
@@ -365,7 +401,7 @@ func buildChannelIndexComponents(guildID, channelID string, configs []LBConfig, 
 		return nil
 	}
 
-	title := fmt.Sprintf("## 📑 Leaderboard Index — %s\n", bottools.WrapTimestamp(postedAt.Unix(), bottools.TimestampShortDateTime))
+	title := fmt.Sprintf("## 📑 Leaderboard Index\n%s\n", bottools.WrapTimestamp(postedAt.Unix(), bottools.TimestampShortDateTime))
 	var components []dc.LayoutComponent
 	current := title
 	for _, entry := range entries {
@@ -384,21 +420,22 @@ func buildChannelIndexComponents(guildID, channelID string, configs []LBConfig, 
 }
 
 // postChannelIndex posts or updates the channel's leaderboard index message
-// according to the requested action ("update", "bump", or "new").
-func postChannelIndex(client dc.Client, guildID, channelID, action string, postedAt time.Time) {
+// according to the requested action ("update", "bump", or "new") and returns
+// the resulting index message ID if one is active.
+func postChannelIndex(client dc.Client, guildID, channelID, action string, postedAt time.Time) string {
 	if client == nil || guildID == "" || channelID == "" {
-		return
+		return ""
 	}
 
 	configs, err := GetGuildLBConfigs(guildID)
 	if err != nil {
 		log.Printf("leaderboard: postChannelIndex: failed to load configs for guild %s: %v", guildID, err)
-		return
+		return ""
 	}
 
 	components := buildChannelIndexComponents(guildID, channelID, configs, postedAt)
 	if len(components) == 0 {
-		return
+		return ""
 	}
 
 	key := channelIndexSettingKey(channelID)
@@ -412,18 +449,22 @@ func postChannelIndex(client dc.Client, guildID, channelID, action string, poste
 			case editFailureRepost:
 				if msg, sendErr := sendNewLBMessage(client, channelID, components); sendErr == nil {
 					guildstate.SetGuildSettingString(guildID, key, msg.ID)
+					return msg.ID
 				} else if isChannelNotFound(sendErr) {
 					guildstate.SetGuildSettingString(guildID, key, "")
+					return ""
 				} else {
 					log.Printf("leaderboard: failed to repost index message in channel %s: %v", channelID, sendErr)
+					return ""
 				}
 			case editFailureChannelGone:
 				guildstate.SetGuildSettingString(guildID, key, "")
+				return ""
 			case editFailureRetryLater:
 				// Retain oldMsgID for the next update attempt.
 			}
 		}
-		return
+		return oldMsgID
 	}
 
 	msg, err := sendNewLBMessage(client, channelID, components)
@@ -433,7 +474,7 @@ func postChannelIndex(client dc.Client, guildID, channelID, action string, poste
 		} else {
 			log.Printf("leaderboard: failed to post index message in channel %s: %v", channelID, err)
 		}
-		return
+		return ""
 	}
 	guildstate.SetGuildSettingString(guildID, key, msg.ID)
 
@@ -442,6 +483,36 @@ func postChannelIndex(client dc.Client, guildID, channelID, action string, poste
 		if err := client.DeleteMessage(channelID, oldMsgID); err != nil {
 			log.Printf("leaderboard: failed to delete old index message %s in channel %s: %v", oldMsgID, channelID, err)
 		}
+	}
+	return msg.ID
+}
+
+func updatePostedMetricsIndexLink(client dc.Client, guildID, channelID, snapDate, indexMsgID string, postedMetrics []postedMetricInfo) {
+	indexURL := channelIndexURL(guildID, channelID, indexMsgID)
+	if client == nil || indexURL == "" || len(postedMetrics) == 0 {
+		return
+	}
+
+	for _, pm := range postedMetrics {
+		if pm.MessageID == "" {
+			continue
+		}
+		def, ok := LBDefByKey(pm.LBType)
+		if !ok {
+			continue
+		}
+		guildRows, prevMap := getGuildRows(pm.LBType, snapDate, guildID)
+		if len(guildRows) == 0 {
+			continue
+		}
+		componentBlocks := buildMetricComponentBlocks(def, pm.LBType, snapDate, guildRows, prevMap, indexURL)
+		if len(componentBlocks) == 0 {
+			continue
+		}
+		if _, err := client.EditMessage(channelID, pm.MessageID, dc.Message{Components: componentBlocks[0]}); err != nil {
+			log.Printf("leaderboard: failed to add index link to %s (%s) in channel %s: %v", pm.LBType, pm.MessageID, channelID, err)
+		}
+		time.Sleep(rateLimitDelay)
 	}
 }
 
@@ -554,42 +625,28 @@ func findLookbackValueMap(lbType string, snapDate string, guildID string) (map[s
 	return out, false
 }
 
-func postSingleMetric(client dc.Client, cfg LBConfig, lbType, snapDate string, newMsgIDs *[]string, msgIDOffset *int, forceNewPosts *bool) {
-	def, _ := LBDefByKey(lbType)
-	guildRows, prevMap := getGuildRows(lbType, snapDate, cfg.GuildID)
-
-	if len(guildRows) == 0 {
-		log.Printf("leaderboard: no eligible guild members for %s in guild %s", lbType, cfg.GuildID)
-		*newMsgIDs = append(*newMsgIDs, "")
-		*msgIDOffset++
-		return
-	}
-
+func buildMetricComponentBlocks(def LBDef, lbType, snapDate string, guildRows []LBEntry, prevMap map[string]float64, indexURL string) [][]dc.LayoutComponent {
 	pageSize := 25
-	allBlocks := buildMessageBlocks(def, guildRows, snapDate, prevMap, 0)
+	allBlocks := buildMessageBlocks(def, guildRows, snapDate, prevMap, 0, indexURL)
 	usePagination := len(allBlocks) > 1
 	page := 0
 
 	displayRows := guildRows
-	if usePagination {
-		if len(guildRows) > pageSize {
-			displayRows = guildRows[:pageSize]
-		}
+	if usePagination && len(guildRows) > pageSize {
+		displayRows = guildRows[:pageSize]
 	}
 
-	blocks := buildMessageBlocks(def, displayRows, snapDate, prevMap, 0)
+	blocks := buildMessageBlocks(def, displayRows, snapDate, prevMap, 0, indexURL)
 
 	// If using pagination, we enforce ONE message for the page.
 	if usePagination && len(blocks) > 1 {
-		// Truncate rows until it fits in one block?
-		// For now, let's just use the first block and add buttons.
 		blocks = blocks[:1]
 	}
 
+	out := make([][]dc.LayoutComponent, 0, len(blocks))
 	for _, text := range blocks {
-		var components []dc.LayoutComponent
 		if usePagination {
-			components = []dc.LayoutComponent{
+			out = append(out, []dc.LayoutComponent{
 				dc.TextDisplay{Content: text},
 				dc.ActionRow{
 					Components: []dc.InteractiveComponent{
@@ -607,12 +664,29 @@ func postSingleMetric(client dc.Client, cfg LBConfig, lbType, snapDate string, n
 						},
 					},
 				},
-			}
+			})
 		} else {
-			components = []dc.LayoutComponent{
+			out = append(out, []dc.LayoutComponent{
 				dc.TextDisplay{Content: text},
-			}
+			})
 		}
+	}
+	return out
+}
+
+func postSingleMetric(client dc.Client, cfg LBConfig, lbType, snapDate, indexURL string, newMsgIDs *[]string, msgIDOffset *int, forceNewPosts *bool) {
+	def, _ := LBDefByKey(lbType)
+	guildRows, prevMap := getGuildRows(lbType, snapDate, cfg.GuildID)
+
+	if len(guildRows) == 0 {
+		log.Printf("leaderboard: no eligible guild members for %s in guild %s", lbType, cfg.GuildID)
+		*newMsgIDs = append(*newMsgIDs, "")
+		*msgIDOffset++
+		return
+	}
+
+	componentBlocks := buildMetricComponentBlocks(def, lbType, snapDate, guildRows, prevMap, indexURL)
+	for _, components := range componentBlocks {
 
 		if !*forceNewPosts && *msgIDOffset < len(cfg.MessageIDs) && cfg.MessageIDs[*msgIDOffset] != "" {
 			msgID := cfg.MessageIDs[*msgIDOffset]
@@ -686,7 +760,9 @@ func HandleLBPageButton(e *dc.ComponentEvent) {
 	}
 
 	displayRows := guildRows[start:end]
-	blocks := buildMessageBlocks(def, displayRows, snapDate, prevMap, start)
+	indexMsgID := guildstate.GetGuildSettingString(e.GuildID(), channelIndexSettingKey(e.ChannelID()))
+	indexURL := channelIndexURL(e.GuildID(), e.ChannelID(), indexMsgID)
+	blocks := buildMessageBlocks(def, displayRows, snapDate, prevMap, start, indexURL)
 	if len(blocks) == 0 {
 		return
 	}
@@ -764,7 +840,7 @@ func isChannelNotFound(err error) bool {
 
 // buildMessageBlocks formats the leaderboard rows into one or more text blocks
 // that each fit within discordMessageCharLimit.
-func buildMessageBlocks(def LBDef, rows []LBEntry, snapDate string, prevMap map[string]float64, rankOffset int) []string {
+func buildMessageBlocks(def LBDef, rows []LBEntry, snapDate string, prevMap map[string]float64, rankOffset int, indexURL string) []string {
 	header := fmt.Sprintf("## 🏆 %s\n", def.DisplayName)
 	if def.Key == LBCXPWeeklyDelta {
 		header += fmt.Sprintf("### Week of %s\n", snapDate)
@@ -774,6 +850,9 @@ func buildMessageBlocks(def LBDef, rows []LBEntry, snapDate string, prevMap map[
 	}
 
 	colHeader, rowLines, footer := renderTable(def, rows, prevMap, rankOffset)
+	if indexURL != "" {
+		footer = fmt.Sprintf("-# [Index](%s) • %s", indexURL, strings.TrimPrefix(footer, "-# "))
+	}
 
 	var blocks []string
 	current := header + colHeader

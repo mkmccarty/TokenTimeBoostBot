@@ -9,6 +9,7 @@ import (
 	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc/dctest"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/guildstate"
 )
 
@@ -190,3 +191,66 @@ func TestPostChannelIndex_Actions(t *testing.T) {
 		t.Fatalf("expected no additional DeleteMessage on new action, got %d", len(client.CallsTo("DeleteMessage")))
 	}
 }
+
+func TestBuildMessageBlocks_IncludesIndexLinkBeforeUpdated(t *testing.T) {
+	def, ok := LBDefByKey(LBDrones)
+	if !ok {
+		t.Fatalf("expected leaderboard definition for %s", LBDrones)
+	}
+	rows := []LBEntry{
+		{LBType: LBDrones, Player: "test_user_1", GameName: "TestFarmer", Value: 42},
+	}
+	indexURL := "https://discord.com/channels/test_guild/test_chan/test_idx_msg"
+	blocks := buildMessageBlocks(def, rows, "2026-11-21", map[string]float64{}, 0, indexURL)
+	if len(blocks) != 1 {
+		t.Fatalf("expected 1 block, got %d", len(blocks))
+	}
+
+	expectedPrefix := fmt.Sprintf("-# [Index](%s) • Updated:", indexURL)
+	if !strings.Contains(blocks[0], expectedPrefix) {
+		t.Fatalf("expected block to contain %q, got:\n%s", expectedPrefix, blocks[0])
+	}
+}
+
+func TestUpdatePostedMetricsIndexLink(t *testing.T) {
+	origDelay := rateLimitDelay
+	rateLimitDelay = 0
+	t.Cleanup(func() { rateLimitDelay = origDelay })
+
+	guildID := "test_guild_idx_backfill"
+	chID := "test_chan_idx_backfill"
+	userID := "test_user_idx_backfill"
+	snapDate := "2026-11-21"
+
+	t.Cleanup(func() {
+		_ = farmerstate.DeleteLeaderboardStatsForPlayer(userID, LBDrones)
+		_ = farmerstate.DeleteAllLeaderboardOptInsForUserInGuild(guildID, userID)
+	})
+
+	AddPlayerOptInTypes(guildID, userID, []string{LBDrones})
+	SaveLBEntry(LBEntry{
+		LBType:   LBDrones,
+		Player:   userID,
+		GameName: "TestFarmer",
+		SnapDate: snapDate,
+		Value:    100,
+	})
+
+	client := dctest.New()
+	updatePostedMetricsIndexLink(client, guildID, chID, snapDate, "idx_msg_99", []postedMetricInfo{
+		{LBType: LBDrones, MessageID: "lb_msg_1"},
+	})
+
+	if len(client.EditedMessages) != 1 {
+		t.Fatalf("expected 1 edited message, got %d", len(client.EditedMessages))
+	}
+	td, ok := client.EditedMessages[0].Components[0].(dc.TextDisplay)
+	if !ok {
+		t.Fatalf("expected dc.TextDisplay in edited message, got %T", client.EditedMessages[0].Components[0])
+	}
+	expectedPrefix := fmt.Sprintf("-# [Index](https://discord.com/channels/%s/%s/idx_msg_99) • Updated:", guildID, chID)
+	if !strings.Contains(td.Content, expectedPrefix) {
+		t.Fatalf("expected edited message to contain %q, got:\n%s", expectedPrefix, td.Content)
+	}
+}
+
