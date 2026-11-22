@@ -480,7 +480,8 @@ func handleRegenComplaintsTask(e *dc.CommandEvent, taskName string, param string
 	}
 
 	const complaintQuantity = 12
-	complaints := thematicComplaintsGenerator(eiContract.EggName, eiContract.Name, eiContract.Description, complaintQuantity)
+	aiEggName := ei.GetContractAIEggName(eiContract)
+	complaints := thematicComplaintsGenerator(aiEggName, eiContract.Name, eiContract.Description, complaintQuantity)
 	if len(complaints) == 0 {
 		_ = e.Followup(dc.Message{
 			Content: fmt.Sprintf("❌ Failed to generate complaints for `%s` (%s).", eiContract.Name, contractID),
@@ -514,7 +515,7 @@ func handleRegenComplaintsTask(e *dc.CommandEvent, taskName string, param string
 			"**Sample Complaints:**\n%s",
 		eiContract.Name,
 		contractID,
-		eiContract.EggName,
+		aiEggName,
 		len(complaints),
 		sb.String(),
 	)

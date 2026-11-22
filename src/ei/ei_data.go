@@ -653,3 +653,36 @@ func GetEggIncContractsSlice() []EggIncContract {
 	copy(contracts, EggIncContracts)
 	return contracts
 }
+
+// crisprEggReleaseDate is June 26, 2024, when the Immortality egg was renamed to CRISPR.
+var crisprEggReleaseDate = time.Date(2024, time.June, 26, 0, 0, 0, 0, time.UTC)
+
+// ContractFirstAppeared returns the earliest non-zero ValidFrom timestamp for a contract
+// across its current version and any historical versions.
+func ContractFirstAppeared(contract EggIncContract) time.Time {
+	earliest := contract.ValidFrom
+	for _, h := range contract.History {
+		if !h.ValidFrom.IsZero() && (earliest.IsZero() || h.ValidFrom.Before(earliest)) {
+			earliest = h.ValidFrom
+		}
+	}
+	return earliest
+}
+
+// ResolveAIEggName returns "CRISPR" instead of "IMMORTALITY" (case-insensitive)
+// when firstAppeared is on or after June 26, 2024.
+func ResolveAIEggName(eggName string, firstAppeared time.Time) string {
+	if strings.EqualFold(strings.TrimSpace(eggName), "IMMORTALITY") &&
+		!firstAppeared.IsZero() &&
+		!firstAppeared.Before(crisprEggReleaseDate) {
+		return "CRISPR"
+	}
+	return eggName
+}
+
+// GetContractAIEggName returns the egg name to use in AI prompts for the given contract.
+// On June 26, 2024, the Immortality egg was renamed to CRISPR, though its image/asset name
+// remained "immortality". Contracts that first appeared on or after that date use "CRISPR".
+func GetContractAIEggName(contract EggIncContract) string {
+	return ResolveAIEggName(contract.EggName, ContractFirstAppeared(contract))
+}

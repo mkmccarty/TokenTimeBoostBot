@@ -426,7 +426,14 @@ func GetPeriodicalsFromAPI(client dc.Client) bool {
 		}
 
 		if needTeamNames || needComplaints {
-			go fetchThematicDataAsync(c.ID, c.EggName, c.Name, c.Description, needTeamNames, needComplaints)
+			firstAppeared := ei.ContractFirstAppeared(c)
+			if exists {
+				if existingFirst := ei.ContractFirstAppeared(existingContract); !existingFirst.IsZero() && (firstAppeared.IsZero() || existingFirst.Before(firstAppeared)) {
+					firstAppeared = existingFirst
+				}
+			}
+			aiEggName := ei.ResolveAIEggName(c.EggName, firstAppeared)
+			go fetchThematicDataAsync(c.ID, aiEggName, c.Name, c.Description, needTeamNames, needComplaints)
 		}
 
 		ei.EggIncContractsAll[c.ID] = c
