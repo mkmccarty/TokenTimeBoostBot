@@ -2,6 +2,7 @@ package ei
 
 import (
 	"testing"
+	"time"
 )
 
 func TestGetBotEmojiURL(t *testing.T) {
@@ -126,5 +127,87 @@ func TestFindEggEmoji(t *testing.T) {
 	comp := FindEggComponentEmoji("dynamicegg")
 	if comp == nil || comp.Name != "egg_dynamicegg" || comp.ID != "2002" {
 		t.Errorf("FindEggComponentEmoji(dynamicegg) = %+v; want Name: egg_dynamicegg, ID: 2002", comp)
+	}
+}
+
+func TestGetContractAIEggName(t *testing.T) {
+	beforeChange := time.Date(2024, time.June, 25, 16, 0, 0, 0, time.UTC)
+	onChange := time.Date(2024, time.June, 26, 16, 0, 0, 0, time.UTC)
+	afterChange := time.Date(2025, time.January, 15, 17, 0, 0, 0, time.UTC)
+
+	tests := []struct {
+		name     string
+		contract EggIncContract
+		want     string
+	}{
+		{
+			name: "immortality before June 26 2024",
+			contract: EggIncContract{
+				EggName:   "IMMORTALITY",
+				ValidFrom: beforeChange,
+			},
+			want: "IMMORTALITY",
+		},
+		{
+			name: "immortality on June 26 2024",
+			contract: EggIncContract{
+				EggName:   "IMMORTALITY",
+				ValidFrom: onChange,
+			},
+			want: "CRISPR",
+		},
+		{
+			name: "immortality after June 26 2024",
+			contract: EggIncContract{
+				EggName:   "immortality",
+				ValidFrom: afterChange,
+			},
+			want: "CRISPR",
+		},
+		{
+			name: "leggacy immortality originally released before June 26 2024",
+			contract: EggIncContract{
+				EggName:   "IMMORTALITY",
+				ValidFrom: afterChange,
+				History: []EggIncContract{
+					{ValidFrom: beforeChange},
+				},
+			},
+			want: "IMMORTALITY",
+		},
+		{
+			name: "leggacy immortality originally released on or after June 26 2024",
+			contract: EggIncContract{
+				EggName:   "IMMORTALITY",
+				ValidFrom: afterChange,
+				History: []EggIncContract{
+					{ValidFrom: onChange},
+				},
+			},
+			want: "CRISPR",
+		},
+		{
+			name: "immortality with zero ValidFrom",
+			contract: EggIncContract{
+				EggName: "IMMORTALITY",
+			},
+			want: "IMMORTALITY",
+		},
+		{
+			name: "non-immortality egg after June 26 2024",
+			contract: EggIncContract{
+				EggName:   "EDIBLE",
+				ValidFrom: afterChange,
+			},
+			want: "EDIBLE",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := GetContractAIEggName(tc.contract); got != tc.want {
+				t.Errorf("GetContractAIEggName() = %q, want %q", got, tc.want)
+			}
+		})
 	}
 }
