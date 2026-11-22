@@ -1,0 +1,243 @@
+package watch
+
+import (
+	"fmt"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/dc/dctest"
+)
+
+func TestBuildQuietOffsetOptions(t *testing.T) {
+	loc := eggStandardLocation()
+	pstRef := time.Date(2026, 11, 21, 21, 0, 0, 0, loc)
+	opts := buildQuietOffsetOptions("5", pstRef)
+	if len(opts) != 25 {
+		t.Fatalf("expected 25 options, got %d", len(opts))
+	}
+	if opts[0].Label != "None" || opts[0].Value != "none" || opts[0].Default {
+		t.Errorf("unexpected first option: %+v", opts[0])
+	}
+	if opts[1].Label != "+0" || opts[1].Value != "0" || opts[1].Description != "9:00 AM PST" {
+		t.Errorf("unexpected +0 PST option: %+v", opts[1])
+	}
+	if opts[24].Label != "+23" || opts[24].Value != "23" || opts[24].Description != "8:00 AM PST" {
+		t.Errorf("unexpected +23 PST option: %+v", opts[24])
+	}
+	if !opts[6].Default {
+		t.Errorf("expected option +5 (index 6) to be default, got %+v", opts[6])
+	}
+
+	pdtRef := time.Date(2026, 7, 14, 12, 0, 0, 0, loc)
+	pdtOpts := buildQuietOffsetOptions("none", pdtRef)
+	if pdtOpts[1].Description != "9:00 AM PDT" {
+		t.Errorf("expected 9:00 AM PDT during DST, got %q", pdtOpts[1].Description)
+	}
+}
+
+func TestCalculateVirtueSiloNotifyAt(t *testing.T) {
+	loc := eggStandardLocation()
+	// 22:00 to 06:00 Egg Standard Time overnight quiet window.
+	startTOD := int64(22 * 3600)
+	endTOD := int64(6 * 3600)
+	offsetSec := int64(30 * 60)
+
+	tests := []struct {
+		name         string
+		siloExpiry   time.Time
+		quietSet     bool
+		startTOD     int64
+		endTOD       int64
+		wantNotifyAt time.Time
+		wantAdjusted bool
+	}{
+		{
+			name:         "inside overnight quiet window after midnight",
+			siloExpiry:   time.Date(2026, 11, 22, 3, 0, 0, 0, loc),
+			quietSet:     true,
+			startTOD:     startTOD,
+			endTOD:       endTOD,
+			wantNotifyAt: time.Date(2026, 11, 21, 21, 45, 0, 0, loc),
+			wantAdjusted: true,
+		},
+		{
+			name:         "inside overnight quiet window before midnight",
+			siloExpiry:   time.Date(2026, 11, 21, 23, 0, 0, 0, loc),
+			quietSet:     true,
+			startTOD:     startTOD,
+			endTOD:       endTOD,
+			wantNotifyAt: time.Date(2026, 11, 21, 21, 45, 0, 0, loc),
+			wantAdjusted: true,
+		},
+		{
+			name:         "exactly at quiet start is inside",
+			siloExpiry:   time.Date(2026, 11, 21, 22, 30, 0, 0, loc),
+			quietSet:     true,
+			startTOD:     startTOD,
+			endTOD:       endTOD,
+			wantNotifyAt: time.Date(2026, 11, 21, 21, 45, 0, 0, loc),
+			wantAdjusted: true,
+		},
+		{
+			name:         "exactly at quiet end is outside",
+			siloExpiry:   time.Date(2026, 11, 22, 6, 30, 0, 0, loc),
+			quietSet:     true,
+			startTOD:     startTOD,
+			endTOD:       endTOD,
+			wantNotifyAt: time.Date(2026, 11, 22, 6, 0, 0, 0, loc),
+			wantAdjusted: false,
+		},
+		{
+			name:         "outside overnight quiet window",
+			siloExpiry:   time.Date(2026, 11, 22, 15, 0, 0, 0, loc),
+			quietSet:     true,
+			startTOD:     startTOD,
+			endTOD:       endTOD,
+			wantNotifyAt: time.Date(2026, 11, 22, 14, 30, 0, 0, loc),
+			wantAdjusted: false,
+		},
+		{
+			name:         "same-day EST quiet window 05:00-13:00",
+			siloExpiry:   time.Date(2026, 11, 22, 8, 30, 0, 0, loc),
+			quietSet:     true,
+			startTOD:     5 * 3600,
+			endTOD:       13 * 3600,
+			wantNotifyAt: time.Date(2026, 11, 22, 4, 45, 0, 0, loc),
+			wantAdjusted: true,
+		},
+		{
+			name:         "quiet hours disabled",
+			siloExpiry:   time.Date(2026, 11, 22, 3, 0, 0, 0, loc),
+			quietSet:     false,
+			startTOD:     startTOD,
+			endTOD:       endTOD,
+			wantNotifyAt: time.Date(2026, 11, 22, 2, 30, 0, 0, loc),
+			wantAdjusted: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, _, adjusted := calculateVirtueSiloNotifyAt(tc.siloExpiry, offsetSec, tc.quietSet, tc.startTOD, tc.endTOD)
+			if adjusted != tc.wantAdjusted {
+				t.Errorf("adjusted = %v, want %v", adjusted, tc.wantAdjusted)
+			}
+			if !got.Equal(tc.wantNotifyAt) {
+				t.Errorf("notifyAt = %v, want %v", got, tc.wantNotifyAt)
+			}
+		})
+	}
+}
+
+func TestResolveQuietWindowFromOffsets(t *testing.T) {
+	loc := eggStandardLocation()
+	ref := time.Date(2026, 11, 21, 21, 0, 0, 0, loc)
+
+	// +2 = 11:00 AM PST, +10 = 7:00 PM PST
+	qStart, qEnd, startTOD, endTOD, valid := resolveQuietWindowFromOffsets("2", "10", ref)
+	if !valid {
+		t.Fatalf("expected valid quiet window")
+	}
+	wantStart := time.Date(2026, 11, 22, 11, 0, 0, 0, loc)
+	wantEnd := time.Date(2026, 11, 22, 19, 0, 0, 0, loc)
+	if !qStart.Equal(wantStart) || !qEnd.Equal(wantEnd) {
+		t.Errorf("unexpected window %v - %v, want %v - %v", qStart, qEnd, wantStart, wantEnd)
+	}
+	if startTOD != 11*3600 || endTOD != 19*3600 {
+		t.Errorf("unexpected TODs: %d, %d", startTOD, endTOD)
+	}
+
+	// +14 = 11:00 PM PST, +22 = 7:00 AM PST next day (8h overnight window)
+	qStart, qEnd, startTOD, endTOD, valid = resolveQuietWindowFromOffsets("14", "22", ref)
+	if !valid {
+		t.Fatalf("expected valid wrapped quiet window")
+	}
+	if qEnd.Sub(qStart) != 8*time.Hour {
+		t.Errorf("expected 8h wrapped window, got %v", qEnd.Sub(qStart))
+	}
+	if startTOD != 23*3600 || endTOD != 7*3600 {
+		t.Errorf("unexpected wrapped TODs: %d, %d", startTOD, endTOD)
+	}
+
+	// Invalid / incomplete cases
+	for _, pair := range [][2]string{{"none", "10"}, {"2", "unset"}, {"5", "5"}} {
+		if _, _, _, _, ok := resolveQuietWindowFromOffsets(pair[0], pair[1], ref); ok {
+			t.Errorf("expected invalid for %v", pair)
+		}
+	}
+}
+
+func TestVirtueSilosQuietHoursFlow(t *testing.T) {
+	userID := "100000000000000073"
+	removeVirtueSiloWatch(userID)
+	defer removeVirtueSiloWatch(userID)
+
+	// 1. Toggle opens ephemeral prompt with 2 select menus (25 options each) + Confirm/Cancel
+	toggleEv := dctest.ComponentButtonEventWithUser("watch-vsilos-toggle#"+userID, userID)
+	HandleVirtueSilosToggle(toggleEv)
+	if toggleEv.LastResponse == nil || !toggleEv.LastResponse.Ephemeral {
+		t.Fatalf("expected ephemeral response from HandleVirtueSilosToggle")
+	}
+	if len(toggleEv.LastResponse.Components) != 4 {
+		t.Fatalf("expected 4 layout components, got %d", len(toggleEv.LastResponse.Components))
+	}
+
+	row1, ok := toggleEv.LastResponse.Components[1].(dc.ActionRow)
+	if !ok || len(row1.Components) != 1 {
+		t.Fatalf("expected start ActionRow with 1 select menu")
+	}
+	startMenu := row1.Components[0].(dc.SelectMenu)
+	if len(startMenu.Options) != 25 {
+		t.Fatalf("expected 25 options in start menu, got %d", len(startMenu.Options))
+	}
+
+	// 2. Select Start = +2
+	startEv := dctest.ComponentSelectEventWithUser(startMenu.CustomID, userID, "2")
+	HandleVirtueSilosQuietSelect(startEv)
+	if startEv.LastResponse == nil {
+		t.Fatalf("expected update response after selecting start")
+	}
+	row2 := startEv.LastResponse.Components[2].(dc.ActionRow)
+	endMenu := row2.Components[0].(dc.SelectMenu)
+
+	// 3. Select End = +10
+	endEv := dctest.ComponentSelectEventWithUser(endMenu.CustomID, userID, "10")
+	HandleVirtueSilosQuietSelect(endEv)
+	if endEv.LastResponse == nil {
+		t.Fatalf("expected update response after selecting end")
+	}
+	td := endEv.LastResponse.Components[0].(dc.TextDisplay)
+	if !strings.Contains(td.Content, "<t:") {
+		t.Errorf("expected Discord timestamps in quiet hours text, got: %s", td.Content)
+	}
+
+	btnRow := endEv.LastResponse.Components[3].(dc.ActionRow)
+	confirmBtn := btnRow.Components[0].(dc.Button)
+	if !strings.HasPrefix(confirmBtn.CustomID, fmt.Sprintf("watch-vsilos-confirm#%s#1800#", userID)) {
+		t.Fatalf("unexpected confirm CustomID: %s", confirmBtn.CustomID)
+	}
+	if strings.HasSuffix(confirmBtn.CustomID, "#-1#-1") {
+		t.Fatalf("expected quiet hours TOD in confirm CustomID, got: %s", confirmBtn.CustomID)
+	}
+
+	// 4. Confirm saves watch with QuietHoursSet = true
+	confirmEv := dctest.ComponentButtonEventWithUser(confirmBtn.CustomID, userID)
+	HandleVirtueSilosConfirm(nil, confirmEv)
+
+	virtueSiloMu.Lock()
+	var saved *virtueSiloWatch
+	for _, item := range loadVirtueSiloWatchesLocked() {
+		if item.UserID == userID {
+			c := item
+			saved = &c
+			break
+		}
+	}
+	virtueSiloMu.Unlock()
+
+	if saved == nil || !saved.QuietHoursSet {
+		t.Fatalf("expected saved watch with QuietHoursSet=true, got %+v", saved)
+	}
+}
