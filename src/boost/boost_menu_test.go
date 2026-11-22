@@ -684,6 +684,16 @@ func TestBuildSandboxMessage(t *testing.T) {
 	if !strings.Contains(msg.Content, "[Open contract thread](https://discord.com/channels/g1/c1/m1)") {
 		t.Errorf("expected thread link in message, got: %s", msg.Content)
 	}
+	foundResultsImage := false
+	for _, f := range msg.Files {
+		if f.Name == "sr_sandbox_results.png" && f.ContentType == "image/png" {
+			foundResultsImage = true
+			break
+		}
+	}
+	if !foundResultsImage {
+		t.Errorf("expected sr_sandbox_results.png image attachment in sandbox message")
+	}
 }
 
 func TestBoostMenuSandboxEphemeralResponse(t *testing.T) {
