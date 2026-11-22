@@ -35,15 +35,15 @@ const (
 )
 
 type srSandboxArtifact struct {
-	name            string
-	slots           int
-	elrMult         float64
-	srMult          float64
-	ihrMult         float64
-	deflectorPerc   float64
-	siabPerc        float64
-	chickMult       float64
-	isEmpty         bool
+	name          string
+	slots         int
+	elrMult       float64
+	srMult        float64
+	ihrMult       float64
+	deflectorPerc float64
+	siabPerc      float64
+	chickMult     float64
+	isEmpty       bool
 }
 
 // Item lists matching https://srsandbox-staabmia.netlify.app/scripts.js exactly.
