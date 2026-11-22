@@ -1,11 +1,13 @@
 package boost
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 
+	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 )
@@ -151,9 +153,137 @@ func GenerateContractSandboxURL(contract *Contract, players []SandboxPlayer) (st
 	return srSandboxBaseURL + data, nil
 }
 
-// BuildSandboxMessage builds the SR Sandbox message payload for a contract.
+// BuildContractSandboxConfigWithOptions constructs a bottools.SRSandboxConfig from a Contract and player list.
+func BuildContractSandboxConfigWithOptions(contract *Contract, players []SandboxPlayer, options *ContractSandboxOptions) (bottools.SRSandboxConfig, error) {
+	if contract == nil {
+		return bottools.SRSandboxConfig{}, errors.New("contract is nil")
+	}
+	if contract.ContractID == "" {
+		return bottools.SRSandboxConfig{}, errors.New("contract ID is empty")
+	}
+
+	eiContract, ok := ei.EggIncContractsAll[contract.ContractID]
+	if !ok {
+		return bottools.SRSandboxConfig{}, fmt.Errorf("contract metadata not found for %s", contract.ContractID)
+	}
+
+	targetEgg := 0.0
+	if options != nil && options.TargetEggOverride != nil {
+		targetEgg = *options.TargetEggOverride
+	} else {
+		var err error
+		targetEgg, err = getContractTargetEgg(contract, &eiContract)
+		if err != nil {
+			return bottools.SRSandboxConfig{}, err
+		}
+	}
+
+	minutesPerToken := contract.MinutesPerToken
+	if options != nil && options.TokenTimerMinutesOverride != nil {
+		minutesPerToken = *options.TokenTimerMinutesOverride
+	}
+	if minutesPerToken <= 0 {
+		minutesPerToken = eiContract.MinutesPerToken
+	}
+	if minutesPerToken <= 0 {
+		minutesPerToken = 60
+	}
+
+	lengthInSeconds := contract.LengthInSeconds
+	if options != nil && options.ContractLengthSecondsOverride != nil {
+		lengthInSeconds = *options.ContractLengthSecondsOverride
+	}
+	if lengthInSeconds <= 0 {
+		lengthInSeconds = eiContract.LengthInSeconds
+	}
+	if lengthInSeconds <= 0 {
+		return bottools.SRSandboxConfig{}, fmt.Errorf("invalid contract duration for %s", contract.ContractID)
+	}
+
+	if len(players) == 0 {
+		players = buildDefaultSandboxPlayers(contract.CoopSize)
+	}
+
+	cxpToggle := contract.SeasonalScoring == ei.SeasonalScoringNerfed
+	if options != nil && options.CxpToggleOverride != nil {
+		cxpToggle = *options.CxpToggleOverride
+	}
+
+	ggMultiplier, ultraGGMultiplier, _ := ei.GetGenerousGiftEvent()
+	ggToggle := ggMultiplier > 1.0 || ultraGGMultiplier > 1.0
+
+	modStr, modIdx := FmtActiveModifier(&eiContract)
+	modMult, err := strconv.ParseFloat(modStr, 64)
+	if err != nil || modMult <= 0 {
+		modMult = 1.0
+	}
+
+	btvTarget := 2.0
+	if cxpToggle {
+		btvTarget = 1.875
+	}
+
+	contractName := contract.Name
+	if contractName == "" {
+		contractName = eiContract.Name
+	}
+	if contractName == "" {
+		contractName = contract.ContractID
+	}
+
+	simPlayers := make([]bottools.SRSandboxPlayerInput, 0, len(players))
+	for _, p := range players {
+		simPlayers = append(simPlayers, bottools.NewSRSandboxPlayerInputFromCodes(
+			p.Name,
+			p.Tokens,
+			p.TE,
+			p.Mirror,
+			p.Colleggtible,
+			p.Sink,
+			p.Creator,
+			p.Item1,
+			p.Item2,
+			p.Item3,
+			p.Item4,
+			p.Item5,
+			p.Item6,
+			p.Item7,
+			p.Item8,
+		))
+	}
+
+	return bottools.SRSandboxConfig{
+		ContractName:      contractName,
+		CRTRun:            true,
+		TokenToggle:       true,
+		GG:                ggToggle,
+		EarlySwap:         false,
+		CxpToggle:         cxpToggle,
+		JoinDelaySeconds:  20,
+		MinPerTokenGift:   13,
+		DurationSeconds:   float64(lengthInSeconds),
+		TargetEggAmount:   targetEgg,
+		TokenTimerMinutes: float64(minutesPerToken),
+		ModifierType:      bottools.SRSandboxModifierType(modIdx),
+		ModifierMult:      modMult,
+		BTVTarget:         btvTarget,
+		Players:           simPlayers,
+	}, nil
+}
+
+// GenerateContractSandboxResults computes the SR Sandbox simulation results and renders the Results image table PNG.
+func GenerateContractSandboxResults(contract *Contract, players []SandboxPlayer, options *ContractSandboxOptions) (bottools.SRSandboxResults, bottools.SRSandboxTableData, []byte, error) {
+	cfg, err := BuildContractSandboxConfigWithOptions(contract, players, options)
+	if err != nil {
+		return bottools.SRSandboxResults{}, bottools.SRSandboxTableData{}, nil, err
+	}
+	return bottools.GenerateSRSandboxResultsImage(cfg)
+}
+
+// BuildSandboxMessage builds the SR Sandbox message payload for a contract, including the link and Results image table.
 func BuildSandboxMessage(contract *Contract) (dc.Message, error) {
-	sandboxURL, err := GenerateContractSandboxURL(contract, sandboxPlayersFromContract(contract))
+	players := sandboxPlayersFromContract(contract)
+	sandboxURL, err := GenerateContractSandboxURL(contract, players)
 	if err != nil {
 		return dc.Message{}, err
 	}
@@ -219,13 +349,19 @@ func BuildSandboxMessage(contract *Contract) (dc.Message, error) {
 				contract.CoopSize,
 			)
 		}
-		files = []dc.File{
-			{
-				Name:        "sandbox_url.txt",
-				ContentType: "text/plain",
-				Reader:      strings.NewReader(sandboxURL),
-			},
-		}
+		files = append(files, dc.File{
+			Name:        "sandbox_url.txt",
+			ContentType: "text/plain",
+			Reader:      strings.NewReader(sandboxURL),
+		})
+	}
+
+	if _, _, imgBytes, imgErr := GenerateContractSandboxResults(contract, players, nil); imgErr == nil && len(imgBytes) > 0 {
+		files = append(files, dc.File{
+			Name:        "sr_sandbox_results.png",
+			ContentType: "image/png",
+			Reader:      bytes.NewReader(imgBytes),
+		})
 	}
 
 	return dc.Message{
