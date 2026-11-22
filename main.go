@@ -367,6 +367,8 @@ var (
 		"watch-test-contract":     func(e *dc.ComponentEvent) { watch.HandleTestContract(botClient(), e) },
 		"watch-test-colleggtible": func(e *dc.ComponentEvent) { watch.HandleTestColleggtible(botClient(), e) },
 		"watch-vsilos-toggle":     watch.HandleVirtueSilosToggle,
+		"watch-vsilos-qstart":     watch.HandleVirtueSilosQuietSelect,
+		"watch-vsilos-qend":       watch.HandleVirtueSilosQuietSelect,
 		"watch-vsilos-confirm":    func(e *dc.ComponentEvent) { watch.HandleVirtueSilosConfirm(botClient(), e) },
 		"watch-vsilos-clear":      watch.HandleVirtueSilosClear,
 		"watch-vsilos-cancel":     watch.HandleVirtueSilosCancel,
