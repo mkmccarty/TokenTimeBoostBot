@@ -224,28 +224,32 @@ func TestShouldShowContractSiloWatch(t *testing.T) {
 }
 
 func TestBuildCsEstimateActionRow(t *testing.T) {
-	row, ok := buildCsEstimateActionRow("hash1", "c-id", "coop1", true)
+	row, ok := buildCsEstimateActionRow("hash1", "c-id", "coop1", true, true)
 	if !ok {
 		t.Fatalf("expected action row")
 	}
 	ar := row.(dc.ActionRow)
-	if len(ar.Components) != 3 {
-		t.Fatalf("expected 3 buttons, got %d", len(ar.Components))
+	if len(ar.Components) != 4 {
+		t.Fatalf("expected 4 buttons, got %d", len(ar.Components))
 	}
 	siloBtn := ar.Components[1].(dc.Button)
 	if siloBtn.Label != "Silo Watch" || siloBtn.CustomID != "watch-csilos-toggle#c-id#coop1" {
 		t.Errorf("unexpected silo watch button: %+v", siloBtn)
 	}
+	compBtn := ar.Components[2].(dc.Button)
+	if compBtn.Label != "Completion Watch" || compBtn.CustomID != "watch-ccomp-toggle#c-id#coop1" {
+		t.Errorf("unexpected completion watch button: %+v", compBtn)
+	}
 
-	rowNoHash, ok := buildCsEstimateActionRow("", "c-id", "coop1", true)
+	rowNoHash, ok := buildCsEstimateActionRow("", "c-id", "coop1", true, true)
 	if !ok {
-		t.Fatalf("expected action row with Silo Watch even without contract hash")
+		t.Fatalf("expected action row with Silo Watch and Completion Watch even without contract hash")
 	}
-	if len(rowNoHash.(dc.ActionRow).Components) != 1 {
-		t.Fatalf("expected 1 button without hash, got %d", len(rowNoHash.(dc.ActionRow).Components))
+	if len(rowNoHash.(dc.ActionRow).Components) != 2 {
+		t.Fatalf("expected 2 buttons without hash, got %d", len(rowNoHash.(dc.ActionRow).Components))
 	}
 
-	if _, ok := buildCsEstimateActionRow("", "c-id", "coop1", false); ok {
-		t.Errorf("expected no action row when no hash and showSiloWatch is false")
+	if _, ok := buildCsEstimateActionRow("", "c-id", "coop1", false, false); ok {
+		t.Errorf("expected no action row when no hash and both watches are false")
 	}
 }
