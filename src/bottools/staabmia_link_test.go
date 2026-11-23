@@ -64,10 +64,19 @@ func TestSandboxDeflectorsStaySeparate(t *testing.T) {
 }
 
 func TestNormalDeflectorDoesNotFillIHRSlot(t *testing.T) {
-	_, _, ihrDefl, _ := GetSandboxIHRItemIndices([]string{"T4L Defl."})
+	chalice, monocle, ihrDefl, siab := GetSandboxIHRItemIndices([]string{"T4L Defl."})
 
-	if ihrDefl != "09" {
-		t.Fatalf("ihrDefl = %q, want %q", ihrDefl, "09")
+	if chalice != "09" {
+		t.Fatalf("chalice = %q, want %q (Empty)", chalice, "09")
+	}
+	if monocle != "06" {
+		t.Fatalf("monocle = %q, want %q (Empty)", monocle, "06")
+	}
+	if ihrDefl != "10" {
+		t.Fatalf("ihrDefl = %q, want %q (Empty)", ihrDefl, "10")
+	}
+	if siab != "08" {
+		t.Fatalf("siab = %q, want %q (Empty)", siab, "08")
 	}
 }
 

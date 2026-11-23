@@ -85,6 +85,7 @@ var chaliceIndexMap = map[string]string{
 	"T2E Chalice": "06",
 	"T2C Chalice": "07",
 	"T1C Chalice": "08",
+	"Empty":       "09",
 }
 
 var monocleIndexMap = map[string]string{
@@ -94,6 +95,7 @@ var monocleIndexMap = map[string]string{
 	"T3C Monocle": "03",
 	"T2C Monocle": "04",
 	"T1C Monocle": "05",
+	"Empty":       "06",
 }
 
 var ihrDeflectorIndexMap = map[string]string{
@@ -107,6 +109,7 @@ var ihrDeflectorIndexMap = map[string]string{
 	"T1C IHR Defl.": "07",
 	"3 Slot":        "08",
 	"2 Slot":        "09",
+	"Empty":         "10",
 }
 
 var ihrSiabIndexMap = map[string]string{
@@ -118,6 +121,7 @@ var ihrSiabIndexMap = map[string]string{
 	"T3C SIAB": "05",
 	"3 Slot":   "06",
 	"2 Slot":   "07",
+	"Empty":    "08",
 }
 
 var base62 = struct {
@@ -446,7 +450,7 @@ func GetSandboxIHRItemIndices(artifacts []string) (string, string, string, strin
 	indices := getSandboxItemIndicesFromMaps(
 		artifacts,
 		[]map[string]string{chaliceIndexMap, monocleIndexMap, ihrDeflectorIndexMap, ihrSiabIndexMap},
-		[]string{"08", "05", "09", "07"},
+		[]string{"09", "06", "10", "08"},
 	)
 	return indices[0], indices[1], indices[2], indices[3]
 }

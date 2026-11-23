@@ -3,6 +3,7 @@ package boost
 import (
 	"fmt"
 	"log"
+	"math"
 	"slices"
 	"sort"
 	"strings"
@@ -215,6 +216,129 @@ func displayArtifactQuality(val string) string {
 	return val
 }
 
+type backupArtifactSlot struct {
+	key   string
+	label string
+	value string
+}
+
+// deliveryArtifactELRScore estimates a delivery artifact's personal ELR contribution
+// (laying multiplier * tachyon stone multiplier) for tie-breaking when permit slots are limited.
+func deliveryArtifactELRScore(prefix, quality string) float64 {
+	if quality == "" {
+		return 0
+	}
+	art := ei.GetArtifactByKey(prefix + quality)
+	if art == nil {
+		return 0
+	}
+	return art.LayBuff * math.Pow(1.05, float64(art.Stones))
+}
+
+// selectBackupArtifactSlots maps discovered best coop artifacts into the 8 /artifacts slots,
+// respecting maxSlots (2 per set for Standard Permit, 4 per set for Pro Permit).
+func selectBackupArtifactSlots(best map[string]string, maxSlots int) []backupArtifactSlot {
+	siabVal := best["siab"]
+	if siabVal == "" {
+		siabVal = best["SIAB"]
+	}
+
+	slots := []backupArtifactSlot{
+		{key: "defl", label: "Deflector", value: best["defl"]},
+		{key: "metr", label: "Metronome", value: best["metr"]},
+		{key: "comp", label: "Compass", value: best["comp"]},
+		{key: "guss", label: "Gusset", value: best["guss"]},
+		{key: "chalice", label: "Chalice", value: best["chalice"]},
+		{key: "monocle", label: "Monocle", value: best["monocle"]},
+		{key: "siab", label: "SIAB", value: siabVal},
+		{key: "defl-ihr", label: "IHR Deflector", value: best["defl"]},
+	}
+
+	if maxSlots <= 0 || maxSlots >= ei.ProPermitMaxArtifactSlots {
+		return slots
+	}
+
+	// Standard permit: at most maxSlots (2) Delivery artifacts and maxSlots (2) IHR/Boost artifacts.
+	// Delivery: keep Deflector for coop teamplay if owned, then fill remaining slots by personal ELR impact
+	// (Metronome vs Gusset, falling back to Compass only if needed).
+	keepDelivery := make(map[string]bool)
+	deliveryCount := 0
+	if best["defl"] != "" {
+		keepDelivery["defl"] = true
+		deliveryCount++
+	}
+	type scoredSlot struct {
+		key   string
+		score float64
+		order int
+	}
+	var otherDelivery []scoredSlot
+	for i, c := range []struct {
+		key    string
+		prefix string
+	}{
+		{"metr", "M-"},
+		{"guss", "G-"},
+		{"comp", "C-"},
+	} {
+		if best[c.key] != "" {
+			otherDelivery = append(otherDelivery, scoredSlot{
+				key:   c.key,
+				score: deliveryArtifactELRScore(c.prefix, best[c.key]),
+				order: i,
+			})
+		}
+	}
+	sort.Slice(otherDelivery, func(i, j int) bool {
+		if otherDelivery[i].score != otherDelivery[j].score {
+			return otherDelivery[i].score > otherDelivery[j].score
+		}
+		return otherDelivery[i].order < otherDelivery[j].order
+	})
+	for _, cand := range otherDelivery {
+		if deliveryCount >= maxSlots {
+			break
+		}
+		keepDelivery[cand.key] = true
+		deliveryCount++
+	}
+
+	// IHR/Boost: prioritize Chalice, then Monocle, then SIAB, then IHR Deflector.
+	keepIHR := make(map[string]bool)
+	ihrCount := 0
+	for _, key := range []string{"chalice", "monocle", "siab", "defl-ihr"} {
+		if ihrCount >= maxSlots {
+			break
+		}
+		val := best[key]
+		switch key {
+		case "siab":
+			val = siabVal
+		case "defl-ihr":
+			val = best["defl"]
+		}
+		if val != "" {
+			keepIHR[key] = true
+			ihrCount++
+		}
+	}
+
+	for i := range slots {
+		switch slots[i].key {
+		case "defl", "metr", "comp", "guss":
+			if !keepDelivery[slots[i].key] {
+				slots[i].value = ""
+			}
+		case "chalice", "monocle", "siab", "defl-ihr":
+			if !keepIHR[slots[i].key] {
+				slots[i].value = ""
+			}
+		}
+	}
+
+	return slots
+}
+
 func populateArtifactsFromBackup(client dc.Client, userID string) (string, string, error) {
 	eiID := farmerstate.GetMiscSettingString(userID, "encrypted_ei_id")
 	if eiID == "" && !dc.IsSnowflake(userID) {
@@ -234,26 +358,13 @@ func populateArtifactsFromBackup(client dc.Client, userID string) (string, strin
 	}
 
 	best := ei.GetBestCoopArtifactsFromInventory(backup.GetArtifactsDb().GetInventoryItems())
-
-	type artifactSlot struct {
-		key   string
-		label string
-		value string
+	maxSlots := ei.ProPermitMaxArtifactSlots
+	isStandardPermit := backup.GetGame() != nil && !ei.HasProPermit(backup)
+	if isStandardPermit {
+		maxSlots = ei.StandardPermitMaxArtifactSlots
 	}
 
-	slots := []artifactSlot{
-		{key: "defl", label: "Deflector", value: best["defl"]},
-		{key: "metr", label: "Metronome", value: best["metr"]},
-		{key: "comp", label: "Compass", value: best["comp"]},
-		{key: "guss", label: "Gusset", value: best["guss"]},
-		{key: "chalice", label: "Chalice", value: best["chalice"]},
-		{key: "monocle", label: "Monocle", value: best["monocle"]},
-		{key: "siab", label: "SIAB", value: best["siab"]},
-	}
-	if slots[6].value == "" {
-		slots[6].value = best["SIAB"]
-	}
-	slots = append(slots, artifactSlot{key: "defl-ihr", label: "IHR Deflector", value: best["defl"]})
+	slots := selectBackupArtifactSlots(best, maxSlots)
 
 	changedArtifactDetails := make([]string, 0)
 	changedArtifactCount := 0
@@ -270,7 +381,7 @@ func populateArtifactsFromBackup(client dc.Client, userID string) (string, strin
 				newVal = oldVal
 			}
 		}
-		if (slot.key == "siab" || slot.key == "SIAB") && oldVal != "" {
+		if (slot.key == "siab" || slot.key == "SIAB") && newVal != "" && oldVal != "" {
 			oldArt := ei.GetArtifactByKey("SIAB-" + oldVal)
 			if oldArt != nil && oldArt.Stones >= 3 {
 				newVal = oldVal
@@ -343,7 +454,11 @@ func populateArtifactsFromBackup(client dc.Client, userID string) (string, strin
 
 	var summary strings.Builder
 	summary.WriteString("## Backup Load Summary\n")
-	fmt.Fprintf(&summary, "Discovered artifact slots: %d/8\n", discoveredArtifactCount)
+	if isStandardPermit {
+		fmt.Fprintf(&summary, "Discovered artifact slots: %d/4 (Standard Permit: 2 Delivery, 2 IHR/Boost)\n", discoveredArtifactCount)
+	} else {
+		fmt.Fprintf(&summary, "Discovered artifact slots: %d/8\n", discoveredArtifactCount)
+	}
 	if len(discoveredArtifactDetails) > 0 {
 		summary.WriteString(strings.Join(discoveredArtifactDetails, "\n"))
 		summary.WriteString("\n")

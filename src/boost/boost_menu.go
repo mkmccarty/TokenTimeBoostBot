@@ -74,16 +74,31 @@ func sandboxArtifactLabelsFromBooster(booster *Booster) []string {
 		}
 	}
 
-	if !hasChalice {
+	maxIHRSlots := ei.ProPermitMaxArtifactSlots
+	if booster.UserID != "" && !farmerstate.HasProPermit(booster.UserID) {
+		maxIHRSlots = ei.StandardPermitMaxArtifactSlots
+	}
+
+	ihrCount := 0
+	for _, has := range []bool{hasChalice, hasMonocle, hasSIAB, hasIHRDefl} {
+		if has {
+			ihrCount++
+		}
+	}
+
+	if !hasChalice && ihrCount < maxIHRSlots {
 		labels = append(labels, "T4L Chalice")
+		ihrCount++
 	}
-	if !hasMonocle {
+	if !hasMonocle && ihrCount < maxIHRSlots {
 		labels = append(labels, "T4L Monocle")
+		ihrCount++
 	}
-	if !hasSIAB {
+	if !hasSIAB && ihrCount < maxIHRSlots {
 		labels = append(labels, "3 Slot")
+		ihrCount++
 	}
-	if !hasIHRDefl {
+	if !hasIHRDefl && ihrCount < maxIHRSlots {
 		if deflQuality != "" {
 			labels = append(labels, fmt.Sprintf("%s IHR Defl.", deflQuality))
 		} else {
