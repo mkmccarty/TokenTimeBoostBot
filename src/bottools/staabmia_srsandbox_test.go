@@ -200,4 +200,7 @@ func TestFormatSRSandboxHelpers(t *testing.T) {
 	if got := math.Round(srGetTeamwork(1.875, 4, 7, 20, 10, true)*1e6) / 1e6; got != 0.756579 {
 		t.Errorf("srGetTeamwork new2p0 = %v, want 0.756579", got)
 	}
+	if got := UnescapeDiscordMarkdown(`Is\_a\_plant\*`); got != `Is_a_plant*` {
+		t.Errorf("UnescapeDiscordMarkdown = %q, want %q", got, `Is_a_plant*`)
+	}
 }

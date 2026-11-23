@@ -101,7 +101,7 @@ func isGameFontRune(lf loadedFont, sfBuf *sfnt.Buffer, r rune) bool {
 }
 
 func measureRuneString(lf loadedFont, fallbackFace font.Face, str string) int {
-	str = ei.NormalizePlayerNameForDisplay(str)
+	str = ei.NormalizePlayerNameForDisplay(bottools.UnescapeDiscordMarkdown(str))
 	if lf.sfntFont == nil {
 		return font.MeasureString(lf.face, str).Ceil()
 	}
@@ -129,7 +129,7 @@ func measureRuneString(lf loadedFont, fallbackFace font.Face, str string) int {
 }
 
 func drawRuneStringAt(img *image.RGBA, lf loadedFont, fallbackFace font.Face, str string, startX, drawY int, c color.Color) {
-	str = ei.NormalizePlayerNameForDisplay(str)
+	str = ei.NormalizePlayerNameForDisplay(bottools.UnescapeDiscordMarkdown(str))
 	if lf.sfntFont == nil {
 		d := &font.Drawer{
 			Dst:  img,

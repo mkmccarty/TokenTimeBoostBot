@@ -1611,7 +1611,7 @@ func BuildSRSandboxTableData(results SRSandboxResults) SRSandboxTableData {
 	// Player Rows
 	data.PlayerRows = make([]SRSandboxTableRow, 0, len(results.Players))
 	for _, p := range results.Players {
-		nameLines := []SRSandboxTableLine{{Text: p.Name}}
+		nameLines := []SRSandboxTableLine{{Text: UnescapeDiscordMarkdown(p.Name)}}
 		if p.IsSPSwap {
 			nameLines = append(nameLines, SRSandboxTableLine{Text: "[SP]", Color: "amber"})
 		}
