@@ -104,7 +104,6 @@ func sandboxArtifactLabelsFromBooster(booster *Booster) []string {
 		} else {
 			labels = append(labels, "T4L IHR Defl.")
 		}
-		ihrCount++
 	}
 
 	return labels

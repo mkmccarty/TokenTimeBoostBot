@@ -311,9 +311,10 @@ func selectBackupArtifactSlots(best map[string]string, maxSlots int) []backupArt
 			break
 		}
 		val := best[key]
-		if key == "siab" {
+		switch key {
+		case "siab":
 			val = siabVal
-		} else if key == "defl-ihr" {
+		case "defl-ihr":
 			val = best["defl"]
 		}
 		if val != "" {
