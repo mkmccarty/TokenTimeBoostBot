@@ -396,6 +396,7 @@ func DownloadCoopStatusTeamwork(channelID string, contractID string, coopID stri
 		targetGoal:               eiContract.Grade[grade].TargetAmount[len(eiContract.Grade[grade].TargetAmount)-1],
 		activeContractDurSeconds: contractDurationSeconds,
 		showSiloWatch:            shouldShowContractSiloWatch(coopStatus, contractDurationSeconds, eiContract.Grade[grade].LengthInSeconds),
+		showCompletionWatch:      shouldShowContractCompletionWatch(coopStatus),
 	}
 
 	for _, c := range coopStatus.GetContributors() {

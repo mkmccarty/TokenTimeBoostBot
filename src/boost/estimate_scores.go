@@ -31,6 +31,7 @@ type ContractScore struct {
 	targetGoal               float64
 	activeContractDurSeconds float64
 	showSiloWatch            bool
+	showCompletionWatch      bool
 	playerParamters          []PlayerScoreParameters
 }
 
@@ -332,7 +333,7 @@ func runCsEstimate(e *dc.CommandEvent, p csEstimateParams) {
 	}
 
 	// Phase 2: fetch archives, compute diffs, then edit to add Diff + buttons
-	actionRow, haveActionRow := buildCsEstimateActionRow(foundContractHash, contractScore.contractID, contractScore.coopID, contractScore.showSiloWatch)
+	actionRow, haveActionRow := buildCsEstimateActionRow(foundContractHash, contractScore.contractID, contractScore.coopID, contractScore.showSiloWatch, contractScore.showCompletionWatch)
 
 	rowsCopy := make([]srRow, len(rows))
 	copy(rowsCopy, rows)
@@ -426,8 +427,8 @@ func runCsEstimate(e *dc.CommandEvent, p csEstimateParams) {
 	}()
 }
 
-func buildCsEstimateActionRow(foundContractHash, contractID, coopID string, showSiloWatch bool) (dc.LayoutComponent, bool) {
-	buttons := make([]dc.InteractiveComponent, 0, 3)
+func buildCsEstimateActionRow(foundContractHash, contractID, coopID string, showSiloWatch, showCompletionWatch bool) (dc.LayoutComponent, bool) {
+	buttons := make([]dc.InteractiveComponent, 0, 4)
 
 	if foundContractHash != "" {
 		buttons = append(buttons, dc.Button{
@@ -445,6 +446,14 @@ func buildCsEstimateActionRow(foundContractHash, contractID, coopID string, show
 		})
 	}
 
+	if showCompletionWatch && contractID != "" && coopID != "" {
+		buttons = append(buttons, dc.Button{
+			Label:    "Completion Watch",
+			Style:    dc.ButtonSecondary,
+			CustomID: fmt.Sprintf("watch-ccomp-toggle#%s#%s", contractID, coopID),
+		})
+	}
+
 	if foundContractHash != "" {
 		buttons = append(buttons, dc.Button{
 			Label:    "Close",
@@ -458,6 +467,13 @@ func buildCsEstimateActionRow(foundContractHash, contractID, coopID string, show
 	}
 
 	return dc.ActionRow{Components: buttons}, true
+}
+
+func shouldShowContractCompletionWatch(coopStatus *ei.ContractCoopStatusResponse) bool {
+	if coopStatus == nil {
+		return false
+	}
+	return !coopStatus.GetAllGoalsAchieved() && coopStatus.GetSecondsSinceAllGoalsAchieved() <= 0 && coopStatus.GetSecondsRemaining() > 0
 }
 
 func shouldShowContractSiloWatch(coopStatus *ei.ContractCoopStatusResponse, contractDurationSeconds float64, fallbackLengthSeconds int) bool {

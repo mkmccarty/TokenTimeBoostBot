@@ -379,6 +379,13 @@ var (
 		"watch-csilos-confirm":    func(e *dc.ComponentEvent) { watch.HandleContractSilosConfirm(botClient(), e) },
 		"watch-csilos-clear":      watch.HandleContractSilosClear,
 		"watch-csilos-cancel":     watch.HandleContractSilosCancel,
+		"watch-ccomp-toggle":      watch.HandleContractCompletionToggle,
+		"watch-ccomp-offset":      watch.HandleContractCompletionSelect,
+		"watch-ccomp-qstart":      watch.HandleContractCompletionSelect,
+		"watch-ccomp-qend":        watch.HandleContractCompletionSelect,
+		"watch-ccomp-confirm":     func(e *dc.ComponentEvent) { watch.HandleContractCompletionConfirm(botClient(), e) },
+		"watch-ccomp-clear":       watch.HandleContractCompletionClear,
+		"watch-ccomp-cancel":      watch.HandleContractCompletionCancel,
 	}
 )
 
@@ -967,6 +974,7 @@ func registerGatewayHandlers() {
 		log.Printf("Ready message for: %v (%v)", botClient().BotUsername(), bot.UserID())
 		watch.LoadVirtueSiloWatches(botClient())
 		watch.LoadContractSiloWatches(botClient())
+		watch.LoadContractCompletionWatches(botClient())
 	})
 
 	bot.OnMessage(func(e *dc.MessageEvent) {
