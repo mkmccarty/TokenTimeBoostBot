@@ -155,7 +155,7 @@ func calculateTokenValueCoopLog(contract *Contract, duration time.Duration) stri
 
 		// Iterate through the sorted keys
 		for _, key := range keys {
-			name := key
+			name := strings.ReplaceAll(ei.NormalizePlayerNameForDisplay(bottools.UnescapeDiscordMarkdown(key)), "`", "'")
 
 			fmt.Fprintf(&builder, formatStr, bottools.FitString(name, 12, bottools.StringAlignLeft), tokenSent[key], tokensReceived[key], tokenValue[key])
 		}
