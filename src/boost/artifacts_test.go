@@ -155,3 +155,78 @@ func TestArtifactCommandSyncsBoosterTE(t *testing.T) {
 		t.Errorf("expected booster.TECount = 42, got %d", teCount)
 	}
 }
+
+func slotsToMap(slots []backupArtifactSlot) map[string]string {
+	m := make(map[string]string, len(slots))
+	for _, s := range slots {
+		m[s.key] = s.value
+	}
+	return m
+}
+
+func TestSelectBackupArtifactSlotsPermitLimits(t *testing.T) {
+	fullBest := map[string]string{
+		"defl":    "T4L",
+		"metr":    "T4L",
+		"comp":    "T4L",
+		"guss":    "T4L",
+		"chalice": "T4L",
+		"monocle": "T4L",
+		"SIAB":    "T4L",
+	}
+
+	// Pro Permit keeps all 4 delivery and all 4 IHR/Boost slots.
+	pro := slotsToMap(selectBackupArtifactSlots(fullBest, ei.ProPermitMaxArtifactSlots))
+	for _, k := range []string{"defl", "metr", "comp", "guss", "chalice", "monocle", "siab", "defl-ihr"} {
+		if pro[k] != "T4L" {
+			t.Errorf("pro permit: expected %s = T4L, got %q", k, pro[k])
+		}
+	}
+
+	// Standard Permit keeps 2 delivery (defl + metr) and 2 IHR/Boost (chalice + monocle).
+	std := slotsToMap(selectBackupArtifactSlots(fullBest, ei.StandardPermitMaxArtifactSlots))
+	wantStd := map[string]string{
+		"defl":     "T4L",
+		"metr":     "T4L",
+		"comp":     "",
+		"guss":     "",
+		"chalice":  "T4L",
+		"monocle":  "T4L",
+		"siab":     "",
+		"defl-ihr": "",
+	}
+	for k, want := range wantStd {
+		if std[k] != want {
+			t.Errorf("standard permit full inventory: expected %s = %q, got %q", k, want, std[k])
+		}
+	}
+
+	// Standard Permit picks Gusset over Metronome when Gusset yields higher personal ELR.
+	gussetBetter := map[string]string{
+		"defl":    "T3C",
+		"metr":    "T3C", // 1.10
+		"comp":    "T4L",
+		"guss":    "T4L", // 1.25 * 1.05^3
+		"chalice": "T4E",
+		"SIAB":    "T3R",
+	}
+	stdGusset := slotsToMap(selectBackupArtifactSlots(gussetBetter, ei.StandardPermitMaxArtifactSlots))
+	if stdGusset["defl"] != "T3C" || stdGusset["guss"] != "T4L" || stdGusset["metr"] != "" || stdGusset["comp"] != "" {
+		t.Errorf("standard permit gusset>metr: unexpected delivery slots %+v", stdGusset)
+	}
+	// Without Monocle, IHR/Boost falls back to Chalice + SIAB.
+	if stdGusset["chalice"] != "T4E" || stdGusset["siab"] != "T3R" || stdGusset["monocle"] != "" || stdGusset["defl-ihr"] != "" {
+		t.Errorf("standard permit no monocle: unexpected IHR/Boost slots %+v", stdGusset)
+	}
+
+	// Standard Permit without Deflector picks top 2 remaining delivery artifacts (Metronome + Gusset).
+	noDefl := map[string]string{
+		"metr": "T4E",
+		"comp": "T4L",
+		"guss": "T4E",
+	}
+	stdNoDefl := slotsToMap(selectBackupArtifactSlots(noDefl, ei.StandardPermitMaxArtifactSlots))
+	if stdNoDefl["metr"] != "T4E" || stdNoDefl["guss"] != "T4E" || stdNoDefl["comp"] != "" || stdNoDefl["defl"] != "" {
+		t.Errorf("standard permit no deflector: unexpected delivery slots %+v", stdNoDefl)
+	}
+}

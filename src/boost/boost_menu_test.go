@@ -65,6 +65,48 @@ func TestSandboxPlayersFromContractKeepsDeflectorsSeparate(t *testing.T) {
 	}
 }
 
+func TestSandboxPlayersFromContractStandardPermitIHRSlots(t *testing.T) {
+	userID := "std-permit-sandbox-user"
+	farmerstate.SetPermitLevel(userID, ei.StandardPermitLevel)
+	t.Cleanup(func() {
+		farmerstate.SetPermitLevel(userID, ei.ProPermitLevel)
+	})
+
+	contract := &Contract{
+		Order: []string{userID},
+		Boosters: map[string]*Booster{
+			userID: {
+				UserID:   userID,
+				Nick:     "StdPlayer",
+				Register: time.Unix(1, 0),
+				ArtifactSet: ArtifactSet{Artifacts: []ei.Artifact{
+					mustSandboxArtifact(t, "D-T4C"),
+					mustSandboxArtifact(t, "M-T4E"),
+					mustSandboxArtifact(t, "CH-T4E"),
+					mustSandboxArtifact(t, "MO-T4C"),
+				}},
+			},
+		},
+	}
+
+	players := sandboxPlayersFromContract(contract)
+	if len(players) != 1 {
+		t.Fatalf("expected 1 sandbox player, got %d", len(players))
+	}
+
+	player := players[0]
+	// Boosted / delivery set: 2 artifacts (Metro T4E="01", Defl T4C="03") + 2 Empty (Comp="12", Gusset="12")
+	if player.Item1 != "01" || player.Item2 != "12" || player.Item3 != "12" || player.Item4 != "03" {
+		t.Fatalf("unexpected delivery slots = [%s, %s, %s, %s], want [01, 12, 12, 03]",
+			player.Item1, player.Item2, player.Item3, player.Item4)
+	}
+	// IHR set: 2 artifacts (Chalice T4E="01", Monocle T4C="02") + 2 Empty (IHR Defl="10", IHR SIAB="08")
+	if player.Item5 != "01" || player.Item6 != "02" || player.Item7 != "10" || player.Item8 != "08" {
+		t.Fatalf("unexpected IHR slots = [%s, %s, %s, %s], want [01, 02, 10, 08]",
+			player.Item5, player.Item6, player.Item7, player.Item8)
+	}
+}
+
 func TestSandboxArtifactLabelsFromBooster(t *testing.T) {
 	tests := []struct {
 		name     string
