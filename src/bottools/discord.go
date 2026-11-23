@@ -27,12 +27,35 @@ var discordMarkdownEscaper = strings.NewReplacer(
 	")", "\\)",
 )
 
+var discordMarkdownUnescaper = strings.NewReplacer(
+	"\\\\", "\\",
+	"\\*", "*",
+	"\\_", "_",
+	"\\~", "~",
+	"\\`", "`",
+	"\\|", "|",
+	"\\>", ">",
+	"\\#", "#",
+	"\\[", "[",
+	"\\]", "]",
+	"\\(", "(",
+	"\\)", ")",
+)
+
 // EscapeDiscordMarkdown escapes special characters in a string to prevent Discord from interpreting them as Markdown formatting.
 func EscapeDiscordMarkdown(s string) string {
 	if s == "" {
 		return ""
 	}
 	return discordMarkdownEscaper.Replace(s)
+}
+
+// UnescapeDiscordMarkdown reverses EscapeDiscordMarkdown for plain-text targets such as rendered image tables.
+func UnescapeDiscordMarkdown(s string) string {
+	if s == "" {
+		return ""
+	}
+	return discordMarkdownUnescaper.Replace(s)
 }
 
 const (
