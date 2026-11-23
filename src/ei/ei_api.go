@@ -13,12 +13,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/config"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
-	"github.com/wI2L/jsondiff"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -240,27 +240,27 @@ func RefreshConfigAndCheckNewHatchery(client dc.Client) (hasNewHatchery bool, di
 	}
 
 	if len(existingData) > 0 {
-		if patch, perr := jsondiff.Compare(existingData, jsonData); perr == nil {
-			if b, merr := json.MarshalIndent(patch, "", "    "); merr == nil {
-				diff = string(b)
-				if strings.Contains(diff, "ei_hatchery_custom") {
-					hasNewHatchery = true
-					if client != nil && config.AdminUserID != "" {
-						u, err := client.CreateUserChannel(config.AdminUserID)
-						if err == nil {
-							_, _ = client.SendMessage(u.ID, dc.Message{
-								Components: []dc.LayoutComponent{
-									dc.TextDisplay{Content: fmt.Sprintf("```diff\n%s\n```", diff)},
-								},
-							})
+		if changed, hatcheryDiff, derr := diffCustomHatcheries(existingData, jsonData); derr == nil {
+			if changed {
+				hasNewHatchery = true
+				diff = hatcheryDiff
+				if client != nil && config.AdminUserID != "" {
+					u, err := client.CreateUserChannel(config.AdminUserID)
+					if err == nil {
+						dmDiff := diff
+						if len(dmDiff) > 3900 {
+							dmDiff = dmDiff[:3900] + "\n..."
 						}
+						_, _ = client.SendMessage(u.ID, dc.Message{
+							Components: []dc.LayoutComponent{
+								dc.TextDisplay{Content: fmt.Sprintf("```diff\n%s\n```", dmDiff)},
+							},
+						})
 					}
 				}
-			} else {
-				log.Printf("Failed to marshal config diff; proceeding to write file: %v", merr)
 			}
 		} else {
-			log.Printf("Config diff failed; proceeding to write file: %v", perr)
+			log.Printf("Config diff failed; proceeding to write file: %v", derr)
 		}
 	}
 
@@ -270,6 +270,89 @@ func RefreshConfigAndCheckNewHatchery(client dc.Client) (hasNewHatchery bool, di
 	}
 
 	return hasNewHatchery, diff, nil
+}
+
+type customHatcheryInfo struct {
+	URL      string
+	Checksum string
+}
+
+type configShellsSnapshot struct {
+	DLCCatalog struct {
+		Shells []struct {
+			Identifier   string `json:"identifier"`
+			PrimaryPiece *struct {
+				DLC *struct {
+					URL      string `json:"url"`
+					Checksum string `json:"checksum"`
+				} `json:"dlc"`
+			} `json:"primary_piece"`
+		} `json:"shells"`
+	} `json:"dlc_catalog"`
+}
+
+func extractCustomHatcheries(data []byte) (map[string]customHatcheryInfo, error) {
+	var snap configShellsSnapshot
+	if err := json.Unmarshal(data, &snap); err != nil {
+		return nil, err
+	}
+	hatcheries := make(map[string]customHatcheryInfo)
+	for _, shell := range snap.DLCCatalog.Shells {
+		if !strings.Contains(shell.Identifier, "ei_hatchery_custom") {
+			continue
+		}
+		var info customHatcheryInfo
+		if shell.PrimaryPiece != nil && shell.PrimaryPiece.DLC != nil {
+			info.URL = shell.PrimaryPiece.DLC.URL
+			info.Checksum = shell.PrimaryPiece.DLC.Checksum
+		}
+		hatcheries[shell.Identifier] = info
+	}
+	return hatcheries, nil
+}
+
+// diffCustomHatcheries compares the custom hatchery entries (ei_hatchery_custom*)
+// between two ei-config.json payloads, ignoring volatile fields like timestamps and popularity.
+func diffCustomHatcheries(existingData, newData []byte) (bool, string, error) {
+	if len(existingData) == 0 {
+		return false, "", nil
+	}
+	existingHatcheries, err := extractCustomHatcheries(existingData)
+	if err != nil {
+		return false, "", fmt.Errorf("failed to parse existing config: %w", err)
+	}
+	newHatcheries, err := extractCustomHatcheries(newData)
+	if err != nil {
+		return false, "", fmt.Errorf("failed to parse new config: %w", err)
+	}
+
+	ids := make([]string, 0, len(newHatcheries))
+	for id := range newHatcheries {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+
+	var lines []string
+	for _, id := range ids {
+		cur := newHatcheries[id]
+		prev, exists := existingHatcheries[id]
+		if !exists {
+			lines = append(lines, fmt.Sprintf("+ %s", id))
+			if cur.URL != "" {
+				lines = append(lines, fmt.Sprintf("+   url: %s", cur.URL))
+			}
+			continue
+		}
+		if prev.URL != cur.URL || prev.Checksum != cur.Checksum {
+			lines = append(lines, fmt.Sprintf("- %s (url: %s, checksum: %s)", id, prev.URL, prev.Checksum))
+			lines = append(lines, fmt.Sprintf("+ %s (url: %s, checksum: %s)", id, cur.URL, cur.Checksum))
+		}
+	}
+
+	if len(lines) == 0 {
+		return false, "", nil
+	}
+	return true, strings.Join(lines, "\n"), nil
 }
 
 // GetConfigFromAPI will download the config data from the Egg Inc API and write it to ei-config.json
