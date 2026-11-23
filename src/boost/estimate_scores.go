@@ -30,6 +30,7 @@ type ContractScore struct {
 	contractLengthSeconds    int
 	targetGoal               float64
 	activeContractDurSeconds float64
+	showSiloWatch            bool
 	playerParamters          []PlayerScoreParameters
 }
 
@@ -331,7 +332,7 @@ func runCsEstimate(e *dc.CommandEvent, p csEstimateParams) {
 	}
 
 	// Phase 2: fetch archives, compute diffs, then edit to add Diff + buttons
-	actionRow, haveActionRow := buildCsEstimateActionRow(foundContractHash)
+	actionRow, haveActionRow := buildCsEstimateActionRow(foundContractHash, contractScore.contractID, contractScore.coopID, contractScore.showSiloWatch)
 
 	rowsCopy := make([]srRow, len(rows))
 	copy(rowsCopy, rows)
@@ -425,31 +426,71 @@ func runCsEstimate(e *dc.CommandEvent, p csEstimateParams) {
 	}()
 }
 
-func buildCsEstimateActionRow(foundContractHash string) (dc.LayoutComponent, bool) {
-	if foundContractHash == "" {
-		return nil, false
-	}
+func buildCsEstimateActionRow(foundContractHash, contractID, coopID string, showSiloWatch bool) (dc.LayoutComponent, bool) {
+	buttons := make([]dc.InteractiveComponent, 0, 3)
 
-	buttonConfigs := []struct {
-		label  string
-		style  dc.ButtonStyle
-		action string
-	}{
-		{"Completion Ping", dc.ButtonPrimary, "completionping"},
-		// {"Check-in Pings", dc.ButtonSecondary, "checkinping"},
-		{"Close", dc.ButtonDanger, "close"},
-	}
-
-	buttons := make([]dc.InteractiveComponent, 0, len(buttonConfigs))
-	for _, cfg := range buttonConfigs {
+	if foundContractHash != "" {
 		buttons = append(buttons, dc.Button{
-			Label:    cfg.label,
-			Style:    cfg.style,
-			CustomID: fmt.Sprintf("csestimate#%s#%s", cfg.action, foundContractHash),
+			Label:    "Completion Ping",
+			Style:    dc.ButtonPrimary,
+			CustomID: fmt.Sprintf("csestimate#completionping#%s", foundContractHash),
 		})
 	}
 
+	if showSiloWatch && contractID != "" && coopID != "" {
+		buttons = append(buttons, dc.Button{
+			Label:    "Silo Watch",
+			Style:    dc.ButtonSecondary,
+			CustomID: fmt.Sprintf("watch-csilos-toggle#%s#%s", contractID, coopID),
+		})
+	}
+
+	if foundContractHash != "" {
+		buttons = append(buttons, dc.Button{
+			Label:    "Close",
+			Style:    dc.ButtonDanger,
+			CustomID: fmt.Sprintf("csestimate#close#%s", foundContractHash),
+		})
+	}
+
+	if len(buttons) == 0 {
+		return nil, false
+	}
+
 	return dc.ActionRow{Components: buttons}, true
+}
+
+func shouldShowContractSiloWatch(coopStatus *ei.ContractCoopStatusResponse, contractDurationSeconds float64, fallbackLengthSeconds int) bool {
+	if coopStatus == nil {
+		return false
+	}
+	if coopStatus.GetAllGoalsAchieved() || coopStatus.GetSecondsSinceAllGoalsAchieved() > 0 || coopStatus.GetSecondsRemaining() <= 0 {
+		return false
+	}
+
+	effectiveDuration := contractDurationSeconds
+	if math.IsNaN(effectiveDuration) || math.IsInf(effectiveDuration, 0) || effectiveDuration <= 0 {
+		effectiveDuration = float64(fallbackLengthSeconds)
+	}
+
+	for _, c := range coopStatus.GetContributors() {
+		fi := c.GetFarmInfo()
+		if fi == nil {
+			continue
+		}
+		permitLevel := fi.GetPermitLevel()
+		if permitLevel != ei.ProPermitLevel {
+			return true
+		}
+		silosOwned := min(fi.GetSilosOwned(), uint32(ei.GetMaxSilosByPermitLevel(permitLevel)))
+		if silosOwned > 0 {
+			siloSeconds := float64(ei.GetSiloMinutes(silosOwned, fi.GetEpicResearch())) * 60.0
+			if effectiveDuration > siloSeconds {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // sendCompletionPing sends a ping with the estimated completion time of the contract

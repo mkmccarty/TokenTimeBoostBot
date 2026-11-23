@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
@@ -141,5 +142,110 @@ func TestGetCompletionPingMessage(t *testing.T) {
 	}
 	if strings.HasPrefix(endedMsg, "@PartyRole") {
 		t.Errorf("expected ended message NOT to start with role mention, got: %s", endedMsg)
+	}
+}
+
+func TestShouldShowContractSiloWatch(t *testing.T) {
+	origResearches := ei.EggIncResearchesMap
+	ei.EggIncResearchesMap = map[string]ei.EggResearches{
+		"silo_capacity": {
+			ID:             "silo_capacity",
+			EffectType:     "additive",
+			LevelsCompound: "additive",
+			PerLevel:       6,
+		},
+	}
+	defer func() { ei.EggIncResearchesMap = origResearches }()
+
+	u32 := func(v uint32) *uint32 { return &v }
+	f64 := func(v float64) *float64 { return &v }
+	bptr := func(v bool) *bool { return &v }
+	sptr := func(v string) *string { return &v }
+
+	maxSiloCap := []*ei.Backup_ResearchItem{{Id: sptr("silo_capacity"), Level: u32(20)}}
+
+	makeStatus := func(contributors []*ei.ContractCoopStatusResponse_ContributionInfo, secRem float64, allGoals bool) *ei.ContractCoopStatusResponse {
+		return &ei.ContractCoopStatusResponse{
+			Contributors:     contributors,
+			SecondsRemaining: f64(secRem),
+			AllGoalsAchieved: bptr(allGoals),
+		}
+	}
+
+	pro10 := &ei.ContractCoopStatusResponse_ContributionInfo{
+		UserName: sptr("ProFarmer"),
+		FarmInfo: &ei.PlayerFarmInfo{
+			PermitLevel:  u32(ei.ProPermitLevel),
+			SilosOwned:   u32(10),
+			EpicResearch: maxSiloCap, // 30h
+		},
+	}
+	std2 := &ei.ContractCoopStatusResponse_ContributionInfo{
+		UserName: sptr("StdFarmer"),
+		FarmInfo: &ei.PlayerFarmInfo{
+			PermitLevel:  u32(ei.StandardPermitLevel),
+			SilosOwned:   u32(2),
+			EpicResearch: maxSiloCap, // 6h
+		},
+	}
+	pro2 := &ei.ContractCoopStatusResponse_ContributionInfo{
+		UserName: sptr("ProLowSilos"),
+		FarmInfo: &ei.PlayerFarmInfo{
+			PermitLevel:  u32(ei.ProPermitLevel),
+			SilosOwned:   u32(2),
+			EpicResearch: maxSiloCap, // 6h
+		},
+	}
+
+	// 1. Standard permit farmer in short contract -> true
+	if !shouldShowContractSiloWatch(makeStatus([]*ei.ContractCoopStatusResponse_ContributionInfo{pro10, std2}, 3600, false), 4*3600, 86400) {
+		t.Errorf("expected true when a Standard Permit farmer is in the contract")
+	}
+
+	// 2. All Pro permit with 30h silos in 12h contract -> false
+	if shouldShowContractSiloWatch(makeStatus([]*ei.ContractCoopStatusResponse_ContributionInfo{pro10}, 3600, false), 12*3600, 86400) {
+		t.Errorf("expected false when all Pro permit silos exceed contract duration")
+	}
+
+	// 3. All Pro permit, but contract duration (36h) exceeds 30h silos -> true
+	if !shouldShowContractSiloWatch(makeStatus([]*ei.ContractCoopStatusResponse_ContributionInfo{pro10}, 3600, false), 36*3600, 86400) {
+		t.Errorf("expected true when contract duration exceeds player silo away time")
+	}
+
+	// 4. Pro permit player who only purchased 2 silos (6h) in 12h contract -> true
+	if !shouldShowContractSiloWatch(makeStatus([]*ei.ContractCoopStatusResponse_ContributionInfo{pro10, pro2}, 3600, false), 12*3600, 86400) {
+		t.Errorf("expected true when contract duration exceeds a pro player's purchased silo time")
+	}
+
+	// 5. Completed contract -> false even with Standard Permit farmer
+	if shouldShowContractSiloWatch(makeStatus([]*ei.ContractCoopStatusResponse_ContributionInfo{std2}, 3600, true), 12*3600, 86400) {
+		t.Errorf("expected false for completed contract")
+	}
+}
+
+func TestBuildCsEstimateActionRow(t *testing.T) {
+	row, ok := buildCsEstimateActionRow("hash1", "c-id", "coop1", true)
+	if !ok {
+		t.Fatalf("expected action row")
+	}
+	ar := row.(dc.ActionRow)
+	if len(ar.Components) != 3 {
+		t.Fatalf("expected 3 buttons, got %d", len(ar.Components))
+	}
+	siloBtn := ar.Components[1].(dc.Button)
+	if siloBtn.Label != "Silo Watch" || siloBtn.CustomID != "watch-csilos-toggle#c-id#coop1" {
+		t.Errorf("unexpected silo watch button: %+v", siloBtn)
+	}
+
+	rowNoHash, ok := buildCsEstimateActionRow("", "c-id", "coop1", true)
+	if !ok {
+		t.Fatalf("expected action row with Silo Watch even without contract hash")
+	}
+	if len(rowNoHash.(dc.ActionRow).Components) != 1 {
+		t.Fatalf("expected 1 button without hash, got %d", len(rowNoHash.(dc.ActionRow).Components))
+	}
+
+	if _, ok := buildCsEstimateActionRow("", "c-id", "coop1", false); ok {
+		t.Errorf("expected no action row when no hash and showSiloWatch is false")
 	}
 }

@@ -48,7 +48,34 @@ var (
 	// OnCoopStatusCallback is an optional callback invoked whenever a ContractCoopStatusResponse
 	// is decoded by GetCoopStatus or GetCoopStatusUncached.
 	OnCoopStatusCallback func(contractID, coopID string, coopStatus *ContractCoopStatusResponse)
+
+	coopStatusCallbacksMu sync.RWMutex
+	coopStatusCallbacks   []func(contractID, coopID string, coopStatus *ContractCoopStatusResponse)
 )
+
+// AddCoopStatusCallback registers an additional callback invoked whenever a
+// ContractCoopStatusResponse is decoded.
+func AddCoopStatusCallback(fn func(contractID, coopID string, coopStatus *ContractCoopStatusResponse)) {
+	if fn == nil {
+		return
+	}
+	coopStatusCallbacksMu.Lock()
+	coopStatusCallbacks = append(coopStatusCallbacks, fn)
+	coopStatusCallbacksMu.Unlock()
+}
+
+func notifyCoopStatusCallbacks(contractID, coopID string, coopStatus *ContractCoopStatusResponse) {
+	if OnCoopStatusCallback != nil {
+		OnCoopStatusCallback(contractID, coopID, coopStatus)
+	}
+	coopStatusCallbacksMu.RLock()
+	cbs := make([]func(contractID, coopID string, coopStatus *ContractCoopStatusResponse), len(coopStatusCallbacks))
+	copy(cbs, coopStatusCallbacks)
+	coopStatusCallbacksMu.RUnlock()
+	for _, cb := range cbs {
+		cb(contractID, coopID, coopStatus)
+	}
+}
 
 func init() {
 	eiDatas = make(map[string]*eiData)
@@ -258,9 +285,7 @@ func getCoopStatus(contractID string, coopID string, eeidOverride string, bypass
 	}
 
 	saveCoopStatusJSONDebug(contractID, coopID, eggIncID, decodeCoopStatus)
-	if OnCoopStatusCallback != nil {
-		OnCoopStatusCallback(contractID, coopID, decodeCoopStatus)
-	}
+	notifyCoopStatusCallbacks(contractID, coopID, decodeCoopStatus)
 
 	return decodeCoopStatus, timestamp, dataTimestampStr, nil
 }
@@ -504,9 +529,7 @@ func GetCoopStatusForCompletedContracts(contractID string, coopID string, eeidOv
 	}
 
 	saveCoopStatusJSONDebug(contractID, coopID, eggIncID, decodeCoopStatus)
-	if OnCoopStatusCallback != nil {
-		OnCoopStatusCallback(contractID, coopID, decodeCoopStatus)
-	}
+	notifyCoopStatusCallbacks(contractID, coopID, decodeCoopStatus)
 
 	return decodeCoopStatus, timestamp, dataTimestampStr, nil
 }
