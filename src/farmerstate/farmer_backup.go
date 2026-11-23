@@ -57,5 +57,11 @@ func SetFarmerBackupDetails(userID string, backup *ei.Backup) (newIGN string, ig
 		SetPermitLevel(userID, game.GetPermitLevel())
 	}
 
+	// Record max stone slots available in inventory so callers don't suggest 3-slot
+	// artifacts when the player doesn't own any.
+	if adb := backup.GetArtifactsDb(); adb != nil {
+		SetMaxArtifactSlots(userID, ei.MaxArtifactSlotsInInventory(adb.GetInventoryItems()))
+	}
+
 	return newIGN, ignChanged, newTE, teChanged
 }

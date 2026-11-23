@@ -2,12 +2,15 @@ package watch
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc/dctest"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
+	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
 func TestBuildQuietOffsetOptions(t *testing.T) {
@@ -239,5 +242,133 @@ func TestVirtueSilosQuietHoursFlow(t *testing.T) {
 
 	if saved == nil || !saved.QuietHoursSet {
 		t.Fatalf("expected saved watch with QuietHoursSet=true, got %+v", saved)
+	}
+}
+
+func TestWatchSettingsPrepopulateAcrossCommands(t *testing.T) {
+	setupContractSilosTestEnv(t)
+
+	origCompFile := contractCompletionWatchesFile
+	contractCompletionWatchesFile = filepath.Join(t.TempDir(), "contract_completion_watches.json")
+	userID := "100000000000000199"
+	removeVirtueSiloWatch(userID)
+	t.Cleanup(func() {
+		removeVirtueSiloWatch(userID)
+		contractCompletionMu.Lock()
+		for k, tm := range contractCompletionTimers {
+			tm.Stop()
+			delete(contractCompletionTimers, k)
+		}
+		contractCompletionMu.Unlock()
+		contractCompletionWatchesFile = origCompFile
+	})
+
+	farmerstate.SetEggIncName(userID, "PrepopFarmer")
+	t.Cleanup(func() {
+		farmerstate.SetMiscSettingString(userID, "watch_quiet_start", "")
+		farmerstate.SetMiscSettingString(userID, "watch_quiet_end", "")
+		farmerstate.SetMiscSettingString(userID, "watch_csilos_offset", "")
+		farmerstate.SetMiscSettingString(userID, "watch_ccomp_offset", "")
+	})
+
+	u32 := func(v uint32) *uint32 { return &v }
+	f64 := func(v float64) *float64 { return &v }
+	sptr := func(v string) *string { return &v }
+
+	now := time.Now()
+	fetchContractCoopStatus = func(contractID, coopID, eeidOverride string) (*ei.ContractCoopStatusResponse, time.Time, string, error) {
+		return makeTestCoopStatus([]*ei.ContractCoopStatusResponse_ContributionInfo{
+			{
+				UserName: sptr("PrepopFarmer"),
+				FarmInfo: &ei.PlayerFarmInfo{
+					PermitLevel: u32(ei.StandardPermitLevel),
+					SilosOwned:  u32(2),
+					EpicResearch: []*ei.Backup_ResearchItem{
+						{Id: sptr("silo_capacity"), Level: u32(20)},
+					},
+					Timestamp: f64(-3600),
+				},
+			},
+		}, 24*3600, false), now, "", nil
+	}
+
+	hasDefault := func(opts []dc.SelectOption, wantVal string) bool {
+		for _, o := range opts {
+			if o.Value == wantVal && o.Default {
+				return true
+			}
+		}
+		return false
+	}
+
+	// 1. Confirm Virtue Silo Watch with quiet hours +3 to +11 -> saves quiet hours.
+	vsStart := dctest.ComponentSelectEventWithUser(fmt.Sprintf("watch-vsilos-qstart#%s#unset#unset#%d", userID, now.Unix()), userID, "3")
+	HandleVirtueSilosQuietSelect(vsStart)
+	vsEndMenu := vsStart.LastResponse.Components[2].(dc.ActionRow).Components[0].(dc.SelectMenu)
+	vsEnd := dctest.ComponentSelectEventWithUser(vsEndMenu.CustomID, userID, "11")
+	HandleVirtueSilosQuietSelect(vsEnd)
+	vsConfirmBtn := vsEnd.LastResponse.Components[3].(dc.ActionRow).Components[0].(dc.Button)
+	HandleVirtueSilosConfirm(nil, dctest.ComponentButtonEventWithUser(vsConfirmBtn.CustomID, userID))
+
+	// 2. Open Contract Silo Watch -> quiet hours +3 and +11 should be pre-populated.
+	csToggle := dctest.ComponentButtonEventWithUser("watch-csilos-toggle#c1#coop1", userID)
+	HandleContractSilosToggle(csToggle)
+	csOffsetMenu := csToggle.LastResponse.Components[1].(dc.ActionRow).Components[0].(dc.SelectMenu)
+	csStartMenu := csToggle.LastResponse.Components[2].(dc.ActionRow).Components[0].(dc.SelectMenu)
+	csEndMenu := csToggle.LastResponse.Components[3].(dc.ActionRow).Components[0].(dc.SelectMenu)
+	if !hasDefault(csStartMenu.Options, "3") || !hasDefault(csEndMenu.Options, "11") {
+		t.Fatalf("expected contract silos prompt to pre-populate quiet hours +3/+11")
+	}
+
+	// Change Contract Silo Watch offset to 600 (10m) and confirm -> saves 600.
+	csOffsetSel := dctest.ComponentSelectEventWithUser(csOffsetMenu.CustomID, userID, "600")
+	HandleContractSilosSelect(csOffsetSel)
+	csConfirmBtn := csOffsetSel.LastResponse.Components[4].(dc.ActionRow).Components[0].(dc.Button)
+	HandleContractSilosConfirm(nil, dctest.ComponentButtonEventWithUser(csConfirmBtn.CustomID, userID))
+
+	// Re-open Contract Silo Watch on another coop -> offset 600 and quiet hours +3/+11 pre-populated.
+	csToggle2 := dctest.ComponentButtonEventWithUser("watch-csilos-toggle#c2#coop2", userID)
+	HandleContractSilosToggle(csToggle2)
+	csOffsetMenu2 := csToggle2.LastResponse.Components[1].(dc.ActionRow).Components[0].(dc.SelectMenu)
+	if !hasDefault(csOffsetMenu2.Options, "600") {
+		t.Fatalf("expected contract silos prompt to pre-populate saved offset 600")
+	}
+
+	// 3. Open Contract Completion Watch -> quiet hours +3/+11 pre-populated; change offset to 3600 (1h) and clear quiet hours.
+	ccToggle := dctest.ComponentButtonEventWithUser("watch-ccomp-toggle#c1#coop1", userID)
+	HandleContractCompletionToggle(ccToggle)
+	ccOffsetMenu := ccToggle.LastResponse.Components[1].(dc.ActionRow).Components[0].(dc.SelectMenu)
+	ccStartMenu := ccToggle.LastResponse.Components[2].(dc.ActionRow).Components[0].(dc.SelectMenu)
+	ccEndMenu := ccToggle.LastResponse.Components[3].(dc.ActionRow).Components[0].(dc.SelectMenu)
+	if !hasDefault(ccStartMenu.Options, "3") || !hasDefault(ccEndMenu.Options, "11") {
+		t.Fatalf("expected contract completion prompt to pre-populate quiet hours +3/+11")
+	}
+
+	ccOffsetSel := dctest.ComponentSelectEventWithUser(ccOffsetMenu.CustomID, userID, "3600")
+	HandleContractCompletionSelect(ccOffsetSel)
+	ccStartSel := dctest.ComponentSelectEventWithUser(ccOffsetSel.LastResponse.Components[2].(dc.ActionRow).Components[0].(dc.SelectMenu).CustomID, userID, "none")
+	HandleContractCompletionSelect(ccStartSel)
+	ccConfirmBtn := ccStartSel.LastResponse.Components[4].(dc.ActionRow).Components[0].(dc.Button)
+	HandleContractCompletionConfirm(nil, dctest.ComponentButtonEventWithUser(ccConfirmBtn.CustomID, userID))
+
+	// Re-open Contract Completion Watch on another coop -> offset 3600 pre-populated, quiet hours cleared.
+	ccToggle2 := dctest.ComponentButtonEventWithUser("watch-ccomp-toggle#c2#coop2", userID)
+	HandleContractCompletionToggle(ccToggle2)
+	ccOffsetMenu2 := ccToggle2.LastResponse.Components[1].(dc.ActionRow).Components[0].(dc.SelectMenu)
+	ccStartMenu2 := ccToggle2.LastResponse.Components[2].(dc.ActionRow).Components[0].(dc.SelectMenu)
+	if !hasDefault(ccOffsetMenu2.Options, "3600") {
+		t.Fatalf("expected contract completion prompt to pre-populate saved offset 3600")
+	}
+	if hasDefault(ccStartMenu2.Options, "3") {
+		t.Fatalf("expected quiet hours to be cleared after confirming without quiet hours")
+	}
+
+	// Re-open Virtue Silo Watch (after clearing existing watch) -> quiet hours cleared.
+	removeVirtueSiloWatch(userID)
+	vsToggle := dctest.ComponentButtonEventWithUser(fmt.Sprintf("watch-vsilos-toggle#%s", userID), userID)
+	HandleVirtueSilosToggle(vsToggle)
+	vsStartMenu := vsToggle.LastResponse.Components[1].(dc.ActionRow).Components[0].(dc.SelectMenu)
+	if hasDefault(vsStartMenu.Options, "3") {
+		t.Fatalf("expected virtue silos prompt quiet hours to be cleared")
 	}
 }

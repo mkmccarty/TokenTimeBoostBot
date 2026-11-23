@@ -351,6 +351,11 @@ func HandleVirtueSilosConfirm(client dc.Client, e *dc.ComponentEvent) {
 			rec.QuietEndTOD = endTOD
 		}
 	}
+	if rec.QuietHoursSet {
+		saveQuietOffsets(targetUserID, quietOffsetFromTOD(rec.QuietStartTOD), quietOffsetFromTOD(rec.QuietEndTOD))
+	} else {
+		saveQuietOffsets(targetUserID, "unset", "unset")
+	}
 	scheduleVirtueSiloTimer(rec)
 
 	confirmMsg := fmt.Sprintf("✅ **Confirmed:** %s Virtue silo watch enabled for **%s** before your silos run out.",
@@ -462,9 +467,10 @@ func HandleVirtueSilosToggle(e *dc.ComponentEvent) {
 		return
 	}
 
+	startVal, endVal := loadSavedQuietOffsets(targetUserID)
 	_ = e.Respond(dc.Message{
 		Ephemeral:  true,
-		Components: buildVirtueSilosPrompt(targetUserID, "unset", "unset", time.Now()),
+		Components: buildVirtueSilosPrompt(targetUserID, startVal, endVal, time.Now()),
 	})
 }
 
@@ -507,6 +513,55 @@ func parseQuietOffset(val string) (int, bool) {
 		return 0, false
 	}
 	return h, true
+}
+
+func quietOffsetFromTOD(tod int64) string {
+	if tod < 0 || tod >= 86400 || tod%3600 != 0 {
+		return "unset"
+	}
+	hour := int(tod / 3600)
+	offset := (hour - virtueSiloEpochHour + 24) % 24
+	return strconv.Itoa(offset)
+}
+
+func loadSavedQuietOffsets(userID string) (string, string) {
+	startVal := farmerstate.GetMiscSettingString(userID, "watch_quiet_start")
+	endVal := farmerstate.GetMiscSettingString(userID, "watch_quiet_end")
+	if _, sok := parseQuietOffset(startVal); sok {
+		if _, eok := parseQuietOffset(endVal); eok && startVal != endVal {
+			return startVal, endVal
+		}
+	}
+	return "unset", "unset"
+}
+
+func saveQuietOffsets(userID, startVal, endVal string) {
+	if _, sok := parseQuietOffset(startVal); sok {
+		if _, eok := parseQuietOffset(endVal); eok && startVal != endVal {
+			farmerstate.SetMiscSettingString(userID, "watch_quiet_start", startVal)
+			farmerstate.SetMiscSettingString(userID, "watch_quiet_end", endVal)
+			return
+		}
+	}
+	farmerstate.SetMiscSettingString(userID, "watch_quiet_start", "")
+	farmerstate.SetMiscSettingString(userID, "watch_quiet_end", "")
+}
+
+func loadSavedWatchOffset(userID, key string, defaultSec int64, validOptions []dc.SelectOption) int64 {
+	raw := farmerstate.GetMiscSettingString(userID, key)
+	if raw == "" {
+		return defaultSec
+	}
+	sec, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil || sec <= 0 {
+		return defaultSec
+	}
+	for _, opt := range validOptions {
+		if opt.Value == raw {
+			return sec
+		}
+	}
+	return defaultSec
 }
 
 const virtueSiloEpochHour = 9 // Egg Standard Time +0 is 9:00 AM America/Los_Angeles

@@ -642,6 +642,30 @@ func HasProPermit(userID string) bool {
 	return GetPermitLevel(userID) == 1
 }
 
+// SetMaxArtifactSlots stores the maximum stone slot count (0-3) found in a player's inventory.
+func SetMaxArtifactSlots(userID string, maxSlots int) {
+	SetMiscSettingString(userID, "max_artifact_slots", fmt.Sprintf("%d", maxSlots))
+}
+
+// GetMaxArtifactSlots returns the maximum stone slot count (0-3) for a player's inventory,
+// defaulting to 3 if unset.
+func GetMaxArtifactSlots(userID string) int {
+	val := GetMiscSettingString(userID, "max_artifact_slots")
+	if val == "" {
+		return 3
+	}
+	n, err := strconv.Atoi(val)
+	if err != nil || n < 0 || n > 3 {
+		return 3
+	}
+	return n
+}
+
+// HasThreeSlotArtifact returns true if the player has at least one 3-slot artifact (or no backup inventory recorded yet).
+func HasThreeSlotArtifact(userID string) bool {
+	return GetMaxArtifactSlots(userID) >= 3
+}
+
 // GetEiIgnsByMiscString returns all ei_ign values for farmers where MiscSettingsString[key] == value.
 func GetEiIgnsByMiscString(key, value string) []string {
 	FlushPendingSaves()

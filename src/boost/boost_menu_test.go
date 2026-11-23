@@ -107,6 +107,34 @@ func TestSandboxPlayersFromContractStandardPermitIHRSlots(t *testing.T) {
 	}
 }
 
+func TestSandboxArtifactLabelsFromBoosterNoThreeSlot(t *testing.T) {
+	userTwoSlot := "user-two-slot-max"
+	farmerstate.SetMaxArtifactSlots(userTwoSlot, 2)
+	t.Cleanup(func() { farmerstate.SetMaxArtifactSlots(userTwoSlot, 3) })
+
+	got2 := sandboxArtifactLabelsFromBooster(&Booster{
+		UserID:      userTwoSlot,
+		ArtifactSet: ArtifactSet{Artifacts: []ei.Artifact{}},
+	})
+	want2 := []string{"T4L Chalice", "T4L Monocle", "2 Slot", "T4L IHR Defl."}
+	if !reflect.DeepEqual(got2, want2) {
+		t.Fatalf("2-slot max: got %v, want %v", got2, want2)
+	}
+
+	userOneSlot := "user-one-slot-max"
+	farmerstate.SetMaxArtifactSlots(userOneSlot, 1)
+	t.Cleanup(func() { farmerstate.SetMaxArtifactSlots(userOneSlot, 3) })
+
+	got1 := sandboxArtifactLabelsFromBooster(&Booster{
+		UserID:      userOneSlot,
+		ArtifactSet: ArtifactSet{Artifacts: []ei.Artifact{}},
+	})
+	want1 := []string{"T4L Chalice", "T4L Monocle", "T4L IHR Defl."}
+	if !reflect.DeepEqual(got1, want1) {
+		t.Fatalf("1-slot max: got %v, want %v", got1, want1)
+	}
+}
+
 func TestSandboxArtifactLabelsFromBooster(t *testing.T) {
 	tests := []struct {
 		name     string

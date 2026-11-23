@@ -424,9 +424,44 @@ func (e *ComponentEvent) MessageContent() string {
 // facade cannot inspect or edit them, because reading a component off Discord
 // is not the same shape as the one that built it.
 func (e *ComponentEvent) MessageComponentsWithoutActionRows() []LayoutComponent {
+	return e.MessageComponentsKeepingButtons()
+}
+
+// MessageComponentsKeepingButtons returns the message's top-level components,
+// keeping any buttons in ActionRows whose CustomID starts with one of
+// customIDPrefixes and dropping all other ActionRow components. ActionRows
+// with no surviving buttons are omitted.
+func (e *ComponentEvent) MessageComponentsKeepingButtons(customIDPrefixes ...string) []LayoutComponent {
 	var kept []LayoutComponent
 	for _, component := range e.event.Message.Components {
-		if component == nil || component.Type() == discord.ComponentTypeActionRow {
+		if component == nil {
+			continue
+		}
+		if component.Type() == discord.ComponentTypeActionRow {
+			if len(customIDPrefixes) == 0 {
+				continue
+			}
+			row, ok := component.(discord.ActionRowComponent)
+			if !ok {
+				continue
+			}
+			var filtered []discord.InteractiveComponent
+			for _, sub := range row.Components {
+				btn, ok := sub.(discord.ButtonComponent)
+				if !ok {
+					continue
+				}
+				for _, prefix := range customIDPrefixes {
+					if strings.HasPrefix(btn.CustomID, prefix) {
+						filtered = append(filtered, btn)
+						break
+					}
+				}
+			}
+			if len(filtered) > 0 {
+				row.Components = filtered
+				kept = append(kept, rawComponent{component: row})
+			}
 			continue
 		}
 		kept = append(kept, rawComponent{component: component})
