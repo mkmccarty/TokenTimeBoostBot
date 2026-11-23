@@ -578,14 +578,16 @@ func HandleContractCompletionToggle(e *dc.ComponentEvent) {
 		return
 	}
 
+	startVal, endVal := loadSavedQuietOffsets(targetUserID)
+	offsetSec := loadSavedWatchOffset(targetUserID, "watch_ccomp_offset", defaultContractCompletionOffsetSec, buildContractCompletionOffsetOptions(0))
 	state := &contractCompletionPromptState{
 		UserID:       targetUserID,
 		NotifyUserID: e.UserID(),
 		ContractID:   contractID,
 		CoopID:       coopID,
-		OffsetSec:    defaultContractCompletionOffsetSec,
-		StartVal:     "unset",
-		EndVal:       "unset",
+		OffsetSec:    offsetSec,
+		StartVal:     startVal,
+		EndVal:       endVal,
 		RefTime:      nowTime,
 		EstEndTime:   estEndTime,
 	}
@@ -685,6 +687,12 @@ func HandleContractCompletionConfirm(client dc.Client, e *dc.ComponentEvent) {
 		rec.QuietHoursSet = true
 		rec.QuietStartTOD = startTOD
 		rec.QuietEndTOD = endTOD
+	}
+	farmerstate.SetMiscSettingString(st.UserID, "watch_ccomp_offset", strconv.FormatInt(offsetSec, 10))
+	if quietValid {
+		saveQuietOffsets(st.UserID, st.StartVal, st.EndVal)
+	} else {
+		saveQuietOffsets(st.UserID, "unset", "unset")
 	}
 	scheduleContractCompletionTimer(rec)
 

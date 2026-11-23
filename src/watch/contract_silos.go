@@ -745,15 +745,17 @@ func HandleContractSilosToggle(e *dc.ComponentEvent) {
 		return
 	}
 
+	startVal, endVal := loadSavedQuietOffsets(targetUserID)
+	offsetSec := loadSavedWatchOffset(targetUserID, "watch_csilos_offset", defaultContractSiloOffsetSec, buildContractSiloOffsetOptions(0))
 	state := &contractSiloPromptState{
 		UserID:       targetUserID,
 		NotifyUserID: e.UserID(),
 		ContractID:   contractID,
 		CoopID:       coopID,
 		EggIncName:   strings.TrimSpace(contrib.GetUserName()),
-		OffsetSec:    defaultContractSiloOffsetSec,
-		StartVal:     "unset",
-		EndVal:       "unset",
+		OffsetSec:    offsetSec,
+		StartVal:     startVal,
+		EndVal:       endVal,
 		RefTime:      nowTime,
 		SiloExpiry:   siloExpiry,
 		SiloDuration: siloDuration,
@@ -856,6 +858,12 @@ func HandleContractSilosConfirm(client dc.Client, e *dc.ComponentEvent) {
 		rec.QuietHoursSet = true
 		rec.QuietStartTOD = startTOD
 		rec.QuietEndTOD = endTOD
+	}
+	farmerstate.SetMiscSettingString(st.UserID, "watch_csilos_offset", strconv.FormatInt(offsetSec, 10))
+	if quietValid {
+		saveQuietOffsets(st.UserID, st.StartVal, st.EndVal)
+	} else {
+		saveQuietOffsets(st.UserID, "unset", "unset")
 	}
 	scheduleContractSiloTimer(rec)
 

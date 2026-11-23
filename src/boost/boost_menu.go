@@ -95,8 +95,17 @@ func sandboxArtifactLabelsFromBooster(booster *Booster) []string {
 		ihrCount++
 	}
 	if !hasSIAB && ihrCount < maxIHRSlots {
-		labels = append(labels, "3 Slot")
-		ihrCount++
+		maxArtifactSlots := 3
+		if booster.UserID != "" {
+			maxArtifactSlots = farmerstate.GetMaxArtifactSlots(booster.UserID)
+		}
+		if maxArtifactSlots >= 3 {
+			labels = append(labels, "3 Slot")
+			ihrCount++
+		} else if maxArtifactSlots == 2 {
+			labels = append(labels, "2 Slot")
+			ihrCount++
+		}
 	}
 	if !hasIHRDefl && ihrCount < maxIHRSlots {
 		if deflQuality != "" {

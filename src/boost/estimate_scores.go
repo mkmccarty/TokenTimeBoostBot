@@ -139,9 +139,8 @@ func HandleCsEstimateButtons(e *dc.ComponentEvent) {
 		expired = time.Since(createdAt) > ttl
 	}
 
-	// Keep everything but the trailing action row, which is what this handler
-	// takes away once it has run.
-	kept := e.MessageComponentsWithoutActionRows()
+	// Keep everything except the action row buttons other than Completion Watch.
+	kept := e.MessageComponentsKeepingButtons("watch-ccomp-toggle#")
 
 	reaction := strings.Split(e.CustomID(), "#")
 	if err := e.DeferUpdate(); err != nil {

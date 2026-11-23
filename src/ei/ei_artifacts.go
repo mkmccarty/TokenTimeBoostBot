@@ -564,6 +564,47 @@ func formatStoneCount(stones StoneCount) string {
 	return fmt.Sprintf("T1:%d T2:%d T3:%d", stones.Levels[0], stones.Levels[1], stones.Levels[2])
 }
 
+// MaxArtifactSlotsInInventory returns the highest stone slot count (0-3)
+// among all artifacts in the player's inventory.
+func MaxArtifactSlotsInInventory(items []*ArtifactInventoryItem) int {
+	maxSlots := 0
+	for _, item := range items {
+		art := item.GetArtifact()
+		if art == nil {
+			continue
+		}
+		spec := art.GetSpec()
+		if spec == nil {
+			continue
+		}
+		slots, err := GetStones(spec.GetName(), spec.GetLevel(), spec.GetRarity())
+		if err != nil || slots == 0 {
+			switch spec.GetRarity() {
+			case ArtifactSpec_RARE:
+				slots = 1
+			case ArtifactSpec_EPIC:
+				slots = 2
+			case ArtifactSpec_LEGENDARY:
+				if spec.GetName() == ArtifactSpec_INTERSTELLAR_COMPASS ||
+					spec.GetName() == ArtifactSpec_TACHYON_DEFLECTOR ||
+					spec.GetName() == ArtifactSpec_SHIP_IN_A_BOTTLE ||
+					spec.GetName() == ArtifactSpec_BEAK_OF_MIDAS {
+					slots = 2
+				} else {
+					slots = 3
+				}
+			}
+		}
+		if slots > maxSlots {
+			maxSlots = slots
+			if maxSlots >= 3 {
+				return 3
+			}
+		}
+	}
+	return maxSlots
+}
+
 // GetBestCoopArtifactsFromInventory returns the best contract artifact selections from the player's inventory.
 // The returned map has keys "defl", "metr", "comp", "guss", "chalice", "monocle", "SIAB"
 // with tier+rarity values like "T4L", "T3R", etc.

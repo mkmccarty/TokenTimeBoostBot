@@ -302,6 +302,48 @@ func TestMessageComponentsWithoutActionRows(t *testing.T) {
 	}
 }
 
+func TestMessageComponentsKeepingButtons(t *testing.T) {
+	e := componentEventFrom(t, componentPayload("csestimate#close#h", "2", `{
+		"id": "700", "channel_id": "300", "content": "", "timestamp": "2026-01-01T00:00:00Z",
+		"author": {"id": "1", "username": "bot", "discriminator": "0"},
+		"components": [
+			{"type": 10, "content": "kept"},
+			{"type": 1, "components": [
+				{"type": 2, "style": 1, "label": "Completion Ping", "custom_id": "csestimate#completionping#h"},
+				{"type": 2, "style": 2, "label": "Silo Watch", "custom_id": "watch-csilos-toggle#c-id#coop1"},
+				{"type": 2, "style": 2, "label": "Completion Watch", "custom_id": "watch-ccomp-toggle#c-id#coop1"},
+				{"type": 2, "style": 4, "label": "Close", "custom_id": "csestimate#close#h"}
+			]},
+			{"type": 14, "spacing": 1}
+		]
+	}`))
+
+	kept := e.MessageComponentsKeepingButtons("watch-ccomp-toggle#")
+	if len(kept) != 3 {
+		t.Fatalf("kept %d components, want 3", len(kept))
+	}
+	row, ok := disgoLayout(kept[1]).(discord.ActionRowComponent)
+	if !ok {
+		t.Fatalf("expected second component to be ActionRowComponent, got %T", disgoLayout(kept[1]))
+	}
+	if len(row.Components) != 1 {
+		t.Fatalf("kept %d buttons in action row, want 1", len(row.Components))
+	}
+	btn, ok := row.Components[0].(discord.ButtonComponent)
+	if !ok {
+		t.Fatalf("expected ButtonComponent, got %T", row.Components[0])
+	}
+	if btn.CustomID != "watch-ccomp-toggle#c-id#coop1" || btn.Label != "Completion Watch" {
+		t.Errorf("unexpected surviving button: %+v", btn)
+	}
+
+	// When no buttons match, the action row is omitted completely.
+	noneKept := e.MessageComponentsKeepingButtons("nonexistent#")
+	if len(noneKept) != 2 {
+		t.Fatalf("kept %d components when no buttons match, want 2", len(noneKept))
+	}
+}
+
 func TestModalEventIdentity(t *testing.T) {
 	e := modalEventFrom(t, modalPayload("m_eggid#register", "egginc-id", "EI0000000000000001"))
 
