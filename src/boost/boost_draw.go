@@ -684,48 +684,93 @@ func DrawBoostListCustom(contract *Contract, compact bool) []dc.LayoutComponent 
 	return components
 }
 
+func customOrderHasTEAndIHR(contract *Contract) (hasTE bool, hasIHR bool) {
+	if contract.BoostOrder != ContractOrderCustom {
+		return false, false
+	}
+	var walk func(c customCriterion)
+	walk = func(c customCriterion) {
+		if c.isConditional {
+			if c.thenCrit != nil {
+				walk(*c.thenCrit)
+			}
+			if c.elseCrit != nil {
+				walk(*c.elseCrit)
+			}
+			return
+		}
+		switch c.critType {
+		case CritTE:
+			hasTE = true
+		case CritIHR:
+			hasIHR = true
+		}
+	}
+	for _, line := range contract.CustomOrderLines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			continue
+		}
+		walk(parseCustomCriterion(trimmed))
+	}
+	return hasTE, hasIHR
+}
+
 func getSortRate(contract *Contract, b *Booster, includeTokenAsk bool, tvalByUser map[string]float64) string {
-	sortRate := ""
-	if contract.State == ContractStateSignup && contract.BoostOrder == ContractOrderELR {
-		sortRate = fmt.Sprintf(" **ELR:%2.3f** ", b.ArtifactSet.LayRate)
-	}
-	if includeTokenAsk && contract.State == ContractStateSignup && contract.BoostOrder == ContractOrderTokenAsk {
-		sortRate = fmt.Sprintf(" **Ask:%d** ", b.TokensWanted)
-	}
-	if contract.State == ContractStateSignup &&
-		(contract.BoostOrder == ContractOrderTE || contract.BoostOrder == ContractOrderTEFuzzy) {
-		if b.TECount == -1 {
-			if bottools.IsValidDiscordID(b.UserID) {
-				sortRate = " **TE:🛜** "
-			} else {
-				sortRate = " **TE:0** "
-			}
-		} else {
-			sortRate = fmt.Sprintf(" **TE:%d** ", b.TECount)
+	var parts []string
+	if contract.State == ContractStateSignup {
+		if contract.BoostOrder == ContractOrderELR {
+			parts = append(parts, fmt.Sprintf("**ELR:%2.3f**", b.ArtifactSet.LayRate))
 		}
-	}
-	if contract.State == ContractStateSignup && (contract.BoostOrder == ContractOrderIHR || contract.BoostOrder == ContractOrderIHRFuzzy) {
-		prefix := "IHR:"
-		precision := 2
-		if len(contract.Order) > 40 || len(contract.Boosters) > 40 {
-			prefix = ""
-			precision = 1
+		if includeTokenAsk && contract.BoostOrder == ContractOrderTokenAsk {
+			parts = append(parts, fmt.Sprintf("**Ask:%d**", b.TokensWanted))
 		}
-		if b.IHRRate == 0 {
-			if bottools.IsValidDiscordID(b.UserID) {
-				sortRate = fmt.Sprintf(" **%s🛜** ", prefix)
+
+		showTE := contract.BoostOrder == ContractOrderTE || contract.BoostOrder == ContractOrderTEFuzzy
+		showIHR := contract.BoostOrder == ContractOrderIHR || contract.BoostOrder == ContractOrderIHRFuzzy
+		if contract.BoostOrder == ContractOrderCustom {
+			hasTE, hasIHR := customOrderHasTEAndIHR(contract)
+			showTE = hasTE
+			showIHR = hasIHR
+		}
+
+		if showTE {
+			if b.TECount == -1 {
+				if bottools.IsValidDiscordID(b.UserID) {
+					parts = append(parts, "**TE:🛜**")
+				} else {
+					parts = append(parts, "**TE:0**")
+				}
 			} else {
-				sortRate = fmt.Sprintf(" **%s0** ", prefix)
+				parts = append(parts, fmt.Sprintf("**TE:%d**", b.TECount))
 			}
-		} else {
-			mult := strings.TrimRight(strings.TrimRight(fmt.Sprintf("%.*f", precision, b.IHRRate/DefaultLeggyIHR), "0"), ".")
-			sortRate = fmt.Sprintf(" **%s%sx** ", prefix, mult)
+		}
+		if showIHR {
+			prefix := "IHR:"
+			precision := 2
+			if len(contract.Order) > 40 || len(contract.Boosters) > 40 {
+				prefix = ""
+				precision = 1
+			}
+			if b.IHRRate == 0 {
+				if bottools.IsValidDiscordID(b.UserID) {
+					parts = append(parts, fmt.Sprintf("**%s🛜**", prefix))
+				} else {
+					parts = append(parts, fmt.Sprintf("**%s0**", prefix))
+				}
+			} else {
+				mult := strings.TrimRight(strings.TrimRight(fmt.Sprintf("%.*f", precision, b.IHRRate/DefaultLeggyIHR), "0"), ".")
+				parts = append(parts, fmt.Sprintf("**%s%sx**", prefix, mult))
+			}
 		}
 	}
 	if (contract.State == ContractStateBanker || contract.State == ContractStateFastrun) && contract.PlayStyle != ContractPlaystyleChill {
-		sortRate = fmt.Sprintf(" *∆:%2.2f* ", tvalByUser[b.UserID])
+		parts = append(parts, fmt.Sprintf("*∆:%2.2f*", tvalByUser[b.UserID]))
 	}
-	return sortRate
+	if len(parts) == 0 {
+		return ""
+	}
+	return " " + strings.Join(parts, " ") + " "
 }
 
 func formatCompactBooster(contract *Contract, b *Booster, includeTokenAsk bool, receivedByUser, sentByUser map[string]int, tvalByUser map[string]float64) string {
