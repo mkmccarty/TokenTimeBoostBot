@@ -532,3 +532,66 @@ func TestDrawBoostList_EggIncNameSlashSeparator(t *testing.T) {
 		t.Errorf("expected no space around slash, got:\n%s", content)
 	}
 }
+
+func TestDrawBoostList_CustomOrderTEAndIHR(t *testing.T) {
+	renderSignup := func(lines []string) string {
+		contract := &Contract{
+			ContractHash:     "cbo-metrics-hash",
+			ContractID:       "test-cbo-metrics",
+			CoopID:           "cbo-metrics-coop",
+			State:            ContractStateSignup,
+			BoostOrder:       ContractOrderCustom,
+			CustomOrderLines: lines,
+			Order:            []string{"u1"},
+			Boosters: map[string]*Booster{
+				"u1": {
+					UserID:       "u1",
+					Mention:      "<@u1>",
+					Name:         "Player1",
+					TokensWanted: 6,
+					TECount:      42,
+					IHRRate:      33480.0, // 4.5x
+				},
+			},
+			CreatorID: []string{"u1"},
+			Location:  []*LocationData{{GuildID: "g1", ChannelID: "c1"}},
+		}
+		var output strings.Builder
+		for _, comp := range DrawBoostList(contract) {
+			if td, ok := comp.(dc.TextDisplay); ok {
+				output.WriteString(td.Content)
+			}
+		}
+		return output.String()
+	}
+
+	// Custom order with IHR only
+	ihrOnly := renderSignup([]string{"<IHR[6%]", "<DEFL"})
+	if !strings.Contains(ihrOnly, "**IHR:4.5x**") {
+		t.Errorf("expected **IHR:4.5x** for custom order with IHR, got:\n%s", ihrOnly)
+	}
+	if strings.Contains(ihrOnly, "TE:") {
+		t.Errorf("did not expect TE: for custom order without TE, got:\n%s", ihrOnly)
+	}
+
+	// Custom order with TE only
+	teOnly := renderSignup([]string{"<ROLE", "<TE[sqrt]"})
+	if !strings.Contains(teOnly, "**TE:42**") {
+		t.Errorf("expected **TE:42** for custom order with TE, got:\n%s", teOnly)
+	}
+	if strings.Contains(teOnly, "IHR:") {
+		t.Errorf("did not expect IHR: for custom order without IHR, got:\n%s", teOnly)
+	}
+
+	// Custom order with conditional IF/ELSE referencing both IHR and TE
+	both := renderSignup([]string{"IF MAIN <IHR ELSE <TE"})
+	if !strings.Contains(both, "**TE:42**") || !strings.Contains(both, "**IHR:4.5x**") {
+		t.Errorf("expected both **TE:42** and **IHR:4.5x** for conditional custom order, got:\n%s", both)
+	}
+
+	// Custom order with neither TE nor IHR
+	neither := renderSignup([]string{"<DEFL", ">TOKENS"})
+	if strings.Contains(neither, "TE:") || strings.Contains(neither, "IHR:") {
+		t.Errorf("did not expect TE: or IHR: for custom order without TE/IHR, got:\n%s", neither)
+	}
+}
