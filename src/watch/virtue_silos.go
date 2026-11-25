@@ -299,18 +299,8 @@ func checkVirtueSiloWatch(userID string) {
 		msgContent := fmt.Sprintf("%s Your virtue farm silos will run out <t:%d:R> (<t:%d:t>). Please check and sync your farm!",
 			ei.GetBotEmojiMarkdown("silo"), siloExpiry.Unix(), siloExpiry.Unix())
 
-		sent := false
-		if ch, err := client.CreateUserChannel(rec.NotifyUserID); err == nil && ch != nil {
-			if _, err := client.SendMessage(ch.ID, dc.Message{Content: msgContent}); err == nil {
-				sent = true
-			}
-		}
-		if !sent && rec.ChannelID != "" {
-			if _, err := client.SendMessage(rec.ChannelID, dc.Message{
-				Content: fmt.Sprintf("<@%s> %s", rec.NotifyUserID, msgContent),
-			}); err != nil {
-				log.Printf("virtue silo watch notify error (user=%s): %v", rec.NotifyUserID, err)
-			}
+		if err := sendWatchNotificationDM(client, rec.NotifyUserID, rec.ChannelID, msgContent); err != nil {
+			log.Printf("virtue silo watch notify error (user=%s): %v", rec.NotifyUserID, err)
 		}
 	}
 

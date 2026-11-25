@@ -231,18 +231,8 @@ func UpdateContractCompletionWatchesFromCoopStatus(contractID, coopID string, co
 }
 
 func sendContractCompletionDM(client dc.Client, rec contractCompletionWatch, msgContent string) {
-	sent := false
-	if ch, err := client.CreateUserChannel(rec.NotifyUserID); err == nil && ch != nil {
-		if _, err := client.SendMessage(ch.ID, dc.Message{Content: msgContent}); err == nil {
-			sent = true
-		}
-	}
-	if !sent && rec.ChannelID != "" {
-		if _, err := client.SendMessage(rec.ChannelID, dc.Message{
-			Content: fmt.Sprintf("<@%s> %s", rec.NotifyUserID, msgContent),
-		}); err != nil {
-			log.Printf("contract completion watch notify error (%s/%s): %v", rec.ContractID, rec.CoopID, err)
-		}
+	if err := sendWatchNotificationDM(client, rec.NotifyUserID, rec.ChannelID, msgContent); err != nil {
+		log.Printf("contract completion watch notify error (%s/%s): %v", rec.ContractID, rec.CoopID, err)
 	}
 }
 
@@ -282,8 +272,13 @@ func checkContractCompletionWatch(key string) {
 		return
 	}
 
+	channelRef := ""
+	if rec.ChannelID != "" {
+		channelRef = fmt.Sprintf(" in <#%s>", rec.ChannelID)
+	}
+
 	if isCoopCompleted(coopStatus) {
-		msgContent := fmt.Sprintf("🏁 Your contract **%s/%s** has completed!", rec.ContractID, rec.CoopID)
+		msgContent := fmt.Sprintf("🏁 Your contract **%s/%s**%s has completed!", rec.ContractID, rec.CoopID, channelRef)
 		sendContractCompletionDM(client, *rec, msgContent)
 		removeContractCompletionWatch(rec.UserID, rec.ContractID, rec.CoopID)
 		return
@@ -307,8 +302,8 @@ func checkContractCompletionWatch(key string) {
 		return
 	}
 
-	msgContent := fmt.Sprintf("🏁 Your contract **%s/%s** is estimated to complete <t:%d:R> (<t:%d:t>).",
-		rec.ContractID, rec.CoopID, estEndTime.Unix(), estEndTime.Unix())
+	msgContent := fmt.Sprintf("🏁 Your contract **%s/%s**%s is estimated to complete <t:%d:R> (<t:%d:t>).",
+		rec.ContractID, rec.CoopID, channelRef, estEndTime.Unix(), estEndTime.Unix())
 	sendContractCompletionDM(client, *rec, msgContent)
 	removeContractCompletionWatch(rec.UserID, rec.ContractID, rec.CoopID)
 }
