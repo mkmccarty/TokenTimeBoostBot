@@ -420,18 +420,8 @@ func checkContractSiloWatch(key string) {
 		msgContent := fmt.Sprintf("%s Your contract **%s/%s** silos will run out <t:%d:R> (<t:%d:t>). Please check in and sync your farm!",
 			ei.GetBotEmojiMarkdown("silo"), rec.ContractID, rec.CoopID, siloExpiry.Unix(), siloExpiry.Unix())
 
-		sent := false
-		if ch, err := client.CreateUserChannel(rec.NotifyUserID); err == nil && ch != nil {
-			if _, err := client.SendMessage(ch.ID, dc.Message{Content: msgContent}); err == nil {
-				sent = true
-			}
-		}
-		if !sent && rec.ChannelID != "" {
-			if _, err := client.SendMessage(rec.ChannelID, dc.Message{
-				Content: fmt.Sprintf("<@%s> %s", rec.NotifyUserID, msgContent),
-			}); err != nil {
-				log.Printf("contract silo watch notify error (%s/%s): %v", rec.ContractID, rec.CoopID, err)
-			}
+		if err := sendWatchNotificationDM(client, rec.NotifyUserID, rec.ChannelID, msgContent); err != nil {
+			log.Printf("contract silo watch notify error (%s/%s): %v", rec.ContractID, rec.CoopID, err)
 		}
 	}
 

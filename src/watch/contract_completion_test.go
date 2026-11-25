@@ -155,6 +155,9 @@ func TestContractCompletionNotifyDMAndCleanup(t *testing.T) {
 			if len(call.Args) < 2 || !strings.Contains(call.Args[1], "estimated to complete") {
 				t.Errorf("unexpected DM content in call args: %+v", call.Args)
 			}
+			if len(call.Args) < 2 || !strings.Contains(call.Args[1], "<#chan-1>") {
+				t.Errorf("expected DM content to reference <#chan-1>, got: %+v", call.Args)
+			}
 		}
 	}
 	if !sentDM {
@@ -166,5 +169,33 @@ func TestContractCompletionNotifyDMAndCleanup(t *testing.T) {
 	contractCompletionMu.Unlock()
 	if len(remaining) != 0 {
 		t.Fatalf("expected watch to be removed after notifying, got %+v", remaining)
+	}
+}
+
+func TestSendWatchNotificationDM_HasDismissButton(t *testing.T) {
+	client := dctest.New()
+	if err := sendWatchNotificationDM(client, "user-1", "chan-fallback", "test notification"); err != nil {
+		t.Fatalf("sendWatchNotificationDM failed: %v", err)
+	}
+	if len(client.SentMessages) != 1 {
+		t.Fatalf("expected 1 sent message, got %d", len(client.SentMessages))
+	}
+	msg := client.SentMessages[0]
+	if !msg.ComponentsV1 {
+		t.Errorf("expected ComponentsV1 to be true")
+	}
+	if len(msg.Components) != 1 {
+		t.Fatalf("expected 1 layout component, got %d", len(msg.Components))
+	}
+	row, ok := msg.Components[0].(dc.ActionRow)
+	if !ok || len(row.Components) != 1 {
+		t.Fatalf("expected ActionRow with 1 button, got %#v", msg.Components[0])
+	}
+	btn, ok := row.Components[0].(dc.Button)
+	if !ok {
+		t.Fatalf("expected dc.Button, got %#v", row.Components[0])
+	}
+	if btn.CustomID != "watch-dismiss" || btn.Label != "Dismiss" {
+		t.Errorf("unexpected dismiss button: %+v", btn)
 	}
 }

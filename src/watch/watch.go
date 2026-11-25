@@ -985,6 +985,43 @@ func HandleDismiss(client dc.Client, e *dc.ComponentEvent) {
 	_ = client.DeleteMessage(e.ChannelID(), e.MessageID())
 }
 
+func watchDismissComponents() []dc.LayoutComponent {
+	return []dc.LayoutComponent{
+		dc.ActionRow{
+			Components: []dc.InteractiveComponent{
+				dc.Button{
+					Label:    "Dismiss",
+					Style:    dc.ButtonDanger,
+					CustomID: "watch-dismiss",
+				},
+			},
+		},
+	}
+}
+
+func sendWatchNotificationDM(client dc.Client, notifyUserID, fallbackChannelID, msgContent string) error {
+	components := watchDismissComponents()
+	if ch, err := client.CreateUserChannel(notifyUserID); err == nil && ch != nil {
+		if _, err := client.SendMessage(ch.ID, dc.Message{
+			Content:      msgContent,
+			ComponentsV1: true,
+			Components:   components,
+		}); err == nil {
+			return nil
+		}
+	}
+	if fallbackChannelID != "" {
+		if _, err := client.SendMessage(fallbackChannelID, dc.Message{
+			Content:      fmt.Sprintf("<@%s> %s", notifyUserID, msgContent),
+			ComponentsV1: true,
+			Components:   components,
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func HandleKeep(e *dc.ComponentEvent) {
 	_ = e.Update(dc.Message{
 		Content:      e.MessageContent(),
