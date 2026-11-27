@@ -323,6 +323,7 @@ var (
 		"fd_stones":               func(e *dc.ComponentEvent) { boost.HandleStonesPage(botClient(), e) },
 		"fd_teamwork":             boost.HandleTeamworkPage,
 		"bo_order":                func(e *dc.ComponentEvent) { boost.HandleBoostOrderReactions(botClient(), e) },
+		"token_edit":              func(e *dc.ComponentEvent) { boost.HandleTokenEditReactions(botClient(), e) },
 		"bo_custom":               func(e *dc.ComponentEvent) { boost.HandleCustomOrderReactions(botClient(), e) },
 		"virtue_all":              virtue.HandleVirtueShowAll,
 		"virtue_dismiss":          virtue.HandleVirtueDismiss,
@@ -786,10 +787,9 @@ func setupCommands() {
 			Handler:  func(e *dc.CommandEvent) { bottools.HandleRemoveMessage(botClient(), e) },
 		},
 		{
-			AppCmd:       boost.GetSlashTokenEditCommand(slashTokenEdit),
-			Category:     CmdCategoryStandard,
-			Handler:      func(e *dc.CommandEvent) { boost.HandleTokenEditInteraction(botClient(), e) },
-			Autocomplete: boost.HandleTokenEditAutoComplete,
+			AppCmd:   boost.GetSlashTokenEditCommand(slashTokenEdit),
+			Category: CmdCategoryStandard,
+			Handler:  func(e *dc.CommandEvent) { boost.HandleTokenEditInteraction(botClient(), e) },
 		},
 		{
 			AppCmd:   farmerstate.SlashSetEggIncNameCommand(slashSetEggIncName),
