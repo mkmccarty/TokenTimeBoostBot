@@ -694,50 +694,56 @@ func HandleTokenEditCommand(client dc.Client, e *dc.CommandEvent) string {
 	}
 
 	str := "Token not found"
-	c.mutex.Lock()
-	if action == 0 { // Move
-		targetBooster, ok := c.Boosters[boosterIndex]
-		if !ok || targetBooster == nil {
-			c.mutex.Unlock()
-			if boosterIndex == "" {
-				return "New receiver is required to move a token."
+	var earlyReturn string
+	func() {
+		c.mutex.Lock()
+		defer c.mutex.Unlock()
+		if action == 0 { // Move
+			targetBooster, ok := c.Boosters[boosterIndex]
+			if !ok || targetBooster == nil {
+				if boosterIndex == "" {
+					earlyReturn = "New receiver is required to move a token."
+				} else {
+					earlyReturn = "New receiver not found in contract."
+				}
+				return
 			}
-			return "New receiver not found in contract."
-		}
-		for i, t := range c.TokenLog {
-			if tokenSerialToInt(t.Serial) == tokenIndex {
-				c.TokenLog[i].ToUserID = targetBooster.UserID
-				c.TokenLog[i].ToNick = targetBooster.Nick
-				str = fmt.Sprintf("Token moved to %s", c.TokenLog[i].ToNick)
-				break
+			for i, t := range c.TokenLog {
+				if tokenSerialToInt(t.Serial) == tokenIndex {
+					c.TokenLog[i].ToUserID = targetBooster.UserID
+					c.TokenLog[i].ToNick = targetBooster.Nick
+					str = fmt.Sprintf("Token moved to %s", c.TokenLog[i].ToNick)
+					break
+				}
+			}
+		} else if action == 1 { // Delete str = "Token not found"
+			for i, t := range c.TokenLog {
+				if tokenSerialToInt(t.Serial) == tokenIndex {
+					c.TokenLog = append(c.TokenLog[:i], c.TokenLog[i+1:]...)
+					str = "Token deleted"
+					break
+				}
+			}
+		} else if action == 2 { // Modify Count
+			if !hasQuantity || tokenCount < 1 {
+				earlyReturn = "New quantity must be at least 1."
+				return
+			}
+			for i, t := range c.TokenLog {
+				if tokenSerialToInt(t.Serial) == tokenIndex {
+					c.TokenLog[i].Quantity = tokenCount
+					c.TokenLog[i].Value = bottools.GetTokenValue(c.TokenLog[i].Time.Sub(c.StartTime).Seconds(), c.EstimatedDuration.Seconds()) * float64(c.TokenLog[i].Quantity)
+					str = "Token count modified"
+					break
+				}
 			}
 		}
-	} else if action == 1 { // Delete str = "Token not found"
-		for i, t := range c.TokenLog {
-			if tokenSerialToInt(t.Serial) == tokenIndex {
-				c.TokenLog = append(c.TokenLog[:i], c.TokenLog[i+1:]...)
-				str = "Token deleted"
-				break
-			}
-		}
-	} else if action == 2 { // Modify Count
-		if !hasQuantity || tokenCount < 1 {
-			c.mutex.Unlock()
-			return "New quantity must be at least 1."
-		}
-		for i, t := range c.TokenLog {
-			if tokenSerialToInt(t.Serial) == tokenIndex {
-				c.TokenLog[i].Quantity = tokenCount
-				c.TokenLog[i].Value = bottools.GetTokenValue(c.TokenLog[i].Time.Sub(c.StartTime).Seconds(), c.EstimatedDuration.Seconds()) * float64(c.TokenLog[i].Quantity)
-				str = "Token count modified"
-				break
-			}
-		}
+		// Recalculate token values after the change
+		calculateTokenValueCoopLog(c, c.EstimatedDuration)
+	}()
+	if earlyReturn != "" {
+		return earlyReturn
 	}
-	// Recalculate token values after the change
-	calculateTokenValueCoopLog(c, c.EstimatedDuration)
-
-	c.mutex.Unlock()
 	saveData(c.ContractHash)
 	refreshBoostListMessage(client, c, false)
 	return str

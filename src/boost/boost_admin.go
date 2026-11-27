@@ -1309,7 +1309,16 @@ func HandleAdminExitButton(client dc.Client, e *dc.ComponentEvent) {
 		// Run graceful shutdown in a goroutine so that the response is fully sent and processed
 		go func() {
 			log.Println("Exit confirmed by administrator")
-			SaveAllData()
+			saveDone := make(chan struct{})
+			go func() {
+				SaveAllData()
+				close(saveDone)
+			}()
+			select {
+			case <-saveDone:
+			case <-time.After(10 * time.Second):
+				log.Println("Exit warning: SaveAllData timed out after 10s, proceeding with shutdown")
+			}
 			time.Sleep(5 * time.Second)
 			if serr := syscall.Kill(os.Getpid(), syscall.SIGTERM); serr != nil {
 				log.Printf("Exit command error: could not signal shutdown (forcing exit): %v", serr)
