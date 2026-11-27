@@ -625,9 +625,11 @@ func tokenReceiverAutoCompleteChoices(e *dc.AutocompleteEvent) []dc.Choice[strin
 	// Want a set of sorted keys from c.Boosters
 	// Sort by Nick
 	keys := make([]string, 0, len(c.Boosters))
-	for k := range c.Boosters {
-
-		if searchString == "" || strings.Contains(strings.ToLower(c.Boosters[k].Nick), strings.ToLower(searchString)) {
+	for k, booster := range c.Boosters {
+		if booster == nil {
+			continue
+		}
+		if searchString == "" || strings.Contains(strings.ToLower(booster.Nick), strings.ToLower(searchString)) {
 			keys = append(keys, k)
 		}
 	}
@@ -676,6 +678,7 @@ func HandleTokenEditCommand(client dc.Client, e *dc.CommandEvent) string {
 	var tokenIndex int32
 	var boosterIndex string
 	var tokenCount int
+	var hasQuantity bool
 	if opt, ok := e.OptInt("action"); ok {
 		action = opt
 	}
@@ -687,15 +690,24 @@ func HandleTokenEditCommand(client dc.Client, e *dc.CommandEvent) string {
 	}
 	if opt, ok := e.OptInt("new-quantity"); ok {
 		tokenCount = opt
+		hasQuantity = true
 	}
 
 	str := "Token not found"
 	c.mutex.Lock()
 	if action == 0 { // Move
+		targetBooster, ok := c.Boosters[boosterIndex]
+		if !ok || targetBooster == nil {
+			c.mutex.Unlock()
+			if boosterIndex == "" {
+				return "New receiver is required to move a token."
+			}
+			return "New receiver not found in contract."
+		}
 		for i, t := range c.TokenLog {
 			if tokenSerialToInt(t.Serial) == tokenIndex {
-				c.TokenLog[i].ToUserID = c.Boosters[boosterIndex].UserID
-				c.TokenLog[i].ToNick = c.Boosters[boosterIndex].Nick
+				c.TokenLog[i].ToUserID = targetBooster.UserID
+				c.TokenLog[i].ToNick = targetBooster.Nick
 				str = fmt.Sprintf("Token moved to %s", c.TokenLog[i].ToNick)
 				break
 			}
@@ -709,6 +721,10 @@ func HandleTokenEditCommand(client dc.Client, e *dc.CommandEvent) string {
 			}
 		}
 	} else if action == 2 { // Modify Count
+		if !hasQuantity || tokenCount < 1 {
+			c.mutex.Unlock()
+			return "New quantity must be at least 1."
+		}
 		for i, t := range c.TokenLog {
 			if tokenSerialToInt(t.Serial) == tokenIndex {
 				c.TokenLog[i].Quantity = tokenCount
