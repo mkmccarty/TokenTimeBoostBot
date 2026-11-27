@@ -75,7 +75,7 @@ func newTokenEditCommandEvent(t *testing.T, guildID, channelID, userID string, a
 	t.Helper()
 	opts := []string{
 		fmt.Sprintf(`{"name": "action", "type": 4, "value": %d}`, action),
-		fmt.Sprintf(`{"name": "list", "type": 3, "value": "test-coop"}`),
+		`{"name": "list", "type": 3, "value": "test-coop"}`,
 		fmt.Sprintf(`{"name": "id", "type": 4, "value": %d}`, tokenID),
 	}
 	if newReceiver != "" {
