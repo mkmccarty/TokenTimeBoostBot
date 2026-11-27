@@ -1,34 +1,17 @@
 package boost
 
 import (
-	"encoding/binary"
 	"fmt"
 	"log"
 	"regexp"
-	"sort"
 	"strings"
 	"time"
-	"uuid"
 
-	"github.com/mkmccarty/TokenTimeBoostBot/src/bottools"
-	"github.com/mkmccarty/TokenTimeBoostBot/src/ei"
 	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 
 	"github.com/mkmccarty/TokenTimeBoostBot/src/dc"
 	"github.com/xhit/go-str2duration/v2"
 )
-
-// tokenSerialToInt extracts a stable int identifier from a token serial string,
-// supporting both uuid strings (using the low 31 bits) and legacy xid strings.
-func tokenSerialToInt(serial string) int32 {
-	if u, err := uuid.Parse(serial); err == nil {
-		// u is a [16]byte array; extract the last 4 bytes as a positive int32
-		raw := binary.BigEndian.Uint32(u[12:16])
-		return int32(raw & 0x7FFFFFFF)
-	}
-	// Fallback for legacy serial formats if any
-	return 0
-}
 
 // ThreadRenameCooldown is the cooldown between Discord thread/channel renames (Discord limits PATCH /channels to 2 per 10m).
 const ThreadRenameCooldown = 3 * time.Minute
@@ -553,200 +536,6 @@ func HandleToggleContractPingsCommand(client dc.Client, e *dc.CommandEvent) {
 		Ephemeral: true,
 		Content:   str,
 	})
-}
-
-// tokenListAutoCompleteChoices offers the contract this channel is running as
-// the tracker to adjust.
-func tokenListAutoCompleteChoices(e *dc.AutocompleteEvent) []dc.Choice[string] {
-	choices := make([]dc.Choice[string], 0)
-
-	c := FindContract(e.ChannelID())
-	if c == nil {
-		return choices
-	}
-
-	choices = append(choices, dc.Choice[string]{
-		Name:  c.ContractID + "/" + c.CoopID,
-		Value: c.CoopID,
-	})
-
-	return choices
-}
-
-// tokenIDAutoCompleteChoices offers the caller's own recent tokens, newest
-// last, identified by the counter embedded in the token serial.
-func tokenIDAutoCompleteChoices(e *dc.AutocompleteEvent) []dc.Choice[int] {
-	choices := make([]dc.Choice[int], 0)
-
-	c := FindContract(e.ChannelID())
-	if c == nil {
-		return choices
-	}
-
-	effectiveUserID := farmerstate.GetEffectiveUserID(e.UserID(), e.ChannelID())
-
-	var myTokes []ei.TokenUnitLog
-	for _, t := range c.TokenLog {
-		if t.FromUserID == effectiveUserID || t.FromUserID == e.UserID() {
-			t.Value = bottools.GetTokenValue(t.Time.Sub(c.StartTime).Seconds(), c.EstimatedDuration.Seconds()) * float64(t.Quantity)
-			myTokes = append(myTokes, t)
-		}
-	}
-	// Trim myTokes to last 10
-	if len(myTokes) > 15 {
-		myTokes = myTokes[len(myTokes)-15:]
-	}
-
-	for _, t := range myTokes {
-		choices = append(choices, dc.Choice[int]{
-			Name:  fmt.Sprintf("%ds ago %s - %d @ %2.3f", int(time.Since(t.Time).Seconds()), t.ToNick, t.Quantity, t.Value),
-			Value: int(tokenSerialToInt(t.Serial)),
-		})
-	}
-
-	return choices
-}
-
-// tokenReceiverAutoCompleteChoices offers the coop's boosters, filtered by
-// whatever the caller has typed so far.
-func tokenReceiverAutoCompleteChoices(e *dc.AutocompleteEvent) []dc.Choice[string] {
-	choices := make([]dc.Choice[string], 0)
-
-	c := FindContract(e.ChannelID())
-	if c == nil {
-		return choices
-	}
-	searchString := ""
-
-	if opt, ok := e.OptString("new-receiver"); ok {
-		searchString = opt
-	}
-
-	// Want a set of sorted keys from c.Boosters
-	// Sort by Nick
-	keys := make([]string, 0, len(c.Boosters))
-	for k, booster := range c.Boosters {
-		if booster == nil {
-			continue
-		}
-		if searchString == "" || strings.Contains(strings.ToLower(booster.Nick), strings.ToLower(searchString)) {
-			keys = append(keys, k)
-		}
-	}
-	sort.Strings(keys)
-
-	for _, b := range keys {
-		choices = append(choices, dc.Choice[string]{
-			Name:  c.Boosters[b].Nick,
-			Value: b,
-		})
-		if len(choices) > 15 {
-			break
-		}
-	}
-	return choices
-}
-
-// HandleTokenEditAutoComplete will handle the /token-edit autocomplete
-func HandleTokenEditAutoComplete(e *dc.AutocompleteEvent) {
-	focused, _ := e.FocusedOption()
-	switch focused {
-	case "list":
-		_ = e.RespondChoices(tokenListAutoCompleteChoices(e))
-	case "id":
-		if err := e.RespondChoicesInt(tokenIDAutoCompleteChoices(e)); err != nil {
-			log.Println(err.Error())
-		}
-	case "new-receiver":
-		if err := e.RespondChoices(tokenReceiverAutoCompleteChoices(e)); err != nil {
-			log.Println(err.Error())
-		}
-	}
-}
-
-// HandleTokenEditCommand will handle the /token-edit command
-func HandleTokenEditCommand(client dc.Client, e *dc.CommandEvent) string {
-	c := FindContract(e.ChannelID())
-	if c == nil {
-		return "Contract not found."
-	}
-	userID := resolveContractUserID(client, c, e.UserID())
-	if !UserInContract(c, userID) && !UserInContract(c, e.UserID()) && !creatorOfContract(client, c, e.UserID()) {
-		return "You are not in this contract."
-	}
-	var action int // 0:Move, 1: Delete, 2 Modify Count
-	var tokenIndex int32
-	var boosterIndex string
-	var tokenCount int
-	var hasQuantity bool
-	if opt, ok := e.OptInt("action"); ok {
-		action = opt
-	}
-	if opt, ok := e.OptInt("id"); ok {
-		tokenIndex = int32(opt)
-	}
-	if opt, ok := e.OptString("new-receiver"); ok {
-		boosterIndex = opt
-	}
-	if opt, ok := e.OptInt("new-quantity"); ok {
-		tokenCount = opt
-		hasQuantity = true
-	}
-
-	str := "Token not found"
-	var earlyReturn string
-	func() {
-		c.mutex.Lock()
-		defer c.mutex.Unlock()
-		if action == 0 { // Move
-			targetBooster, ok := c.Boosters[boosterIndex]
-			if !ok || targetBooster == nil {
-				if boosterIndex == "" {
-					earlyReturn = "New receiver is required to move a token."
-				} else {
-					earlyReturn = "New receiver not found in contract."
-				}
-				return
-			}
-			for i, t := range c.TokenLog {
-				if tokenSerialToInt(t.Serial) == tokenIndex {
-					c.TokenLog[i].ToUserID = targetBooster.UserID
-					c.TokenLog[i].ToNick = targetBooster.Nick
-					str = fmt.Sprintf("Token moved to %s", c.TokenLog[i].ToNick)
-					break
-				}
-			}
-		} else if action == 1 { // Delete str = "Token not found"
-			for i, t := range c.TokenLog {
-				if tokenSerialToInt(t.Serial) == tokenIndex {
-					c.TokenLog = append(c.TokenLog[:i], c.TokenLog[i+1:]...)
-					str = "Token deleted"
-					break
-				}
-			}
-		} else if action == 2 { // Modify Count
-			if !hasQuantity || tokenCount < 1 {
-				earlyReturn = "New quantity must be at least 1."
-				return
-			}
-			for i, t := range c.TokenLog {
-				if tokenSerialToInt(t.Serial) == tokenIndex {
-					c.TokenLog[i].Quantity = tokenCount
-					c.TokenLog[i].Value = bottools.GetTokenValue(c.TokenLog[i].Time.Sub(c.StartTime).Seconds(), c.EstimatedDuration.Seconds()) * float64(c.TokenLog[i].Quantity)
-					str = "Token count modified"
-					break
-				}
-			}
-		}
-		// Recalculate token values after the change
-		calculateTokenValueCoopLog(c, c.EstimatedDuration)
-	}()
-	if earlyReturn != "" {
-		return earlyReturn
-	}
-	saveData(c.ContractHash)
-	refreshBoostListMessage(client, c, false)
-	return str
 }
 
 // HandleRestartContract recycles the current contract and recreates it with the same
