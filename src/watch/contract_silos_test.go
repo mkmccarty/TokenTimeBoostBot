@@ -251,3 +251,62 @@ func TestContractSilosAutoCancelOnCompletion(t *testing.T) {
 		t.Errorf("unexpected remaining watch: %+v", remaining[0])
 	}
 }
+
+func TestContractSiloWatchNotificationIncludesAccountName(t *testing.T) {
+	setupContractSilosTestEnv(t)
+
+	mainUserID := "100000000000000203"
+	altUserID := "100000000000000204"
+	u32 := func(v uint32) *uint32 { return &v }
+	f64 := func(v float64) *float64 { return &v }
+	sptr := func(v string) *string { return &v }
+
+	now := time.Now()
+	fetchContractCoopStatusUncached = func(contractID, coopID, eeidOverride string) (*ei.ContractCoopStatusResponse, time.Time, string, error) {
+		return makeTestCoopStatus([]*ei.ContractCoopStatusResponse_ContributionInfo{
+			{
+				UserName: sptr("ContractAltFarmer"),
+				FarmInfo: &ei.PlayerFarmInfo{
+					PermitLevel: u32(ei.StandardPermitLevel),
+					SilosOwned:  u32(2),
+					EpicResearch: []*ei.Backup_ResearchItem{
+						{Id: sptr("silo_capacity"), Level: u32(20)}, // 6h total
+					},
+					Timestamp: f64(-5*3600 - 50*60), // expires in 10m
+				},
+			},
+		}, 24*3600, false), now, "", nil
+	}
+
+	client := dctest.New()
+	contractSiloMu.Lock()
+	contractSiloClient = client
+	contractSiloMu.Unlock()
+	t.Cleanup(func() {
+		contractSiloMu.Lock()
+		contractSiloClient = nil
+		contractSiloMu.Unlock()
+	})
+
+	rec := contractSiloWatch{
+		UserID:        altUserID,
+		NotifyUserID:  mainUserID,
+		ChannelID:     "chan-contract",
+		ContractID:    "contract-gamma",
+		CoopID:        "coop-3",
+		EggIncName:    "ContractAltFarmer",
+		OffsetSeconds: 1800,
+		NextCheckAt:   now.Add(-time.Minute).Unix(),
+	}
+	upsertContractSiloWatch(rec)
+
+	checkContractSiloWatch(contractSiloKey(altUserID, rec.ContractID, rec.CoopID))
+
+	if len(client.SentMessages) != 1 {
+		t.Fatalf("expected 1 DM sent, got %d", len(client.SentMessages))
+	}
+	got := client.SentMessages[0].Content
+	if !strings.Contains(got, "for **ContractAltFarmer**") {
+		t.Errorf("expected notification to include account name 'for **ContractAltFarmer**', got: %s", got)
+	}
+}

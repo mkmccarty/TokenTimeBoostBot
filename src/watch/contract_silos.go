@@ -417,8 +417,9 @@ func checkContractSiloWatch(key string) {
 	lastSyncUnix := lastSync.Unix()
 	if rec.LastNotifiedSyncTime == 0 || math.Abs(float64(lastSyncUnix-rec.LastNotifiedSyncTime)) > contractSiloSyncToleranceSec {
 		rec.LastNotifiedSyncTime = lastSyncUnix
-		msgContent := fmt.Sprintf("%s Your contract **%s/%s** silos will run out <t:%d:R> (<t:%d:t>). Please check in and sync your farm!",
-			ei.GetBotEmojiMarkdown("silo"), rec.ContractID, rec.CoopID, siloExpiry.Unix(), siloExpiry.Unix())
+		accountLabel := siloWatchAccountLabel(rec.UserID, rec.NotifyUserID, contrib.GetUserName(), rec.EggIncName)
+		msgContent := fmt.Sprintf("%s Your contract **%s/%s** silos%s will run out <t:%d:R> (<t:%d:t>). Please check in and sync your farm!",
+			ei.GetBotEmojiMarkdown("silo"), rec.ContractID, rec.CoopID, accountLabel, siloExpiry.Unix(), siloExpiry.Unix())
 
 		if err := sendWatchNotificationDM(client, rec.NotifyUserID, rec.ChannelID, msgContent); err != nil {
 			log.Printf("contract silo watch notify error (%s/%s): %v", rec.ContractID, rec.CoopID, err)
