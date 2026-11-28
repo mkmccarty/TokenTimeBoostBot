@@ -824,3 +824,57 @@ func TestBoostMenuSandboxEphemeralResponse(t *testing.T) {
 		t.Errorf("expected response content to contain coop ID 'test-coop', got %q", ev.LastResponse.Content)
 	}
 }
+
+func TestHandleMenuReactionsWantNilBooster(t *testing.T) {
+	client := dctest.New()
+	contract := &Contract{
+		ContractHash: "test-want-hash",
+		ContractID:   "test-contract",
+		CoopID:       "test-coop",
+		CoopSize:     5,
+		CreatorID:    []string{"100000000000000001"},
+		Order:        []string{"100000000000000001"},
+		Boosters: map[string]*Booster{
+			"100000000000000001": {
+				UserID:   "100000000000000001",
+				Nick:     "FarmerOne",
+				Register: time.Now(),
+			},
+		},
+		Location: []*LocationData{
+			{
+				GuildID:        "guild1",
+				ChannelID:      "chan1",
+				ListMsgID:      "msg1",
+				ChannelMention: "<#chan1>",
+			},
+		},
+	}
+	Contracts[contract.ContractHash] = contract
+	defer delete(Contracts, contract.ContractHash)
+
+	// User not in contract.Boosters must not panic.
+	evOutsider := dctest.ComponentSelectEventWithUser("menu#"+contract.ContractHash, "100000000000000002", "want")
+	HandleMenuReactions(client, evOutsider)
+
+	if evOutsider.LastResponse == nil {
+		t.Fatalf("expected evOutsider.LastResponse to be set")
+	}
+	if !evOutsider.LastResponse.Ephemeral {
+		t.Errorf("expected ephemeral response for non-participant, got false")
+	}
+	if !strings.Contains(evOutsider.LastResponse.Content, "not part of this contract") {
+		t.Errorf("unexpected response content: %q", evOutsider.LastResponse.Content)
+	}
+
+	// User in contract.Boosters toggles TokenRequestFlag as expected.
+	evMember := dctest.ComponentSelectEventWithUser("menu#"+contract.ContractHash, "100000000000000001", "want")
+	HandleMenuReactions(client, evMember)
+
+	if !contract.Boosters["100000000000000001"].TokenRequestFlag {
+		t.Errorf("expected TokenRequestFlag to be true after first toggle")
+	}
+	if evMember.LastResponse == nil || !strings.Contains(evMember.LastResponse.Content, "wants at least 1 more token") {
+		t.Errorf("unexpected member response: %+v", evMember.LastResponse)
+	}
+}

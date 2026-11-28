@@ -360,7 +360,9 @@ func calculateTokenValueFromLog(contract *Contract, duration time.Duration, deta
 
 	totalHeader = "Current △ TVal"
 	finalTotal = fmt.Sprintf("%4.3f", SentValue-ReceivedValue)
-	contract.Boosters[userID].TokenValue = SentValue - ReceivedValue
+	if booster := contract.Boosters[userID]; booster != nil {
+		booster.TokenValue = SentValue - ReceivedValue
+	}
 	field = append(field, dc.EmbedField{
 		Name:   totalHeader,
 		Value:  finalTotal,
