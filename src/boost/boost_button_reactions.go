@@ -265,6 +265,9 @@ func buttonReactionBoost(client dc.Client, GuildID string, ChannelID string, con
 
 	if userID != currentBoosterID {
 		b := contract.Boosters[currentBoosterID]
+		if b == nil {
+			return redraw
+		}
 		// TODO: This is currently not a unique list of userID's, maybe needs to be a unqiue insert,
 		// but it's not a big deal in practice.
 		b.VotingList = append(b.VotingList, userID)
@@ -1581,8 +1584,9 @@ func getContractReactionsComponents(contract *Contract) []dc.LayoutComponent {
 			currentIdx := contract.currentBoosterOrderIndex()
 			if contract.State == ContractStateFastrun && currentIdx >= 0 && currentIdx < len(contract.Order)-1 {
 				b := contract.currentBooster()
-				if b != nil && b.TokensWanted <= b.TokensReceived {
-					nextBoosterNick := contract.Boosters[contract.Order[currentIdx+1]].Nick
+				nextBooster := contract.Boosters[contract.Order[currentIdx+1]]
+				if b != nil && nextBooster != nil && b.TokensWanted <= b.TokensReceived {
+					nextBoosterNick := nextBooster.Nick
 					menuOptions = append(menuOptions, dc.SelectOption{
 						Label:       fmt.Sprintf("Send %s a token", nextBoosterNick),
 						Description: fmt.Sprintf("Waiting on %s 🚀.", b.Nick),

@@ -340,13 +340,28 @@ func HandleMenuReactions(client dc.Client, e *dc.ComponentEvent) {
 		contract.EstimateUpdateTime = time.Now()
 		go updateEstimatedTime(client, e.ChannelID(), contract, false, userID)
 	case "want":
+		contract.mutex.Lock()
+		booster := contract.Boosters[userID]
+		if booster == nil {
+			contract.mutex.Unlock()
+			refreshed = true
+			_ = e.Respond(dc.Message{
+				Content:   "You are not part of this contract.",
+				Ephemeral: true,
+			})
+			return
+		}
+		booster.TokenRequestFlag = !booster.TokenRequestFlag
+		tokenRequested := booster.TokenRequestFlag
+		nick := booster.Nick
+		contract.mutex.Unlock()
+
 		message := "**%s** wants at least 1 more token."
-		contract.Boosters[userID].TokenRequestFlag = !contract.Boosters[userID].TokenRequestFlag
-		if !contract.Boosters[userID].TokenRequestFlag {
+		if !tokenRequested {
 			message = "**%s** now has the tokens they need."
 		}
 		_ = e.Respond(dc.Message{
-			Content: fmt.Sprintf(message, contract.Boosters[userID].Nick),
+			Content: fmt.Sprintf(message, nick),
 		})
 		refreshBoostListMessage(client, contract, false)
 		refreshed = true

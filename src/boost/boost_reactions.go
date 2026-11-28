@@ -147,7 +147,7 @@ func ReactionAdd(client dc.Client, e *dc.ReactionEvent) string {
 					}
 				}
 			case "🚽":
-				if !isStale && contract.Boosters[userID].BoostState == BoostStateUnboosted {
+				if booster := contract.Boosters[userID]; !isStale && booster != nil && booster.BoostState == BoostStateUnboosted {
 					// Bounds check: ensure currentBoosterIdx is valid before using it
 					if currentBoosterIdx < 0 {
 						_, _ = client.SendMessage(e.ChannelID(), dc.Message{Content: "Unable to move booster right now because the current booster position could not be determined."})
@@ -155,7 +155,7 @@ func ReactionAdd(client dc.Client, e *dc.ReactionEvent) string {
 						// Move Booster position is 1 based, so we need to add 2 to the current position
 						err := MoveBooster(client, e.GuildID(), e.ChannelID(), contract.CreatorID[0], userID, currentBoosterIdx+2, true)
 						if err == nil {
-							_, _ = client.SendMessage(e.ChannelID(), dc.Message{Content: contract.Boosters[userID].Name + " expressed a desire to go next!"})
+							_, _ = client.SendMessage(e.ChannelID(), dc.Message{Content: booster.Name + " expressed a desire to go next!"})
 							returnVal = "!gonow"
 						}
 					}
