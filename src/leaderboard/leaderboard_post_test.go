@@ -3,6 +3,8 @@ package leaderboard
 import (
 	"strings"
 	"testing"
+
+	"github.com/mkmccarty/TokenTimeBoostBot/src/farmerstate"
 )
 
 func TestRenderTable_AllLeaderboards(t *testing.T) {
@@ -239,6 +241,60 @@ func TestTruncateString_EmojisAndWidth(t *testing.T) {
 		result := truncateString(tt.input, tt.max)
 		if result != tt.expected {
 			t.Errorf("truncateString(%q, %d) = %q; want %q", tt.input, tt.max, result, tt.expected)
+		}
+	}
+}
+
+func TestGetGuildRows_VirtueLeaderboardsFilterZeroShifts(t *testing.T) {
+	guildID := "test_guild_virtue_shift_filter"
+	snapDate := "2026-11-27"
+	zeroShiftUser := "test_user_virtue_zero_shift"
+	shiftedUser := "test_user_virtue_shifted"
+
+	virtueTypes := []string{
+		LBTETotal,
+		LBCTETotal,
+		LBVirtueShifts,
+		LBTEPerShift,
+		LBVirtueEggsSum,
+		LBEggsCuriosity,
+		LBEggsIntegrity,
+	}
+
+	t.Cleanup(func() {
+		for _, lbType := range virtueTypes {
+			_ = farmerstate.DeleteLeaderboardStatsForPlayer(zeroShiftUser, lbType)
+			_ = farmerstate.DeleteLeaderboardStatsForPlayer(shiftedUser, lbType)
+		}
+		_ = farmerstate.DeleteAllLeaderboardOptInsForUserInGuild(guildID, zeroShiftUser)
+		_ = farmerstate.DeleteAllLeaderboardOptInsForUserInGuild(guildID, shiftedUser)
+	})
+
+	AddPlayerOptInTypes(guildID, zeroShiftUser, virtueTypes)
+	AddPlayerOptInTypes(guildID, shiftedUser, virtueTypes)
+
+	// Zero-shift player has legacy/stale rows across virtue leaderboards.
+	SaveLBEntry(LBEntry{LBType: LBVirtueShifts, Player: zeroShiftUser, GameName: "ZeroShift", SnapDate: snapDate, Value: 0})
+	SaveLBEntry(LBEntry{LBType: LBTETotal, Player: zeroShiftUser, GameName: "ZeroShift", SnapDate: snapDate, Value: 5})
+	SaveLBEntry(LBEntry{LBType: LBCTETotal, Player: zeroShiftUser, GameName: "ZeroShift", SnapDate: snapDate, Value: 25, Details: "actual:25"})
+	SaveLBEntry(LBEntry{LBType: LBTEPerShift, Player: zeroShiftUser, GameName: "ZeroShift", SnapDate: snapDate, Value: 0, Details: "te:5 shifts:0"})
+	SaveLBEntry(LBEntry{LBType: LBVirtueEggsSum, Player: zeroShiftUser, GameName: "ZeroShift", SnapDate: snapDate, Value: 1e12, Details: "te:5"})
+	SaveLBEntry(LBEntry{LBType: LBEggsCuriosity, Player: zeroShiftUser, GameName: "ZeroShift", SnapDate: snapDate, Value: 1e12, Details: "5 TE"})
+	SaveLBEntry(LBEntry{LBType: LBEggsIntegrity, Player: zeroShiftUser, GameName: "ZeroShift", SnapDate: snapDate, Value: 0, Details: "0 TE"})
+
+	// Shifted player has 1 shift (even with 0 TE).
+	SaveLBEntry(LBEntry{LBType: LBVirtueShifts, Player: shiftedUser, GameName: "Shifted", SnapDate: snapDate, Value: 1})
+	SaveLBEntry(LBEntry{LBType: LBTETotal, Player: shiftedUser, GameName: "Shifted", SnapDate: snapDate, Value: 0})
+	SaveLBEntry(LBEntry{LBType: LBCTETotal, Player: shiftedUser, GameName: "Shifted", SnapDate: snapDate, Value: 12, Details: "actual:12"})
+	SaveLBEntry(LBEntry{LBType: LBTEPerShift, Player: shiftedUser, GameName: "Shifted", SnapDate: snapDate, Value: 0, Details: "te:0 shifts:1"})
+	SaveLBEntry(LBEntry{LBType: LBVirtueEggsSum, Player: shiftedUser, GameName: "Shifted", SnapDate: snapDate, Value: 1000, Details: "te:0"})
+	SaveLBEntry(LBEntry{LBType: LBEggsCuriosity, Player: shiftedUser, GameName: "Shifted", SnapDate: snapDate, Value: 1000, Details: "0 TE"})
+	SaveLBEntry(LBEntry{LBType: LBEggsIntegrity, Player: shiftedUser, GameName: "Shifted", SnapDate: snapDate, Value: 0, Details: "0 TE"})
+
+	for _, lbType := range virtueTypes {
+		rows, _ := getGuildRows(lbType, snapDate, guildID)
+		if len(rows) != 1 || rows[0].Player != shiftedUser {
+			t.Errorf("%s: expected only [%s], got %+v", lbType, shiftedUser, rows)
 		}
 	}
 }

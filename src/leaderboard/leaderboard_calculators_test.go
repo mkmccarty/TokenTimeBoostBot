@@ -142,3 +142,58 @@ func TestEarningsBonusRegistryDefinitions(t *testing.T) {
 		t.Errorf("expected %s in group_core members", LBFutureEarningsBonus)
 	}
 }
+
+func TestRunCalculators_VirtueLeaderboardsRequireAtLeastOneShift(t *testing.T) {
+	allVirtueKeys := []string{
+		LBTETotal,
+		LBCTETotal,
+		LBVirtueShifts,
+		LBTEPerShift,
+		LBVirtueEggsSum,
+		LBEggsCuriosity,
+		LBEggsIntegrity,
+		LBEggsHumility,
+		LBEggsResilience,
+		LBEggsKindness,
+	}
+
+	t.Run("zero shifts emits no virtue leaderboard entries", func(t *testing.T) {
+		maker := ei.NewBackupMaker("EI1234567890123456", "ZeroShiftFarmer")
+		backup := maker.GetBackup()
+		shifts := uint32(0)
+		tiers := ei.CountTruthEggTiersPassed(1e12)
+		backup.Virtue = &ei.Backup_Virtue{
+			ShiftCount:    &shifts,
+			EovEarned:     []uint32{tiers, 0, 0, 0, 0},
+			EggsDelivered: []float64{1e12, 0, 0, 0, 0},
+		}
+
+		entries := RunCalculators("test-user-zero-shifts", backup, nil, allVirtueKeys, "2026-11-27", 0)
+		if len(entries) != 0 {
+			t.Fatalf("expected 0 virtue entries for player with 0 shifts, got %d: %+v", len(entries), entries)
+		}
+	})
+
+	t.Run("at least one shift emits all virtue leaderboards even with zero TE", func(t *testing.T) {
+		maker := ei.NewBackupMaker("EI1234567890123456", "OneShiftFarmer")
+		backup := maker.GetBackup()
+		shifts := uint32(1)
+		backup.Virtue = &ei.Backup_Virtue{
+			ShiftCount:    &shifts,
+			EovEarned:     []uint32{0, 0, 0, 0, 0},
+			EggsDelivered: []float64{1000, 0, 0, 0, 0},
+		}
+
+		entries := RunCalculators("test-user-one-shift", backup, nil, allVirtueKeys, "2026-11-27", 0)
+		got := make(map[string]LBEntry, len(entries))
+		for _, e := range entries {
+			got[e.LBType] = e
+		}
+
+		for _, key := range allVirtueKeys {
+			if _, ok := got[key]; !ok {
+				t.Errorf("expected %s to be emitted when shift count >= 1", key)
+			}
+		}
+	})
+}
