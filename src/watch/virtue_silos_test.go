@@ -372,3 +372,114 @@ func TestWatchSettingsPrepopulateAcrossCommands(t *testing.T) {
 		t.Fatalf("expected virtue silos prompt quiet hours to be cleared")
 	}
 }
+
+func TestVirtueSiloWatchNotificationIncludesAccountName(t *testing.T) {
+	origWatchesFile := virtueSiloWatchesFile
+	virtueSiloWatchesFile = filepath.Join(t.TempDir(), "virtue_silo_watches.json")
+	origFetch := fetchVirtueBackup
+	origResearches := ei.EggIncResearchesMap
+	ei.EggIncResearchesMap = map[string]ei.EggResearches{
+		"silo_capacity": {
+			ID:             "silo_capacity",
+			EffectType:     "additive",
+			LevelsCompound: "additive",
+			PerLevel:       6,
+		},
+	}
+
+	t.Cleanup(func() {
+		virtueSiloMu.Lock()
+		for k, tm := range virtueSiloTimers {
+			tm.Stop()
+			delete(virtueSiloTimers, k)
+		}
+		virtueSiloClient = nil
+		virtueSiloMu.Unlock()
+		virtueSiloWatchesFile = origWatchesFile
+		fetchVirtueBackup = origFetch
+		ei.EggIncResearchesMap = origResearches
+	})
+
+	mainUserID := "100000000000000201"
+	altUserID := "100000000000000202"
+	farmerstate.SetMiscSettingString(altUserID, "encrypted_ei_id", "EI1234567890123456")
+	t.Cleanup(func() {
+		farmerstate.SetMiscSettingString(altUserID, "encrypted_ei_id", "")
+		farmerstate.SetEggIncName(altUserID, "")
+	})
+
+	u32 := func(v uint32) *uint32 { return &v }
+	f64 := func(v float64) *float64 { return &v }
+	sptr := func(v string) *string { return &v }
+	egg := ei.Egg_CURIOSITY
+
+	// Last saved 5h50m ago with 6h silo capacity -> expires in 10m (within 30m offset).
+	lastStep := float64(time.Now().Add(-5*time.Hour - 50*time.Minute).Unix())
+	fetchVirtueBackup = func(encryptedID, userID string, force bool) (*ei.Backup, bool) {
+		return &ei.Backup{
+			UserName: sptr("VirtueAltFarmer"),
+			Game: &ei.Backup_Game{
+				EpicResearch: []*ei.Backup_ResearchItem{
+					{Id: sptr("silo_capacity"), Level: u32(20)},
+				},
+			},
+			Farms: []*ei.Backup_Simulation{
+				{
+					EggType:      &egg,
+					SilosOwned:   u32(2),
+					LastStepTime: f64(lastStep),
+				},
+			},
+		}, false
+	}
+
+	client := dctest.New()
+	virtueSiloMu.Lock()
+	virtueSiloClient = client
+	virtueSiloMu.Unlock()
+
+	upsertVirtueSiloWatch(virtueSiloWatch{
+		UserID:        altUserID,
+		NotifyUserID:  mainUserID,
+		ChannelID:     "chan-virtue",
+		OffsetSeconds: 1800,
+		NextCheckAt:   time.Now().Add(-time.Minute).Unix(),
+	})
+
+	checkVirtueSiloWatch(altUserID)
+
+	if len(client.SentMessages) != 1 {
+		t.Fatalf("expected 1 DM sent, got %d", len(client.SentMessages))
+	}
+	got := client.SentMessages[0].Content
+	if !strings.Contains(got, "for **VirtueAltFarmer**") {
+		t.Errorf("expected notification to include account name 'for **VirtueAltFarmer**', got: %s", got)
+	}
+
+	// Fallback when backup and farmerstate have no IGN for an alt account -> mentions altUserID.
+	fetchVirtueBackup = func(encryptedID, userID string, force bool) (*ei.Backup, bool) {
+		return &ei.Backup{
+			Game: &ei.Backup_Game{
+				EpicResearch: []*ei.Backup_ResearchItem{
+					{Id: sptr("silo_capacity"), Level: u32(20)},
+				},
+			},
+			Farms: []*ei.Backup_Simulation{
+				{
+					EggType:      &egg,
+					SilosOwned:   u32(2),
+					LastStepTime: f64(lastStep - 10),
+				},
+			},
+		}, false
+	}
+
+	checkVirtueSiloWatch(altUserID)
+	if len(client.SentMessages) != 2 {
+		t.Fatalf("expected 2 DMs sent, got %d", len(client.SentMessages))
+	}
+	gotFallback := client.SentMessages[1].Content
+	if !strings.Contains(gotFallback, fmt.Sprintf("for <@%s>", altUserID)) {
+		t.Errorf("expected fallback notification to mention alt user ID, got: %s", gotFallback)
+	}
+}

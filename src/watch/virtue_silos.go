@@ -101,13 +101,39 @@ func calculateVirtueSiloNotifyAt(siloExpiry time.Time, offsetSeconds int64, quie
 }
 
 var (
-	virtueSiloMu     sync.Mutex
-	virtueSiloTimers = make(map[string]*time.Timer)
-	virtueSiloClient dc.Client
+	virtueSiloMu          sync.Mutex
+	virtueSiloTimers      = make(map[string]*time.Timer)
+	virtueSiloClient      dc.Client
+	virtueSiloWatchesFile = filepath.Join("ttbb-data", "virtue_silo_watches.json")
+	fetchVirtueBackup     = ei.GetFirstContactFromAPINoCache
 )
 
 func virtueSiloWatchesPath() string {
-	return filepath.Join("ttbb-data", "virtue_silo_watches.json")
+	return virtueSiloWatchesFile
+}
+
+// siloWatchAccountLabel returns a " for **IGN**" suffix (or " for <@userID>"
+// when no IGN is available for an alternate account) so multi-account users
+// can tell which account triggered a silo watch notification.
+func siloWatchAccountLabel(userID, notifyUserID string, candidateNames ...string) string {
+	for _, raw := range candidateNames {
+		if name := strings.TrimSpace(raw); name != "" {
+			if normalized := strings.TrimSpace(ei.NormalizePlayerNameForDisplay(name)); normalized != "" {
+				return fmt.Sprintf(" for **%s**", normalized)
+			}
+		}
+	}
+	if userID != "" {
+		if ign := strings.TrimSpace(farmerstate.GetEggIncName(userID)); ign != "" {
+			if normalized := strings.TrimSpace(ei.NormalizePlayerNameForDisplay(ign)); normalized != "" {
+				return fmt.Sprintf(" for **%s**", normalized)
+			}
+		}
+		if userID != notifyUserID {
+			return fmt.Sprintf(" for <@%s>", userID)
+		}
+	}
+	return ""
 }
 
 func loadVirtueSiloWatchesLocked() []virtueSiloWatch {
@@ -264,7 +290,7 @@ func checkVirtueSiloWatch(userID string) {
 		removeVirtueSiloWatch(rec.UserID)
 		return
 	}
-	backup, _ := ei.GetFirstContactFromAPINoCache(encryptedID, rec.UserID, true)
+	backup, _ := fetchVirtueBackup(encryptedID, rec.UserID, true)
 	if backup == nil || len(backup.GetFarms()) == 0 {
 		// Retry in 5 minutes if API temporarily failed
 		rec.NextCheckAt = time.Now().Add(5 * time.Minute).Unix()
@@ -296,8 +322,9 @@ func checkVirtueSiloWatch(userID string) {
 	lastStep := int64(farm.GetLastStepTime())
 	if rec.LastNotifiedStepTime != lastStep {
 		rec.LastNotifiedStepTime = lastStep
-		msgContent := fmt.Sprintf("%s Your virtue farm silos will run out <t:%d:R> (<t:%d:t>). Please check and sync your farm!",
-			ei.GetBotEmojiMarkdown("silo"), siloExpiry.Unix(), siloExpiry.Unix())
+		accountLabel := siloWatchAccountLabel(rec.UserID, rec.NotifyUserID, backup.GetUserName())
+		msgContent := fmt.Sprintf("%s Your virtue farm silos%s will run out <t:%d:R> (<t:%d:t>). Please check and sync your farm!",
+			ei.GetBotEmojiMarkdown("silo"), accountLabel, siloExpiry.Unix(), siloExpiry.Unix())
 
 		if err := sendWatchNotificationDM(client, rec.NotifyUserID, rec.ChannelID, msgContent); err != nil {
 			log.Printf("virtue silo watch notify error (user=%s): %v", rec.NotifyUserID, err)
@@ -348,8 +375,9 @@ func HandleVirtueSilosConfirm(client dc.Client, e *dc.ComponentEvent) {
 	}
 	scheduleVirtueSiloTimer(rec)
 
-	confirmMsg := fmt.Sprintf("✅ **Confirmed:** %s Virtue silo watch enabled for **%s** before your silos run out.",
-		ei.GetBotEmojiMarkdown("silo"), bottools.FmtDuration(time.Duration(offsetSec)*time.Second))
+	accountLabel := siloWatchAccountLabel(targetUserID, e.UserID(), "")
+	confirmMsg := fmt.Sprintf("✅ **Confirmed:** %s Virtue silo watch%s enabled for **%s** before your silos run out.",
+		ei.GetBotEmojiMarkdown("silo"), accountLabel, bottools.FmtDuration(time.Duration(offsetSec)*time.Second))
 	if rec.QuietHoursSet {
 		qStart, qEnd := nextQuietWindow(time.Now(), rec.QuietStartTOD, rec.QuietEndTOD)
 		confirmMsg += fmt.Sprintf(" Quiet hours set to <t:%d:t>–<t:%d:t> (will notify 15m before quiet hours if a watch falls inside).",
@@ -431,12 +459,13 @@ func HandleVirtueSilosToggle(e *dc.ComponentEvent) {
 			qStart, qEnd := nextQuietWindow(time.Now(), existing.QuietStartTOD, existing.QuietEndTOD)
 			quietInfo = fmt.Sprintf("\nQuiet hours: <t:%d:t> to <t:%d:t>.", qStart.Unix(), qEnd.Unix())
 		}
+		accountLabel := siloWatchAccountLabel(targetUserID, e.UserID(), "")
 		_ = e.Respond(dc.Message{
 			Ephemeral: true,
 			Components: []dc.LayoutComponent{
 				dc.TextDisplay{
-					Content: fmt.Sprintf("%s You currently have an active virtue silo watch scheduled to check/notify <t:%d:R> (<t:%d:t>).%s Would you like to clear it?",
-						ei.GetBotEmojiMarkdown("silo"), existing.NextCheckAt, existing.NextCheckAt, quietInfo),
+					Content: fmt.Sprintf("%s You currently have an active virtue silo watch%s scheduled to check/notify <t:%d:R> (<t:%d:t>).%s Would you like to clear it?",
+						ei.GetBotEmojiMarkdown("silo"), accountLabel, existing.NextCheckAt, existing.NextCheckAt, quietInfo),
 				},
 				dc.ActionRow{
 					Components: []dc.InteractiveComponent{
