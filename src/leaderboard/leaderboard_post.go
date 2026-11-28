@@ -524,6 +524,40 @@ func updatePostedMetricsIndexLink(client dc.Client, guildID, channelID, snapDate
 	}
 }
 
+func parseTEFromDetails(details string) int {
+	var te int
+	if _, err := fmt.Sscanf(details, "te:%d", &te); err == nil {
+		return te
+	}
+	if _, err := fmt.Sscanf(details, "%d TE", &te); err == nil {
+		return te
+	}
+	return 0
+}
+
+func isVirtueLeaderboard(lbType string) bool {
+	switch lbType {
+	case LBTETotal, LBCTETotal, LBVirtueShifts, LBTEPerShift, LBVirtueEggsSum,
+		LBEggsCuriosity, LBEggsIntegrity, LBEggsHumility, LBEggsResilience, LBEggsKindness:
+		return true
+	default:
+		return false
+	}
+}
+
+func buildGuildPlayerShiftMap(snapDate string, guildID string) (hasShift map[string]bool, knownShift map[string]bool) {
+	hasShift = make(map[string]bool)
+	knownShift = make(map[string]bool)
+
+	for _, r := range GetLeaderboardRows(LBVirtueShifts, snapDate, guildID) {
+		knownShift[r.Player] = true
+		if r.Value >= 1 {
+			hasShift[r.Player] = true
+		}
+	}
+	return hasShift, knownShift
+}
+
 func getGuildRows(lbType string, snapDate string, guildID string) ([]LBEntry, map[string]float64) {
 	guildRows := GetLeaderboardRows(lbType, snapDate, guildID)
 	if lbType == LBCXPWeeklyDelta {
@@ -542,6 +576,12 @@ func getGuildRows(lbType string, snapDate string, guildID string) ([]LBEntry, ma
 	}
 
 	isShipLB := strings.HasPrefix(lbType, "ship_") || strings.HasPrefix(lbType, "std_ship_")
+	isVirtueLB := isVirtueLeaderboard(lbType)
+	var playerHasShift, playerKnownShift map[string]bool
+	if isVirtueLB && lbType != LBVirtueShifts {
+		playerHasShift, playerKnownShift = buildGuildPlayerShiftMap(snapDate, guildID)
+	}
+
 	var outRows []LBEntry
 	for _, row := range guildRows {
 		if !PlayerIsOptedIn(guildID, row.Player, lbType) {
@@ -550,6 +590,16 @@ func getGuildRows(lbType string, snapDate string, guildID string) ([]LBEntry, ma
 
 		if isShipLB && row.Value == 0 {
 			continue
+		}
+
+		if isVirtueLB {
+			if lbType == LBVirtueShifts {
+				if row.Value < 1 {
+					continue
+				}
+			} else if playerKnownShift[row.Player] && !playerHasShift[row.Player] {
+				continue
+			}
 		}
 
 		outRows = append(outRows, row)
@@ -974,17 +1024,6 @@ func renderTable(def LBDef, rows []LBEntry, prevMap map[string]float64, rankOffs
 		craftingLevelStr          string
 	}
 	infos := make([]rowInfo, 0, len(rows))
-
-	parseTEFromDetails := func(details string) int {
-		var te int
-		if _, err := fmt.Sscanf(details, "te:%d", &te); err == nil {
-			return te
-		}
-		if _, err := fmt.Sscanf(details, "%d TE", &te); err == nil {
-			return te
-		}
-		return 0
-	}
 
 	formatCTE := func(v float64) string {
 		return formatIntWithCommas(int64(math.Round(v)))

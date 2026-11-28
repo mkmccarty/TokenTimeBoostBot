@@ -95,10 +95,10 @@ func RunCalculators(
 		virtue = backup.GetVirtue()
 	}
 
-	// Virtue shifts
+	// Virtue leaderboards require at least 1 shift.
 	pendingTE := 0.0
 	totalTEWithUnclaimed := 0.0
-	if virtue != nil {
+	if virtue != nil && virtue.GetShiftCount() > 0 {
 		claimedTE := ei.GetCurrentTruthEggs(backup)
 		totalTEWithUnclaimed = float64(claimedTE)
 		deliveries := virtue.GetEggsDelivered()
@@ -112,24 +112,23 @@ func RunCalculators(
 		}
 		totalTEWithUnclaimed += pendingTE
 
+		shiftCount := float64(virtue.GetShiftCount())
 		emit(LBEntry{
 			LBType:   LBVirtueShifts,
 			Player:   userID,
 			GameName: gameName,
 			SnapDate: snapDate,
-			Value:    float64(virtue.GetShiftCount()),
+			Value:    shiftCount,
 		})
 
-		if shiftCount := float64(virtue.GetShiftCount()); shiftCount > 0 {
-			emit(LBEntry{
-				LBType:   LBTEPerShift,
-				Player:   userID,
-				GameName: gameName,
-				SnapDate: snapDate,
-				Value:    float64(totalTEWithUnclaimed) / shiftCount,
-				Details:  fmt.Sprintf("te:%d shifts:%d", int(totalTEWithUnclaimed), int(shiftCount)),
-			})
-		}
+		emit(LBEntry{
+			LBType:   LBTEPerShift,
+			Player:   userID,
+			GameName: gameName,
+			SnapDate: snapDate,
+			Value:    float64(totalTEWithUnclaimed) / shiftCount,
+			Details:  fmt.Sprintf("te:%d shifts:%d", int(totalTEWithUnclaimed), int(shiftCount)),
+		})
 
 		// Total Truth Eggs should use currently credited/claimed TE, not pending.
 		emit(LBEntry{
@@ -151,11 +150,7 @@ func RunCalculators(
 			Value:    maxCTE + pendingTE,
 			Details:  fmt.Sprintf("actual:%f", maxCTE),
 		})
-	}
 
-	// Truth Eggs & raw eggs per virtue egg
-	if virtue != nil {
-		deliveries := virtue.GetEggsDelivered()
 		// Individual virtue eggs
 		eggKeys := []string{
 			LBEggsCuriosity,
